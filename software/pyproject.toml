@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "Farm program for a parked XLeRobot: adapters, skills, perception, care cycle, evidence, viewer, Jev/Astra, LLM-driven teaching."
 requires-python = ">=3.10"
 dependencies = [
-  "lerobot[feetech]>=0.6",
+  "lerobot[feetech,dataset,training]>=0.6",
+  "pupil-apriltags",
   "opencv-python",
   "pyserial",
   "fastapi",
