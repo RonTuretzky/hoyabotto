@@ -2,9 +2,9 @@
 
 [Open the website](https://ronturetzky.github.io/xlerobot-farm/) · [Start the NY growing trial](https://ronturetzky.github.io/xlerobot-farm/ny-trial.html)
 
-Nine connected guides consolidate current hardware, planter operation, print status, shopping, wiring, the software roadmap, travel and research. September 22 decisions supersede the archived original deck and sensor checklist. The home page is now the guide; old deck URLs remain accessible with historical banners.
+Nine connected guides consolidate current hardware, planter operation, print status, shopping, wiring, the software roadmap, travel and research. September 26 decisions supersede the archived original deck and sensor checklist. The home page is now the guide; old deck URLs remain accessible with historical banners.
 
-The six-day NY trial covers fresh garden cress on household paper, leak/wick checks, daily observation and a local-only exportable notebook. It does not promise a harvest or autonomous care. Robot commissioning remains September 30. The current Blender file uses actual planter meshes but a clearly marked proxy for the selected table; original editable table files are still pending.
+Status September 26: no planter parts are printed (the K1 Max is jammed) and no growing trial has run. The software roadmap is an 18-slide architecture deck generated from `handbook/roadmap.py` (inline SVG diagrams; no code implemented yet). Robot commissioning remains September 30. The Blender file uses actual planter meshes but a clearly marked proxy for the selected table; original editable table files are still pending.
 
 ## Build and preview
 
