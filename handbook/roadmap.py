@@ -130,7 +130,7 @@ def d_hardware():
     s += box(840, 160, 320, 80, 'Optional SHT31 air sensor', ['On the body, not the arm. Same I²C bus.'], kind='df')
     s += box(840, 260, 320, 80, 'Moisture probe + relay', ['Deferred for paper trays. Not wired.'], kind='df')
     s += box(840, 380, 320, 96, 'Bottle · trays · table', ['No electronics. Known only through cameras and taught positions.'], kind='hw')
-    s += box(840, 496, 320, 96, 'Anker C300 battery + wheels', ['Deferred: wall power and parked base for the whole trip.'], kind='df')
+    s += box(840, 496, 320, 96, 'Anker C300 (in hand) + wheels', ['Owned, not wired: wall power and parked base for the whole trip. 12 V comes from its car outlet via a fused harness, not USB-C.'], kind='df')
     s += label(40, 390, 'Two facts shape the code:', 16, 700)
     for i, t in enumerate(['Everything is a USB device on one Mac.', 'Motion is 14 servo positions;', 'sensing is 3 images + 1 lux number.', 'That is the whole interface.']):
         s += label(40, 418 + i * 24, t, 15)

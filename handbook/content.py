@@ -11,6 +11,7 @@ page('index','A small farm, built one working loop at a time.','The current plan
 <tr><td>Sensing</td><td>One removable light paddle. Moisture probe and relay deferred for paper trays.</td><td>Recommended first build; human water/wetness checks before refills.</td></tr>
 <tr><td>Cameras</td><td>Use the robot’s head/wrist cameras initially.</td><td>No separate overhead camera in the first build.</td></tr>
 <tr><td>Computer</td><td>The Mac connects to robot interfaces, cameras and ESP32 through the owned powered USB hub.</td><td>Physical connections still to commission.</td></tr>
+<tr><td>Battery</td><td>Anker C300 DC received. Not used in V0; robot runs on its wall supplies while parked.</td><td>12 V harness from the car outlet still undesigned and unfused.</td></tr>
 <tr><td>Furniture</td><td>Free fully printed modular table for the planters; separate cart for the robot.</td><td>Table chosen; editable model files still missing.</td></tr>
 <tr><td>Software</td><td>Eight-layer farm program on the Mac over LeRobot: adapters, skills, perception, care cycle, evidence, viewer, Jev/Astra shadow, learning loop.</td><td>Roadmap only; no code written as of Sep 26. <a href="software.html">Deck</a>.</td></tr>
 </tbody></table></div>
