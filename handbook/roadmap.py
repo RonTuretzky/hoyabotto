@@ -455,7 +455,8 @@ def d_status():
         ('farm/evidence', 'SQLite + images; intent → attempt → result; crash → UNKNOWN', 'crash test', '—'),
         ('farm/llm', 'Claude CLI (subscription), OpenRouter, Jev, Astra', 'live: judge, Jev pour/route, Astra proposal', 'cost over a real day'),
         ('farm/viewer', 'state, frames, questions, reconcile, authority, proposals, STOP', 'API exercised; page rendered', 'phone use'),
-        ('tools, learning, parts', 'bus probe, light monitor, cup-test, LeRobotDataset recorder; STL generator', 'probe/recorder tests; sim --record wrote a dataset', 'flash + print'),
+        ('learning', 'recorder (.pos names, v3), train/evaluate/infer wrappers, PolicySkill under the safety clamps', 'ACT trained on SO-101 pour data (MPS); checkpoint ran as a skill on the sim', 'our own 60–100 episodes'),
+        ('tools, parts', 'bus probe, light monitor, cup-test, AprilTag identity; STL generator', 'probe/tag tests', 'flash + print'),
     ]
     s = label(40, 36, 'Module', 14, 700, GREY) + label(240, 36, 'What it is', 14, 700, GREY) + label(680, 36, 'Proven by', 14, 700, GREY) + label(980, 36, 'Waits for', 14, 700, GREY)
     for i, (m, w, pr, wt) in enumerate(rows):
@@ -465,7 +466,7 @@ def d_status():
         for k, part in enumerate(wrap(w, 52)[:2]): s += label(240, y + k * 16, part, 12.5)
         for k, part in enumerate(wrap(pr, 36)[:2]): s += label(680, y + k * 16, part, 12.5, 400, GREEN)
         for k, part in enumerate(wrap(wt, 22)[:2]): s += label(980, y + k * 16, part, 12.5, 400, ORANGE)
-    s += box(40, 505, 1120, 56, 'Run it now: farm sim --auto-answer --record → two POURED cycles + a dataset, viewer at localhost:8765 · python -m pytest → 37 passed', [], kind='ex', tfs=14)
+    s += box(40, 505, 1120, 56, 'Run it now: farm sim --auto-answer --record → two POURED cycles + a dataset · farm policy-test --checkpoint … → a checkpoint drives the sim · pytest → 42 passed', [], kind='ex', tfs=14)
     return svg(1200, 580, s, 'What exists today and what proves it')
 
 # ---------------------------------------------------------------- slides
@@ -568,10 +569,11 @@ SLIDES = [
 
  ('learning', 'Layer 7', 'The learning loop: the model teaches, the robot’s own runs train',
   'No human demonstrations. The LLM-servo teaches keyframes; successful keyframe runs are the dataset; crop learning is A/B cohorts with one difference at a time.', d_learning, [
-  ('Robot', 'LLM-servo → keyframes → the robot’s successful runs recorded with lerobot-record → ACT → offline replay against the keyframe skill → shadow → limited pilot with rollback.'),
+  ('Robot', 'LLM-servo → keyframes → the robot’s own runs recorded (farm run --record, LeRobotDataset v3) → ACT on the Mac or SmolVLA on a rented GPU → offline eval → farm policy-test on the sim, then the robot, under the same clamps → shadow → limited pilot.'),
+  ('Prior data', 'Same-arm SO-101 pouring datasets exist (best: UNITAmanipulation/so101_pour_water, 100 episodes, wrist + top cameras); an ACT pipeline check on SurajCreation/so101_pour_v1 ran on this Mac. They teach the pour motion prior; the last 10–20 cm to our tray must come from our own episodes.'),
   ('Crop', 'Cohort A on Sep 30, B on Oct 3 from the same seed lot. Astra proposes C from their records; a person decides.'),
   ('Discipline', 'Simulated and real episodes are never mixed. Nothing is tuned on the evaluation set. A recipe never changes mid-cohort except as a recorded deviation.')],
-  'No pretrained watering policy exists; both “water” datasets on the Hub are bottle transport. Training is optional inside the trip (see decisions).'),
+  'No pretrained watering policy exists for XLeRobot (its “water” datasets fetch a bottle); the full survey of 57 datasets and 16 checkpoints is in software/docs/research-training.md. Training on our own runs is optional inside the trip.'),
 
  ('sequence', 'End to end', 'One cycle, thirteen messages, seven lanes',
   'Follow a single authorized pour from the first camera frame to the shadow classification.', d_sequence, [

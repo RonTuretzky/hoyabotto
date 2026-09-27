@@ -57,6 +57,12 @@ macOS asks for camera permission the first time a Terminal process opens a camer
    Questions also go to Telegram when `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_IDS` are in `.env` (first answer wins).
 8. `farm review` once a day — Astra proposes one change; accept/reject in the viewer (or `authority.astra: apply-safe` for bounded numeric changes).
 
+## Learning (v2)
+
+- `farm run --record` / `farm once --record` write the robot's own runs to `data/dataset` (LeRobotDataset v3, `.pos` joint names, three cameras).
+- `python -m farm.learning.train --policy act|smolvla --dataset-root data/dataset --steps N --device mps` wraps `lerobot-train`; `python -m farm.learning.evaluate` reports per-joint MAE on held-out episodes; `farm policy-test --checkpoint DIR [--real]` runs a checkpoint as a skill under the same clamps as everything else.
+- `docs/research-training.md`: survey of 57 datasets / 16 checkpoints on the Hub, literature, footage, and the recommendation (ACT locally, SmolVLA on a rented GPU; same-arm SO-101 pour data as a prior; 60–100 of our own episodes).
+
 ## What can never happen
 
 - Water moves without rules passing **and** one of: a named person in the viewer, or Jev at `approve` level with p ≥ 0.85 after earning it.
