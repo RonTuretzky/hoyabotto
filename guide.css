@@ -1,0 +1,22 @@
+/* Step-by-step guide */
+.gbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:12px 0;background:var(--paper);border-bottom:1px solid var(--line)}
+.gprog{flex:1;height:10px;background:var(--soft);border-radius:5px;overflow:hidden}.gprog div{height:100%;width:0;background:var(--blue);transition:width .3s}
+.gbar span{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;white-space:nowrap}
+.gbar button{padding:8px 14px;font-size:14px}.gbar button.secondary{background:transparent;color:var(--ink)}
+.gphase h2{margin-top:56px;padding-top:18px;border-top:2px solid var(--ink)}
+.gstep{background:#fffefa;border:1px solid var(--line);border-radius:12px;padding:22px 26px;margin:18px 0;scroll-margin-top:70px;transition:opacity .2s}
+.gstep header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.gstep h3{margin:0;font-size:23px;flex:1}
+.gcheck{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin:0;padding:6px 12px;border:1px solid var(--blue);border-radius:20px;cursor:pointer}
+.gcheck input{margin:0;width:16px;height:16px}
+.gtime{font-size:13px;color:var(--muted);font-weight:700}
+.gwhy{font-size:17px;color:var(--muted);margin:12px 0 6px}
+.gfig{margin:14px 0;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fffefa}.gfig svg{width:100%;height:auto;display:block;font-family:system-ui,-apple-system,sans-serif}.gfig img{border:0}
+.gdo{font-size:16.5px}.gdo li{margin:10px 0}.gdo pre{margin:8px 0;font-size:13.5px;padding:14px 16px}
+.gcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 24px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);font-size:14.5px}
+.gcols strong{display:block;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--blue);margin-bottom:4px}.gcols ul{margin:0;padding-left:18px}.gcols p{margin:0}
+.ggotcha strong{color:var(--orange)}.ggotcha{border-left:3px solid var(--orange);padding-left:12px}
+.gstep.done{opacity:.55}.gstep.done h3{text-decoration:line-through}
+.gstep.current{border-color:var(--blue);box-shadow:0 0 0 3px #154d7722}
+body.gfocus .gstep.done{display:none}
+@media(max-width:720px){.gstep{padding:16px}.gstep h3{font-size:19px}.gbar{flex-wrap:wrap}}
+@media print{.gbar{display:none}.gstep{break-inside:avoid}}
