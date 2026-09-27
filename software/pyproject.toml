@@ -1,0 +1,31 @@
+[project]
+name = "xlerobot-farm"
+version = "0.1.0"
+description = "Farm program for a parked XLeRobot: adapters, skills, perception, care cycle, evidence, viewer, Jev/Astra, LLM-driven teaching."
+requires-python = ">=3.10"
+dependencies = [
+  "lerobot[feetech]>=0.6",
+  "opencv-python",
+  "pyserial",
+  "fastapi",
+  "uvicorn",
+  "pyyaml",
+  "httpx",
+  "numpy",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+farm = "farm.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["farm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

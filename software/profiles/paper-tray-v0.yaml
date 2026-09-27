@@ -1,0 +1,62 @@
+# Farm profile: two paper trays in fixed nests, one bottle, one light paddle.
+# Fill in ports and camera identities from `farm devices` after the robot is assembled.
+profile: paper-tray-v0
+simulated: false
+data_dir: data
+viewer_port: 8765
+keyframes_file: keyframes.yaml
+
+robot:
+  kind: lerobot
+  id: farm_xlerobot
+  port1: ""            # bus 1 = left arm (IDs 1-6) + head (7-8); e.g. /dev/tty.usbmodem58A60000001
+  port2: ""            # bus 2 = right arm (IDs 1-6) + wheels (9-10)
+  max_relative_target: 8
+  wheels: false
+
+cameras:               # identity by device name substring, never by index
+  head:        {match: "head", width: 640, height: 480, fps: 30}
+  left_wrist:  {match: "left", width: 640, height: 480, fps: 30}
+  right_wrist: {match: "right", width: 640, height: 480, fps: 30}
+
+light:
+  enabled: true
+  port: ""             # ESP32 serial; empty = auto-detect
+  baud: 115200
+  max_age_s: 1.0
+  samples: 10
+  settle_s: 0.5
+
+arms:
+  bottle: right
+  paddle: left
+
+trays:
+  A: {nest: left_front,  kind: cress-wick,  tag_id: 1, refill_ml_target: 30}
+  B: {nest: right_front, kind: cress-wick,  tag_id: 2, refill_ml_target: 30}
+
+limits:
+  pour_tilt_max_deg: 40
+  pour_s_max: 4
+  servo_temp_max_c: 55
+  servo_load_max: 800
+  watchdog_s: 0.5
+  step_deg_max: 6
+  llm_servo_max_steps: 40
+
+deadlines: {identify_s: 10, inspect_s: 20, measure_s: 15, ask_s: 600, pick_s: 30, approach_s: 30, pour_s: 8, verify_s: 20, park_s: 30}
+
+llm:
+  backend: claude-cli                 # Claude subscription via the claude CLI; falls back to openrouter
+  vision_model: anthropic/claude-sonnet-5
+  jev_model: typesafe/jev-router
+  astra_model: openai/gpt-6-astra
+  max_cost_usd_per_day: 5
+  timeout_s: 120
+
+authority:
+  jev: route            # shadow -> route -> approve. "approve" lets Jev authorize routine pours after jev_shadow_cycles.
+  astra: propose        # shadow -> propose -> apply-safe (only whitelisted numeric config changes)
+  jev_approve_min_p: 0.85
+  jev_shadow_cycles: 10
+  notify_webhook: ""    # optional chat webhook (POST JSON {text, evidence}) for questions

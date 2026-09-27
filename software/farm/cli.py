@@ -1,0 +1,274 @@
+"""`farm` command line.
+
+  farm devices                      list serial ports and cameras (fill the profile from this)
+  farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration (setup, not operation)
+  farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
+  farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
+  farm teach-all  -p ...            learn every keyframe the profile needs, in order
+  farm calibrate-pour -p ... --tilt 25 --seconds 1.5 --ml 28        record a measured cup pour
+  farm once       -p ... --tray B   run one care cycle (viewer included)
+  farm run        -p ... [--every 3600]   run cycles for every tray on a schedule, viewer included
+  farm viewer     -p ...            viewer only (evidence browsing, reconciliation)
+  farm review     -p ...            Astra daily review -> proposal
+  farm sim        [--faults ...]    the same program on fakes
+  farm backup     -p ...
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import sys
+import time
+from pathlib import Path
+
+from .config import load_env
+
+
+def _log():
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+
+def cmd_devices(a):
+    from .adapters.camera_opencv import list_cameras
+    from .adapters.robot_lerobot import find_serial_ports
+    print("Serial ports:")
+    for p in find_serial_ports():
+        print(f"  {p['device']:40} {p['description'] or '':30} vid={p['vid']} pid={p['pid']} sn={p['serial']}")
+    print("Cameras:")
+    for c in list_cameras():
+        print(f"  id={c.get('id')!r:14} {c.get('name')}")
+    print("\nMotor boards show up as /dev/tty.usbmodem… (macOS). Unplug one to tell bus 1 (left arm + head) from bus 2 (right arm + wheels).")
+    print("Cameras: assign index_or_path per camera in the profile; `farm check` asks the vision model to confirm which is which.")
+
+
+def _system(a, **kw):
+    from .system import build
+    return build(a.profile, **kw)
+
+
+def cmd_calibrate(a):
+    _log()
+    from .adapters.robot_lerobot import LeRobotXLeRobot
+    from .config import load_profile
+    p = load_profile(a.profile)
+    r = LeRobotXLeRobot(p.robot)
+    print("Support both arms. Follow the prompts (move to mid-range, then sweep each joint). This is one-time setup.")
+    path = r.calibrate_interactive()
+    print("calibration saved:", path)
+
+
+def cmd_check(a):
+    _log()
+    s = _system(a)
+    problems = s.connect()
+    print("problems:", problems or "none")
+    print("joints:", s.robot.joints().status.value)
+    print("health:", s.robot.health().status.value)
+    for n, c in s.cameras.items():
+        print(f"camera {n}: {c.frame().status.value}")
+    if s.light is not None:
+        print("light:", s.light.latest().to_record())
+    print("views:", s.verify_views())
+    print("keyframes:", s.keyframes.names())
+    s.disconnect()
+
+
+def _needed_keyframes(s):
+    t = s.profile.trays
+    need = [("bottle_rest_above", s.profile.arms.bottle, "Position the gripper 6 cm directly above the bottle standing in its rest, fingers open, tool pitch level, ready to descend and grasp."),
+            ("bottle_rest_grip", s.profile.arms.bottle, "Lower the open gripper around the bottle body in its rest so closing the fingers would hold it; do not touch the tray."),
+            ("bottle_upright", s.profile.arms.bottle, "Hold the bottle vertical (upright) at chest height clear of everything."),
+            ("paddle_rest_above", s.profile.arms.paddle, "Position the gripper 6 cm above the light paddle in its rest, fingers open."),
+            ("paddle_rest_grip", s.profile.arms.paddle, "Lower the open gripper around the light paddle's handle so closing would hold it.")]
+    for tr in t:
+        need.append((f"look_{tr.id}", "head", f"Point the head camera so tray {tr.id} in the {tr.nest} nest fills the centre of the head view."))
+        need.append((f"pour_{tr.id}", s.profile.arms.bottle, f"With the bottle held upright, bring its spout 3 cm above the refill opening of tray {tr.id} in the {tr.nest} nest, centred in the wrist view, without touching the tray."))
+        need.append((f"measure_{tr.id}", s.profile.arms.paddle, f"Hold the light paddle level, sensor face up, at canopy height over the middle of tray {tr.id}, with the arm out of the light path."))
+    return need
+
+
+def _teach_one(s, name, arm, goal):
+    from .skills.llm_servo import LLMServo
+    servo = LLMServo(s.skills, s.cameras, s.backends.vision, s.store, None, max_steps=s.profile.limits.llm_servo_max_steps)
+    if arm == "head":
+        # head is two joints: drive them like a tiny arm with pan/pitch only
+        arm_used = s.profile.arms.bottle
+        goal = goal + " (Move only the head: use dpan for head_motor_1 and dpitch for head_motor_2; do not move the arm.)"
+        out = servo.run(arm_used, goal, save_as=name, allow_gripper=False)
+    else:
+        out = servo.run(arm, goal, save_as=name, allow_gripper=True)
+    print(f"{name}: {'OK' if out.ok else 'FAILED'} in {out.steps} steps, ${out.cost_usd:.3f}: {out.reason}")
+    return out.ok
+
+
+def cmd_teach(a):
+    _log()
+    s = _system(a)
+    problems = s.connect()
+    if any(p.startswith("robot") for p in problems):
+        sys.exit("robot not connected: " + "; ".join(problems))
+    from .viewer.app import serve_in_thread
+    serve_in_thread(s, s.profile.viewer_port)
+    ok = _teach_one(s, a.save, a.arm, a.goal)
+    s.disconnect()
+    sys.exit(0 if ok else 1)
+
+
+def cmd_teach_all(a):
+    _log()
+    s = _system(a)
+    problems = s.connect()
+    if any(p.startswith("robot") for p in problems):
+        sys.exit("robot not connected: " + "; ".join(problems))
+    from .viewer.app import serve_in_thread
+    serve_in_thread(s, s.profile.viewer_port)
+    failed = []
+    for name, arm, goal in _needed_keyframes(s):
+        if name in s.keyframes.names() and not a.force:
+            print(f"{name}: already taught, skipping")
+            continue
+        if not _teach_one(s, name, arm, goal):
+            failed.append(name)
+        s.skills.go_rest()
+    s.disconnect()
+    print("failed:", failed or "none")
+    sys.exit(1 if failed else 0)
+
+
+def cmd_calibrate_pour(a):
+    s = _system(a)
+    s.save_pour_calibration(a.tilt, a.seconds, a.ml, a.who)
+    print("saved pour calibration")
+
+
+def _run_cycles(s, trays, every: float | None):
+    from .cycle.runner import CareCycle
+    from .viewer.app import serve_in_thread
+    serve_in_thread(s, s.profile.viewer_port)
+    print(f"viewer: http://localhost:{s.profile.viewer_port}")
+    while True:
+        for tray in trays:
+            pre = s.state.get("preauthorized")
+            if pre and pre.get("tray") == tray.id:
+                s.state.pop("preauthorized", None)
+            out = CareCycle(s, tray).run()
+            print(json.dumps({"cycle": out.cycle_id, "tray": out.tray_id, "result": out.result, "note": out.note}))
+            if out.result in ("PAUSED", "CRASHED"):
+                print("waiting for a person in the viewer …")
+                while s.store.open_actions() or s.state.get("needs_person"):
+                    time.sleep(5)
+        if every is None:
+            return
+        time.sleep(every)
+
+
+def cmd_once(a):
+    _log()
+    s = _system(a)
+    problems = s.connect()
+    if any(p.startswith("robot") for p in problems):
+        sys.exit("robot not connected: " + "; ".join(problems))
+    try:
+        _run_cycles(s, [s.profile.tray(a.tray)] if a.tray else s.profile.trays, None)
+    finally:
+        s.disconnect()
+
+
+def cmd_run(a):
+    _log()
+    s = _system(a)
+    problems = s.connect()
+    if any(p.startswith("robot") for p in problems):
+        sys.exit("robot not connected: " + "; ".join(problems))
+    try:
+        _run_cycles(s, s.profile.trays, a.every)
+    finally:
+        s.disconnect()
+
+
+def cmd_viewer(a):
+    _log()
+    s = _system(a)
+    from .viewer.app import serve_in_thread
+    serve_in_thread(s, s.profile.viewer_port)
+    print(f"viewer: http://localhost:{s.profile.viewer_port} (evidence only; no devices connected)")
+    while True:
+        time.sleep(3600)
+
+
+def cmd_review(a):
+    _log()
+    s = _system(a)
+    from .llm.astra import Astra
+    astra = Astra(s.backends.astra, s.store, s.profile.authority.astra, s.profile.data_path / "overrides.yaml")
+    print(json.dumps(astra.review(s.profile.raw), indent=1, default=str))
+
+
+def cmd_sim(a):
+    _log()
+    from .adapters.sim import Faults, ScriptedHuman
+    from .config import load_profile
+    from .system import System
+    faults = Faults()
+    for f in (a.faults or []):
+        faults.set(f)
+    human = ScriptedHuman({"pour:": "authorize one pour"}) if a.auto_answer else None
+    s = System(load_profile("sim"), human=human, faults=faults)
+    s.connect()
+    _seed_sim_keyframes(s)
+    try:
+        _run_cycles(s, s.profile.trays, None)
+    finally:
+        s.disconnect()
+
+
+def _seed_sim_keyframes(s):
+    """The simulator has no geometry to learn; give it trivial keyframes so skills have targets."""
+    from .adapters.base import HEAD_JOINTS, arm_joint
+    from .skills.arm import ArmPose
+    b, p = s.profile.arms.bottle, s.profile.arms.paddle
+    for name, arm, pose in [("bottle_rest_above", b, ArmPose(0.18, 0.12)), ("bottle_rest_grip", b, ArmPose(0.20, 0.08)), ("bottle_upright", b, ArmPose(0.16, 0.15)),
+                            ("paddle_rest_above", p, ArmPose(0.18, 0.12)), ("paddle_rest_grip", p, ArmPose(0.20, 0.08))]:
+        if name not in s.keyframes.names():
+            s.keyframes.save(name, s.skills.models[arm].joints_for(pose), arm, "sim seed", "sim")
+    for t in s.profile.trays:
+        if f"look_{t.id}" not in s.keyframes.names():
+            s.keyframes.save(f"look_{t.id}", {HEAD_JOINTS[0]: -20.0 if t.nest.startswith("left") else 20.0, HEAD_JOINTS[1]: -15.0}, "head", "sim seed", "sim")
+        if f"pour_{t.id}" not in s.keyframes.names():
+            s.keyframes.save(f"pour_{t.id}", s.skills.models[b].joints_for(ArmPose(0.21, 0.10, pan=-25 if t.nest.startswith("left") else 25)), b, "sim seed", "sim")
+        if f"measure_{t.id}" not in s.keyframes.names():
+            s.keyframes.save(f"measure_{t.id}", s.skills.models[p].joints_for(ArmPose(0.19, 0.13, pan=-25 if t.nest.startswith("left") else 25)), p, "sim seed", "sim")
+        t.look_pose, t.pour_pose, t.measure_pose = f"look_{t.id}", f"pour_{t.id}", f"measure_{t.id}"
+
+
+def cmd_backup(a):
+    s = _system(a)
+    print(s.store.backup(s.profile.data_path / "backups"))
+
+
+def main(argv=None):
+    load_env()
+    ap = argparse.ArgumentParser(prog="farm", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    for name, fn, extra in [
+        ("devices", cmd_devices, []), ("calibrate", cmd_calibrate, []), ("check", cmd_check, []),
+        ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
+        ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),
+        ("calibrate-pour", cmd_calibrate_pour, [("--tilt", {"type": float, "required": True}), ("--seconds", {"type": float, "required": True}), ("--ml", {"type": float, "required": True}), ("--who", {"required": True})]),
+        ("once", cmd_once, [("--tray", {})]), ("run", cmd_run, [("--every", {"type": float, "default": 3600})]),
+        ("viewer", cmd_viewer, []), ("review", cmd_review, []), ("backup", cmd_backup, []),
+        ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"})]),
+    ]:
+        sp = sub.add_parser(name)
+        if name != "sim":
+            sp.add_argument("-p", "--profile", default="paper-tray-v0")
+        for flag, kw in extra:
+            sp.add_argument(flag, **kw)
+        sp.set_defaults(fn=fn)
+    a = ap.parse_args(argv)
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main()

@@ -6,3 +6,11 @@ xlerobot-deck.html
 sensor-shopping.html
 
 *.blend1
+software/.env
+software/.venv/
+software/data/
+__pycache__/
+*.pyc
+software/data-sim/
+software/*.egg-info/
+software/parts/out/
