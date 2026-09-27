@@ -83,11 +83,11 @@ def d_title():
         s += box(x, 250, 150, 86, f'{n} · {t}', kind='bd', tfs=14)
         if i < len(parts) - 1: s += arrow(x + 150, 293, x + 165, 293)
     s += label(40, 60, 'What the deck covers', 18, 700, GREY)
-    s += label(40, 120, 'The hardware we own → the code that already exists → the seven parts we must write →', 22, 600)
-    s += label(40, 155, 'how one care cycle flows through all of them → what gets built on which day.', 22, 600)
+    s += label(40, 120, 'The hardware we own → the code that already exists → the seven parts we wrote →', 22, 600)
+    s += label(40, 155, 'how one care cycle flows through all of them → what is proven, and what waits for the robot.', 22, 600)
     s += label(40, 400, 'One sentence:', 18, 700, GREY)
-    s += label(40, 445, 'A Python program on the Mac that turns a teleoperated robot kit into a', 26, 700)
-    s += label(40, 483, 'supervised plant caretaker that can explain every action it took.', 26, 700)
+    s += label(40, 445, 'A Python program on the Mac that turns the robot kit into a plant caretaker', 26, 700)
+    s += label(40, 483, 'nobody drives: the model teaches it, rules and Jev decide, a person is asked only when needed.', 22, 700)
     s += legend(40, 560)
     return svg(1200, 600, s, 'Seven software parts in a row')
 
@@ -212,8 +212,8 @@ def d_skills():
         y = 70 + i * 40
         s += f'<rect x="30" y="{y - 24}" width="1140" height="36" rx="6" fill="{"#e8eff6" if i % 2 == 0 else "#fffefa"}"/>'
         s += label(40, y, a, 15, 700, BLUE) + label(300, y, b, 14) + label(580, y, c, 14) + label(1000, y, d, 14)
-    s += box(40, 410, 540, 150, 'v1 · taught keyframes (Sep 30 – Oct 5)', ['Drive the arm with the keyboard teleop, save joint positions as named keyframes, interpolate with the IK and a max-step clamp.', 'Every skill is a short list of keyframes plus checks. Boring, inspectable, fixable.'], kind='bd', fs=13.5, tfs=16, cw=66)
-    s += box(620, 410, 540, 150, 'v2 · learned policies (after ~50 demos)', ['Record pick_tool / pour with lerobot-record, train ACT, run it behind the same skill interface.', 'Only replaces a v1 skill after it wins on held-out episodes. Camera poses must match recording.'], kind='ex', fs=13.5, tfs=16, cw=66)
+    s += box(40, 410, 540, 150, 'v1 · keyframes taught by the vision model (implemented)', ['The LLM-servo loop drives the arm in clamped steps from the wrist and head views until the goal is visibly met, then saves the joints as a named keyframe. No person touches a controller.', 'Every skill replays keyframes under the safety rules and checks its own postcondition.'], kind='bd', fs=13.5, tfs=16, cw=66)
+    s += box(620, 410, 540, 150, 'v2 · learned policies (later, from the robot’s own runs)', ['Record the robot’s successful keyframe runs with lerobot-record, train ACT, run it behind the same skill interface.', 'Only replaces a v1 skill after it wins on held-out episodes. Still no human demonstrations.'], kind='ex', fs=13.5, tfs=16, cw=66)
     return svg(1200, 580, s, 'Eight motion skills with pre- and post-conditions')
 
 def d_perception():
@@ -235,13 +235,13 @@ def d_perception():
     return svg(1200, 560, s, 'Perception outputs with their unknown states')
 
 def d_cycle():
-    states = [('IDLE', 60, 60), ('IDENTIFY', 240, 60), ('INSPECT', 420, 60), ('MEASURE LIGHT', 600, 60), ('ASK HUMAN', 800, 60),
+    states = [('IDLE', 60, 60), ('IDENTIFY', 240, 60), ('INSPECT', 420, 60), ('MEASURE LIGHT', 600, 60), ('DECIDE', 800, 60),
               ('PICK BOTTLE', 1000, 60), ('APPROACH', 1000, 230), ('POUR', 800, 230), ('RETURN UPRIGHT', 600, 230), ('VERIFY', 420, 230), ('PARK', 240, 230)]
     s = ''
     for name, x, y in states:
-        k = 'hu' if name == 'ASK HUMAN' else 'bd'
+        k = 'hu' if name == 'DECIDE' else 'bd'
         s += box(x, y, 150, 56, name, [], kind=k, tfs=15)
-    top = [('IDLE', 'IDENTIFY'), ('IDENTIFY', 'INSPECT'), ('INSPECT', 'MEASURE LIGHT'), ('MEASURE LIGHT', 'ASK HUMAN'), ('ASK HUMAN', 'PICK BOTTLE')]
+    top = [('IDLE', 'IDENTIFY'), ('IDENTIFY', 'INSPECT'), ('INSPECT', 'MEASURE LIGHT'), ('MEASURE LIGHT', 'DECIDE'), ('DECIDE', 'PICK BOTTLE')]
     pos = {n: (x, y) for n, x, y in states}
     for a, b in top:
         s += arrow(pos[a][0] + 150, pos[a][1] + 28, pos[b][0], pos[b][1] + 28)
@@ -250,7 +250,7 @@ def d_cycle():
         s += arrow(pos[a][0], pos[a][1] + 28, pos[b][0] + 150, pos[b][1] + 28)
     s += elbow([(240, 258), (135, 258), (135, 116)])
     s += label(150, 175, 'evidence + deadline on every arrow', 13, 700, GREY)
-    s += label(830, 175, 'no “yes” → PARK, no water', 13, 700, ORANGE)
+    s += label(700, 175, 'rules → Jev → person · no “yes” → PARK, no water', 13, 700, ORANGE)
     s += elbow([(875, 116), (875, 175 + 10), (330, 185), (330, 230)], kind='grey', dashed=True)
     # paused
     s += box(420, 370, 360, 108, 'PAUSED (reason, evidence)', ['Any check fails, any deadline passes, any adapter goes INVALID or STALE. Motors stop; bottle is returned upright first if it is held.'], kind='bad', fs=13, tfs=16, cw=46)
@@ -260,7 +260,7 @@ def d_cycle():
     s += arrow(875, 286, 990, 370, kind='red', dashed=True)
     s += box(40, 370, 340, 108, 'Human review', ['Re-inspect, confirm physically, authorize, resolve, or take over. Only a person leaves PAUSED.'], kind='hu', fs=13, tfs=16, cw=44)
     s += arrow(420, 415, 380, 415)
-    s += label(40, 515, 'Timeouts: identify 10 s · inspect 20 s · measure 15 s · ask 10 min · pick 30 s · pour ≤ 4 s tilt · verify 20 s · park 30 s (starting values, all in the config).', 13, 400, GREY)
+    s += label(40, 515, 'Deadlines (profile): identify 10 s · inspect 20 s · measure 15 s · decide/ask 10 min · pick 30 s · pour ≤ 4 s tilt · verify 20 s · park 30 s. Implemented in farm/cycle/.', 13, 400, GREY)
     return svg(1200, 540, s, 'Care-cycle state machine with pause and unknown states')
 
 def d_evidence():
@@ -313,17 +313,17 @@ def d_models():
     s += box(400, 40, 300, 130, 'Local rules  (must pass)', ['Numeric bounds, freshness, device health, human authorization present.', 'Own machine protection. Run without any network.'], kind='bd', fs=13, tfs=16)
     s += box(760, 40, 400, 130, 'Gate → one preapproved skill', ['Only a skill from the allowed list can execute, and only if rules passed.', 'A model label is never permission to move or pour.'], kind='bd', fs=13, tfs=16)
     s += arrow(340, 105, 400, 105) + arrow(700, 105, 760, 105)
-    s += box(400, 220, 300, 170, 'Jev · typed classifier (shadow)', ['Q1 evidence quality → usable | reacquire | conflicting | unknown', 'Q2 next review → routine | inspect_water | inspect_image | review_machine | review_hygiene | unknown', 'Returns choice + probabilities. Abstains on unknown.'], kind='df', fs=12.5, tfs=15)
+    s += box(400, 220, 300, 170, 'Jev · typesafe/jev-router (live)', ['next_review → routine | inspect_water | inspect_image | review_machine | review_hygiene | unknown', 'pour_decision → pour | skip | reinspect | unknown', 'Choice + probabilities; unknown on any failure.'], kind='bd', fs=12.5, tfs=15)
     s += arrow(190, 170, 480, 220, kind='grey', dashed=True)
     s += arrow(550, 220, 550, 170, kind='grey', dashed=True) + label(562, 200, 'suggestion only, logged', 12.5, 400, GREY)
-    s += box(760, 220, 400, 170, 'Astra · reasoner (offline)', ['Reads exception packets and daily summaries.', 'Proposes one specific change with evidence, expected benefit and a rollback condition.', 'Never writes servo commands. Never on the protection path.'], kind='df', fs=12.5, tfs=15)
+    s += box(760, 220, 400, 170, 'Astra · openai/gpt-6-astra (live)', ['Reads the last 24 h of evidence: results, pauses, unknowns, minutes, disagreements, cost.', 'Proposes one change with evidence, expected benefit and rollback. apply-safe may change only whitelisted numbers inside bounds.', 'Never writes servo commands. Never on the protection path.'], kind='bd', fs=12.5, tfs=15)
     s += box(40, 220, 300, 170, 'Human caretaker', ['Physical checks, authorizations, ambiguous crop calls, final incident labels.', 'The only party that leaves PAUSED.'], kind='hu', fs=13, tfs=16)
-    s += box(40, 430, 1120, 100, 'Earning a role: shadow → compare → limited pilot', ['Replay the same recorded episodes through rules-only, rules+Jev, rules+Astra. Report recall per fault class, false clearances, abstention rate, review minutes, p95 latency, cost. Target ≥120 labelled episodes, ≥10 per priority fault (stale sensor, missing tray, obscured view, failed pour, camera loss). Jev gets an operational role only if it beats rules-only on a held-out set — and even then only to route reviews, not to pour.'], kind='bd', fs=13, tfs=16, cw=150)
+    s += box(40, 424, 1120, 120, 'The authority ladder (implemented): shadow → route → approve', ['Starts in shadow: Jev is asked and recorded, a person authorizes. After jev_shadow_cycles with ≥80% route agreement it promotes to route (Jev’s reinspect/pause routes are honoured). After another run with every pour decision agreeing with the person it promotes to approve: Jev may authorize a routine pour when rules pass and p ≥ 0.85; people are notified, not asked. A spill at reconciliation demotes it. Any person can set the level from the viewer.'], kind='bd', fs=13, tfs=16, cw=150)
     return svg(1200, 560, s, 'Bounded roles for rules, Jev, Astra and the human')
 
 def d_learning():
-    steps = [('Teleop', 'keyboard / Joy-Con drive of one arm; farm cameras fixed', 'ex'),
-             ('lerobot-record', '≈50 episodes per skill: pick_tool, pour into cup', 'ex'),
+    steps = [('LLM-servo', 'vision model drives the arm to each goal; keyframe saved', 'bd'),
+             ('lerobot-record', 'record the robot’s own successful runs (no human demos)', 'ex'),
              ('LeRobotDataset', 'parquet + mp4, our tray, our bottle, our poses', 'ex'),
              ('Train ACT', 'on the Mac or a rented GPU; version the checkpoint', 'ex'),
              ('Offline replay', 'candidate vs v1 keyframe skill on held-out episodes', 'bd'),
@@ -334,7 +334,7 @@ def d_learning():
         x = 40 + i * 163
         s += box(x, 60, 150, 170, t, [d], kind=k, fs=12.5, tfs=14)
         if i < len(steps) - 1: s += arrow(x + 150, 145, x + 163, 145)
-    s += label(40, 40, 'Robot learning: a skill graduates from v1 to v2', 17, 700, BLUE)
+    s += label(40, 40, 'Robot learning: the model teaches v1; the robot’s own runs train v2', 17, 700, BLUE)
     s += label(40, 290, 'Crop learning: recipes change between frozen cohorts, never inside one', 17, 700, GREEN)
     s += box(40, 310, 350, 120, 'Cohort A · Sep 30', ['Cress on paper, recipe A. Every pour, light reading and human minute recorded.'], kind='bd', fs=13, tfs=15)
     s += box(425, 310, 350, 120, 'Cohort B · Oct 3', ['Same seed lot, one deliberate difference (e.g. light position). Same records.'], kind='bd', fs=13, tfs=15)
@@ -394,10 +394,10 @@ def d_config():
     return svg(1200, 540, s, 'Config profile, safety rules and deferred items')
 
 def d_timeline():
-    phases = [('0', 'Sep 26–29 · Mac only', 'no robot yet', ['adapter interfaces + fakes', 'evidence store + schema', 'orchestrator on simulator', 'viewer skeleton', 'ESP32 firmware + serial parser'], 'Gate: full fake cycle, crash-after-ATTEMPT → UNKNOWN, restore from backup'),
-              ('1', 'Sep 30–Oct 2 · connect', 'robot in Japan', ['assemble, ports, calibrate', 'real robot + camera adapters', 'keyframe skills v1', 'empty-bottle pick / return'], 'Gate: empty bottle picked, aimed, returned 10/10; stop works'),
-              ('2', 'Oct 3–5 · one real cycle', 'water moves', ['measured pours into a cup', 'full cycle on tray with human gate', 'Jev shadow adapter (if 1 passed)'], 'Gate: 5 supervised cycles, every record complete, zero unknown left open'),
-              ('3', 'Oct 6–8 · observe + record', 'longer windows', ['2 h → 8 h → 24 h watch windows', 'lerobot-record ≈50 demos', 'first ACT training attempt'], 'Gate: alerts fire on injected faults during a real window'),
+    phases = [('0 ✓', 'Sep 26–27 · Mac only · DONE', 'no robot yet', ['adapters real + fakes', 'evidence store + schema', 'care cycle on simulator', 'viewer', 'ESP32 firmware + parser', 'Jev/Astra/Claude live'], 'Gate passed: full fake cycle, crash-after-ATTEMPT → UNKNOWN, 23 tests'),
+              ('1', 'Sep 30–Oct 2 · connect', 'robot in Japan', ['assemble, farm devices, calibrate', 'farm check: views verified', 'farm teach-all (LLM-servo)', 'empty-bottle farm once'], 'Gate: empty bottle picked, aimed, returned 10/10; stop works'),
+              ('2', 'Oct 3–5 · one real cycle', 'water moves', ['cup pours → calibrate-pour', 'full cycle on the tray, person authorizes', 'Jev in shadow, promoting on evidence'], 'Gate: 5 cycles, every record complete, zero unknown left open'),
+              ('3', 'Oct 6–8 · observe + record', 'longer windows', ['farm run --every 3600', 'Jev at route → approve', 'Astra daily review + proposals', 'record own runs'], 'Gate: alerts fire on injected faults during a real window'),
               ('4', 'Oct 9–10 · hand over', 'someone else runs it', ['offline eval vs rules', 'export dataset + incident bundle', 'caretaker runbook, restore test'], 'Gate: another person resolves a staged exception')]
     s = ''
     for i, (n, when, sub, items, gate) in enumerate(phases):
@@ -409,31 +409,74 @@ def d_timeline():
             s += label(x + 12, gy, part, 12, 700, ORANGE); gy += 16
         if i < 4: s += arrow(x + 210, 210, x + 226, 210)
     s += label(40, 40, 'A failed gate holds the previous level. Dates are targets; the gates are the plan.', 15, 700, GREY)
-    s += box(40, 492, 1120, 78, 'Status on Sep 26', ['None of this code exists. The “Sep 22–26 software before travel” from the previous roadmap did not happen; Phase 0 starts now and overlaps assembly if needed.'], kind='bad', fs=13.5, tfs=15, cw=150)
+    s += box(40, 492, 1120, 78, 'Status on Sep 27', ['Phase 0 is done: software/ holds layers 1–7 (49 files), 23 simulator tests pass, and the Claude CLI, Jev router and Astra were exercised live. Nothing has touched the physical robot yet; every claim about reach, grip and pours waits for Sep 30.'], kind='ex', fs=13.5, tfs=15, cw=150)
     return svg(1200, 585, s, 'Five phases with gates from Sep 26 to Oct 10')
 
 def d_decisions():
-    qs = [('Tray identity', 'Fixed nest positions (recommended) or AprilTags on each tray?', 'Nests: zero vision risk in V0; tags later for moved trays.'),
-          ('Arms', 'Right arm = bottle, left arm = light paddle (recommended)?', 'Keeps the pour arm’s wrist camera on the opening.'),
-          ('Jev / Astra', 'Shadow mode inside the trip, or after Oct 10 (recommended: only if Phase 2 passes by Oct 5)?', 'Neither gains authority during this trip either way.'),
-          ('Viewer', 'Local web page (recommended) or terminal prompts?', 'Web page works from a phone on the same Wi-Fi.'),
-          ('Light sensor', 'Keep the ESP32 + BH1750 in V0 (recommended) or drop all external sensors?', 'Dropping removes Phase 0 firmware work and the paddle skill.'),
-          ('Learning', 'Record demos only (recommended) or also train ACT during the trip?', 'Training competes with commissioning time.')]
+    qs = [('No human operation', 'Nobody drives the robot. People answer questions in the viewer; that is all.', 'Keyframes are taught by the vision model (LLM-servo). Calibration remains a one-time setup step.'),
+          ('Fixed trays + printed nests', 'Printed locating plates hold the cress planters in known positions with an AprilTag recess; printed paddle and bottle rest.', 'Sized for the AnkerMake M5C. The square kit’s 220 mm tray does not fit that bed.'),
+          ('Arms', 'Right arm = bottle, left arm = light paddle.', 'Keeps the pour arm’s wrist camera on the opening.'),
+          ('Jev / Astra authority now', 'Ladder shadow → route → approve promotes itself on evidence from the first cycles; Astra proposes daily, apply-safe for bounded numbers.', 'A person can demote at any time; a spill demotes automatically.'),
+          ('Viewer + light sensor', 'Local web page on the Mac; ESP32 + BH1750 stay in V0.', 'Firmware and serial adapter are written.'),
+          ('Learning', 'The model teaches; the robot’s own runs are the training data. No ACT training during the trip unless cycles are boring.', 'Backends: Claude CLI on the subscription for vision; OpenRouter for Jev and Astra.')]
     s = ''
     for i, (t, q, why) in enumerate(qs):
         y = 30 + i * 88
-        s += box(40, y, 1120, 76, f'{i + 1} · {t}', [q, '↳ ' + why], kind='hu', fs=13.5, tfs=16, cw=140)
-    return svg(1200, 570, s, 'Six decisions with recommended defaults')
+        s += box(40, y, 1120, 76, f'{i + 1} · {t}', [q, '↳ ' + why], kind='bd', fs=13.5, tfs=16, cw=140)
+    return svg(1200, 570, s, 'Six decisions taken on Sep 27')
+
+
+def d_parts():
+    # table top with two nests, tag recesses, bottle rest, paddle rest
+    s = f'<rect x="60" y="60" width="760" height="420" rx="10" fill="#eeefec" stroke="{GREY}" stroke-width="2"/>' + label(70, 84, 'table top (printed modular table or any stable surface)', 13, 700, GREY)
+    for i, (x, tid) in enumerate(((100, 'A'), (460, 'B'))):
+        s += f'<rect x="{x}" y="120" width="300" height="160" rx="8" fill="#fffefa" stroke="{INK}" stroke-width="2.5"/>'
+        s += f'<rect x="{x + 14}" y="134" width="272" height="132" rx="4" fill="#e8eff6" stroke="{BLUE}" stroke-width="2"/>'
+        s += f'<rect x="{x + 120}" y="284" width="60" height="30" rx="3" fill="#fff" stroke="{INK}" stroke-width="2"/>' + label(x + 150, 304, f'tag {tid}', 12, 700, INK, 'middle')
+        s += f'<rect x="{x + 130}" y="120" width="40" height="14" fill="#eeefec"/>' + label(x + 150, 112, 'refill notch', 11, 400, GREY, 'middle')
+        s += label(x + 150, 205, f'nest_cress.stl · tray {tid}', 14, 700, BLUE, 'middle') + label(x + 150, 228, '200 × 165 · pocket 181.5 × 86.5', 12, 400, INK, 'middle') + label(x + 150, 246, '3 stepped ledges · 6 mm lip', 12, 400, INK, 'middle')
+        for cx, cy in ((x + 8, 128), (x + 292, 128), (x + 8, 272), (x + 292, 272)):
+            s += f'<circle cx="{cx}" cy="{cy}" r="4" fill="none" stroke="{INK}" stroke-width="1.5"/>'
+    s += f'<circle cx="150" cy="400" r="34" fill="#fffefa" stroke="{INK}" stroke-width="2.5"/><circle cx="150" cy="400" r="27" fill="#e8eff6" stroke="{BLUE}" stroke-width="2"/>' + label(150, 450, 'bottle_rest.stl · Ø70, 56 mm bore', 12, 700, BLUE, 'middle')
+    s += f'<rect x="300" y="380" width="150" height="20" rx="4" fill="#fffefa" stroke="{INK}" stroke-width="2"/><rect x="450" y="372" width="40" height="36" rx="4" fill="#e8eff6" stroke="{BLUE}" stroke-width="2"/>' + label(395, 430, 'paddle_bh1750.stl · 150 × 24 × 8 · sensor pocket', 12, 700, BLUE, 'middle')
+    s += label(600, 396, 'robot cart parks here →', 13, 700, GREY)
+    s += box(860, 60, 300, 130, 'AnkerMake M5C', ['220 × 220 × 250 mm · 0.4 mm · PLA', 'Cress planter: fits (180 × 85).', 'Square kit outer tray 220 × 220: does not fit — 95% scale or drop.'], kind='hw', fs=13, tfs=16)
+    s += box(860, 210, 300, 130, 'Why nests', ['tray_id comes from the nest, not from vision; the tag recess is the optional upgrade for trays that move.', 'One taught pour pose per nest stays valid across cycles.'], kind='bd', fs=13, tfs=16)
+    s += box(860, 360, 300, 120, 'Files (generated, verified)', ['5 STLs: nest 200×165×10, tag id1/id2 40×40×1.6 (real 36h11 patterns), paddle 150×24×8, rest Ø70×12. Every STL re-parsed: size = 84 + 50·triangles.'], kind='ex', fs=12.5, tfs=15)
+    return svg(1200, 500, s, 'Printed nests, tag recesses, bottle rest and light paddle on the table')
+
+
+def d_status():
+    rows = [
+        ('farm/adapters', 'robot (LeRobot 0.6 + vendored XLerobot2Wheels), cameras, ESP32 serial, human web; fakes', 'unit + cycle tests', 'robot & ESP32 wait for hardware'),
+        ('farm/skills', 'arm model + IK, keyframes, 8 skills, LLM-servo', 'servo test; live Claude run: 4 steps → done', 'reach/grip on the real arm'),
+        ('farm/perception', 'frame quality, green fraction, VLM typed judgement, view check', 'live Claude: spill UNKNOWN when occluded', 'real trays, real lighting'),
+        ('farm/cycle', 'state machine, runner, authority ladder', '11 cycle tests: pours, pauses, UNKNOWN, promotion', 'real pauses'),
+        ('farm/evidence', 'SQLite + images; intent → attempt → result; crash → UNKNOWN', 'crash test', '—'),
+        ('farm/llm', 'Claude CLI (subscription), OpenRouter, Jev, Astra', 'live: judge, Jev pour/route, Astra proposal', 'cost over a real day'),
+        ('farm/viewer', 'state, frames, questions, reconcile, authority, proposals', 'API exercised; page rendered', 'phone use'),
+        ('firmware, parts, profiles', 'ESP32 BH1750 JSON; STL generator; paper-tray-v0 / sim', 'sim profile end to end', 'flash + print'),
+    ]
+    s = label(40, 36, 'Module', 14, 700, GREY) + label(240, 36, 'What it is', 14, 700, GREY) + label(680, 36, 'Proven by', 14, 700, GREY) + label(980, 36, 'Waits for', 14, 700, GREY)
+    for i, (m, w, pr, wt) in enumerate(rows):
+        y = 66 + i * 54
+        s += f'<rect x="30" y="{y - 22}" width="1140" height="48" rx="6" fill="{"#e8eff6" if i % 2 == 0 else "#fffefa"}"/>'
+        s += label(40, y, m, 14, 700, BLUE)
+        for k, part in enumerate(wrap(w, 52)[:2]): s += label(240, y + k * 16, part, 12.5)
+        for k, part in enumerate(wrap(pr, 36)[:2]): s += label(680, y + k * 16, part, 12.5, 400, GREEN)
+        for k, part in enumerate(wrap(wt, 22)[:2]): s += label(980, y + k * 16, part, 12.5, 400, ORANGE)
+    s += box(40, 505, 1120, 56, 'Run it now: farm sim --auto-answer → two POURED cycles on fakes, viewer at localhost:8765 · python -m pytest → 23 passed', [], kind='ex', tfs=14)
+    return svg(1200, 580, s, 'What exists today and what proves it')
 
 # ---------------------------------------------------------------- slides
 # (key, kicker, title, lead, diagram, points[(label, text)], limit)
 SLIDES = [
- ('start', 'Software roadmap · rebuilt Sep 26, 2026', 'The farm software, end to end',
-  'What we are building, what already exists, how the parts connect, and the order to build them in.', d_title, [
-  ('Scope', 'One parked robot, two arms, three cameras, one light sensor, two paper trays, one bottle. Watering stays human-authorized for the whole trip.'),
-  ('Honesty', 'Nothing in this deck is implemented. Green boxes exist upstream; blue boxes are ours to write; grey is deferred.'),
+ ('start', 'Software roadmap · updated Sep 27, 2026', 'The farm software, end to end',
+  'What we built, what it stands on, how the parts connect, what is proven on the simulator and with live models, and what waits for the robot.', d_title, [
+  ('Scope', 'One parked robot, two arms, three cameras, one light sensor, cress trays in fixed printed nests, one bottle. Nobody drives the robot.'),
+  ('Status', 'Layers 1–7 exist as code in software/ (Sep 27): 23 simulator tests pass; Claude CLI, Jev and Astra verified live. Untested on the physical robot until Sep 30.'),
   ('Navigate', 'Arrow keys or the buttons. O opens the outline; P presents full screen.')],
-  'This replaces the September 22 slide set. Sources: XLeRobot repository and docs, LeRobot, the September 20 redline, purchase records.'),
+  'Sources: XLeRobot repository and docs, LeRobot 0.6.1, the September 20 redline, the software/ package and its tests.'),
 
  ('gap', 'Why write anything at all', 'The kit is a body with reflexes. The farm needs a routine, a memory and a conscience.',
   'XLeRobot gives us motors, cameras, kinematics and a way to train policies. It does not know what a tray is.', d_gap, [
@@ -456,13 +499,20 @@ SLIDES = [
   ('Learning', 'lerobot-record writes a LeRobotDataset; the ACT / SmolVLA / π0.5 guides train from it. That pipeline is ours to reuse, unchanged.')],
   'Files read: software/src/robots/xlerobot_2wheels/*.py, software/src/model/SO101Robot.py, software/src/record.py, examples/4_xlerobot_2wheels_teleop_keyboard.py, docs install / teleop / VLA_ACT / LLM_agent. The ZMQ host/client exists for a Raspberry Pi and is not needed when the Mac is the controller.'),
 
- ('stack', 'Architecture', 'Eight layers, seven of them ours',
+ ('stack', 'Architecture', 'Eight layers, seven of them ours — all seven now written',
   'Commands flow down through adapters to the hardware. Observations and evidence flow up to the people and models that review them.', d_stack, [
   ('Bottom', 'Layer 0 is the kit and LeRobot. Layer 1 wraps every device in one status vocabulary so the rest of the program never sees a bare number.'),
   ('Middle', 'Skills move; perception judges; the orchestrator sequences them with deadlines and writes evidence as it goes.'),
   ('Top', 'A person reviews exceptions in a viewer. Jev and Astra observe in shadow. The learning loop turns recorded episodes into better skills and recipes.'),
   ('Cross-cutting', 'One config profile names what exists. A simulator implements the adapters with fakes. Safety rules live in code and outrank everything.')],
-  'The next nine slides take one layer each, then trace one cycle through all of them.'),
+  'The next slide is the evidence that each layer exists; the nine after it take one layer each, then trace one cycle through all of them.'),
+
+ ('status', 'Implementation status · Sep 27', 'What exists today, and what proves it',
+  'Every layer is code in software/, tested on the simulator; the model-facing parts were exercised against the real Claude CLI, Jev router and Astra. Hardware-facing parts wait for the robot.', d_status, [
+  ('Tested', 'pytest: 23 tests — happy path, no-answer, stale camera, spill UNKNOWN blocks retry, upright failure, rules block, budget block, Jev shadow/approve/low-p, promotion + demotion, servo learns keyframe, servo abort, Astra bounds.'),
+  ('Live', 'Claude CLI judge on synthetic frames (typed JSON; UNKNOWN when occluded); Jev pour → reinspect on unknown paper edge, route → routine; LLM-servo 4 steps to done; Astra produced a proposal.'),
+  ('Not yet', 'Anything physical: ports, calibration, camera identities, reach, grip, pours, ESP32 on real wires. All of it is Sep 30+.')],
+  'The simulator is the same program with fakes plugged in; its results say the logic is right, not that the arm can reach the tray.'),
 
  ('adapters', 'Layer 1', 'Device adapters: one interface, four devices',
   'Robot, cameras, ESP32 and the human each expose read() with a status. OK, STALE, INVALID and NOT_APPLICABLE mean different things.', d_adapters, [
@@ -472,12 +522,12 @@ SLIDES = [
   ('Human', 'Buttons in the viewer are an input device too: each press is a named, timestamped record.')],
   'NOT_APPLICABLE is the state of a device the config disabled. The orchestrator can plan around it; it can never treat it as a reading. “No probe” is not “dry”.'),
 
- ('skills', 'Layer 2', 'Skills: eight motions with contracts',
-  'Each skill states what must be true before it runs and what is true after. The orchestrator only ever calls skills, never joints.', d_skills, [
-  ('v1', 'Keyframes taught with the upstream keyboard teleop, interpolated with the IK solver and the max-step clamp. Readable, editable, no training.'),
-  ('Contracts', 'pour() refuses to run without a gripped bottle, a known fill and a human authorization record. return_upright() is always commanded before any release.'),
-  ('v2', 'A skill may later be replaced by an ACT policy trained on our own demonstrations, behind the same interface, after it wins on held-out episodes.')],
-  'Pour parameters are tilt angle and seconds, calibrated into a kitchen measuring cup across fill levels. A tilt duration is never recorded as millilitres.'),
+ ('skills', 'Layer 2', 'Skills: eight motions with contracts, taught by the model',
+  'Each skill states what must be true before it runs and what is true after. The orchestrator only ever calls skills, never joints. Nobody drives the arm to teach them.', d_skills, [
+  ('LLM-servo', 'farm teach-all: for each needed pose the vision model sees the wrist and head views and returns one clamped step (≤15 mm, ≤6°) until it says done; the reached joints become a keyframe. Verified live on the simulator: 4 steps → done → keyframe saved.'),
+  ('Contracts', 'pick_tool verifies the grip from the gripper position; pour() refuses without a gripped bottle and an authorization record; return_upright() is commanded before any release.'),
+  ('v2', 'A skill may later be replaced by an ACT policy trained on the robot’s own recorded runs, behind the same interface, after it wins on held-out episodes.')],
+  'Pour parameters are tilt angle and seconds, calibrated into a kitchen measuring cup (farm calibrate-pour). A tilt duration is never recorded as millilitres.'),
 
  ('perception', 'Layer 3', 'Perception: six outputs, each with an unknown',
   'From three frames, joint positions and the lux stream, perception answers a fixed set of questions with typed values.', d_perception, [
@@ -488,9 +538,9 @@ SLIDES = [
   'v1 is OpenCV: nest occupancy, colour and frame differencing. v2 may be a vision model, but it must return the same typed outputs. Camera spill detection is experimental and gets its own fault tests.'),
 
  ('cycle', 'Layer 4', 'The care cycle: a state machine that would rather stop than guess',
-  'Eleven states, one human gate, two ways to pause. Every arrow requires named evidence and has a deadline.', d_cycle, [
-  ('Happy path', 'identify → inspect → measure light → ask human → pick bottle → approach → pour → return upright → verify → park.'),
-  ('The gate', 'ASK_HUMAN shows the evidence in the viewer and waits. No answer within the deadline means park, not pour.'),
+  'Eleven states, one decision gate, two ways to pause. Every arrow requires named evidence and has a deadline.', d_cycle, [
+  ('Happy path', 'identify → inspect → measure light → decide → pick bottle → approach → pour → return upright → verify → park.'),
+  ('The gate', 'DECIDE runs the rules, then Jev, then — only if authority requires it — asks a person in the viewer. No answer within the deadline means park, not pour.'),
   ('Pause', 'Any failed check or timed-out step enters PAUSED with its reason and evidence. Only a person leaves it.'),
   ('Unknown', 'A crash between the tilt and the verify leaves the pour UNKNOWN. The cycle will not retry; a person reconciles.')],
   'Deadlines are starting values in the config. Pick / dock / weigh states from the redline belong to a future pod-moving profile and are not in this machine.'),
@@ -509,16 +559,16 @@ SLIDES = [
   ('Never offers', 'Retry pour while delivery is UNKNOWN. The button does not exist in that state.')],
   'Reachable from a phone on the same Wi-Fi; not exposed to the internet. Not a safety device — the stop rules run in the controller whether or not anyone is looking.'),
 
- ('models', 'Layer 6b', 'Jev and Astra: advice with no hands',
-  'Rules own protection. Jev classifies evidence into typed choices. Astra investigates exceptions and proposes changes. Neither can move a servo.', d_models, [
-  ('Jev', 'Two narrow questions per packet — evidence quality and next review — with probabilities and an explicit unknown. Runs in shadow: logged next to the rule’s decision, compared later.'),
-  ('Astra', 'Reads exception packets and daily summaries offline. One proposal at a time, with evidence, expected benefit and a rollback condition.'),
-  ('Earning a role', 'Shadow → replay comparison on ≥120 labelled episodes → limited pilot. Even then Jev only routes reviews.')],
-  'The existing Goose/Jev helper routes documents with a 0.85 threshold; a farm adapter must add explicit farm questions, abstention labels and preserved confidence metadata. Cloud calls stay off the protection path.'),
+ ('models', 'Layer 6b', 'Jev and Astra: authority earned from the first cycles',
+  'Rules own protection and can only say no. Jev answers typed questions and climbs a ladder; Astra reviews the day and proposes. Neither can move a servo.', d_models, [
+  ('Jev', 'Two questions per packet with images — next review and pour decision — each with probabilities and an explicit unknown. Live via OpenRouter typesafe/jev-router (~$0.002 per call).'),
+  ('Ladder', 'shadow → route → approve, promoted automatically on agreement with the rules and the person; demoted on a false approval. At approve, Jev authorizes routine pours (p ≥ 0.85) and people are notified.'),
+  ('Astra', 'farm review reads 24 h of evidence and proposes one change with rollback; apply-safe may change only whitelisted numbers inside bounds (deadlines, light sampling, a stricter Jev threshold).')],
+  'Tested: shadow records but does not honour; approve authorizes without asking; low probability still asks; promotion and demotion. Cloud calls stay off the protection path; the daily budget blocks pours when exhausted.'),
 
- ('learning', 'Layer 7', 'The learning loop: skills graduate, recipes change between cohorts',
-  'Robot learning reuses LeRobot’s recorder and trainers on our own episodes. Crop learning is A/B cohorts with one difference at a time.', d_learning, [
-  ('Robot', 'Teleop ≈50 demonstrations per skill → LeRobotDataset → ACT → offline replay against the keyframe skill → shadow → limited pilot with rollback.'),
+ ('learning', 'Layer 7', 'The learning loop: the model teaches, the robot’s own runs train',
+  'No human demonstrations. The LLM-servo teaches keyframes; successful keyframe runs are the dataset; crop learning is A/B cohorts with one difference at a time.', d_learning, [
+  ('Robot', 'LLM-servo → keyframes → the robot’s successful runs recorded with lerobot-record → ACT → offline replay against the keyframe skill → shadow → limited pilot with rollback.'),
   ('Crop', 'Cohort A on Sep 30, B on Oct 3 from the same seed lot. Astra proposes C from their records; a person decides.'),
   ('Discipline', 'Simulated and real episodes are never mixed. Nothing is tuned on the evaluation set. A recipe never changes mid-cohort except as a recorded deviation.')],
   'No pretrained watering policy exists; both “water” datasets on the Hub are bottle transport. Training is optional inside the trip (see decisions).'),
@@ -526,7 +576,7 @@ SLIDES = [
  ('sequence', 'End to end', 'One cycle, thirteen messages, seven lanes',
   'Follow a single authorized pour from the first camera frame to the shadow classification.', d_sequence, [
   ('1–4', 'Adapters read; perception judges tray B fresh and reachable; rules pass; the orchestrator decides to ask.'),
-  ('5–6', 'The viewer shows the edge-of-paper frame; a person authorizes one pour; the record names them.'),
+  ('5–6', 'At shadow/route level the viewer shows the frame and a person authorizes; at approve level Jev authorizes (p ≥ 0.85) and the person is only notified.'),
   ('7–10', 'INTENT, then skills, then clamped joint targets, then ATTEMPT — written before the tilt.'),
   ('11–13', 'Perception verifies wetness and no spill; result VERIFIED; the packet goes to Jev in shadow.')],
   'Replace step 11 with “spill UNKNOWN” and the cycle enters PAUSED; replace a crash between 10 and 11 and the action stays UNKNOWN. Both paths are on the state-machine slide.'),
@@ -545,20 +595,27 @@ SLIDES = [
   ('Deferred', 'Driving, battery, pump, probe, scale, overhead camera, printer pickup, unsupervised pouring. Each returns when its own test passes.')],
   'A wrong profile is the most likely way to hurt the robot: the assembly guide’s port-discovery and calibration steps come before the first move.'),
 
- ('timeline', 'Build order', 'Five phases, five gates, Sep 26 → Oct 10',
-  'Phase 0 is Mac-only and starts now. Each later phase opens only when the previous gate passes; a failed gate holds the previous level.', d_timeline, [
-  ('Phase 0 · Sep 26–29', 'Adapters, fakes, evidence store, orchestrator on the simulator, viewer skeleton, ESP32 firmware. Gate: a fake cycle survives a crash after ATTEMPT and a restore.'),
-  ('Phase 1 · Sep 30–Oct 2', 'Assemble, discover ports, calibrate, real adapters, keyframe skills, empty-bottle rehearsal. Gate: 10/10 pick-aim-return and a working stop.'),
+ ('timeline', 'Build order', 'Five phases, five gates, Sep 26 → Oct 10 — Phase 0 done',
+  'Phase 0 (Mac-only) finished Sep 27. Each later phase opens only when the previous gate passes; a failed gate holds the previous level.', d_timeline, [
+  ('Phase 0 · done Sep 27', 'Adapters, fakes, evidence store, care cycle on the simulator, viewer, ESP32 firmware, live model checks. Gate passed: a fake cycle survives a crash after ATTEMPT; 23 tests.'),
+  ('Phase 1 · Sep 30–Oct 2', 'Assemble, farm devices → calibrate → check (camera identities confirmed by the model) → teach-all (LLM-servo) → empty-bottle farm once. Gate: 10/10 pick-aim-return and a working stop.'),
   ('Phase 2 · Oct 3–5', 'Measured pours into a cup, then the full cycle on a real tray with the human gate. Gate: five complete supervised cycles, nothing UNKNOWN left open.'),
   ('Phases 3–4 · Oct 6–10', 'Observation windows 2 → 8 → 24 h, demo recording, first training attempt, offline eval, caretaker handover.')],
-  'Status Sep 26: no code exists; the previous roadmap’s Sep 22–26 software work did not happen. The printed trays also do not exist yet, so Phase 2 assumes trays are printed or a household tray is substituted.'),
+  'The printed trays and nests do not exist yet (M5C prints pending), so Phase 2 assumes they are printed by Oct 3 or a household tray sits in a taped-down position.'),
 
- ('decisions', 'Your call', 'Six decisions, each with a default',
-  'Say “defaults” and Phase 0 starts as drawn. Change any line and the affected slides update.', d_decisions, [
-  ('Cheap to change now', 'Tray identity, which arm holds what, viewer form. All three are config or keyframes.'),
-  ('Scope', 'Jev/Astra timing, the light sensor and in-trip training each remove or add a Phase 0 work item.'),
-  ('Not up for debate in V0', 'Human authorization before water, UNKNOWN blocks retry, base stays parked, safety rules outrank models.')],
-  'Feedback on any slide is welcome; the deck is generated from one Python file so every diagram can be redrawn.'),
+ ('parts', 'Fixed trays', 'Trays live in printed nests; the printer is an AnkerMake M5C',
+  'A locating plate per cress planter gives the software a tray identity without vision, a repeatable pour pose, and a recess for an AprilTag if trays ever move. Paddle and bottle rest are printed too.', d_parts, [
+  ('Nest plate', '200 × 165 × 10 mm: 181.5 × 86.5 pocket with three stepped ledges as lead-in, 6 mm lip, a 48 mm front apron carrying the 40.5 × 40.5 tag recess and two M4 holes, two rear tabs, a 30 mm spout notch. Fits the bed.'),
+  ('Tags, paddle, rest', 'AprilTag 36h11 id 1 and id 2 as 40 × 40 × 1.6 tiles with raised cells (patterns verified against the library code words). Paddle 150 × 24 × 8 with grip grooves, BH1750 pocket, cable channel. Bottle rest Ø70 × 12, 56 mm bore, 40° lead-in.'),
+  ('Fit', 'Cress planter and all new parts fit the 220 × 220 bed. The square kit’s 220 × 220 outer tray does not; print it at 95% or leave it out.')],
+  'Generated by software/parts/make_parts.py (pure-numpy STL writer, self-checked). Its README lists ten assumptions to verify: bottle diameter (54 mm), BH1750 hole spacing (14.5 mm), trough size (180 × 85), tile clearance, and that raised tag cells are made black (filament change at Z = 1.0 mm or marker).'),
+
+ ('decisions', 'Decisions taken · Sep 27', 'Six decisions, settled',
+  'These are now in the profile and the code. Change any line and the affected slides and modules update.', d_decisions, [
+  ('Operation', 'No human operation. The vision model teaches every keyframe; people only answer questions in the viewer (or over chat via the webhook).'),
+  ('Authority', 'Jev and Astra earn authority from the first cycles through the ladder; safety rules still outrank them and a person can demote at any time.'),
+  ('Not up for debate in V0', 'Water needs rules + (a person or Jev at approve); UNKNOWN blocks retry; the base stays parked; models never write joint commands.')],
+  'The deck is generated from one Python file (handbook/roadmap.py); the program from software/farm.'),
 ]
 
 def render():
