@@ -37,7 +37,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
 .muted{color:#667;font-size:13px} pre{white-space:pre-wrap;font-size:12px;background:#eef;padding:8px;border-radius:6px;max-height:220px;overflow:auto}
 @media(max-width:900px){main{grid-template-columns:1fr}}
 </style>
-<header><b>farm viewer</b><span id=hdr class=muted></span><span style="flex:1"></span><label class=muted>your name <input id=who style="width:160px" placeholder="required to press anything"></label></header>
+<header><b>farm viewer</b><span id=hdr class=muted></span><span style="flex:1"></span><button id=stopbtn style="background:#9b2c2c;border-color:#9b2c2c;color:#fff;font-size:18px;padding:10px 22px" onclick='fetch("/api/stop",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({who:who()})}).then(refresh)'>STOP</button><button class=blue id=resumebtn style="display:none" onclick='post("/api/resume",{})'>clear stop</button><label class=muted>your name <input id=who style="width:160px" placeholder="required to press anything"></label></header>
 <main>
 <section><h2>State</h2><div id=state></div><div class=frames id=frames></div></section>
 <section><h2>Questions for a person</h2><div id=questions class=muted>none</div>
@@ -57,6 +57,7 @@ document.getElementById('hdr').textContent=`${d.profile}${d.simulated?' · SIMUL
 const st=d.state||'IDLE';const cls=st==='PAUSED'?'PAUSED':(st==='DONE'||st==='IDLE')?st:'other';
 let s=`<span class="tag ${cls}">${esc(st)}</span> tray <b>${esc(d.tray||'-')}</b> · cycle <code>${esc(d.cycle_id||'-')}</code> · since ${d.since?Math.round(Date.now()/1000-d.since)+'s':'-'}`;
 if(d.pause_reason)s+=`<p><b style="color:#9b2c2c">reason:</b> ${esc(d.pause_reason)}</p>`;
+if(d.estop)s+=`<p><b style="color:#9b2c2c">STOP is engaged: motors hold. Type your name and press "clear stop" to continue.</b></p>`;document.getElementById('resumebtn').style.display=d.estop?'':'none';
 if(d.problems&&d.problems.length)s+=`<p class=muted>startup problems: ${esc(d.problems.join(' · '))}</p>`;
 if(d.judgement&&Object.keys(d.judgement).length)s+=`<pre>${esc(JSON.stringify(d.judgement,null,1))}</pre>`;
 document.getElementById('state').innerHTML=s;
@@ -134,6 +135,34 @@ def make_app(system) -> FastAPI:
         if not who:
             return JSONResponse({"ok": False}, status_code=400)
         st.decide_proposal(b.get("proposal_id", ""), b.get("status", "REJECTED"), f"human:{who}")
+        return {"ok": True}
+
+    @app.post("/api/stop")
+    async def stop(req: Request):
+        """Hold every motor now. Any request works: a stop must never wait for a name."""
+        b = {}
+        try:
+            b = await req.json()
+        except Exception:  # noqa: BLE001
+            pass
+        system.skills.estop.set()
+        try:
+            system.robot.stop()
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        st.event(system.state.get("cycle_id"), "estop", {"who": b.get("who", "anonymous")})
+        system.state["estop"] = True
+        return {"ok": True}
+
+    @app.post("/api/resume")
+    async def resume(req: Request):
+        b = await req.json()
+        who = b.get("who", "").strip()
+        if not who:
+            return JSONResponse({"ok": False, "error": "name required to clear a stop"}, status_code=400)
+        system.skills.estop.clear()
+        system.state["estop"] = False
+        st.intervention(system.state.get("cycle_id"), who, "estop", "cleared the stop", "resume")
         return {"ok": True}
 
     @app.get("/images/{h}")

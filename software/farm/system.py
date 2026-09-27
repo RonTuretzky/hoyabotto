@@ -35,16 +35,54 @@ class System:
         self.profile = self._with_overrides(profile)
         self.store = EvidenceStore(self.profile.data_path, code_version())
         self.state: dict[str, Any] = {"profile": self.profile.name, "simulated": self.profile.simulated, "started": time.time()}
-        self.human = human or WebHuman(self.profile.authority.notify_webhook)
+        self.human = human or self._default_human()
         self.backends = backends or Backends(self.profile.llm, self.store)
         self.authority = Authority(self.profile.authority, self.store)
         self.faults = faults
         self.keyframes = KeyframeStore(self.profile.data_path / self.profile.keyframes_file)
+        self.recorder = None
         self.robot = None
         self.cameras: dict[str, Any] = {}
         self.light = None
         self.skills: SkillRunner | None = None
         self._build_devices()
+
+    def _default_human(self):
+        """Viewer always; Telegram too when a bot token and chat ids are configured. First answer wins."""
+        import os
+        web = WebHuman(self.profile.authority.notify_webhook)
+        if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_IDS"):
+            try:
+                from .adapters.human_multi import MultiHuman
+                from .adapters.human_telegram import TelegramHuman
+                tg = TelegramHuman(image_dir=self.store.root / "images")
+                log.info("Telegram channel enabled")
+                return MultiHuman(web, tg)
+            except Exception as e:  # noqa: BLE001
+                log.warning("Telegram channel unavailable: %s", e)
+        return web
+
+    def enable_recording(self, repo_id: str = "farm/own-runs", fps: int = 10) -> None:
+        """Record the robot's own runs (joints, targets, frames) into a LeRobotDataset under data/dataset."""
+        from .adapters.base import ARM_JOINTS, HEAD_JOINTS, arm_joint
+        from .learning.recorder import EpisodeRecorder
+        joints = [arm_joint(a, j) for a in ("left", "right") for j in ARM_JOINTS] + HEAD_JOINTS
+        cams = [c.name for c in self.profile.cameras]
+        self.recorder = EpisodeRecorder(self.profile.data_path / "dataset", repo_id, fps, cams, (self.profile.cameras[0].height, self.profile.cameras[0].width), joints)
+        self._rec_next = 0.0
+
+        def on_tick(cur):
+            import time as _t
+            if _t.time() < self._rec_next or not getattr(self.recorder, "recording", True):
+                return
+            self._rec_next = _t.time() + 1.0 / fps
+            frames = {}
+            for n, cam in self.cameras.items():
+                r = cam.frame()
+                if r.ok:
+                    frames[n] = r.value
+            self.recorder.tick(cur, dict(getattr(self.skills, "last_sent", {}) or {}), frames)
+        self.skills.on_tick = on_tick
 
     @staticmethod
     def _with_overrides(profile: Profile) -> Profile:
@@ -140,6 +178,56 @@ class System:
         v = VLMPerception(self.backends.vision, self.store).check_views(frames)
         self.store.observation(None, "views.check", v.status.value, v.value, note=v.note)
         return {"status": v.status.value, "views": v.value, "note": v.note}
+
+    def ready_for_cycle(self) -> bool:
+        """Robot bus alive and not stopped; try one reconnect if the bus dropped (USB hiccup)."""
+        from .status import Status
+        if self.skills.estop.is_set():
+            return False
+        j = self.robot.joints()
+        if j.status is Status.OK:
+            return True
+        log.warning("robot joints %s (%s); attempting reconnect", j.status.value, j.note)
+        try:
+            self.robot.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self.robot.connect()
+            self.store.event(None, "reconnected", {"device": "robot"})
+            return self.robot.joints().status is Status.OK
+        except Exception as e:  # noqa: BLE001
+            self.store.event(None, "reconnect_failed", {"device": "robot", "error": str(e)})
+            self.state["problems"] = [f"robot: {e}"]
+            return False
+
+    def idle_rest(self, seconds: float) -> None:
+        """Between cycles: rest the arms, release torque so servos cool, watch temperature, then re-engage."""
+        from .safety.rules import check_health
+        try:
+            self.skills.go_rest()
+        except Exception as e:  # noqa: BLE001
+            log.warning("go_rest before idle failed: %s", e)
+        try:
+            self.robot.torque_off()
+            self.state["idle"] = True
+            self.store.event(None, "idle", {"seconds": seconds})
+        except Exception as e:  # noqa: BLE001
+            log.warning("torque_off failed: %s", e)
+        end = time.time() + seconds
+        while time.time() < end:
+            h = self.robot.health()
+            v = check_health(h, self.profile.limits)
+            self.state["health"] = h.value if h.ok else h.status.value
+            if not v.ok:
+                self.store.event(None, "health_warning", {"reason": v.reason})
+            time.sleep(min(30.0, max(1.0, end - time.time())))
+        try:
+            if hasattr(self.robot, "torque_on"):
+                self.robot.torque_on()
+        except Exception as e:  # noqa: BLE001
+            log.warning("torque_on failed: %s", e)
+        self.state["idle"] = False
 
     def pour_calibration(self) -> dict[str, float]:
         p = self.profile.data_path / "pour_calibration.yaml"

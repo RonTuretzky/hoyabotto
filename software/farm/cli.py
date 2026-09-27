@@ -10,8 +10,11 @@
   farm run        -p ... [--every 3600]   run cycles for every tray on a schedule, viewer included
   farm viewer     -p ...            viewer only (evidence browsing, reconciliation)
   farm review     -p ...            Astra daily review -> proposal
-  farm sim        [--faults ...]    the same program on fakes
+  farm cup-test   -p ... --tilt 25 --seconds 1.5 --who you   pour into a measuring cup, record the mL
+  farm light-monitor                stream the ESP32 lux readings
+  farm sim        [--faults ...] [--record]   the same program on fakes
   farm backup     -p ...
+  --record on run/once/sim writes the robot's own runs to data/dataset (LeRobotDataset)
 """
 from __future__ import annotations
 
@@ -30,16 +33,39 @@ def _log():
 
 
 def cmd_devices(a):
+    """List serial ports and cameras; with --probe, ping each motor bus to tell bus 1 from bus 2 and snapshot every camera."""
     from .adapters.camera_opencv import list_cameras
     from .adapters.robot_lerobot import find_serial_ports
+    ports = find_serial_ports()
     print("Serial ports:")
-    for p in find_serial_ports():
+    for p in ports:
         print(f"  {p['device']:40} {p['description'] or '':30} vid={p['vid']} pid={p['pid']} sn={p['serial']}")
+    cams = list_cameras()
     print("Cameras:")
-    for c in list_cameras():
+    for c in cams:
         print(f"  id={c.get('id')!r:14} {c.get('name')}")
-    print("\nMotor boards show up as /dev/tty.usbmodem… (macOS). Unplug one to tell bus 1 (left arm + head) from bus 2 (right arm + wheels).")
-    print("Cameras: assign index_or_path per camera in the profile; `farm check` asks the vision model to confirm which is which.")
+    if a.probe:
+        try:
+            from .tools.bus_probe import probe_ports
+            usb = [p["device"] for p in ports if "usbmodem" in (p["device"] or "") or "ttyACM" in (p["device"] or "")]
+            print("\nMotor bus probe:")
+            for r in probe_ports(usb):
+                print("  ", json.dumps(r, default=str))
+        except ImportError:
+            print("  (bus probe tool not available)")
+        out = Path("data/devices"); out.mkdir(parents=True, exist_ok=True)
+        import cv2
+        from lerobot.cameras.opencv import OpenCVCamera, OpenCVCameraConfig
+        print("\nCamera snapshots (open these to decide which index is head / left_wrist / right_wrist):")
+        for c in cams:
+            try:
+                cam = OpenCVCamera(OpenCVCameraConfig(index_or_path=c["id"], fps=30, width=640, height=480)); cam.connect()
+                f = cam.read(); cam.disconnect()
+                p = out / f"cam-{str(c['id']).replace('/', '_')}.jpg"
+                cv2.imwrite(str(p), cv2.cvtColor(f, cv2.COLOR_RGB2BGR)); print("  ", p)
+            except Exception as e:  # noqa: BLE001
+                print(f"   camera {c.get('id')!r}: {e}")
+    print("\nPut the two /dev/tty.usbmodem… ports and the camera indices into profiles/paper-tray-v0.yaml; `farm check` then asks the vision model to confirm which camera is which.")
 
 
 def _system(a, **kw):
@@ -91,13 +117,7 @@ def _needed_keyframes(s):
 def _teach_one(s, name, arm, goal):
     from .skills.llm_servo import LLMServo
     servo = LLMServo(s.skills, s.cameras, s.backends.vision, s.store, None, max_steps=s.profile.limits.llm_servo_max_steps)
-    if arm == "head":
-        # head is two joints: drive them like a tiny arm with pan/pitch only
-        arm_used = s.profile.arms.bottle
-        goal = goal + " (Move only the head: use dpan for head_motor_1 and dpitch for head_motor_2; do not move the arm.)"
-        out = servo.run(arm_used, goal, save_as=name, allow_gripper=False)
-    else:
-        out = servo.run(arm, goal, save_as=name, allow_gripper=True)
+    out = servo.run(arm, goal, save_as=name, allow_gripper=(arm != "head"))
     print(f"{name}: {'OK' if out.ok else 'FAILED'} in {out.steps} steps, ${out.cost_usd:.3f}: {out.reason}")
     return out.ok
 
@@ -136,6 +156,32 @@ def cmd_teach_all(a):
     sys.exit(1 if failed else 0)
 
 
+def cmd_cup_test(a):
+    """Bottle in the gripper over a kitchen measure: pour with the given tilt/seconds, then record what was measured."""
+    _log()
+    s = _system(a)
+    problems = s.connect()
+    if any(p.startswith("robot") for p in problems):
+        sys.exit("robot not connected: " + "; ".join(problems))
+    from .viewer.app import serve_in_thread
+    serve_in_thread(s, s.profile.viewer_port)
+    try:
+        if s.skills.held.get(s.profile.arms.bottle) != "bottle":
+            r = s.skills.pick_tool("bottle", "bottle_rest_above", "bottle_rest_grip")
+            if not r.ok:
+                sys.exit(f"pick bottle failed: {r.note}")
+        input("Hold a kitchen measuring cup under the spout (or place it and step back). Press ENTER to pour once … ")
+        aid = s.store.intent(None, "pour", {"tray": "cup", "tilt_deg": a.tilt, "seconds": a.seconds, "authorized_by": f"human:{a.who}"})
+        r = s.skills.pour(a.tilt, a.seconds, on_attempt=lambda: s.store.attempt(aid))
+        s.store.result(aid, "VERIFIED" if r.ok else "ABORTED", note=f"cup test {r.note}")
+        ml = float(input("Millilitres measured in the cup: ").strip() or "0")
+        s.save_pour_calibration(a.tilt, a.seconds, ml, a.who)
+        print(f"saved: tilt {a.tilt}°, {a.seconds}s → {ml} mL")
+        s.skills.go_rest()
+    finally:
+        s.disconnect()
+
+
 def cmd_calibrate_pour(a):
     s = _system(a)
     s.save_pour_calibration(a.tilt, a.seconds, a.ml, a.who)
@@ -149,6 +195,10 @@ def _run_cycles(s, trays, every: float | None):
     print(f"viewer: http://localhost:{s.profile.viewer_port}")
     while True:
         for tray in trays:
+            if not s.ready_for_cycle():
+                print("robot not ready (see viewer); retrying in 30 s")
+                time.sleep(30)
+                continue
             pre = s.state.get("preauthorized")
             if pre and pre.get("tray") == tray.id:
                 s.state.pop("preauthorized", None)
@@ -160,7 +210,7 @@ def _run_cycles(s, trays, every: float | None):
                     time.sleep(5)
         if every is None:
             return
-        time.sleep(every)
+        s.idle_rest(every)
 
 
 def cmd_once(a):
@@ -169,6 +219,8 @@ def cmd_once(a):
     problems = s.connect()
     if any(p.startswith("robot") for p in problems):
         sys.exit("robot not connected: " + "; ".join(problems))
+    if a.record:
+        s.enable_recording()
     try:
         _run_cycles(s, [s.profile.tray(a.tray)] if a.tray else s.profile.trays, None)
     finally:
@@ -181,6 +233,8 @@ def cmd_run(a):
     problems = s.connect()
     if any(p.startswith("robot") for p in problems):
         sys.exit("robot not connected: " + "; ".join(problems))
+    if a.record:
+        s.enable_recording()
     try:
         _run_cycles(s, s.profile.trays, a.every)
     finally:
@@ -217,6 +271,8 @@ def cmd_sim(a):
     s = System(load_profile("sim"), human=human, faults=faults)
     s.connect()
     _seed_sim_keyframes(s)
+    if a.record:
+        s.enable_recording()
     try:
         _run_cycles(s, s.profile.trays, None)
     finally:
@@ -242,6 +298,11 @@ def _seed_sim_keyframes(s):
         t.look_pose, t.pour_pose, t.measure_pose = f"look_{t.id}", f"pour_{t.id}", f"measure_{t.id}"
 
 
+def cmd_light_monitor(a):
+    from .tools.light_monitor import run
+    run(a.port or None, a.baud, a.seconds)
+
+
 def cmd_backup(a):
     s = _system(a)
     print(s.store.backup(s.profile.data_path / "backups"))
@@ -252,13 +313,15 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="farm", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name, fn, extra in [
-        ("devices", cmd_devices, []), ("calibrate", cmd_calibrate, []), ("check", cmd_check, []),
+        ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, []), ("check", cmd_check, []),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),
         ("calibrate-pour", cmd_calibrate_pour, [("--tilt", {"type": float, "required": True}), ("--seconds", {"type": float, "required": True}), ("--ml", {"type": float, "required": True}), ("--who", {"required": True})]),
-        ("once", cmd_once, [("--tray", {})]), ("run", cmd_run, [("--every", {"type": float, "default": 3600})]),
+        ("cup-test", cmd_cup_test, [("--tilt", {"type": float, "default": 25.0}), ("--seconds", {"type": float, "default": 1.5}), ("--who", {"required": True})]),
+        ("once", cmd_once, [("--tray", {}), ("--record", {"action": "store_true"})]), ("run", cmd_run, [("--every", {"type": float, "default": 3600}), ("--record", {"action": "store_true"})]),
         ("viewer", cmd_viewer, []), ("review", cmd_review, []), ("backup", cmd_backup, []),
-        ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"})]),
+        ("light-monitor", cmd_light_monitor, [("--port", {"default": ""}), ("--baud", {"type": int, "default": 115200}), ("--seconds", {"type": float, "default": None})]),
+        ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
     ]:
         sp = sub.add_parser(name)
         if name != "sim":

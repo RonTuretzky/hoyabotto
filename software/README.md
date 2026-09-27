@@ -19,7 +19,7 @@ farm/
 firmware/esp32_light/  BH1750 → JSON lines at 5 Hz
 profiles/              paper-tray-v0.yaml (real), sim.yaml (fakes)
 parts/                 printable nest plate, tag tiles, light paddle, bottle rest (AnkerMake M5C)
-tests/                 23 tests on the simulator: happy path, every pause path, UNKNOWN delivery, authority
+tests/                 37 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe
 ```
 
 ## Setup (MacBook)
@@ -29,7 +29,7 @@ cd software
 uv venv --python 3.12 .venv && . .venv/bin/activate
 uv pip install -e .            # lerobot[feetech], opencv, pyserial, fastapi, httpx …
 cp .env.example .env           # OPENROUTER_API_KEY=… (Jev/Astra). Claude vision uses the logged-in `claude` CLI.
-python -m pytest -q            # 23 passed
+python -m pytest -q            # 37 passed
 farm sim --auto-answer         # whole program on fakes; viewer at http://localhost:8765
 ```
 
@@ -47,13 +47,14 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 
 ## Japan, day 1 (robot assembled, wall-powered, base parked)
 
-1. `farm devices` — note the two `/dev/tty.usbmodem…` ports (unplug one board to tell them apart) and the camera indices; put them in `profiles/paper-tray-v0.yaml`.
+1. `farm devices --probe` — pings each motor bus (IDs 1–8 = bus 1, 9–10 = bus 2) and snapshots every camera into `data/devices/`; put the ports and camera indices in `profiles/paper-tray-v0.yaml`.
 2. `farm calibrate` — LeRobot's one-time range-of-motion calibration (support the arms; this is setup, not operation).
 3. `farm check` — connects everything, asks the vision model which camera is which, prints statuses.
 4. Put the bottle in its rest, the paddle in its rest, the cress tray in its nest. `farm teach-all` — the LLM-servo learns every keyframe the profile needs (bottle rest, paddle rest, look/pour/measure per tray) and saves them to `data/keyframes.yaml`. Re-run any single one with `farm teach --arm right --goal "…" --save pour_B`.
 5. Empty-bottle rehearsal: `farm once --tray B` with an empty bottle; authorize from the viewer.
-6. Cup test: pour into a kitchen measure, then `farm calibrate-pour --tilt 25 --seconds 1.5 --ml 28 --who you`.
-7. `farm run --every 3600` — cycles every tray hourly; the viewer is at `http://<mac-ip>:8765` from your phone.
+6. Cup test: `farm cup-test --tilt 25 --seconds 1.5 --who you` pours into a kitchen measure and records the millilitres you read.
+7. `farm run --every 3600 [--record]` — cycles every tray hourly, rests the arms torque-off between cycles, reconnects on USB drops; the viewer is at `http://<mac-ip>:8765` from your phone (big red STOP holds every motor). `--record` writes the robot's own runs to `data/dataset` as a LeRobotDataset.
+   Questions also go to Telegram when `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_IDS` are in `.env` (first answer wins).
 8. `farm review` once a day — Astra proposes one change; accept/reject in the viewer (or `authority.astra: apply-safe` for bounded numeric changes).
 
 ## What can never happen
@@ -68,5 +69,7 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 shadow → route → approve. Starts at shadow; promotes itself after `jev_shadow_cycles` agreeing cycles; demotes on a false approval (spill at reconciliation). Set from the viewer at any time.
 
 ## Firmware
+
+`farm light-monitor` streams the ESP32 readings once the board is flashed.
 
 `firmware/esp32_light/esp32_light.ino` — Arduino IDE, board "ESP32 Dev Module", 115200 baud. BH1750 on 3V3/GND/SDA=GPIO21/SCL=GPIO22 (verify the delivered ELEGOO board's labels). `farm check` shows the live lux stream.

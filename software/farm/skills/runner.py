@@ -48,6 +48,9 @@ class SkillRunner:
         self.held: dict[str, str | None] = {"left": None, "right": None}   # tool currently gripped per arm
         self.on_tick = on_tick   # callback(joints) for evidence/telemetry
         self._stopped = False
+        self.last_sent: dict[str, float] = {}
+        import threading
+        self.estop = threading.Event()   # set by the viewer's STOP button; cleared by a named person
 
     # ---- low-level -----------------------------------------------------------
     def _read_joints(self) -> dict[str, float]:
@@ -61,6 +64,9 @@ class SkillRunner:
         return j.value
 
     def _guard(self, tick: int) -> None:
+        if self.estop.is_set():
+            self.stop()
+            raise SafetyStop("STOP pressed in the viewer")
         if tick % 10 == 0:
             h = check_health(self.robot.health(), self.limits)
             if not h.ok:
@@ -79,6 +85,7 @@ class SkillRunner:
             r = self.robot.move_to(step, max_step=self.limits.step_deg_max)
             if r.status is not Status.OK:
                 self.stop(); raise SafetyStop(f"move refused: {r.note}")
+            self.last_sent = {**cur, **step}
             time.sleep(TICK_S)
             cur = self._read_joints()
             if self.on_tick:

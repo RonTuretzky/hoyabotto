@@ -409,7 +409,7 @@ def d_timeline():
             s += label(x + 12, gy, part, 12, 700, ORANGE); gy += 16
         if i < 4: s += arrow(x + 210, 210, x + 226, 210)
     s += label(40, 40, 'A failed gate holds the previous level. Dates are targets; the gates are the plan.', 15, 700, GREY)
-    s += box(40, 492, 1120, 78, 'Status on Sep 27', ['Phase 0 is done: software/ holds layers 1–7 (49 files), 23 simulator tests pass, and the Claude CLI, Jev router and Astra were exercised live. Nothing has touched the physical robot yet; every claim about reach, grip and pours waits for Sep 30.'], kind='ex', fs=13.5, tfs=15, cw=150)
+    s += box(40, 492, 1120, 78, 'Status on Sep 27', ['Phase 0 is done: software/ holds layers 1–7, 37 tests pass, and the Claude CLI, Jev router and Astra were exercised live; the step-by-step guide covers every remaining physical step. Nothing has touched the physical robot yet; every claim about reach, grip and pours waits for Sep 30.'], kind='ex', fs=13.5, tfs=15, cw=150)
     return svg(1200, 585, s, 'Five phases with gates from Sep 26 to Oct 10')
 
 def d_decisions():
@@ -448,14 +448,14 @@ def d_parts():
 
 def d_status():
     rows = [
-        ('farm/adapters', 'robot (LeRobot 0.6 + vendored XLerobot2Wheels), cameras, ESP32 serial, human web; fakes', 'unit + cycle tests', 'robot & ESP32 wait for hardware'),
-        ('farm/skills', 'arm model + IK, keyframes, 8 skills, LLM-servo', 'servo test; live Claude run: 4 steps → done', 'reach/grip on the real arm'),
+        ('farm/adapters', 'robot (LeRobot 0.6 + vendored XLerobot2Wheels), cameras, ESP32 serial, human web + Telegram; fakes', 'unit, cycle + Telegram tests', 'robot & ESP32 wait for hardware'),
+        ('farm/skills', 'arm model + IK, keyframes, 8 skills, LLM-servo (arm + head), e-stop', 'servo/head/e-stop tests; live Claude: 4 steps → done', 'reach/grip on the real arm'),
         ('farm/perception', 'frame quality, green fraction, VLM typed judgement, view check', 'live Claude: spill UNKNOWN when occluded', 'real trays, real lighting'),
         ('farm/cycle', 'state machine, runner, authority ladder', '11 cycle tests: pours, pauses, UNKNOWN, promotion', 'real pauses'),
         ('farm/evidence', 'SQLite + images; intent → attempt → result; crash → UNKNOWN', 'crash test', '—'),
         ('farm/llm', 'Claude CLI (subscription), OpenRouter, Jev, Astra', 'live: judge, Jev pour/route, Astra proposal', 'cost over a real day'),
-        ('farm/viewer', 'state, frames, questions, reconcile, authority, proposals', 'API exercised; page rendered', 'phone use'),
-        ('firmware, parts, profiles', 'ESP32 BH1750 JSON; STL generator; paper-tray-v0 / sim', 'sim profile end to end', 'flash + print'),
+        ('farm/viewer', 'state, frames, questions, reconcile, authority, proposals, STOP', 'API exercised; page rendered', 'phone use'),
+        ('tools, learning, parts', 'bus probe, light monitor, cup-test, LeRobotDataset recorder; STL generator', 'probe/recorder tests; sim --record wrote a dataset', 'flash + print'),
     ]
     s = label(40, 36, 'Module', 14, 700, GREY) + label(240, 36, 'What it is', 14, 700, GREY) + label(680, 36, 'Proven by', 14, 700, GREY) + label(980, 36, 'Waits for', 14, 700, GREY)
     for i, (m, w, pr, wt) in enumerate(rows):
@@ -465,7 +465,7 @@ def d_status():
         for k, part in enumerate(wrap(w, 52)[:2]): s += label(240, y + k * 16, part, 12.5)
         for k, part in enumerate(wrap(pr, 36)[:2]): s += label(680, y + k * 16, part, 12.5, 400, GREEN)
         for k, part in enumerate(wrap(wt, 22)[:2]): s += label(980, y + k * 16, part, 12.5, 400, ORANGE)
-    s += box(40, 505, 1120, 56, 'Run it now: farm sim --auto-answer → two POURED cycles on fakes, viewer at localhost:8765 · python -m pytest → 23 passed', [], kind='ex', tfs=14)
+    s += box(40, 505, 1120, 56, 'Run it now: farm sim --auto-answer --record → two POURED cycles + a dataset, viewer at localhost:8765 · python -m pytest → 37 passed', [], kind='ex', tfs=14)
     return svg(1200, 580, s, 'What exists today and what proves it')
 
 # ---------------------------------------------------------------- slides
@@ -474,7 +474,7 @@ SLIDES = [
  ('start', 'Software roadmap · updated Sep 27, 2026', 'The farm software, end to end',
   'What we built, what it stands on, how the parts connect, what is proven on the simulator and with live models, and what waits for the robot.', d_title, [
   ('Scope', 'One parked robot, two arms, three cameras, one light sensor, cress trays in fixed printed nests, one bottle. Nobody drives the robot.'),
-  ('Status', 'Layers 1–7 exist as code in software/ (Sep 27): 23 simulator tests pass; Claude CLI, Jev and Astra verified live. Untested on the physical robot until Sep 30.'),
+  ('Status', 'Layers 1–7 exist as code in software/ (Sep 27): 37 tests pass; Claude CLI, Jev and Astra verified live; STOP, cup-test, bus probe, Telegram and run recording added. Untested on the physical robot until Sep 30.'),
   ('Navigate', 'Arrow keys or the buttons. O opens the outline; P presents full screen.')],
   'Sources: XLeRobot repository and docs, LeRobot 0.6.1, the September 20 redline, the software/ package and its tests.'),
 
@@ -509,7 +509,7 @@ SLIDES = [
 
  ('status', 'Implementation status · Sep 27', 'What exists today, and what proves it',
   'Every layer is code in software/, tested on the simulator; the model-facing parts were exercised against the real Claude CLI, Jev router and Astra. Hardware-facing parts wait for the robot.', d_status, [
-  ('Tested', 'pytest: 23 tests — happy path, no-answer, stale camera, spill UNKNOWN blocks retry, upright failure, rules block, budget block, Jev shadow/approve/low-p, promotion + demotion, servo learns keyframe, servo abort, Astra bounds.'),
+  ('Tested', 'pytest: 37 tests — happy path, no-answer, stale camera, spill UNKNOWN blocks retry, upright failure, rules block, budget block, Jev shadow/approve/low-p, promotion + demotion, servo (arm + head), e-stop, Astra bounds, Telegram, recorder, bus probe.'),
   ('Live', 'Claude CLI judge on synthetic frames (typed JSON; UNKNOWN when occluded); Jev pour → reinspect on unknown paper edge, route → routine; LLM-servo 4 steps to done; Astra produced a proposal.'),
   ('Not yet', 'Anything physical: ports, calibration, camera identities, reach, grip, pours, ESP32 on real wires. All of it is Sep 30+.')],
   'The simulator is the same program with fakes plugged in; its results say the logic is right, not that the arm can reach the tray.'),

@@ -101,8 +101,18 @@ class CareCycle:
 
     # ---- the cycle ---------------------------------------------------------------
     def run(self) -> CycleOutcome:
+        rec = getattr(self.sys, "recorder", None)
+        if rec is not None:
+            try:
+                rec.start_episode(f"care cycle tray {self.tray.id}")
+            except Exception as e:  # noqa: BLE001
+                log.warning("recorder start failed: %s", e)
+                rec = None
         try:
-            return self._run()
+            out = self._run()
+            if rec is not None:
+                rec.end_episode(save=out.result in ("POURED", "NO_POUR", "RESOLVED"))
+            return out
         except Exception as e:  # noqa: BLE001
             log.exception("cycle crashed")
             try:
@@ -111,6 +121,11 @@ class CareCycle:
                 pass
             self.store.end_cycle(self.cycle_id, "CRASHED", str(e))
             self.system_state["last_error"] = str(e)
+            if rec is not None:
+                try:
+                    rec.end_episode(save=False)
+                except Exception:  # noqa: BLE001
+                    pass
             return CycleOutcome(self.cycle_id, self.tray.id, "CRASHED", str(e), history=self.m.history)
 
     def _run(self) -> CycleOutcome:

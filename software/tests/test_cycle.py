@@ -169,3 +169,29 @@ def test_astra_apply_safe_respects_bounds(sim, tmp_path):
     r2 = astra2.review(s.profile.raw)
     assert not r2["applied"]
     assert s.store.query("SELECT status FROM proposals ORDER BY t")[1]["status"] == "OPEN"
+
+
+def test_head_servo_moves_only_head_and_saves_keyframe(sim):
+    from farm.skills.llm_servo import LLMServo
+    s = sim()
+    model = ScriptedLLM([{"action": "move", "dpan_deg": 20, "dpitch_deg": -3, "confidence": 0.8, "why": "turn"},
+                         {"action": "done", "confidence": 0.9, "why": "centred"}])
+    before = dict(s.robot.pos)
+    out = LLMServo(s.skills, s.cameras, model, s.store, None, max_steps=4).run("head", "centre tray B", save_as="look_B_learned")
+    assert out.ok and "look_B_learned" in s.keyframes.names()
+    kf = s.keyframes.get("look_B_learned")
+    assert set(kf) == {"head_motor_1", "head_motor_2"}
+    assert abs(s.robot.goal["head_motor_1"] - 6.0) < 1e-6          # 20° request clamped to the 6° step
+    assert all(abs(s.robot.goal[j] - before[j]) < 1e-6 for j in before if j.startswith("right_arm") or j.startswith("left_arm"))
+
+
+def test_estop_halts_any_skill(sim):
+    from farm.safety.rules import SafetyStop
+    s = sim()
+    s.skills.estop.set()
+    try:
+        s.skills.go_rest(); assert False, "should have stopped"
+    except SafetyStop as e:
+        assert "STOP" in str(e)
+    s.skills.estop.clear()
+    assert s.skills.go_rest().ok

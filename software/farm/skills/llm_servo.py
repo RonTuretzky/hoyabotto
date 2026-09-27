@@ -72,6 +72,8 @@ class LLMServo:
         return out
 
     def run(self, arm: str, goal: str, save_as: str | None = None, allow_gripper: bool = True) -> ServoOutcome:
+        if arm == "head":
+            return self.run_head(goal, save_as)
         m = self.runner.models[arm]
         self.runner._read_joints()   # sync the Cartesian estimate from the real joints
         trace: list[dict[str, Any]] = []
@@ -133,3 +135,55 @@ class LLMServo:
             time.sleep(0.2)
         self.runner.stop()
         return ServoOutcome(False, "step budget exhausted", self.max_steps, trace=trace, cost_usd=cost)
+
+
+HEAD_SYSTEM = (
+    "You aim the head camera of a small two-arm robot. You see only the head camera. Each turn return ONE small step as JSON: "
+    "{\"action\": \"move\"|\"done\"|\"abort\", \"dpan_deg\": number, \"dpitch_deg\": number, \"confidence\": 0-1, \"why\": string}. "
+    "Positive dpan turns the view right, positive dpitch tilts the view down; steps are clamped to +-6 degrees. "
+    "Say done only when the goal is centred and fully in view; abort if it cannot be found within a few steps."
+)
+
+
+def _head_run(self, goal: str, save_as: str | None) -> ServoOutcome:
+    from ..adapters.base import HEAD_JOINTS
+    trace: list[dict[str, Any]] = []
+    cost = 0.0
+    step_max = self.runner.limits.step_deg_max
+    for step in range(1, self.max_steps + 1):
+        cam = self.cameras.get("head")
+        r = cam.frame() if cam is not None else None
+        if r is None or r.status is not Status.OK:
+            return ServoOutcome(False, "head camera frame not OK", step - 1, trace=trace, cost_usd=cost)
+        cur = self.runner._read_joints()
+        prompt = (f"Goal: {goal}\nStep {step}/{self.max_steps}. Current head: pan={cur.get(HEAD_JOINTS[0], 0):.0f}, tilt={cur.get(HEAD_JOINTS[1], 0):.0f}.\n"
+                  f"Previous steps: {json.dumps(trace[-4:], default=str)}")
+        try:
+            d, meta = self.backend.complete_json(prompt, images=[("head", r.value)], system=HEAD_SYSTEM)
+        except LLMError as e:
+            return ServoOutcome(False, f"model error: {e}", step - 1, trace=trace, cost_usd=cost)
+        cost += meta.cost_usd
+        action = str(d.get("action", "abort")).lower()
+        rec = {"step": step, "action": action, "conf": float(d.get("confidence", 0) or 0), "why": str(d.get("why", ""))[:160],
+               "dpan": d.get("dpan_deg", 0), "dpitch": d.get("dpitch_deg", 0)}
+        trace.append(rec)
+        if self.store is not None:
+            self.store.decision(self.cycle_id, "llm_servo", goal, "head", action, {"confidence": rec["conf"]}, "farm-servo-1", meta.model, meta.latency_ms, meta.cost_usd, honoured=True, note=rec["why"])
+        if action == "abort":
+            return ServoOutcome(False, f"model aborted: {rec['why']}", step, trace=trace, cost_usd=cost)
+        if action == "done":
+            joints = self.runner._read_joints()
+            if save_as and self.runner.kf is not None:
+                self.runner.kf.save(save_as, {k: v for k, v in joints.items() if k in HEAD_JOINTS}, arm="head", note=goal, learned_by=f"llm_servo:{meta.model}")
+            return ServoOutcome(True, rec["why"], step, joints, trace, cost)
+        c = lambda v: max(-step_max, min(step_max, float(v or 0)))  # noqa: E731
+        target = {HEAD_JOINTS[0]: cur.get(HEAD_JOINTS[0], 0) + c(rec["dpan"]), HEAD_JOINTS[1]: cur.get(HEAD_JOINTS[1], 0) + c(rec["dpitch"])}
+        try:
+            self.runner.move_joints(target, max_s=3)
+        except SafetyStop as e:
+            return ServoOutcome(False, f"safety stop: {e}", step, trace=trace, cost_usd=cost)
+        time.sleep(0.2)
+    return ServoOutcome(False, "step budget exhausted", self.max_steps, trace=trace, cost_usd=cost)
+
+
+LLMServo.run_head = _head_run
