@@ -455,7 +455,7 @@ def d_status():
         ('farm/evidence', 'SQLite + images; intent → attempt → result; crash → UNKNOWN', 'crash test', '—'),
         ('farm/llm', 'Claude CLI (subscription), OpenRouter, Jev, Astra', 'live: judge, Jev pour/route, Astra proposal', 'cost over a real day'),
         ('farm/viewer', 'state, frames, questions, reconcile, authority, proposals, STOP', 'API exercised; page rendered', 'phone use'),
-        ('learning', 'recorder (.pos names, v3), train/evaluate/infer wrappers, PolicySkill under the safety clamps', 'ACT trained on SO-101 pour data (MPS); checkpoint ran as a skill on the sim', 'our own 60–100 episodes'),
+        ('learning', 'recorder (.pos names, v3), train/evaluate/infer wrappers, PolicySkill under the safety clamps', 'ACT 5000 steps on SO-101 pour data (MPS, loss 3.3→0.42); checkpoint drove the sim; offline MAE only', 'our own 60–100 episodes'),
         ('tools, parts', 'bus probe, light monitor, cup-test, AprilTag identity; STL generator', 'probe/tag tests', 'flash + print'),
     ]
     s = label(40, 36, 'Module', 14, 700, GREY) + label(240, 36, 'What it is', 14, 700, GREY) + label(680, 36, 'Proven by', 14, 700, GREY) + label(980, 36, 'Waits for', 14, 700, GREY)
