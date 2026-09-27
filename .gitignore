@@ -14,3 +14,4 @@ __pycache__/
 software/data-sim/
 software/*.egg-info/
 software/parts/out/
+software/data-train/

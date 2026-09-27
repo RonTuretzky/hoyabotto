@@ -210,7 +210,28 @@ def _run_cycles(s, trays, every: float | None):
                     time.sleep(5)
         if every is None:
             return
+        _daily_maintenance(s)
         s.idle_rest(every)
+
+
+def _daily_maintenance(s):
+    """Once per day inside `farm run`: Astra review (proposal) and a verified backup."""
+    last = s.state.get("last_maintenance", 0.0)
+    if time.time() - last < 86400:
+        return
+    s.state["last_maintenance"] = time.time()
+    try:
+        path = s.store.backup(s.profile.data_path / "backups")
+        s.state["last_backup"] = s.store.verify_backup(path)
+    except Exception as e:  # noqa: BLE001
+        s.store.event(None, "backup_failed", {"error": str(e)})
+    try:
+        from .llm.astra import Astra
+        from .llm.backends import NoLLM
+        if not isinstance(s.backends.astra, NoLLM):
+            Astra(s.backends.astra, s.store, s.profile.authority.astra, s.profile.data_path / "overrides.yaml").review(s.profile.raw)
+    except Exception as e:  # noqa: BLE001
+        s.store.event(None, "astra_failed", {"error": str(e)})
 
 
 def cmd_once(a):
@@ -305,7 +326,10 @@ def cmd_light_monitor(a):
 
 def cmd_backup(a):
     s = _system(a)
-    print(s.store.backup(s.profile.data_path / "backups"))
+    path = s.store.backup(s.profile.data_path / "backups")
+    print(path)
+    if a.verify:
+        print(json.dumps(s.store.verify_backup(path)))
 
 
 def main(argv=None):
@@ -319,7 +343,7 @@ def main(argv=None):
         ("calibrate-pour", cmd_calibrate_pour, [("--tilt", {"type": float, "required": True}), ("--seconds", {"type": float, "required": True}), ("--ml", {"type": float, "required": True}), ("--who", {"required": True})]),
         ("cup-test", cmd_cup_test, [("--tilt", {"type": float, "default": 25.0}), ("--seconds", {"type": float, "default": 1.5}), ("--who", {"required": True})]),
         ("once", cmd_once, [("--tray", {}), ("--record", {"action": "store_true"})]), ("run", cmd_run, [("--every", {"type": float, "default": 3600}), ("--record", {"action": "store_true"})]),
-        ("viewer", cmd_viewer, []), ("review", cmd_review, []), ("backup", cmd_backup, []),
+        ("viewer", cmd_viewer, []), ("review", cmd_review, []), ("backup", cmd_backup, [("--verify", {"action": "store_true"})]),
         ("light-monitor", cmd_light_monitor, [("--port", {"default": ""}), ("--baud", {"type": int, "default": 115200}), ("--seconds", {"type": float, "default": None})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
     ]:

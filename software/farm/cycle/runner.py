@@ -151,6 +151,14 @@ class CareCycle:
         bad = [f"{n}: {qq.note or qq.status.value}" for n, qq in q.items() if qq.status is not Status.OK]
         if bad:
             self._pause("camera view not usable: " + "; ".join(bad)); return self._await_resolution()
+        if t.tag_id is not None:
+            from ..perception.tags import confirm_tray
+            head = dict(frames).get("head")
+            tag = confirm_tray(head, t.tag_id) if head is not None else None
+            if tag is not None:
+                self.store.observation(self.cycle_id, "tray.tag", tag.status.value, tag.value, note=tag.note, extractor_version="apriltag-1")
+                if tag.status is Status.OK and tag.value is False:
+                    self._pause(f"wrong tray in nest {t.nest}: {tag.note}"); return self._await_resolution()
 
         # INSPECT: typed judgement from the vision model (or UNKNOWN without one).
         self.m.go(S.INSPECT); self._publish()

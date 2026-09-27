@@ -145,6 +145,11 @@ class System:
         return problems
 
     def disconnect(self) -> None:
+        if self.recorder is not None:
+            try:
+                self.recorder.close()   # finalizes dataset metadata so it reopens offline
+            except Exception as e:  # noqa: BLE001
+                log.warning("recorder close failed: %s", e)
         for cam in self.cameras.values():
             try:
                 cam.disconnect()

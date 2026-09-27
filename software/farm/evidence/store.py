@@ -213,6 +213,17 @@ class EvidenceStore:
             b.close()
         return target
 
+    def verify_backup(self, path: Path) -> dict[str, Any]:
+        """Restore test: open the backup read-only and count rows per table; raise if it does not open."""
+        b = sqlite3.connect(f"file:{Path(path)}?mode=ro", uri=True)
+        try:
+            counts = {t: b.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ("cycles", "observations", "decisions", "actions", "interventions", "proposals", "events")}
+            ok = b.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        finally:
+            b.close()
+        self.event(None, "backup_verified", {"path": str(path), "ok": ok, **counts})
+        return {"ok": ok, **counts}
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

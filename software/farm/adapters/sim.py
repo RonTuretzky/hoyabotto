@@ -132,7 +132,19 @@ class FakeCamera:
 
     def _render(self) -> np.ndarray:
         """A synthetic tray: grey table, a dark rectangle (tray), a blue patch (water) unless 'dry',
-        a brown blotch (spill) when requested, green speckle proportional to 'growth'."""
+        a brown blotch (spill) when requested, green speckle proportional to 'growth'.
+        If faults['replay_dir'] points at a folder of JPEG/PNG photos, those are replayed instead (round-robin),
+        so real station photos can drive the whole program before the robot exists."""
+        rd = self.faults.get("replay_dir")
+        if rd:
+            import cv2
+            from pathlib import Path as _P
+            files = sorted([f for f in _P(rd).glob("*") if f.suffix.lower() in (".jpg", ".jpeg", ".png")])
+            if files:
+                self._replay_i = getattr(self, "_replay_i", -1) + 1
+                img = cv2.imread(str(files[self._replay_i % len(files)]))
+                if img is not None:
+                    return cv2.cvtColor(cv2.resize(img, (640, 480)), cv2.COLOR_BGR2RGB)
         h, w = 480, 640
         img = np.full((h, w, 3), 150, np.uint8)
         wet = not self.faults.get("tray_dry")
