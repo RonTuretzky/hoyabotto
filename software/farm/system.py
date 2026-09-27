@@ -68,7 +68,9 @@ class System:
         from .learning.recorder import EpisodeRecorder
         joints = [arm_joint(a, j) for a in ("left", "right") for j in ARM_JOINTS] + HEAD_JOINTS
         cams = [c.name for c in self.profile.cameras]
-        self.recorder = EpisodeRecorder(self.profile.data_path / "dataset", repo_id, fps, cams, (self.profile.cameras[0].height, self.profile.cameras[0].width), joints)
+        # dataset feature names carry ".pos" (LeRobot / public xlerobot convention) so our files merge with community sets
+        self.recorder = EpisodeRecorder(self.profile.data_path / "dataset", repo_id, fps, cams, (self.profile.cameras[0].height, self.profile.cameras[0].width), [j + ".pos" for j in joints])
+        self._rec_joints = joints
         self._rec_next = 0.0
 
         def on_tick(cur):
@@ -81,7 +83,8 @@ class System:
                 r = cam.frame()
                 if r.ok:
                     frames[n] = r.value
-            self.recorder.tick(cur, dict(getattr(self.skills, "last_sent", {}) or {}), frames)
+            sent = dict(getattr(self.skills, "last_sent", {}) or {})
+            self.recorder.tick({j + ".pos": cur.get(j, 0.0) for j in self._rec_joints}, {j + ".pos": sent.get(j, cur.get(j, 0.0)) for j in self._rec_joints}, frames)
         self.skills.on_tick = on_tick
 
     @staticmethod

@@ -288,6 +288,16 @@ STEPS = [
   [], [], None, 'first proposal reviewed and a backup exists', ''),
 
  # ---------------- phase 9
+ ('p8', 'train', 'Turn the robot’s own runs into a learned pour (v2)', 90,
+  'Keyframes replay one pose; a learned policy re-aligns the grasp and spout from the cameras when the bottle sits slightly differently. The training data is the robot’s own successful runs — nobody demonstrates.',
+  ['Record while running (each cycle becomes an episode with 30 fps frames + joint targets):' + code('farm run --every 3600 --record        # writes data/dataset (LeRobotDataset v3, .pos joint names, 3 cameras)'),
+   'Target 60–100 saved episodes (30–50 per tray); failed cycles are discarded automatically.',
+   'Train locally (ACT, Apple-silicon GPU) or on a rented GPU (SmolVLA base, pretrained on SO-100/101 data):' + code('python -m farm.learning.train --policy act --dataset-root data/dataset --steps 20000 --device mps\n# or: python -m farm.learning.train --policy smolvla --dataset-root data/dataset --steps 20000 --job-target a10g-small'),
+   'Evaluate offline against held-out episodes, then run the checkpoint as a skill on the simulator and, with the STOP button in reach, on the robot:' + code('python -m farm.learning.evaluate --checkpoint data-train/act_farm/checkpoints/last/pretrained_model --dataset-root data/dataset\nfarm policy-test --checkpoint data-train/act_farm/checkpoints/last/pretrained_model        # simulator\nfarm policy-test --checkpoint … --real --steps 100                                           # robot, clamped, e-stop ready'),
+   'Only when it beats the keyframe skill on held-out episodes: set <code>policy.enabled: true</code> (shadow first) in the profile.'],
+  ['60–100 recorded episodes', 'Mac (ACT) or a rented GPU (SmolVLA)'], [('Research: data and policies that exist', 'downloads/research-training.md'), ('Best same-arm pour data (100 ep)', 'https://huggingface.co/datasets/UNITAmanipulation/so101_pour_water_20260919_142610'), ('SmolVLA base', 'https://huggingface.co/lerobot/smolvla_base')], None,
+  'a checkpoint exists and farm policy-test ran it on the simulator', 'Public SO-101 pouring data teaches the motion prior, not our tray: the last 10–20 cm of approach only comes from our own episodes. An offline error is not a success rate.'),
+
  ('p9', 'grow', 'Daily plant checks', 10,
   'The robot inspects and waters; a person still looks at the crop once a day and writes two lines. The photos are in the viewer.',
   ['Follow <a href="growing.html#daily">the daily plan</a>: paper evenly damp, no puddles, cover off once shoots stand, bright light.', 'Log observations in the notebook; note every manual top-up as an intervention.'],

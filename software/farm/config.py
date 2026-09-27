@@ -109,6 +109,21 @@ class AuthorityCfg:
 
 
 @dataclass
+class PolicyCfg:
+    """A learned policy for one skill. state_joints are our joint names in the order the policy expects;
+    camera_map maps the policy's image keys to our camera names."""
+    enabled: bool = False
+    skill: str = "pour"                       # which skill it replaces when enabled and healthy
+    checkpoint: str = ""                      # local dir or HF repo id
+    device: str = "mps"
+    state_joints: list[str] = field(default_factory=lambda: [f"right_arm_{j}" for j in ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")])
+    camera_map: dict[str, str] = field(default_factory=lambda: {"observation.images.wrist": "right_wrist", "observation.images.front": "head"})
+    hz: float = 10.0
+    max_steps: int = 300
+    shadow: bool = True                       # log what the policy would do; keyframes still execute
+
+
+@dataclass
 class Profile:
     name: str
     robot: RobotCfg
@@ -120,6 +135,7 @@ class Profile:
     deadlines: DeadlinesCfg
     llm: LLMCfg
     authority: AuthorityCfg
+    policy: PolicyCfg = field(default_factory=PolicyCfg)
     data_dir: str = "data"
     viewer_port: int = 8765
     simulated: bool = False
@@ -167,6 +183,7 @@ def load_profile(name_or_path: str) -> Profile:
         deadlines=_build(DeadlinesCfg, raw.get("deadlines")),
         llm=_build(LLMCfg, raw.get("llm")),
         authority=_build(AuthorityCfg, raw.get("authority")),
+        policy=_build(PolicyCfg, raw.get("policy")),
         data_dir=raw.get("data_dir", "data"),
         viewer_port=int(raw.get("viewer_port", 8765)),
         simulated=bool(raw.get("simulated", False)),

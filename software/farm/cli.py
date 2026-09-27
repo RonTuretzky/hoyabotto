@@ -11,6 +11,7 @@
   farm viewer     -p ...            viewer only (evidence browsing, reconciliation)
   farm review     -p ...            Astra daily review -> proposal
   farm cup-test   -p ... --tilt 25 --seconds 1.5 --who you   pour into a measuring cup, record the mL
+  farm policy-test --checkpoint DIR  run a trained checkpoint as a skill on the simulator (or --real), clamped
   farm light-monitor                stream the ESP32 lux readings
   farm sim        [--faults ...] [--record]   the same program on fakes
   farm backup     -p ...
@@ -319,6 +320,35 @@ def _seed_sim_keyframes(s):
         t.look_pose, t.pour_pose, t.measure_pose = f"look_{t.id}", f"pour_{t.id}", f"measure_{t.id}"
 
 
+def cmd_policy_test(a):
+    """Load a trained checkpoint and run it as a skill on the simulator (default) or the real robot, under the safety envelope."""
+    _log()
+    from .config import load_profile
+    from .skills.policy import PolicySkill
+    from .system import System
+    from .learning.infer import PolicyRunner
+    if a.real:
+        s = _system(a)
+    else:
+        from .adapters.sim import Faults, ScriptedHuman
+        s = System(load_profile("sim"), human=ScriptedHuman(), faults=Faults())
+    problems = s.connect()
+    if any(p.startswith("robot") for p in problems):
+        sys.exit("robot not connected: " + "; ".join(problems))
+    pc = s.profile.policy
+    runner = PolicyRunner(a.checkpoint or pc.checkpoint, device=a.device or pc.device)
+    spec = runner.input_spec()
+    print("policy expects:", json.dumps(spec, default=str))
+    cam_map = dict(pc.camera_map)
+    for key in list(spec.get("cameras", {})):
+        cam_map.setdefault(key, cam_map.get(key, "right_wrist"))
+    skill = PolicySkill(s.skills, s.cameras, runner, pc.state_joints, {k: v for k, v in cam_map.items() if k in spec.get("cameras", {}) or not spec.get("cameras")},
+                        hz=pc.hz, max_steps=a.steps, store=s.store)
+    out = skill.run(a.goal)
+    print(json.dumps({"ok": out.ok, "reason": out.reason, "steps": out.steps, "trace_tail": out.trace[-5:]}, default=str))
+    s.disconnect()
+
+
 def cmd_light_monitor(a):
     from .tools.light_monitor import run
     run(a.port or None, a.baud, a.seconds)
@@ -344,6 +374,7 @@ def main(argv=None):
         ("cup-test", cmd_cup_test, [("--tilt", {"type": float, "default": 25.0}), ("--seconds", {"type": float, "default": 1.5}), ("--who", {"required": True})]),
         ("once", cmd_once, [("--tray", {}), ("--record", {"action": "store_true"})]), ("run", cmd_run, [("--every", {"type": float, "default": 3600}), ("--record", {"action": "store_true"})]),
         ("viewer", cmd_viewer, []), ("review", cmd_review, []), ("backup", cmd_backup, [("--verify", {"action": "store_true"})]),
+        ("policy-test", cmd_policy_test, [("--checkpoint", {"default": ""}), ("--device", {"default": ""}), ("--steps", {"type": int, "default": 60}), ("--goal", {"default": "pour"}), ("--real", {"action": "store_true"})]),
         ("light-monitor", cmd_light_monitor, [("--port", {"default": ""}), ("--baud", {"type": int, "default": 115200}), ("--seconds", {"type": float, "default": None})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
     ]:
