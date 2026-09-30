@@ -201,9 +201,9 @@ STEPS = [
  # ---------------- phase 3
  ('p3', 'assemble', 'Assemble the robot', 240,
   'The WowRobo two-wheel Combo arrives mostly assembled. Follow the vendor video for brackets and screws; our assembly page tracks integration checkpoints.',
-  ['Work through <a href="assembly.html#mechanical">assembly steps 1–4</a> (lay out, cart + drive base, arms + head, cabling) with the <a href="https://youtu.be/upB1CEFeOlk">WowRobo video</a>.',
+  ['Work through <a href="assembly.html#mechanical">assembly steps 1–4</a> (lay out, cart + drive base, arms + head, cabling) with the <a href="https://www.youtube.com/watch?v=4bXCFw57T60">WowRobo 0.4.0 (two-wheel) assembly video</a>. First confirm the kit: two large drive wheels + casters = 0.4.0 (this video); three omni wheels = 0.3.0 (<a href="https://youtu.be/upB1CEFeOlk">older video</a>), and tell me, because the software profile assumes the two-wheel motor map.',
    'Power: use the two supplied 12 V/8 A wall adapters; check the labels accept 100 V (Japan). Battery stays out.', 'Plug into the powered hub: 2 motor boards, 3 cameras, ESP32. Hub → Mac USB-3 port. Mac on its charger.'],
-  ['WowRobo kit', 'IKEA cart', 'powered hub', 'hex keys', 'multimeter (borrowed)'], [('Assembly guide', 'assembly.html'), ('WowRobo video', 'https://youtu.be/upB1CEFeOlk'), ('Two-wheel reference', 'https://xlerobot.readthedocs.io/en/latest/hardware/getting_started/assemble_2wheel.html')], 'img:assets/blender/workbench.png',
+  ['WowRobo kit', 'IKEA cart', 'powered hub', 'hex keys', 'multimeter (borrowed)'], [('Assembly guide', 'assembly.html'), ('WowRobo 0.4.0 assembly video', 'https://www.youtube.com/watch?v=4bXCFw57T60'), ('Older 0.3.0 video (three-wheel)', 'https://youtu.be/upB1CEFeOlk'), ('Two-wheel reference', 'https://xlerobot.readthedocs.io/en/latest/hardware/getting_started/assemble_2wheel.html')], 'img:assets/blender/workbench.png',
   'robot assembled, all USB devices on the hub, motors powered from wall adapters', 'Never change a motor plug with motor power on.'),
 
  # ---------------- phase 4
