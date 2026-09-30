@@ -206,6 +206,15 @@ STEPS = [
   ['WowRobo kit', 'IKEA cart', 'powered hub', 'hex keys', 'multimeter (borrowed)'], [('Assembly guide', 'assembly.html'), ('WowRobo 0.4.0 assembly video', 'https://www.youtube.com/watch?v=4bXCFw57T60'), ('Older 0.3.0 video (three-wheel)', 'https://youtu.be/upB1CEFeOlk'), ('Two-wheel reference', 'https://xlerobot.readthedocs.io/en/latest/hardware/getting_started/assemble_2wheel.html')], 'img:assets/blender/workbench.png',
   'robot assembled, all USB devices on the hub, motors powered from wall adapters', 'Never change a motor plug with motor power on.'),
 
+ ('p3', 'motor-ids', 'Give the loose servos their IDs (the “FD” step in the video)', 20,
+  'At the start of the vendor video they use Feetech’s Windows program “FD” to type an ID into each loose servo. Every servo on a chain needs a unique ID: the arms come numbered 1–6, the two head servos must be 7 and 8, the two wheel servos 9 and 10. On the Mac the farm command does the same thing through the same motor board.',
+  ['Do this <strong>before</strong> the servos are mounted and chained. Plug ONE motor board into the Mac (USB) and its 12 V supply, and connect exactly ONE loose servo to it.',
+   'Run the command for that servo, press ENTER when prompted, then label the servo with its number:' + code('cd software && . .venv/bin/activate\nfarm set-motor-id --name head_motor_1        # → ID 7\nfarm set-motor-id --name head_motor_2        # → ID 8\nfarm set-motor-id --name base_left_wheel     # → ID 9\nfarm set-motor-id --name base_right_wheel    # → ID 10'),
+   'Swap the servo between commands: only one servo on the board each time. If a servo already reports the right ID (some kits ship pre-numbered), the command simply confirms it.',
+   'Later, <code>farm devices --probe</code> must show IDs 1–8 on one board (left arm + head) and 1–6, 9, 10 on the other (right arm + wheels).'],
+  ['one motor board + its 12 V supply', 'the four loose servos (2 head, 2 wheel)', 'a marker for labels'], [('Vendor video (0.4.0), first minutes', 'https://www.youtube.com/watch?v=4bXCFw57T60'), ('LeRobot: configure motors', 'https://huggingface.co/docs/lerobot/so101#configure-the-motors')], None,
+  'four servos labelled 7, 8, 9, 10', 'Two servos with the same ID on one chain both go silent. Never set IDs with more than one servo connected.'),
+
  # ---------------- phase 4
  ('p4', 'devices', 'Find the ports and cameras', 15,
   'The profile must name the two motor buses and the three cameras by identity. The probe pings each bus and snapshots each camera so you do not guess.',

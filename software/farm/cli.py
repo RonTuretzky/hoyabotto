@@ -1,5 +1,6 @@
 """`farm` command line.
 
+  farm set-motor-id --name head_motor_1   give one loose servo its bus ID (replaces Feetech's Windows FD tool)
   farm devices                      list serial ports and cameras (fill the profile from this)
   farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration (setup, not operation)
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
@@ -349,6 +350,38 @@ def cmd_policy_test(a):
     s.disconnect()
 
 
+MOTOR_IDS = {"head_motor_1": (1, 7), "head_motor_2": (1, 8), "base_left_wheel": (2, 9), "base_right_wheel": (2, 10)}
+
+
+def cmd_set_motor_id(a):
+    """Give ONE loose STS3215 servo its bus ID (what Feetech's Windows 'FD' tool does in the vendor video).
+    Connect only that servo to the motor board, power the board, then run this."""
+    from lerobot.motors import Motor, MotorNormMode
+    from lerobot.motors.feetech import FeetechMotorsBus
+    if a.name:
+        if a.name not in MOTOR_IDS:
+            sys.exit(f"unknown motor name; choose from {sorted(MOTOR_IDS)}")
+        board, new_id = MOTOR_IDS[a.name]
+        print(f"{a.name}: ID {new_id}; this servo belongs on board {board} ({'left arm + head' if board == 1 else 'right arm + wheels'})")
+    elif a.id:
+        new_id = a.id
+    else:
+        sys.exit("give --name head_motor_1|head_motor_2|base_left_wheel|base_right_wheel or --id N")
+    port = a.port
+    if not port:
+        from .adapters.robot_lerobot import find_serial_ports
+        cands = [p["device"] for p in find_serial_ports() if "usbmodem" in (p["device"] or "") or "ttyACM" in (p["device"] or "")]
+        if len(cands) != 1:
+            sys.exit(f"found {len(cands)} motor boards {cands}; plug in exactly one or pass --port")
+        port = cands[0]
+    input(f"Only ONE servo connected to the board on {port}, board powered (12 V). Press ENTER to set its ID to {new_id} … ")
+    bus = FeetechMotorsBus(port, {"target": Motor(new_id, "sts3215", MotorNormMode.RANGE_M100_100)})
+    bus.setup_motor("target")     # finds the single servo at any baud/ID, writes the new ID and 1 Mbaud
+    found = bus.broadcast_ping(num_retry=2) or {}
+    bus.disconnect(False) if bus.is_connected else None
+    print(f"done: servo now answers as ID {sorted(found)} (expected [{new_id}]). Label it before unplugging.")
+
+
 def cmd_light_monitor(a):
     from .tools.light_monitor import run
     run(a.port or None, a.baud, a.seconds)
@@ -375,6 +408,7 @@ def main(argv=None):
         ("once", cmd_once, [("--tray", {}), ("--record", {"action": "store_true"})]), ("run", cmd_run, [("--every", {"type": float, "default": 3600}), ("--record", {"action": "store_true"})]),
         ("viewer", cmd_viewer, []), ("review", cmd_review, []), ("backup", cmd_backup, [("--verify", {"action": "store_true"})]),
         ("policy-test", cmd_policy_test, [("--checkpoint", {"default": ""}), ("--device", {"default": ""}), ("--steps", {"type": int, "default": 60}), ("--goal", {"default": "pour"}), ("--real", {"action": "store_true"})]),
+        ("set-motor-id", cmd_set_motor_id, [("--name", {"default": ""}), ("--id", {"type": int, "default": 0}), ("--port", {"default": ""})]),
         ("light-monitor", cmd_light_monitor, [("--port", {"default": ""}), ("--baud", {"type": int, "default": 115200}), ("--seconds", {"type": float, "default": None})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
     ]:
