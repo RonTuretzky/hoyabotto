@@ -1,4 +1,4 @@
-"""Soak test, teach-by-hand and the MCP tool bodies, all on the simulator. No hardware, no network."""
+"""Soak test and the MCP tool bodies, all on the simulator. No hardware, no network."""
 import csv
 
 from farm.adapters.base import ARM_JOINTS, arm_joint
@@ -60,39 +60,6 @@ def test_soak_gives_up_on_a_silent_bus_and_honours_stop(tmp_path):
     assert "health read failed 5 times" in res["reason"] and res["samples"] == 3
     stopped = soak.run(HeatingRobot(), minutes=60, csv_path=tmp_path / "t.csv", interval_s=1, out=lambda s: None, sleep=c.sleep, now=c.now, should_stop=lambda: True)
     assert stopped["reason"] == "stopped" and stopped["samples"] == 1
-
-
-# ---- teach by hand ----------------------------------------------------------------------------
-def test_hand_teach_saves_pose_marks_who_and_restores_torque(sim):
-    from farm.tools import hand_teach
-    s = sim()
-    joints = [arm_joint("right", j) for j in ARM_JOINTS]
-    torque_during = {}
-
-    def ask(prompt):
-        if "Place it" in prompt:                      # the person moves the limp arm, then presses ENTER
-            torque_during.update({j: s.robot.torque[j] for j in joints})
-            for j in joints:
-                s.robot.pos[j] = s.robot.goal[j] = 12.0
-        return ""
-    res = hand_teach.teach(s.robot, s.keyframes, "right", "pour_B_hand", "ron", ask=ask, out=lambda m: None, store=s.store)
-    assert res["ok"] and set(res["joints"]) == set(joints) and all(abs(v - 12.0) < 1e-6 for v in res["joints"].values())
-    assert not any(torque_during.values())                        # limp while being placed
-    assert all(s.robot.torque[j] for j in joints)                  # holding afterwards
-    meta = s.keyframes.meta("pour_B_hand")
-    assert meta["learned_by"] == "hand:ron" and meta["arm"] == "right"
-    ev = s.store.query("select payload_json from events where kind = 'keyframe_taught'")
-    assert len(ev) == 1 and '"who": "ron"' in ev[0]["payload_json"]
-
-
-def test_hand_teach_needs_a_name_and_is_off_in_the_default_profile(sim):
-    from farm.config import load_profile
-    from farm.tools import hand_teach
-    s = sim()
-    res = hand_teach.teach(s.robot, s.keyframes, "left", "x", "  ", ask=lambda p: "", out=lambda m: None)
-    assert not res["ok"] and "name is required" in res["reason"] and "x" not in s.keyframes.names()
-    assert load_profile("paper-tray-v0").teaching.by_hand is False
-    assert hand_teach.joints_of("head") == ["head_motor_1", "head_motor_2"]
 
 
 # ---- MCP tool bodies ----------------------------------------------------------------------------

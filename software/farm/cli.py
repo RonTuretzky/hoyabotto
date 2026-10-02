@@ -2,12 +2,13 @@
 
   farm set-motor-id --name head_motor_1   give one loose servo its bus ID (replaces Feetech's Windows FD tool)
   farm devices                      list serial ports and cameras (fill the profile from this)
-  farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration (setup, not operation)
+  farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration by hand (setup, not operation)
+  farm calibrate --auto --arm left [--motor gripper | --unfold-only]   UNTESTED ON THE CART: the arm finds its own limits (LeRobot PR #3282)
+  farm calibrate --head             hands-on, two joints: calibrate only the head
   farm calibration-report           read the saved calibration; flag wrapped, short or mismatched joint ranges (no motion)
   farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
-  farm teach      -p ... --arm right --save pour_B --by-hand --who NAME   fallback: a person places the arm (needs teaching.by_hand: true)
   farm teach-all  -p ...            learn every keyframe the profile needs, in order
   farm soak       -p ... [--keyframe pour_B] [--minutes 20]   hold a pose, log servo temperature and load, stop at the ceiling
   farm mcp        -p ...            stdio MCP server: state, camera frames and named skills for an agent (no raw joint access)
@@ -83,9 +84,19 @@ def _system(a, **kw):
 
 def cmd_calibrate(a):
     _log()
-    from .adapters.robot_lerobot import LeRobotXLeRobot
     from .config import load_profile
     p = load_profile(a.profile)
+    if a.auto or a.head:
+        from .tools import auto_calibrate as ac
+        if a.head:
+            sys.exit(ac.calibrate_head(p.robot))
+        mode = "motor" if a.motor else "unfold" if a.unfold_only else "full"
+        rc = ac.run_arm(p.robot, a.arm, mode=mode, motor=a.motor or None, velocity=a.velocity or None)
+        if rc == 0 and mode == "full":
+            from .tools import calibration_report as cr
+            cr.report(cr.calibration_path(p.robot))
+        sys.exit(rc)
+    from .adapters.robot_lerobot import LeRobotXLeRobot
     r = LeRobotXLeRobot(p.robot)
     print("Support both arms. Follow the prompts (move to mid-range, then sweep each joint). This is one-time setup.")
     path = r.calibrate_interactive()
@@ -171,25 +182,6 @@ def cmd_teach(a):
     problems = s.connect()
     if any(p.startswith("robot") for p in problems):
         sys.exit("robot not connected: " + "; ".join(problems))
-    if a.by_hand:
-        if not s.profile.teaching.by_hand:
-            s.disconnect()
-            sys.exit("Teaching by hand is switched off (no human operation). To allow it for this robot, set `teaching: {by_hand: true}` in the profile.")
-        from .tools import hand_teach
-        res = hand_teach.teach(s.robot, s.keyframes, a.arm, a.save, a.who, store=s.store)
-        if res["ok"]:
-            print("returning to rest")
-            try:
-                s.skills.go_rest()
-            except Exception as e:  # noqa: BLE001
-                print("could not return to rest:", e)
-        else:
-            print("not saved:", res["reason"])
-        s.disconnect()
-        sys.exit(0 if res["ok"] else 1)
-    if not a.goal:
-        s.disconnect()
-        sys.exit("--goal is required (what the arm should reach), unless teaching --by-hand")
     from .viewer.app import serve_in_thread
     serve_in_thread(s, s.profile.viewer_port)
     ok = _teach_one(s, a.save, a.arm, a.goal)
@@ -453,8 +445,8 @@ def cmd_policy_test(a):
     spec = runner.input_spec()
     print("policy expects:", json.dumps(spec, default=str))
     cam_map = dict(pc.camera_map)
-    for key in list(spec.get("cameras", {})):
-        cam_map.setdefault(key, cam_map.get(key, "right_wrist"))
+    for key in list(spec.get("cameras", {})):      # keys the profile does not name: wrist views -> the bottle arm's wrist, anything else -> the head
+        cam_map.setdefault(key, "right_wrist" if "wrist" in key else "head")
     skill = PolicySkill(s.skills, s.cameras, runner, pc.state_joints, {k: v for k, v in cam_map.items() if k in spec.get("cameras", {}) or not spec.get("cameras")},
                         hz=pc.hz, max_steps=a.steps, store=s.store)
     out = skill.run(a.goal)
@@ -519,10 +511,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="farm", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name, fn, extra in [
-        ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, []), ("check", cmd_check, []),
+        ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, [("--auto", {"action": "store_true"}), ("--arm", {"choices": ["left", "right"], "default": ""}), ("--motor", {"default": ""}), ("--unfold-only", {"action": "store_true"}), ("--velocity", {"type": int, "default": 0}), ("--head", {"action": "store_true"})]), ("check", cmd_check, []),
         ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
-        ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"default": ""}), ("--save", {"required": True}), ("--by-hand", {"action": "store_true"}), ("--who", {"default": ""})]),
+        ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
         ("soak", cmd_soak, [("--keyframe", {"default": ""}), ("--minutes", {"type": float, "default": 20.0}), ("--interval", {"type": float, "default": 2.0})]),
         ("mcp", cmd_mcp, []),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),

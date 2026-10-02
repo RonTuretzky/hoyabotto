@@ -61,9 +61,6 @@ authority:
   jev_shadow_cycles: 10
   notify_webhook: ""    # optional chat webhook (POST JSON {text, evidence}) for questions
 
-teaching:
-  by_hand: false       # true allows `farm teach --by-hand`: a person places the arm. Off by default: no human operation.
-
 policy:                # learned policy for one skill (v2). Off until a checkpoint has beaten the keyframe skill on held-out episodes.
   enabled: false
   skill: pour

@@ -19,7 +19,7 @@ farm/
 firmware/esp32_light/  BH1750 → JSON lines at 5 Hz
 profiles/              paper-tray-v0.yaml (real), sim.yaml (fakes)
 parts/                 printable nest plate, tag tiles, light paddle, bottle rest (AnkerMake M5C)
-tests/                 65 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test, calibration report, remote policy, soak, teach-by-hand, MCP tools
+tests/                 70 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test, calibration report, auto-calibration wrapper, remote policy, soak, MCP tools
 ```
 
 ## Setup (MacBook)
@@ -29,7 +29,7 @@ cd software
 uv venv --python 3.12 .venv && . .venv/bin/activate
 uv pip install -e .            # lerobot[feetech], opencv, pyserial, fastapi, httpx …
 cp .env.example .env           # OPENROUTER_API_KEY=… (Jev/Astra). Claude vision uses the logged-in `claude` CLI.
-python -m pytest -q            # 65 passed
+python -m pytest -q            # 70 passed
 farm sim --auto-answer         # whole program on fakes; viewer at http://localhost:8765
 ```
 
@@ -72,8 +72,8 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 | `farm calibration-report` | Reads the saved calibration and flags a wrapped reading, a short sweep, or arms that disagree. No motion. |
 | `farm robot-test [--move --ask]` | Motors only: reads every joint; with `--move` nudges each one and asks whether the named part moved. |
 | `farm soak [--keyframe pour_B] [--minutes 20]` | Holds a pose, logs every servo's temperature and load to `data/soak/`, stops at the temperature ceiling. |
-| `farm policy-server --checkpoint DIR` | On the training machine: serves a checkpoint over HTTP. `farm policy-test --server URL` (or `policy.server_url`) uses it. See `docs/gpu-server.md`. |
-| `farm teach --by-hand --arm right --save NAME --who YOU` | Fallback teaching: one arm goes limp, a person places it. Refuses unless the profile has `teaching: {by_hand: true}`. |
+| `farm policy-server --checkpoint DIR` | Parked. On a second machine: serves a checkpoint over HTTP; `farm policy-test --server URL` uses it. See `docs/gpu-server.md`. |
+| `farm calibrate --auto --arm left` (then `right`), `farm calibrate --head` | Automatic calibration: each arm finds its own limits (LeRobot PR #3282, vendored in `farm/vendor/autocal`); the head is a two-joint hands-on step. **Never run on this robot.** Staged modes: `--motor gripper`, `--unfold-only`. Procedure in the `farm-bringup` skill. |
 | `farm mcp` | Stdio MCP server: state, camera frames and three skill-level actions (stop, go_rest, go_keyframe). No raw joint access. It holds the robot's serial ports while it runs. |
 
 To give Claude Code on the robot laptop the MCP tools: `claude mcp add farm -- "$PWD/.venv/bin/farm" mcp -p paper-tray-v0`, run from `software/`. Remove it or stop it before running other `farm` commands, since only one process can hold the motor boards.

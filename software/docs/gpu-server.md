@@ -2,6 +2,8 @@
 
 The robot laptop is plugged into the robot and keeps every safety decision. A second machine (the M4 Max with 128 GB) trains on the robot's recorded runs and serves the trained policy over the network. It never opens a serial port.
 
+**Parked (2026-10-03):** not to be used until the existing checkpoint has been tried directly on the robot laptop (see `STATUS.md`).
+
 Status: built and checked on one machine (the trained test checkpoint, served locally, answered in about 28 ms and drove the simulator through the remote client). Not yet run between two machines, and there are no episodes from our robot yet.
 
 ## 1. Record on the robot laptop

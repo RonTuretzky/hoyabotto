@@ -16,7 +16,7 @@ Written 2026-10-02 for whoever picks this up on the robot's laptop (person or ag
 | Loose servo IDs | Set and read back on the real servos: head 7 and 8, wheels 9 and 10 (`farm set-motor-id`) |
 | Arm servos | One arm probed: IDs 1-6 all answer (STS3215). The other arm was not probed on its own. |
 | Motor power | A USB-C-to-12 V cable gave about 12.5 V on the bus |
-| Software | Fresh clone installs and passes 65 tests; simulator runs end to end |
+| Software | Fresh clone installs and passes 70 tests; simulator runs end to end |
 | LLM backends | Claude CLI and OpenRouter (Jev, Astra) both answered from the first laptop |
 
 ## What is not done
@@ -47,7 +47,11 @@ Run from Terminal (camera permission is per app), inside `software/` with the en
 
 1. `farm devices --probe`: confirm both boards and their IDs, and look at the camera snapshots in `data/devices/`.
 2. Edit `profiles/paper-tray-v0.yaml`: `port1` = the board with IDs 1-8, `port2` = the board with 9 and 10. For each camera add `index_or_path: <n>` using the snapshot that shows the matching view.
-3. `farm calibrate`: support both arms and follow the prompts. One-time. Then `farm calibration-report`: reads the saved file and flags a wrapped reading, a short sweep, or arms that disagree, before anything moves.
+3. Calibrate, one of two ways, then check the result:
+   - By hand (known to work): `farm calibrate`. Support both arms and follow the prompts.
+   - Automatic (decided 2026-10-03 to try it; **never run on this robot**): `farm calibrate --auto --arm left`, then `--arm right`, then `farm calibrate --head`. Go up in stages first (`--motor gripper`, `--motor wrist_roll`, `--unfold-only`); the `farm-bringup` skill, Step 4B, has the procedure and what to do when a stage goes wrong. Write down what happened here.
+
+   Then `farm calibration-report`: reads the saved file and flags a wrapped reading, a short sweep, or arms that disagree, before anything moves.
 4. `farm robot-test`, then `farm robot-test --move --ask`: motors only (no cameras, no models, no trays). The first reads every joint, temperature and load. The second nudges one joint at a time and asks whether the named part moved; this catches swapped left/right boards and swapped head motors. Start with the arms folded; the motors go limp when it ends.
 5. `farm check`: connects everything and has the vision model confirm which camera is which.
 6. Put the bottle, paddle and trays in their fixed places, then `farm teach-all`.
@@ -55,11 +59,26 @@ Run from Terminal (camera permission is per app), inside `software/` with the en
 8. `farm cup-test --tilt 25 --seconds 1.5 --who <name>`.
 9. `farm run --every 3600 --record`.
 
+## Testing the policy we already trained
+
+Decided 2026-10-03: test the existing checkpoint on the robot before doing anything with a second computer. The two-computer policy server is parked until then.
+
+The checkpoint is ACT, trained for 5,000 steps on someone else's SO-101 pouring data (`SurajCreation/so101_pour_v1`, one arm, a wrist camera and an overhead camera). Offline it predicts worse than holding still, so expect pour-like motion of the right arm, not a working pour. What the test proves is the path: checkpoint → camera frames → clamped joint steps on the real robot.
+
+1. Copy `act_so101_pour_checkpoint.zip` (191 MB, in the first laptop's Downloads folder) to this laptop, for example by AirDrop, and unpack it inside `software/data-train/` so that `software/data-train/act_so101_pour/checkpoints/005000/pretrained_model/config.json` exists.
+2. On the simulator first: `farm policy-test --checkpoint data-train/act_so101_pour --steps 40`.
+3. On the robot, after calibration and `farm robot-test` pass, with the right wrist and head cameras working, nothing in the right arm's reach, and the viewer's STOP button open on a phone: `farm policy-test --checkpoint data-train/act_so101_pour --real --steps 60`. Every step is clamped to the profile's limit; it ends after 60 steps with `max_steps reached`, which is the normal ending.
+4. Record here what the arm did.
+
+The policy's `wrist` view is mapped to the right wrist camera and its `overhead` view to the head camera. Our head camera does not look from where the training camera did, which is one more reason not to expect a real pour.
+
 Stop at any point with the red STOP button in the viewer.
 
 ## Built after the community review, not yet run on the robot
 
-`farm calibration-report`, `farm robot-test`, `farm soak`, `farm policy-server` with `farm policy-test --server`, `farm teach --by-hand` (off unless the profile allows it) and `farm mcp`. All pass on the simulator. The README has a table of them; `docs/gpu-server.md` covers the two-computer training setup; `docs/community-projects.md` is the review they came from. Automatic calibration (LeRobot PR #3282) was looked at and deliberately not built.
+`farm calibration-report`, `farm robot-test`, `farm calibrate --auto` and `--head`, `farm soak`, `farm mcp`, and `farm policy-server` with `farm policy-test --server`. All pass on the simulator, except that the limit-seeking motion inside `farm calibrate --auto` (LeRobot PR #3282, vendored) cannot be simulated and is untested here. The README has a table of them; `docs/community-projects.md` is the review they came from.
+
+Decided 2026-10-03: teaching by hand was removed (no human operation, no exceptions); the two-computer policy server (`docs/gpu-server.md`) is parked until the existing checkpoint has been tried on the robot.
 
 ## Rules that were decided
 
@@ -70,4 +89,4 @@ Stop at any point with the red STOP button in the viewer.
 
 ## Not on this laptop
 
-These stayed on the first laptop and are not needed to run the robot: the trained ACT test checkpoint (`data-train/`, a motion prior only), the 3D-print files and print handoffs, and the site build output. The OpenRouter key must be typed into `.env` again; make a fresh one, since the old one was pasted into a chat.
+These stayed on the first laptop: the trained ACT test checkpoint (copy it over as described under "Testing the policy we already trained"), the 3D-print files and print handoffs, and the site build output. The OpenRouter key must be typed into `.env` again; make a fresh one, since the old one was pasted into a chat.

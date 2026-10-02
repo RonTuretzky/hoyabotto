@@ -126,11 +126,6 @@ class PolicyCfg:
 
 
 @dataclass
-class TeachingCfg:
-    by_hand: bool = False                     # allow `farm teach --by-hand` (a person places the arm). Off: no human operation.
-
-
-@dataclass
 class Profile:
     name: str
     robot: RobotCfg
@@ -143,7 +138,6 @@ class Profile:
     llm: LLMCfg
     authority: AuthorityCfg
     policy: PolicyCfg = field(default_factory=PolicyCfg)
-    teaching: TeachingCfg = field(default_factory=TeachingCfg)
     data_dir: str = "data"
     viewer_port: int = 8765
     simulated: bool = False
@@ -192,7 +186,6 @@ def load_profile(name_or_path: str) -> Profile:
         llm=_build(LLMCfg, raw.get("llm")),
         authority=_build(AuthorityCfg, raw.get("authority")),
         policy=_build(PolicyCfg, raw.get("policy")),
-        teaching=_build(TeachingCfg, raw.get("teaching")),
         data_dir=raw.get("data_dir", "data"),
         viewer_port=int(raw.get("viewer_port", 8765)),
         simulated=bool(raw.get("simulated", False)),

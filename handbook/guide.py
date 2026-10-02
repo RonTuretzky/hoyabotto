@@ -127,7 +127,7 @@ STEPS = [
  ('p0', 'clone', 'Get the code and the tools', 20,
   'Everything runs from one folder on the Mac. uv makes the Python environment in seconds; the tests prove the install before any hardware is involved.',
   ['Install <a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a> and Python 3.12 (<code>brew install uv python@3.12</code>).',
-   'Clone the repo and create the environment:' + code('git clone https://github.com/RonTuretzky/xlerobot-farm.git\ncd xlerobot-farm/software\nuv venv --python 3.12 .venv && . .venv/bin/activate\nuv pip install -e .\npython -m pytest -q          # expect: 65 passed'),
+   'Clone the repo and create the environment:' + code('git clone https://github.com/RonTuretzky/xlerobot-farm.git\ncd xlerobot-farm/software\nuv venv --python 3.12 .venv && . .venv/bin/activate\nuv pip install -e .\npython -m pytest -q          # expect: 70 passed'),
    'Run the whole program on fakes and open the viewer:' + code('farm sim --auto-answer\n# in a browser: http://localhost:8765'),
    'You should see two POURED cycles and the viewer with frames, questions and the STOP button.'],
   ['MacBook (the Neo)', 'internet'], [('Software README', SW + '#readme'), ('uv install', 'https://docs.astral.sh/uv/getting-started/installation/')], None,
@@ -332,7 +332,7 @@ READINESS = [
  ('Arduino IDE + ESP32 board package + USB driver', 'to install', 'One-time, 30 min.'),
  ('Camera permission for Terminal on macOS', 'to grant', 'Prompted on first run.'),
  ('Wi-Fi for the viewer / Telegram bot', 'optional', 'Viewer works on LAN; Telegram needs internet.'),
- ('Software: adapters, skills, perception, cycle, evidence, viewer, Jev/Astra, STOP, cup-test, probe, reconnect', 'written, 65 tests', 'Hardware-facing parts unproven until Sep 30.'),
+ ('Software: adapters, skills, perception, cycle, evidence, viewer, Jev/Astra, STOP, cup-test, probe, reconnect', 'written, 70 tests', 'Hardware-facing parts unproven until Sep 30.'),
  ('Time: Sep 30 – Oct 10', '11 days', 'Phases 3–7 need ~2 days; the rest is running.'),
 ]
 
