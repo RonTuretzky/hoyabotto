@@ -35,6 +35,7 @@ class RobotAdapter(Protocol):
     def stop(self) -> None:
         """Halt: rewrite present positions as goals, zero wheel velocity."""
     def torque_off(self, motors: list[str] | None = None) -> None: ...
+    def torque_on(self, motors: list[str] | None = None) -> None: ...
 
 
 @runtime_checkable

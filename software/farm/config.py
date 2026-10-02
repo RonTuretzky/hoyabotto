@@ -116,11 +116,18 @@ class PolicyCfg:
     skill: str = "pour"                       # which skill it replaces when enabled and healthy
     checkpoint: str = ""                      # local dir or HF repo id
     device: str = "mps"
+    server_url: str = ""                      # e.g. http://192.168.1.20:8766 ; when set, the model runs on that machine (farm policy-server)
+    timeout_s: float = 2.0                    # a slower answer ends the skill: stop, hold, report
     state_joints: list[str] = field(default_factory=lambda: [f"right_arm_{j}" for j in ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")])
     camera_map: dict[str, str] = field(default_factory=lambda: {"observation.images.wrist": "right_wrist", "observation.images.front": "head"})
     hz: float = 10.0
     max_steps: int = 300
     shadow: bool = True                       # log what the policy would do; keyframes still execute
+
+
+@dataclass
+class TeachingCfg:
+    by_hand: bool = False                     # allow `farm teach --by-hand` (a person places the arm). Off: no human operation.
 
 
 @dataclass
@@ -136,6 +143,7 @@ class Profile:
     llm: LLMCfg
     authority: AuthorityCfg
     policy: PolicyCfg = field(default_factory=PolicyCfg)
+    teaching: TeachingCfg = field(default_factory=TeachingCfg)
     data_dir: str = "data"
     viewer_port: int = 8765
     simulated: bool = False
@@ -184,6 +192,7 @@ def load_profile(name_or_path: str) -> Profile:
         llm=_build(LLMCfg, raw.get("llm")),
         authority=_build(AuthorityCfg, raw.get("authority")),
         policy=_build(PolicyCfg, raw.get("policy")),
+        teaching=_build(TeachingCfg, raw.get("teaching")),
         data_dir=raw.get("data_dir", "data"),
         viewer_port=int(raw.get("viewer_port", 8765)),
         simulated=bool(raw.get("simulated", False)),

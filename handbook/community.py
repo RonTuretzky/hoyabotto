@@ -16,7 +16,7 @@ def key(x, y, items):
     return out
 
 
-LEGEND = [('ex', 'Built and pushed'), ('bd', 'To build'), ('hu', 'Needs a person or a decision'), ('df', 'Unchanged / not used')]
+LEGEND = [('ex', 'Built and pushed'), ('bd', 'Part of our program'), ('hu', 'Needs a person or a decision'), ('df', 'Unchanged / not used')]
 
 
 def d_funnel():
@@ -39,13 +39,13 @@ def d_funnel():
 
 def d_stack():
     layers = [
-        (7, 'Learning loop', [('policy server on this Mac', 'bd'), ('Dexbotic path · rented NVIDIA', 'df')]),
+        (7, 'Learning loop', [('policy server on this Mac', 'ex'), ('Dexbotic path · rented NVIDIA', 'df')]),
         (6, 'Review · viewer, Jev, Astra', [('unchanged', 'df')]),
-        (5, 'Evidence store', [('soak-test log', 'bd'), ('taught_by field', 'bd')]),
+        (5, 'Evidence store', [('soak-test log', 'ex'), ('who taught each pose', 'ex')]),
         (4, 'Care-cycle orchestrator', [('unchanged', 'df')]),
         (3, 'Perception', [('unchanged', 'df')]),
-        (2, 'Skills', [('remote policy skill', 'bd'), ('by-hand teach · fallback', 'hu')]),
-        (1, 'Device adapters', [('robot-test', 'ex'), ('calibration report', 'bd'), ('auto-calibration · gated', 'hu')]),
+        (2, 'Skills', [('remote policy skill', 'ex'), ('by-hand teach · off by default', 'hu')]),
+        (1, 'Device adapters', [('robot-test', 'ex'), ('calibration report', 'ex'), ('auto-calibration · not built', 'hu')]),
         (0, 'Hardware + upstream', [('bring-up skill', 'ex')]),
     ]
     s = label(40, 30, 'Our stack', 16, 700, GREY) + label(380, 30, 'What the community page adds to each layer', 16, 700, GREY)
@@ -56,7 +56,7 @@ def d_stack():
         for text, k in tags:
             s += tag(x, y + 12, text, k, 13)
             x += len(text) * 13 * 0.62 + 30
-    s += box(950, 46, 210, 230, 'New side door', ['farm mcp: any MCP client (Claude Code on the robot laptop) can read state, look through a camera, and run named skills.', 'No raw joint writes.'], kind='bd', fs=13, tfs=16, cw=26)
+    s += box(950, 46, 210, 230, 'New side door', ['farm mcp: any MCP client (Claude Code on the robot laptop) can read state, look through a camera, and run named skills.', 'No raw joint writes.'], kind='ex', fs=13, tfs=16, cw=26)
     s += box(950, 296, 210, 230, 'Untouched', ['Safety rules, authority ladder, UNKNOWN handling, parked base. Nothing from the community page relaxes them.'], kind='df', fs=13, tfs=16, cw=28)
     s += key(40, 560, LEGEND)
     return svg(1200, 600, s, 'The eight-layer stack with the change each community project brings')
@@ -64,7 +64,7 @@ def d_stack():
 
 def d_two():
     s = box(40, 40, 480, 330, 'Robot laptop · plugged into the robot', ['farm run --record', 'Skills, clamps, STOP, evidence', 'Cameras, motor boards, light sensor over USB', '', 'Sends: joint state + 3 camera frames', 'Receives: the next 50 actions', 'Every action still passes the clamps here'], kind='bd', fs=15, tfs=18, cw=52)
-    s += box(680, 40, 480, 330, 'This Mac · M4 Max, 128 GB · the GPU server', ['Trains ACT (and SmolVLA) with LeRobot on Apple GPU', 'farm policy-server: loads a checkpoint, answers /act', 'Offline evaluation against held-out episodes', '', 'Never touches a motor', 'Holds no robot calibration', 'Can be switched off: the robot falls back to keyframes'], kind='bd', fs=15, tfs=18, cw=52)
+    s += box(680, 40, 480, 330, 'This Mac · M4 Max, 128 GB · the GPU server', ['Trains ACT (and SmolVLA) with LeRobot on Apple GPU', 'farm policy-server: loads a checkpoint, answers /act', 'Offline evaluation against held-out episodes', '', 'Never touches a motor', 'Holds no robot calibration', 'Can be switched off: the robot falls back to keyframes'], kind='ex', fs=15, tfs=18, cw=52)
     s += arrow(520, 130, 680, 130, 'recorded episodes')
     s += arrow(520, 215, 680, 215, 'observation')
     s += arrow(680, 285, 520, 285, 'action chunk')
@@ -98,11 +98,11 @@ def d_bringup():
 
 def d_calibration():
     s = box(40, 40, 350, 400, 'Today · by hand', ['farm calibrate', '', 'You hold each arm at mid-range, then sweep 14 joints to both stops.', '', 'Weak points: a joint left near a stop wraps its reading; a short sweep gives a short range. Neither is visible until something moves wrong.'], kind='ex', fs=17, tfs=20, cw=36)
-    s += box(425, 40, 350, 400, 'New · calibration report', ['farm calibration-report', '', 'Reads the saved calibration and prints each joint’s range in degrees.', '', 'Flags a wrapped reading, a range too short to be a full sweep, and left/right arms that disagree.', '', 'No motion. Runs in a second.'], kind='bd', fs=17, tfs=20, cw=36)
+    s += box(425, 40, 350, 400, 'Built · calibration report', ['farm calibration-report', '', 'Reads the saved calibration and prints each joint’s range in degrees.', '', 'Flags a wrapped reading, a range too short to be a full sweep, and left/right arms that disagree.', '', 'No motion. Runs in a second.'], kind='ex', fs=17, tfs=20, cw=36)
     s += box(810, 40, 350, 400, 'Candidate · automatic', ['LeRobot PR #3282 (open)', '', 'Each joint drives to its stops at low torque and detects the stall. No hands.', '', 'Tested by its author on one free-standing arm. On our cart a sweeping arm can reach the neck, the other arm and the tray rim.', '', 'About 1,800 lines of motion code we cannot test without the robot.'], kind='hu', fs=16, tfs=20, cw=38)
     s += arrow(390, 250, 425, 250)
     s += arrow(775, 250, 810, 250, '', 'grey', True)
-    s += label(40, 490, 'Proposed: build the report now (it helps the calibration happening today); bring in automatic calibration last,', 15, 700)
+    s += label(40, 490, 'The report is built and in the bring-up skill. Automatic calibration is not built: if you want it, it goes in', 15, 700)
     s += label(40, 514, 'one arm at a time with the other folded, and only after you say go.', 15, 700)
     s += key(40, 560, LEGEND)
     return svg(1200, 600, s, 'Three calibration paths: by hand, a new report, and a gated automatic option')
@@ -111,7 +111,7 @@ def d_calibration():
 def d_teaching():
     rungs = [
         (360, 'ex', '1 · The vision model teaches (default, built)', ['farm teach / teach-all: the model looks through the cameras and moves the arm in clamped steps until the goal is met, then saves the keyframe.']),
-        (220, 'hu', '2 · Teach by hand (fallback, new)', ['farm teach --by-hand: motors on one arm go limp, you place it, press ENTER, the pose is saved. From the kinesthetic recorder. Breaks the no-human-operation rule, so it is off unless you choose it for a pose the model cannot reach.']),
+        (220, 'hu', '2 · Teach by hand (fallback, built, off by default)', ['farm teach --by-hand --who NAME: one arm goes limp, you place it, press ENTER, the pose is saved under your name. From the kinesthetic recorder. It breaks the no-human-operation rule, so the command refuses until the profile says teaching.by_hand: true.']),
         (80, 'bd', '3 · A trained policy runs the motion (later)', ['Trained on this Mac from the robot’s own recorded runs, served to the robot laptop, clamped like everything else. Shadow first.']),
     ]
     s = ''
@@ -125,8 +125,8 @@ def d_teaching():
 
 
 def d_remote():
-    s = box(40, 60, 250, 150, 'Policy skill', ['on the robot laptop', 'asks for actions when a learned motion is selected'], kind='bd', fs=14, tfs=17, cw=28)
-    s += box(360, 60, 250, 150, 'Policy server', ['on this Mac', 'checkpoint loaded once; answers in tens of milliseconds'], kind='bd', fs=14, tfs=17, cw=28)
+    s = box(40, 60, 250, 150, 'Policy skill', ['on the robot laptop', 'asks for actions when a learned motion is selected'], kind='ex', fs=14, tfs=17, cw=28)
+    s += box(360, 60, 250, 150, 'Policy server', ['on this Mac', 'checkpoint loaded once; answers in tens of milliseconds'], kind='ex', fs=14, tfs=17, cw=28)
     s += box(680, 60, 220, 150, 'Clamps', ['on the robot laptop', 'step size, joint range, temperature, watchdog'], kind='ex', fs=14, tfs=17, cw=24)
     s += box(970, 60, 190, 150, 'Motors', ['one small step at a time'], kind='hw', fs=14, tfs=17, cw=20)
     s += arrow(290, 110, 360, 110) + arrow(360, 165, 290, 165)
@@ -165,8 +165,8 @@ def d_soak():
     s += f'<polyline points="{" ".join(pts)}" fill="none" stroke="{BLUE}" stroke-width="3"/>'
     s += label(x0 + 330, y0 + 178, 'hottest servo', 14, 700, BLUE)
     s += label(x0, y0 - 14, 'Illustrative shape only. No temperatures have been measured on this robot yet.', 13, 700, ORANGE)
-    s += box(760, 60, 400, 190, 'farm soak', ['Holds a taught pose (the pour pose is the hardest) and logs every servo’s temperature and load every two seconds.', 'Stops at the ceiling or after the set time.'], kind='bd', fs=14, tfs=18, cw=50)
-    s += box(760, 270, 400, 190, 'What it tells you', ['Peak temperature and which servo', 'How fast it is still rising at the end', 'Whether an hourly cycle leaves time to cool', 'Saved as a CSV next to the evidence'], kind='bd', fs=14, tfs=18, cw=50)
+    s += box(760, 60, 400, 190, 'farm soak', ['Holds a taught pose (the pour pose is the hardest) and logs every servo’s temperature and load every two seconds.', 'Stops at the ceiling or after the set time.'], kind='ex', fs=14, tfs=18, cw=50)
+    s += box(760, 270, 400, 190, 'What it tells you', ['Peak temperature and which servo', 'How fast it is still rising at the end', 'Whether an hourly cycle leaves time to cool', 'Saved as a CSV next to the evidence'], kind='ex', fs=14, tfs=18, cw=50)
     s += label(90, 530, 'From the XLeRobot-Pro measurement protocols. Run once before the robot is left alone for days.', 15, 700)
     return svg(1200, 600, s, 'Soak test: servo temperature while a pose is held, with a hard ceiling')
 
@@ -204,13 +204,13 @@ def d_invariants():
 
 
 def d_plan():
-    done = ['Bring-up skill for the robot laptop', 'farm robot-test (motors only)', 'Review of all 43 entries']
-    build = ['1 · calibration report', '2 · policy server + remote policy skill', '3 · soak test', '4 · by-hand teaching fallback', '5 · MCP tool surface', '6 · automatic calibration (last, gated)']
-    s = box(40, 40, 340, 250, 'Done today, pushed', done, kind='ex', fs=15, tfs=18, cw=38)
-    s += box(410, 40, 380, 250, 'Building next, in this order', build, kind='bd', fs=15, tfs=18, cw=42)
+    done = ['Bring-up skill, farm robot-test', 'Calibration report', 'Policy server + remote policy', 'Soak test', 'Teach by hand (off by default)', 'MCP tool surface', 'Review of all 43 entries']
+    build = ['Automatic calibration: not built, waits for your decision', '', 'On the robot, in order: probe, calibrate, calibration-report, robot-test, teach, soak, then record episodes for this Mac to train on']
+    s = box(40, 40, 340, 250, 'Built today, pushed', done, kind='ex', fs=15, tfs=18, cw=38)
+    s += box(410, 40, 380, 250, 'Still open', build, kind='hu', fs=15, tfs=18, cw=42)
     s += box(820, 40, 340, 250, 'Not doing', ['Dexbotic on this Mac (needs NVIDIA)', 'Any teleoperation stack', 'ROS 2, simulators, voice', 'Raw-servo MCP tools'], kind='df', fs=15, tfs=18, cw=38)
     s += label(40, 335, 'Three decisions that are yours', 18, 700, ORANGE)
-    q = [('Teaching by hand', 'Allowed as a per-pose fallback, or keep the rule absolute? I am building it switched off by default.'),
+    q = [('Teaching by hand', 'Allowed as a per-pose fallback, or keep the rule absolute? It is built and switched off; one profile line turns it on.'),
          ('Automatic calibration', 'Run unproven limit-seeking motion on the cart, or stay with the hand sweep plus the report? I recommend the report.'),
          ('How episodes reach this Mac', 'Copy over the local network (default), or a private Hugging Face dataset.')]
     for i, (a, b) in enumerate(q):
@@ -223,7 +223,7 @@ def d_plan():
 
 SLIDES = [
  ('summary', 'Community page review · Oct 2', '43 community projects, 7 that matter, 8 changes to our software',
-  'Most of the page is about people driving the robot. What is left sharpens bring-up, calibration, teaching and training, without touching the safety model. Two of the eight changes are already built.', d_funnel, [
+  'Most of the page is about people driving the robot. What is left sharpens bring-up, calibration, teaching and training, without touching the safety model. Seven of the eight changes are built; automatic calibration waits for your decision.', d_funnel, [
   ('Checked', 'Every entry’s summary, and the README of the eleven closest. Nothing was installed or run on the robot.'),
   ('Biggest gap found', 'Nobody has published watering or pouring data for this robot. The one paper that pours on an XLeRobot released nothing.'),
   ('Full list', 'software/docs/community-projects.md in the repo.')],
@@ -231,25 +231,25 @@ SLIDES = [
 
  ('stack', 'Where it lands', 'Each useful project touches one layer; four layers do not change',
   'Perception, the care cycle, the viewer and the authority ladder are untouched. The changes sit at the bottom (devices, calibration) and the top (training).', d_stack, [
-  ('Bottom', 'Bring-up skill and robot-test are built. The calibration report is next; automatic calibration is gated.'),
-  ('Middle', 'A remote policy skill, and teaching by hand as a fallback.'),
+  ('Bottom', 'Bring-up skill, robot-test and the calibration report are built. Automatic calibration is not built and waits for your decision.'),
+  ('Middle', 'A remote policy skill, and teaching by hand as a fallback that is off unless the profile allows it.'),
   ('Top', 'This Mac becomes the training and policy server.'),
   ('Side', 'An MCP door so an agent on the robot laptop can look and run named skills.')],
-  'Tags show intent. Only the two green ones exist today.'),
+  'Green is built and passes on the simulator. None of it has run on the real robot yet.'),
 
  ('two-computers', 'This Mac as the GPU server', 'Two computers: one holds the robot, one holds the model',
   'The robot laptop keeps every safety decision. This Mac trains on the robot’s recorded runs and answers “what next?” over the network.', d_two, [
   ('Why split', 'Training and a large policy would compete with the control loop on the robot laptop. An M4 Max with 128 GB handles ACT comfortably; the earlier pipeline test trained 5,000 steps here in about an hour.'),
   ('What crosses the wire', 'Joint state and three camera frames one way; a chunk of actions the other. No motor commands leave this Mac.'),
   ('Dexbotic', 'Written for our exact robot but needs NVIDIA hardware, so it is a rented-GPU option, not something this Mac runs.')],
-  'Not built yet. The policy that exists today is a motion prior from someone else’s pouring data and is not deployable.'),
+  'Built and checked on this Mac alone: the trained checkpoint, served here, answered in 28 ms and drove the simulator through the remote client. It has not run between two machines, and the only policy that exists is a motion prior from someone else’s pouring data, not deployable.'),
 
  ('bringup', 'Built today', 'Bring-up: the agent runs the checks, you do the parts that need hands',
   'The farm-bringup skill is in the repo. On the robot laptop: git pull, start Claude Code in the folder, type /farm-bringup.', d_bringup, [
   ('From the community', 'xlerobot-onboard’s skill, rewritten for our kit: its servo numbers are for the three-wheel robot and would have been wrong here.'),
   ('Kept from it', 'Stop, report, ask. Never guess at hardware faults. The wrist-roll wrap trap during calibration.'),
   ('New', 'farm robot-test: reads every joint, then nudges each one and asks you to confirm the named part moved. Catches swapped boards and swapped head servos.')],
-  'robot-test passes on the simulator (47 tests). It has not run on the real robot yet.'),
+  'robot-test passes on the simulator. It has not run on the real robot yet.'),
 
  ('calibration', 'Calibration', 'Calibration: keep the hand sweep, add a report, hold the automatic option',
   'Calibration is the one step where a person still moves the arms. The community has an automatic method; it is unproven on a cart.', d_calibration, [
@@ -263,39 +263,39 @@ SLIDES = [
   ('Why a fallback', 'The model-taught approach has never run on the real robot. If one pose fails during the trip, the alternative today is no farm at all.'),
   ('What RoboCrew shows', 'Its agent also moves arms through saved poses or trained policies, not free-form joint commands. Same conclusion as ours, reached independently.'),
   ('Recorded', 'Hand-taught poses are marked as such in the evidence, so later analysis can separate them.')],
-  'Teaching by hand contradicts “no human operation”. It is built switched off and is one of the three decisions on the last slide.'),
+  'Teaching by hand contradicts “no human operation”. It is built, refuses to run by default, and is one of the decisions on the last slide.'),
 
  ('remote-policy', 'Learning', 'A trained policy is served from this Mac and clamped on the robot',
   'The policy skill already exists and runs a local checkpoint. The change is where the model lives.', d_remote, [
   ('Protocol', 'One HTTP call per chunk: state and JPEG frames in, about 50 actions out.'),
   ('Failure handling', 'A slow or missing server ends the skill safely. The care cycle treats it like any other failed step.'),
   ('Training', 'Same commands as now (farm.learning.train), run here against episodes copied from the robot laptop.')],
-  'There are no episodes from our robot yet; this path is plumbing until the robot has run recorded cycles.'),
+  'Built. There are no episodes from our robot yet, so this is plumbing until the robot has run recorded cycles. The care cycle does not call a policy yet; today it is reached through farm policy-test.'),
 
  ('soak', 'Endurance', 'A soak test before the robot is left alone',
   'We already refuse to act above 55 °C. What we do not know is how close a held pour pose gets, or how long cooling takes.', d_soak, [
   ('Source', 'XLeRobot-Pro’s thermal-endurance protocol: hold a pose under load, log per-servo telemetry, abort at the ceiling.'),
   ('Ours', 'One command, one CSV, one summary line. No licence on their repo, so the idea is reused, not the code.'),
   ('When', 'After the pour pose is taught, before the first unattended hour.')],
-  'The curve is drawn to show the idea. It is not data.'),
+  'The command is built and tested with a simulated heating servo. The curve is drawn to show the idea. It is not data.'),
 
  ('mcp', 'Agent access', 'An MCP door that stops at the skill layer',
   'The community MCP server hands an agent raw servo control. Ours gives it eyes and named skills, under the existing clamps.', d_mcp, [
-  ('Use now', 'During bring-up the agent can read joint state and look through a camera itself.'),
+  ('Use', 'Once the robot is calibrated, the agent can read joint state and look through a camera itself, instead of asking you to describe it.'),
   ('Use later', 'A remote check-in while you are away: what does the head camera see, what is the cycle doing.'),
   ('Boundary', 'Authorizing water stays with a named person or Jev. An MCP client cannot do it.')],
-  'Adds one dependency (the MCP Python package). Runs only when started with farm mcp.'),
+  'Built; a live session against the simulator listed the seven tools, returned a camera frame and refused motion after STOP. While farm mcp runs it holds the robot’s serial ports, so no other farm command can run at the same time; it is started deliberately, not automatically.'),
 
  ('invariants', 'What does not change', 'Five rules untouched, two with a new option',
   'None of this is a reason to loosen the safety model. The two changes are both opt-in.', d_invariants, [
   ('Why this slide', 'Community code is written for demos with a person watching. Ours has to run unattended, so anything adopted goes through the existing rules.')],
   'If you want either orange row to stay absolute, say so and that piece is dropped.'),
 
- ('plan', 'Plan', 'Done today, built next, and three decisions for you',
-  'Building starts with the piece that helps the calibration happening right now, and ends with the riskiest.', d_plan, [
-  ('Order', 'Report, then the two-computer path, then soak, hand fallback, MCP, and automatic calibration last.'),
-  ('Testing', 'Everything is tested on the simulator first; anything that moves the real robot is marked unverified until it has run there.')],
-  'This deck is generated from handbook/community.py and describes intent; the repo’s STATUS.md says what has actually run.'),
+ ('plan', 'Plan', 'Seven built today, one waiting, three decisions for you',
+  'Everything built is tested on the simulator (65 tests). Nothing in this deck has run on the real robot yet.', d_plan, [
+  ('Verified here', 'Policy server with the real checkpoint on this Mac; a live MCP session; soak with a simulated heating servo; the calibration report on synthetic files.'),
+  ('Not verified', 'Anything on the real robot, and the policy path between two machines.')],
+  'This deck is generated from handbook/community.py. The repo’s STATUS.md says what has actually run on the robot.'),
 ]
 
 SOURCES = ('<p class="deck-sources">Sources: <a href="https://xlerobot.readthedocs.io/en/latest/relatedworks/index.html">XLeRobot community use cases</a> (43 entries, collected 2026-09-18), '

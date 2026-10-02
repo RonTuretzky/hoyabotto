@@ -7,14 +7,18 @@
   farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
+  farm teach      -p ... --arm right --save pour_B --by-hand --who NAME   fallback: a person places the arm (needs teaching.by_hand: true)
   farm teach-all  -p ...            learn every keyframe the profile needs, in order
+  farm soak       -p ... [--keyframe pour_B] [--minutes 20]   hold a pose, log servo temperature and load, stop at the ceiling
+  farm mcp        -p ...            stdio MCP server: state, camera frames and named skills for an agent (no raw joint access)
   farm calibrate-pour -p ... --tilt 25 --seconds 1.5 --ml 28        record a measured cup pour
   farm once       -p ... --tray B   run one care cycle (viewer included)
   farm run        -p ... [--every 3600]   run cycles for every tray on a schedule, viewer included
   farm viewer     -p ...            viewer only (evidence browsing, reconciliation)
   farm review     -p ...            Astra daily review -> proposal
   farm cup-test   -p ... --tilt 25 --seconds 1.5 --who you   pour into a measuring cup, record the mL
-  farm policy-test --checkpoint DIR  run a trained checkpoint as a skill on the simulator (or --real), clamped
+  farm policy-test --checkpoint DIR  run a trained checkpoint as a skill on the simulator (or --real), clamped; --server URL uses a policy server
+  farm policy-server --checkpoint DIR [--port 8766]   training machine only: serve a checkpoint to the robot laptop (no hardware)
   farm light-monitor                stream the ESP32 lux readings
   farm sim        [--faults ...] [--record]   the same program on fakes
   farm backup     -p ...
@@ -167,11 +171,76 @@ def cmd_teach(a):
     problems = s.connect()
     if any(p.startswith("robot") for p in problems):
         sys.exit("robot not connected: " + "; ".join(problems))
+    if a.by_hand:
+        if not s.profile.teaching.by_hand:
+            s.disconnect()
+            sys.exit("Teaching by hand is switched off (no human operation). To allow it for this robot, set `teaching: {by_hand: true}` in the profile.")
+        from .tools import hand_teach
+        res = hand_teach.teach(s.robot, s.keyframes, a.arm, a.save, a.who, store=s.store)
+        if res["ok"]:
+            print("returning to rest")
+            try:
+                s.skills.go_rest()
+            except Exception as e:  # noqa: BLE001
+                print("could not return to rest:", e)
+        else:
+            print("not saved:", res["reason"])
+        s.disconnect()
+        sys.exit(0 if res["ok"] else 1)
+    if not a.goal:
+        s.disconnect()
+        sys.exit("--goal is required (what the arm should reach), unless teaching --by-hand")
     from .viewer.app import serve_in_thread
     serve_in_thread(s, s.profile.viewer_port)
     ok = _teach_one(s, a.save, a.arm, a.goal)
     s.disconnect()
     sys.exit(0 if ok else 1)
+
+
+def cmd_soak(a):
+    """Hold a pose and log servo temperature and load; stop at the ceiling. Run before leaving the robot unattended."""
+    _log()
+    from .safety.rules import SafetyStop
+    from .tools import soak
+    s = _system(a)
+    problems = s.connect()
+    if any(p.startswith("robot") for p in problems):
+        sys.exit("robot not connected: " + "; ".join(problems))
+    from .viewer.app import serve_in_thread
+    serve_in_thread(s, s.profile.viewer_port)
+    limit = s.profile.limits.servo_temp_max_c
+    try:
+        if a.keyframe:
+            print(f"moving to keyframe {a.keyframe}")
+            s.skills.move_joints(s.skills.keyframe_or_fail(a.keyframe), max_s=10)
+        else:
+            print("holding the current pose")
+        path = s.profile.data_path / "soak" / time.strftime("soak-%Y%m%d-%H%M%S.csv")
+        res = soak.run(s.robot, a.minutes, path, interval_s=a.interval, temp_max_c=limit, should_stop=s.skills.estop.is_set)
+        s.store.event(None, "soak_test", {**res, "keyframe": a.keyframe})
+        print(soak.summary(res, limit))
+    except SafetyStop as e:
+        print("safety stop:", e)
+    finally:
+        try:
+            s.skills.go_rest()
+        except Exception as e:  # noqa: BLE001 - too hot to move is a valid outcome; disconnect lets the motors go limp
+            print("did not return to rest:", e)
+        s.disconnect()
+
+
+def cmd_mcp(a):
+    """Stdio MCP server: an agent can read state, look through a camera and run named skills. No raw joint access."""
+    import contextlib
+    from .mcp_server import serve
+    with contextlib.redirect_stdout(sys.stderr):      # stdout belongs to the MCP transport; nothing else may print there
+        s = _system(a)
+        problems = s.connect()
+        if any(p.startswith("robot") for p in problems):
+            sys.exit("robot not connected: " + "; ".join(problems))
+        from .viewer.app import serve_in_thread
+        serve_in_thread(s, s.profile.viewer_port)
+    serve(s)
 
 
 def cmd_teach_all(a):
@@ -374,7 +443,13 @@ def cmd_policy_test(a):
     if any(p.startswith("robot") for p in problems):
         sys.exit("robot not connected: " + "; ".join(problems))
     pc = s.profile.policy
-    runner = PolicyRunner(a.checkpoint or pc.checkpoint, device=a.device or pc.device)
+    server = a.server or pc.server_url
+    if server:
+        from .learning.remote import RemotePolicy
+        runner = RemotePolicy(server, timeout_s=pc.timeout_s)
+        print("policy served from", server)
+    else:
+        runner = PolicyRunner(a.checkpoint or pc.checkpoint, device=a.device or pc.device)
     spec = runner.input_spec()
     print("policy expects:", json.dumps(spec, default=str))
     cam_map = dict(pc.camera_map)
@@ -385,6 +460,13 @@ def cmd_policy_test(a):
     out = skill.run(a.goal)
     print(json.dumps({"ok": out.ok, "reason": out.reason, "steps": out.steps, "trace_tail": out.trace[-5:]}, default=str))
     s.disconnect()
+
+
+def cmd_policy_server(a):
+    """Run on the training machine: load a checkpoint once and answer the robot laptop over HTTP. Touches no hardware."""
+    _log()
+    from .learning.server import serve
+    serve(a.checkpoint, device=a.device, host=a.host, port=a.port)
 
 
 MOTOR_IDS = {"head_motor_1": (1, 7), "head_motor_2": (1, 8), "base_left_wheel": (2, 9), "base_right_wheel": (2, 10)}
@@ -440,13 +522,16 @@ def main(argv=None):
         ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, []), ("check", cmd_check, []),
         ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
-        ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
+        ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"default": ""}), ("--save", {"required": True}), ("--by-hand", {"action": "store_true"}), ("--who", {"default": ""})]),
+        ("soak", cmd_soak, [("--keyframe", {"default": ""}), ("--minutes", {"type": float, "default": 20.0}), ("--interval", {"type": float, "default": 2.0})]),
+        ("mcp", cmd_mcp, []),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),
         ("calibrate-pour", cmd_calibrate_pour, [("--tilt", {"type": float, "required": True}), ("--seconds", {"type": float, "required": True}), ("--ml", {"type": float, "required": True}), ("--who", {"required": True})]),
         ("cup-test", cmd_cup_test, [("--tilt", {"type": float, "default": 25.0}), ("--seconds", {"type": float, "default": 1.5}), ("--who", {"required": True})]),
         ("once", cmd_once, [("--tray", {}), ("--record", {"action": "store_true"})]), ("run", cmd_run, [("--every", {"type": float, "default": 3600}), ("--record", {"action": "store_true"})]),
         ("viewer", cmd_viewer, []), ("review", cmd_review, []), ("backup", cmd_backup, [("--verify", {"action": "store_true"})]),
-        ("policy-test", cmd_policy_test, [("--checkpoint", {"default": ""}), ("--device", {"default": ""}), ("--steps", {"type": int, "default": 60}), ("--goal", {"default": "pour"}), ("--real", {"action": "store_true"})]),
+        ("policy-server", cmd_policy_server, [("--checkpoint", {"required": True}), ("--device", {"default": "mps"}), ("--host", {"default": "0.0.0.0"}), ("--port", {"type": int, "default": 8766})]),
+        ("policy-test", cmd_policy_test, [("--server", {"default": ""}), ("--checkpoint", {"default": ""}), ("--device", {"default": ""}), ("--steps", {"type": int, "default": 60}), ("--goal", {"default": "pour"}), ("--real", {"action": "store_true"})]),
         ("set-motor-id", cmd_set_motor_id, [("--name", {"default": ""}), ("--id", {"type": int, "default": 0}), ("--port", {"default": ""})]),
         ("light-monitor", cmd_light_monitor, [("--port", {"default": ""}), ("--baud", {"type": int, "default": 115200}), ("--seconds", {"type": float, "default": None})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),

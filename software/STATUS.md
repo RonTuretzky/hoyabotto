@@ -16,7 +16,7 @@ Written 2026-10-02 for whoever picks this up on the robot's laptop (person or ag
 | Loose servo IDs | Set and read back on the real servos: head 7 and 8, wheels 9 and 10 (`farm set-motor-id`) |
 | Arm servos | One arm probed: IDs 1-6 all answer (STS3215). The other arm was not probed on its own. |
 | Motor power | A USB-C-to-12 V cable gave about 12.5 V on the bus |
-| Software | Fresh clone installs and passes 47 tests; simulator runs end to end |
+| Software | Fresh clone installs and passes 65 tests; simulator runs end to end |
 | LLM backends | Claude CLI and OpenRouter (Jev, Astra) both answered from the first laptop |
 
 ## What is not done
@@ -56,6 +56,10 @@ Run from Terminal (camera permission is per app), inside `software/` with the en
 9. `farm run --every 3600 --record`.
 
 Stop at any point with the red STOP button in the viewer.
+
+## Built after the community review, not yet run on the robot
+
+`farm calibration-report`, `farm robot-test`, `farm soak`, `farm policy-server` with `farm policy-test --server`, `farm teach --by-hand` (off unless the profile allows it) and `farm mcp`. All pass on the simulator. The README has a table of them; `docs/gpu-server.md` covers the two-computer training setup; `docs/community-projects.md` is the review they came from. Automatic calibration (LeRobot PR #3282) was looked at and deliberately not built.
 
 ## Rules that were decided
 

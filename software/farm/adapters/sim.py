@@ -110,6 +110,10 @@ class FakeRobot:
         for j in (motors or ALL_JOINTS):
             self.torque[j] = False
 
+    def torque_on(self, motors: list[str] | None = None) -> None:
+        for j in (motors or ALL_JOINTS):
+            self.torque[j] = True
+
 
 class FakeCamera:
     name = "camera"

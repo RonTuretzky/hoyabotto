@@ -61,11 +61,16 @@ authority:
   jev_shadow_cycles: 10
   notify_webhook: ""    # optional chat webhook (POST JSON {text, evidence}) for questions
 
+teaching:
+  by_hand: false       # true allows `farm teach --by-hand`: a person places the arm. Off by default: no human operation.
+
 policy:                # learned policy for one skill (v2). Off until a checkpoint has beaten the keyframe skill on held-out episodes.
   enabled: false
   skill: pour
   checkpoint: ""       # e.g. data-train/act_so101_pour/checkpoints/last/pretrained_model
   device: mps
+  server_url: ""       # http://<training-mac>:8766 to run the model on another machine (farm policy-server there)
+  timeout_s: 2.0
   state_joints: [right_arm_shoulder_pan, right_arm_shoulder_lift, right_arm_elbow_flex, right_arm_wrist_flex, right_arm_wrist_roll, right_arm_gripper]
   camera_map: {observation.images.wrist: right_wrist, observation.images.front: head}
   hz: 10

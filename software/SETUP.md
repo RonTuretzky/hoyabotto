@@ -32,7 +32,7 @@ git clone https://github.com/RonTuretzky/xlerobot-farm.git
 cd xlerobot-farm/software
 uv venv --python 3.12 .venv && . .venv/bin/activate
 uv pip install -e ".[dev]"        # ~1.2 GB: lerobot, torch, opencv, fastapi
-python -m pytest -q               # expect: 47 passed (1-2 minutes)
+python -m pytest -q               # expect: 65 passed (1-2 minutes)
 farm sim --auto-answer            # whole program on fake devices; viewer at http://localhost:8765
 ```
 
@@ -109,7 +109,7 @@ Raspberry Pi image, ROS, the upstream XLeRobot repo (the files used are vendored
 ## Final check
 
 ```sh
-python -m pytest -q                                          # 47 passed
+python -m pytest -q                                          # 65 passed
 claude -p "reply with the word ok" --output-format json      # JSON with "ok"
 farm review                                                  # Astra proposal
 farm devices --probe                                         # motor boards + servo IDs, camera snapshots

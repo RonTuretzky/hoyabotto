@@ -39,6 +39,15 @@ The plan they are judged against: a parked two-wheel XLeRobot 0.4.0, run from a 
 
 ## What changed in our plan
 
-1. Added `farm robot-test`: a motors-only check that needs no cameras or models, for confirming the robot is wired and calibrated correctly before anything else runs.
-2. The head mapping (pan = 7, tilt = 8) now has a second source; it is still checked on the hardware by `farm robot-test --move --ask --only head`.
-3. Recorded the auto-calibration PR and the kinesthetic recorder as fallbacks, with the reasons they are not the default.
+Built and tested on the simulator; none of it has run on the real robot yet.
+
+1. `farm robot-test`: a motors-only check that needs no cameras or models (from the need xlerobot-onboard addresses).
+2. `.claude/skills/farm-bringup`: a bring-up skill for the robot laptop (xlerobot-onboard's skill, rewritten for the two-wheel kit).
+3. `farm calibration-report`: flags a wrapped, short or mismatched calibration before anything moves. Head ranges are compared with RoboCrew's limits.
+4. `farm policy-server` and the remote policy client: the training Mac serves the model, the robot laptop keeps the clamps (the split Dexbotic uses; see `gpu-server.md`).
+5. `farm soak`: hold a pose and log servo temperature to a ceiling (the XLeRobot-Pro protocol).
+6. `farm teach --by-hand`: teaching by placing the arm (the kinesthetic recorder's idea). Off unless the profile allows it, because it is human operation.
+7. `farm mcp`: an MCP tool surface that stops at the skill layer (xlerobot-mcp exposes raw servo positions; ours does not).
+8. Automatic calibration (LeRobot PR #3282): not built. It needs a decision, because limit-seeking motion on the cart is unproven.
+
+The head mapping (pan = 7, tilt = 8) now has a second source; it is still checked on the hardware by `farm robot-test --move --ask --only head`.

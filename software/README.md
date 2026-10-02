@@ -19,7 +19,7 @@ farm/
 firmware/esp32_light/  BH1750 → JSON lines at 5 Hz
 profiles/              paper-tray-v0.yaml (real), sim.yaml (fakes)
 parts/                 printable nest plate, tag tiles, light paddle, bottle rest (AnkerMake M5C)
-tests/                 47 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test
+tests/                 65 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test, calibration report, remote policy, soak, teach-by-hand, MCP tools
 ```
 
 ## Setup (MacBook)
@@ -29,7 +29,7 @@ cd software
 uv venv --python 3.12 .venv && . .venv/bin/activate
 uv pip install -e .            # lerobot[feetech], opencv, pyserial, fastapi, httpx …
 cp .env.example .env           # OPENROUTER_API_KEY=… (Jev/Astra). Claude vision uses the logged-in `claude` CLI.
-python -m pytest -q            # 47 passed
+python -m pytest -q            # 65 passed
 farm sim --auto-answer         # whole program on fakes; viewer at http://localhost:8765
 ```
 
@@ -64,6 +64,21 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 - First run (2026-09-27, pipeline check): ACT on `SurajCreation/so101_pour_v1` (35 SO-101 bottle-pour episodes, wrist + overhead), 5000 steps on Mac MPS in ~70 min, loss 3.28 → 0.42; offline first-action MAE 5.5 (normalized ±100 units) on the last 3 episodes vs 2.0 for a hold-still baseline — i.e. a motion prior, **not** a deployable skill; inference 77 ms per 100-action chunk on MPS. The checkpoint drove the simulator through `farm policy-test` under the clamps.
 - Zero-shot plumbing candidate on the real robot: `lissajous/xlerobot-act-local-grasp-v1` (XLeRobot right arm, 6-dim state, one wrist camera — the same interface as the `policy:` profile defaults; a glue-stick grasp, so only for testing the wrapper). Public datasets without a Hub version tag must be `snapshot_download`ed and loaded with `--dataset.root` (documented in `farm/learning/train.py`).
 - `docs/research-training.md`: survey of 57 datasets / 16 checkpoints on the Hub, literature, footage, and the recommendation (ACT locally, SmolVLA on a rented GPU; same-arm SO-101 pour data as a prior; 60–100 of our own episodes).
+
+## Added from the community review (2026-10-02)
+
+| Command | What it does |
+|---|---|
+| `farm calibration-report` | Reads the saved calibration and flags a wrapped reading, a short sweep, or arms that disagree. No motion. |
+| `farm robot-test [--move --ask]` | Motors only: reads every joint; with `--move` nudges each one and asks whether the named part moved. |
+| `farm soak [--keyframe pour_B] [--minutes 20]` | Holds a pose, logs every servo's temperature and load to `data/soak/`, stops at the temperature ceiling. |
+| `farm policy-server --checkpoint DIR` | On the training machine: serves a checkpoint over HTTP. `farm policy-test --server URL` (or `policy.server_url`) uses it. See `docs/gpu-server.md`. |
+| `farm teach --by-hand --arm right --save NAME --who YOU` | Fallback teaching: one arm goes limp, a person places it. Refuses unless the profile has `teaching: {by_hand: true}`. |
+| `farm mcp` | Stdio MCP server: state, camera frames and three skill-level actions (stop, go_rest, go_keyframe). No raw joint access. It holds the robot's serial ports while it runs. |
+
+To give Claude Code on the robot laptop the MCP tools: `claude mcp add farm -- "$PWD/.venv/bin/farm" mcp -p paper-tray-v0`, run from `software/`. Remove it or stop it before running other `farm` commands, since only one process can hold the motor boards.
+
+The review itself is in `docs/community-projects.md`.
 
 ## What can never happen
 
