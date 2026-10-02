@@ -3,6 +3,7 @@
   farm set-motor-id --name head_motor_1   give one loose servo its bus ID (replaces Feetech's Windows FD tool)
   farm devices                      list serial ports and cameras (fill the profile from this)
   farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration (setup, not operation)
+  farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
   farm teach-all  -p ...            learn every keyframe the profile needs, in order
@@ -100,6 +101,33 @@ def cmd_check(a):
     print("views:", s.verify_views())
     print("keyframes:", s.keyframes.names())
     s.disconnect()
+
+
+def cmd_robot_test(a):
+    """Motors only: no cameras, no LLM, no trays. Needs ports in the profile and a calibration."""
+    from .config import load_profile
+    from .tools import robot_test
+    p = load_profile(a.profile)
+    if p.robot.kind == "sim" or p.simulated:
+        from .adapters.sim import FakeRobot, Faults
+        f = Faults(); f.set("empty_gripper")
+        r = FakeRobot(f)
+    else:
+        from .adapters.robot_lerobot import LeRobotXLeRobot
+        r = LeRobotXLeRobot(p.robot)
+    if a.move:
+        print("Arms and head will each move a little, one joint at a time. Start with the arms folded at rest.")
+        print("When the test ends, or on Ctrl-C, the motors go limp.")
+    r.connect()
+    try:
+        res = robot_test.run(r, move=a.move, delta=a.delta, only=a.only or None, ask=input if a.ask else None)
+    except KeyboardInterrupt:
+        r.stop()
+        print("\nstopped")
+        res = {"ok": False}
+    finally:
+        r.disconnect()
+    sys.exit(0 if res["ok"] else 1)
 
 
 def _needed_keyframes(s):
@@ -401,6 +429,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name, fn, extra in [
         ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, []), ("check", cmd_check, []),
+        ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),
         ("calibrate-pour", cmd_calibrate_pour, [("--tilt", {"type": float, "required": True}), ("--seconds", {"type": float, "required": True}), ("--ml", {"type": float, "required": True}), ("--who", {"required": True})]),

@@ -19,7 +19,7 @@ farm/
 firmware/esp32_light/  BH1750 → JSON lines at 5 Hz
 profiles/              paper-tray-v0.yaml (real), sim.yaml (fakes)
 parts/                 printable nest plate, tag tiles, light paddle, bottle rest (AnkerMake M5C)
-tests/                 37 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe
+tests/                 47 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test
 ```
 
 ## Setup (MacBook)
@@ -29,7 +29,7 @@ cd software
 uv venv --python 3.12 .venv && . .venv/bin/activate
 uv pip install -e .            # lerobot[feetech], opencv, pyserial, fastapi, httpx …
 cp .env.example .env           # OPENROUTER_API_KEY=… (Jev/Astra). Claude vision uses the logged-in `claude` CLI.
-python -m pytest -q            # 37 passed
+python -m pytest -q            # 47 passed
 farm sim --auto-answer         # whole program on fakes; viewer at http://localhost:8765
 ```
 
@@ -48,7 +48,7 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 ## Japan, day 1 (robot assembled, wall-powered, base parked)
 
 1. `farm devices --probe` — pings each motor bus (IDs 1–8 = bus 1, 9–10 = bus 2) and snapshots every camera into `data/devices/`; put the ports and camera indices in `profiles/paper-tray-v0.yaml`.
-2. `farm calibrate` — LeRobot's one-time range-of-motion calibration (support the arms; this is setup, not operation).
+2. `farm calibrate` — LeRobot's one-time range-of-motion calibration (support the arms; this is setup, not operation). Then `farm robot-test --move --ask` — motors only, no cameras or models: reads every joint and nudges each one in turn so you can confirm the named joint is the one that moves.
 3. `farm check` — connects everything, asks the vision model which camera is which, prints statuses.
 4. Put the bottle in its rest, the paddle in its rest, the cress tray in its nest. `farm teach-all` — the LLM-servo learns every keyframe the profile needs (bottle rest, paddle rest, look/pour/measure per tray) and saves them to `data/keyframes.yaml`. Re-run any single one with `farm teach --arm right --goal "…" --save pour_B`.
 5. Empty-bottle rehearsal: `farm once --tray B` with an empty bottle; authorize from the viewer.

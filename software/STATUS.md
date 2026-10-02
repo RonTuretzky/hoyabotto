@@ -1,6 +1,6 @@
 # Where the build stands
 
-Written 2026-10-02 for whoever picks this up on the robot's laptop (person or agent). Read this first, then `SETUP.md` (installing) and `README.md` (what the program is).
+Written 2026-10-02 for whoever picks this up on the robot's laptop (person or agent). Read this first, then `SETUP.md` (installing) and `README.md` (what the program is). `docs/community-projects.md` reviews the 43 projects on the XLeRobot community page against this plan.
 
 ## The robot
 
@@ -16,7 +16,7 @@ Written 2026-10-02 for whoever picks this up on the robot's laptop (person or ag
 | Loose servo IDs | Set and read back on the real servos: head 7 and 8, wheels 9 and 10 (`farm set-motor-id`) |
 | Arm servos | One arm probed: IDs 1-6 all answer (STS3215). The other arm was not probed on its own. |
 | Motor power | A USB-C-to-12 V cable gave about 12.5 V on the bus |
-| Software | Fresh clone installs and passes 42 tests; simulator runs end to end |
+| Software | Fresh clone installs and passes 47 tests; simulator runs end to end |
 | LLM backends | Claude CLI and OpenRouter (Jev, Astra) both answered from the first laptop |
 
 ## What is not done
@@ -30,7 +30,7 @@ Written 2026-10-02 for whoever picks this up on the robot's laptop (person or ag
 | Cameras | Never opened from software. They need 4-pin-to-USB cables; whether the kit included them was an open question |
 | Light sensor | ESP32 + BH1750 not wired or flashed |
 | Printed parts | Cress planter, nests, tag tiles, bottle rest, paddle: print status unknown |
-| Head naming | Pan = 7, tilt = 8 is assumed, not checked on the hardware |
+| Head naming | Pan = 7, tilt = 8 is assumed, not checked on the hardware. RoboCrew's XLeRobot driver uses the same mapping (yaw 7, pitch 8). `farm robot-test --move --ask --only head` checks it |
 | Wheel sides | Left = 9, right = 10 is assumed, not checked (unused while parked) |
 
 ## Hardware facts worth keeping
@@ -48,11 +48,12 @@ Run from Terminal (camera permission is per app), inside `software/` with the en
 1. `farm devices --probe`: confirm both boards and their IDs, and look at the camera snapshots in `data/devices/`.
 2. Edit `profiles/paper-tray-v0.yaml`: `port1` = the board with IDs 1-8, `port2` = the board with 9 and 10. For each camera add `index_or_path: <n>` using the snapshot that shows the matching view.
 3. `farm calibrate`: support both arms and follow the prompts. One-time.
-4. `farm check`: connects everything and has the vision model confirm which camera is which.
-5. Put the bottle, paddle and trays in their fixed places, then `farm teach-all`.
-6. `farm once --tray B` with an empty bottle; authorize from the viewer (http://localhost:8765).
-7. `farm cup-test --tilt 25 --seconds 1.5 --who <name>`.
-8. `farm run --every 3600 --record`.
+4. `farm robot-test`, then `farm robot-test --move --ask`: motors only (no cameras, no models, no trays). The first reads every joint, temperature and load. The second nudges one joint at a time and asks whether the named part moved; this catches swapped left/right boards and swapped head motors. Start with the arms folded; the motors go limp when it ends.
+5. `farm check`: connects everything and has the vision model confirm which camera is which.
+6. Put the bottle, paddle and trays in their fixed places, then `farm teach-all`.
+7. `farm once --tray B` with an empty bottle; authorize from the viewer (http://localhost:8765).
+8. `farm cup-test --tilt 25 --seconds 1.5 --who <name>`.
+9. `farm run --every 3600 --record`.
 
 Stop at any point with the red STOP button in the viewer.
 
