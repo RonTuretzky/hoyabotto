@@ -2,11 +2,13 @@
 
 Two things live here: the handbook site (`handbook/`, built by `build_site.py`, published to GitHub Pages) and the farm program that runs the robot (`software/`).
 
-If you are on the laptop connected to the robot, read these in order before doing anything. To bring the robot up (probe, profile, calibration, motors-only test), use the `farm-bringup` skill in `.claude/skills/`: type `/farm-bringup` or ask to "bring up the robot".
+If you are on the laptop connected to the robot, read these in order before doing anything:
 
 1. `software/STATUS.md`: where the physical build stands, what is verified, what is assumed, and the next steps.
 2. `software/SETUP.md`: installing everything on a blank laptop.
 3. `software/README.md`: what the program is and its commands.
+
+To bring the robot up (probe, profile, calibration, motors-only test), use the `farm-bringup` skill in `.claude/skills/`: type `/farm-bringup` or ask to "bring up the robot".
 
 Working rules:
 
