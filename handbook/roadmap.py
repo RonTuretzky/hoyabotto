@@ -20,11 +20,16 @@ def wrap(text, width):
     if cur: lines.append(cur)
     return lines
 
+_SVG_N = [0]
+
 def svg(w, h, inner, title):
+    _SVG_N[0] += 1
+    u = f'm{_SVG_N[0]}'
+    inner = inner.replace('url(#ah-grey)', f'url(#{u}-grey)').replace('url(#ah-red)', f'url(#{u}-red)').replace('url(#ah)', f'url(#{u})')
     return (f'<svg class="diagram" viewBox="0 0 {w} {h}" role="img" aria-label="{e(title, quote=True)}" xmlns="http://www.w3.org/2000/svg">'
-            f'<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="{INK}"/></marker>'
-            f'<marker id="ah-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="{GREY}"/></marker>'
-            f'<marker id="ah-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="{RED}"/></marker></defs>{inner}</svg>')
+            f'<defs><marker id="{u}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="{INK}"/></marker>'
+            f'<marker id="{u}-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="{GREY}"/></marker>'
+            f'<marker id="{u}-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="{RED}"/></marker></defs>{inner}</svg>')
 
 def box(x, y, w, h, title, lines=(), kind='bd', fs=15, tfs=17, dashed=False, cw=None):
     stroke, fill = KIND[kind]
@@ -620,20 +625,23 @@ SLIDES = [
   'The deck is generated from one Python file (handbook/roadmap.py); the program from software/farm.'),
 ]
 
-def render():
-    n = len(SLIDES)
+def render(slides=None, sources=None):
+    slides = slides or SLIDES
+    n = len(slides)
     out = '<link rel="stylesheet" href="roadmap.css"><script src="roadmap.js" defer></script><div class="deck" id="deck" data-count="%d">' % n
     out += '<div class="deck-bar" aria-label="Slideshow controls"><button type="button" id="deck-prev" aria-label="Previous slide">←</button><output id="deck-pos" aria-live="polite">01 / %02d</output><button type="button" id="deck-next" aria-label="Next slide">→</button><span class="deck-gap"></span><button type="button" id="deck-outline" aria-pressed="false">Outline</button><button type="button" id="deck-present" aria-pressed="false">Present</button></div><div class="deck-progress"><div id="deck-fill"></div></div>' % n
     out += '<ol class="deck-toc" id="deck-toc" hidden>'
-    for i, s in enumerate(SLIDES, 1):
+    for i, s in enumerate(slides, 1):
         out += f'<li><a href="#{s[0]}" data-go="{i - 1}"><span>{i:02}</span><strong>{e(s[2])}</strong><small>{e(s[1])}</small></a></li>'
     out += '</ol><div class="deck-slides">'
-    for i, (key, kicker, title, lead, fig, points, limit) in enumerate(SLIDES, 1):
+    for i, (key, kicker, title, lead, fig, points, limit) in enumerate(slides, 1):
         out += f'<section id="{key}" class="slide" data-slide aria-labelledby="t-{key}"><header class="slide-head"><p class="kicker">{e(kicker)} · {i:02} / {n:02}</p><h2 id="t-{key}" tabindex="-1">{e(title)}</h2><p class="slide-lead">{e(lead)}</p></header><div class="slide-body"><figure class="slide-fig">{fig()}</figure><div class="slide-points"><dl>'
         for lab, text in points:
             out += f'<div><dt>{e(lab)}</dt><dd>{e(text)}</dd></div>'
         out += f'</dl></div></div><p class="slide-limit">{e(limit)}</p></section>'
     out += '</div><p class="deck-help">← → move · O outline · P present · Esc exit · Print shows every slide.</p>'
+    if sources is not None:
+        return out + sources
     out += ('<p class="deck-sources">Sources: <a href="https://github.com/Vector-Wangel/XLeRobot">XLeRobot repository</a> (software/src/robots/xlerobot_2wheels, model/SO101Robot.py, record.py, examples), '
             '<a href="https://xlerobot.readthedocs.io/en/latest/software/">XLeRobot software docs</a>, <a href="https://huggingface.co/docs/lerobot">LeRobot docs</a>, the September 20 redline deck, '
             '<a href="https://vector-wangel.github.io/XLeRobot-assets/videos/Real_demos/xlerobot030.mp4#t=56,60">the teleoperated watering clip</a>, <a href="hardware.html">hardware</a> and <a href="assembly.html">assembly</a> pages of this guide. '
