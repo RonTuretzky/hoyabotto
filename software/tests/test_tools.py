@@ -130,3 +130,59 @@ def test_robot_test_describe():
     from farm.tools import robot_test
     assert robot_test.describe("head_motor_1").startswith("HEAD: head turns")
     assert robot_test.describe("right_arm_gripper") == "RIGHT arm: gripper jaw opens/closes"
+
+
+# ---- calibration_report: sanity of a saved calibration -----------------------------------
+def _cal(**over):
+    """A plausible full calibration: every joint centred on 2047 with its nominal travel."""
+    from farm.tools import calibration_report as cr
+    cal = {}
+    names = [f"{a}_arm_{j}" for a in ("left", "right") for j in ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")] + ["head_motor_1", "head_motor_2"]
+    for i, n in enumerate(names):
+        nominal = cr.NOMINAL[cr._kind(n)][0]
+        half = int(nominal / 2 / cr.DEG)
+        cal[n] = {"id": i % 6 + 1, "drive_mode": 0, "homing_offset": 0, "range_min": 2047 - half, "range_max": 2047 + half}
+    cal["base_left_wheel"] = {"id": 9, "drive_mode": 0, "homing_offset": 0, "range_min": 0, "range_max": 4095}
+    cal["base_right_wheel"] = {"id": 10, "drive_mode": 0, "homing_offset": 0, "range_min": 0, "range_max": 4095}
+    for k, v in over.items():
+        cal[k].update(v)
+    return cal
+
+
+def test_calibration_report_accepts_a_full_sweep_and_skips_wheels():
+    from farm.tools import calibration_report as cr
+    res = cr.analyse(_cal())
+    assert res["problems"] == [] and res["notes"] == []
+    assert len(res["rows"]) == 14 and all(not r["joint"].startswith("base_") for r in res["rows"])
+
+
+def test_calibration_report_flags_wrap_short_wide_mismatch_and_missing():
+    from farm.tools import calibration_report as cr
+    wrapped = cr.analyse(_cal(left_arm_wrist_roll={"range_min": 0, "range_max": 4095}))
+    assert any("left_arm_wrist_roll" in p and "wrapped" in p for p in wrapped["problems"])
+    short = cr.analyse(_cal(right_arm_elbow_flex={"range_min": 1800, "range_max": 2300}))
+    assert any("right_arm_elbow_flex: swept only" in p for p in short["problems"])
+    assert any("left_arm_elbow_flex and right_arm_elbow_flex" in p for p in short["problems"])      # and the arms disagree
+    wide = cr.analyse(_cal(head_motor_2={"range_min": 600, "range_max": 3500}))
+    assert any("head_motor_2" in p and "more than the joint can travel" in p for p in wide["problems"])
+    cal = _cal(); del cal["head_motor_1"]
+    assert any("missing" in p and "head_motor_1" in p for p in cr.analyse(cal)["problems"])
+
+
+def test_calibration_report_notes_off_centre_and_prints(tmp_path):
+    import json
+    from farm.tools import calibration_report as cr
+    cal = _cal(left_arm_shoulder_pan={"range_min": 2047 - 400, "range_max": 2047 + 2000})
+    res = cr.analyse(cal)
+    assert res["problems"] == [] and any("left_arm_shoulder_pan" in n for n in res["notes"])
+    f = tmp_path / "c.json"; f.write_text(json.dumps(_cal()))
+    lines = []
+    assert cr.report(f, out=lines.append)["ok"] and lines[-1].strip() == "LOOKS COMPLETE"
+    assert not cr.report(tmp_path / "missing.json", out=lines.append)["ok"]
+
+
+def test_calibration_path_needs_no_ports():
+    from farm.config import load_profile
+    from farm.tools import calibration_report as cr
+    p = cr.calibration_path(load_profile("paper-tray-v0").robot)
+    assert p.name == "farm_xlerobot.json" and "xlerobot_2wheels" in str(p)

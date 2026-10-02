@@ -47,7 +47,7 @@ Run from Terminal (camera permission is per app), inside `software/` with the en
 
 1. `farm devices --probe`: confirm both boards and their IDs, and look at the camera snapshots in `data/devices/`.
 2. Edit `profiles/paper-tray-v0.yaml`: `port1` = the board with IDs 1-8, `port2` = the board with 9 and 10. For each camera add `index_or_path: <n>` using the snapshot that shows the matching view.
-3. `farm calibrate`: support both arms and follow the prompts. One-time.
+3. `farm calibrate`: support both arms and follow the prompts. One-time. Then `farm calibration-report`: reads the saved file and flags a wrapped reading, a short sweep, or arms that disagree, before anything moves.
 4. `farm robot-test`, then `farm robot-test --move --ask`: motors only (no cameras, no models, no trays). The first reads every joint, temperature and load. The second nudges one joint at a time and asks whether the named part moved; this catches swapped left/right boards and swapped head motors. Start with the arms folded; the motors go limp when it ends.
 5. `farm check`: connects everything and has the vision model confirm which camera is which.
 6. Put the bottle, paddle and trays in their fixed places, then `farm teach-all`.

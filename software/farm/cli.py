@@ -3,6 +3,7 @@
   farm set-motor-id --name head_motor_1   give one loose servo its bus ID (replaces Feetech's Windows FD tool)
   farm devices                      list serial ports and cameras (fill the profile from this)
   farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration (setup, not operation)
+  farm calibration-report           read the saved calibration; flag wrapped, short or mismatched joint ranges (no motion)
   farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
@@ -101,6 +102,14 @@ def cmd_check(a):
     print("views:", s.verify_views())
     print("keyframes:", s.keyframes.names())
     s.disconnect()
+
+
+def cmd_calibration_report(a):
+    """Read the saved calibration and flag wrapped, short or mismatched joint ranges. No motion."""
+    from .config import load_profile
+    from .tools import calibration_report as cr
+    path = Path(a.file) if a.file else cr.calibration_path(load_profile(a.profile).robot)
+    sys.exit(0 if cr.report(path)["ok"] else 1)
 
 
 def cmd_robot_test(a):
@@ -429,6 +438,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name, fn, extra in [
         ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, []), ("check", cmd_check, []),
+        ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),

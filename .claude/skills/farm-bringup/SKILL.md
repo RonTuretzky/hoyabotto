@@ -78,6 +78,14 @@ Explain what it will ask before they start. Motors are limp throughout; support 
 
 It ends with `calibration saved: <path>`. Ask the user to paste the last lines.
 
+Then check what was saved, before anything moves (you run this):
+
+```sh
+farm calibration-report
+```
+
+It prints each joint's swept range in degrees and flags three things: a reading that wrapped at the encoder edge, a sweep too short to be complete, and left and right arms that disagree. If it prints `PROBLEMS`, relay them and have the user calibrate again; do not go on to Step 5 with a flagged calibration.
+
 Known trap: if a joint (usually wrist roll) was near the end of its travel at step 1, its reading wraps and the calibration is wrong. The fix is to switch 12 V off, put that joint at mid-travel, switch 12 V on, and run `farm calibrate` again. Do not try to correct it by turning the joint.
 
 ## Step 5 — Motors-only test (you, then the user watches)
