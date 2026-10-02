@@ -118,6 +118,8 @@ farm light-monitor                                           # lux readings (aft
 
 For long runs keep the laptop awake and on mains power: `caffeinate -dims farm run --every 3600`.
 
+When all five checks pass, continue with `STATUS.md`: it says where the physical build stands and the next steps on the robot.
+
 ## Linux differences
 
 - Step 1: install git with the package manager and uv with `curl -LsSf https://astral.sh/uv/install.sh | sh`.
