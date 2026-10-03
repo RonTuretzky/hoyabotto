@@ -196,7 +196,7 @@ def cmd_train(a):
         print("downloading", a.repo_id)
         snapshot_download(a.repo_id, repo_type="dataset", local_dir=str(root))
     out = Path(T.DEFAULT_DATA_TRAIN) / a.output
-    cmd = T.build_command(a.repo_id, "act", a.steps, a.device, out, root, None, a.batch_size, a.save_freq, 100, 2, None, None, False, [])
+    cmd = T.build_command(a.repo_id, "act", a.steps, a.device, out, root, None, a.batch_size, a.save_freq, 100, 2, None, None, False, ["--dataset.video_backend=pyav"])   # torchcodec needs a matching ffmpeg; pyav always works here
     print(" ".join(cmd))
     rc = T.run(cmd, out.parent / f"{out.name}_train.log")
     if out.is_dir():

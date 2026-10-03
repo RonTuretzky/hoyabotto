@@ -29,7 +29,7 @@ carton:                                   # measured 2026-10-03, Hachiyo "B" car
   height_m: 0.108
   flap_m: 0.14
   mass_kg: 0.96
-  stance: {setback_m: 0.06, spacing_m: 0.30, height_m: 0.15, paddle_m: 0.15}   # measure spacing and height on the cart
+  stance: {setback_m: 0.06, spacing_m: 0.30, height_m: 0.0, paddle_m: 0.15}    # spacing from the upstream robot model (arm bases 30 cm apart); height = shoulder minus box rim, ~0 for a 70 cm table
   tape: pre-cut masking tape strip, 8 cm, tab end free in the tape rest
 
 limits:

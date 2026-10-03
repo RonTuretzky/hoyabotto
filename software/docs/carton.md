@@ -23,7 +23,7 @@ Photos of the empty carton with flaps standing: `.context/carton-photos/` in the
 
 The cart stands along one long side. The SO-101 arm reaches about 32 cm from the shoulder with bare fingers (25 cm of arm, 10 cm of gripper, 3 cm margin). The far long flap stands 28 cm plus the cart's setback away: bare fingers reach it only with the shoulders within 3 cm of the near rim. A 15 cm printed paddle held in the right gripper makes the far flap reachable from 18 cm back, and its flat blade presses the tape. `carton geometry` prints the table; with the profile's stance (6 cm setback, 15 cm above the rim) every target is within reach, the tightest being the tape laid by the left arm (6 cm margin).
 
-Two numbers in the profile must be measured on the cart: shoulder spacing (`spacing_m`, assumed 30 cm) and shoulder height above the box rim (`height_m`, depends on table height).
+Two stance numbers come from the upstream robot model (simulation/mujoco/xlerobot.xml, URDF): the two arm bases sit 30 cm apart, and the shoulder joint is about 82 cm above the floor when the robot stands on its cart. The box rim is the table height plus 10.8 cm, so on a 70 cm table the shoulders are level with the rim, on an 80 cm table 9 cm below it. The reach check passes for tables from 70 to 80 cm; `height_m` in the profile is shoulder minus rim and only needs changing if the table is outside that range.
 
 ## The plan
 
@@ -60,7 +60,7 @@ Carton closing is a well-covered task on the Hub. Same arms and joint names as o
 
 ## Status
 
-Built and tested on the simulator (11 carton tests; 109 in the suite). Nothing has run on the real robot. Open items: print the paddle and tape rest; measure shoulder spacing and height on the cart; teach the 20 keyframes with a real carton on a table at the chosen height; the download of the training data was slow on the first attempt.
+Built and tested on the simulator (11 carton tests; 109 in the suite). Nothing has run on the real robot. Open items: print the paddle and tape rest; teach the 20 keyframes with a real carton on a table at the chosen height; the download of the training data was slow on the first attempt.
 
 ## Commands
 

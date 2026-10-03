@@ -123,6 +123,9 @@ def training_env(data_train: Path = DEFAULT_DATA_TRAIN) -> dict[str, str]:
     env["WANDB_MODE"] = "disabled"
     env.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
     env.setdefault("TOKENIZERS_PARALLELISM", "false")
+    bindir = str(Path(sys.executable).parent)            # lerobot-train lives next to this interpreter, which may not be on PATH (nohup, cron)
+    if bindir not in env.get("PATH", "").split(os.pathsep):
+        env["PATH"] = bindir + os.pathsep + env.get("PATH", "")
     return env
 
 
