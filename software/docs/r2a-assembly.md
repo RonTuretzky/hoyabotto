@@ -1,8 +1,11 @@
 # R2a cress-planter assembly: contract, reconciliation and station plan
 
 Written 2026-10-03 from the design handoff (`docs/r2a-handoff.md`, copied from the design chat).
-Status in one line: **the contract and tests exist; nothing has been printed, inspected, measured, gripped
-or moved.** Execution is disabled in `profiles/r2a-assembly-v0.yaml` and `farm r2a` lists what blocks it.
+Status: **the R2a full prototype plate was observed printing at 15:19 JST on October 3; completion and
+inspection remain unconfirmed.** The contract, offline supervisor rehearsal and station-fitting tool exist.
+The user reports calibration in progress on the other Mac connected to the robot. This session has not
+measured, gripped or moved anything. Execution remains disabled in `profiles/r2a-assembly-v0.yaml`.
+See [the connected-Mac continuation](r2a-connected-mac.md) for the next steps after calibration finishes.
 
 The goal of this milestone is small on purpose: a person loads four paper wicks and fixes the empty trough;
 the robot places the prepared carrier, one real top sheet, and optionally the retaining frame. It is not
@@ -26,7 +29,28 @@ Checked against `STATUS.md` at commit `bb30bb3` and the handoff. Nothing below w
 | Camera identities for `right_wrist` and `head` | Unknown until `farm devices --probe` and `farm check` | Bring-up Step 3/5 |
 | Cameras in the kit at all | Open question from the previous session (vendor page silent) | Person checks the box |
 
-Everything in that table needs hands or hardware. Everything in sections 2 to 4 below was done offline.
+The table above records the original handoff snapshot. Calibration is now in progress on the other Mac,
+as reported by the user; its result and the camera bindings have not been read back here. The new commands
+below prepare that continuation without opening devices or changing calibration.
+
+### Continuation tools added after the handoff
+
+- `farm r2a --simulate`: exercises the discrete pick/transfer/support/release/retreat checks in both variants.
+  `--fault double_paper` and the other faults listed in `--help` stop the episode without release/park/retry
+  after uncertainty. This is a synthetic supervisor rehearsal, not a physics simulation or a robot success.
+  Trace JSON is explicitly ineligible for training and cannot overwrite an earlier trace.
+- `farm r2a`: now also reads the robot profile, saved calibration, and isolated R2a keyframe file. It never
+  opens ports/cameras, and passing static checks no longer prints an unconditional execution approval.
+- `farm r2a-station --measurements data/r2a/measurements.yaml --output data/r2a/station.yaml`: fits actual
+  paired measurements, checks an independent point, rejects poor geometry/unit mistakes/errors over 2 mm,
+  and refuses to overwrite an existing transform. Example input: `profiles/r2a-station-measurements.example.yaml`.
+- Evidence with an OK status still needs a fresh, literally true value. Invalid/overlapping/non-finite grip
+  thresholds, stale jaw readings, fractional sheet counts, malformed execution flags and retries are rejected.
+
+**Still unimplemented:** live R2a placement executor, online object-state observer, R2a-specific automatic
+teaching, and a connected recording/training loop. The rehearsal defines intermediate acceptance checks;
+it does not supply any of those hardware integrations. The existing watering/carton runners must not be
+used as if they already implement this task. A profile toggle alone cannot complete those integrations.
 
 ## 2. What was implemented (offline, disabled)
 

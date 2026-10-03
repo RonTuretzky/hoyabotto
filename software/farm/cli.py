@@ -24,6 +24,8 @@
   farm sim        [--faults ...] [--record]   the same program on fakes
   farm backup     -p ...
   farm r2a        [-p r2a-assembly-v0] [--checkpoint DIR] [--station FILE]   R2a assembly readiness report: parts, station, grips, schema (no motion)
+  farm r2a --simulate [--fault double_paper] [--variant R2a_with_frame]    offline supervisor rehearsal (no physics or hardware)
+  farm r2a-station --measurements FILE --output FILE   fit actual measured fixture points; no motion
   --record on run/once/sim writes the robot's own runs to data/dataset (LeRobotDataset)
 """
 from __future__ import annotations
@@ -513,6 +515,23 @@ def cmd_r2a(a):
     from .assembly import r2a
     from .assembly.schema import DatasetSchema
     p = r2a.load_assembly_profile(a.profile)
+    if a.variant:
+        p.variant = r2a.Variant(a.variant)
+    if a.simulate:
+        from .assembly.rehearsal import Rehearsal, save_trace
+        result = Rehearsal(p, a.fault).run()
+        out = Path(a.output) if a.output else Path("data/r2a/rehearsals") / f"{time.time_ns()}.json"
+        save_trace(result, out)
+        print(f"{result['result']}: {result['variant']} fault={result['fault']}")
+        print("Discrete supervisor rehearsal only; no physics, vision, hardware or training data.")
+        print(f"Trace: {out}")
+        if result["reason"]:
+            print(result["reason"])
+        if result["result"] != "SIMULATED_COMPLETE":
+            raise SystemExit(2)
+        return
+    if a.fault != "none" or a.output:
+        raise ValueError("--fault and --output require --simulate")
     st = fr.RobotFromAssembly.load(Path(a.station) if a.station else p.station_path())
     parts = r2a.verify_parts(p.parts_path())
     schema = DatasetSchema(p.controlled_arm, p.state_joints, p.cameras, p.fps, p.frame_hw)
@@ -523,7 +542,7 @@ def cmd_r2a(a):
     print("Parts (parts/r2a):")
     for n, r in parts.items():
         print(f"  {'OK ' if r['ok'] else 'BAD'} {n:16} {r['note'] or r['sha256'][:16]}")
-    print(f"Station transform ({p.station_path()}): {'measured by ' + st.by + ' on ' + st.measured_on + ' via ' + st.method if st.measured else 'NOT MEASURED'}")
+    print(f"Station transform ({a.station or p.station_path()}): {'measured by ' + st.by + ' on ' + st.measured_on + ' via ' + st.method if st.measured else 'NOT MEASURED'}")
     miss = p.grip.missing()
     print(f"Grip thresholds: {'all measured' if not miss else 'NOT MEASURED: ' + ', '.join(miss)}")
     print(f"Dataset schema {schema.schema_version}: state/action {len(schema.joints)} joints of {p.controlled_arm} arm; cameras {schema.cameras}; fps {p.fps}")
@@ -543,9 +562,30 @@ def cmd_r2a(a):
     for g in fr.grasp_candidates():
         print(f"  {g.part:9} at {g.point_A_mm} close across {g.closure_axis} over {g.thickness_mm} mm  [{g.status}]")
     blockers = r2a.execution_blockers(p, station=st, parts_report=parts)
-    print("Execution: " + ("ALLOWED (supervised trials only)" if not blockers else "BLOCKED"))
+    print("Static contract: " + ("checks pass; hardware readiness still required" if not blockers else "BLOCKED"))
     for b in blockers:
         print(f"  - {b}")
+    from .assembly.readiness import laptop_report
+    report = laptop_report(p)
+    print("Robot laptop (files only):")
+    print(f"  calibration id: {report['calibration_id'] or 'unavailable'}")
+    for problem in report["problems"]:
+        print(f"  - {problem}")
+    if st.measured and (not st.calibration_id or st.calibration_id != report["calibration_id"]):
+        print("  - station transform does not match this laptop's current calibration")
+    print(f"  R2a keyframes: {report['keyframes_file']}")
+    for name in report["missing_keyframes"]:
+        print(f"    missing: {name}")
+    print("Physical checks still required: inspected print and hand fit; fixed trough and source stations; "
+          "verified camera identities; measured grips; validated clear approach/transfer/release paths.")
+    print("Live R2a execution is not exposed by this command. Rehearsal is available with --simulate.")
+
+
+def cmd_r2a_station(a):
+    from .assembly.measure import fit_station_file
+    result = fit_station_file(Path(a.measurements), Path(a.output))
+    print(json.dumps(result, indent=2))
+    print(f"Station saved to {a.output}; execution remains disabled.")
 
 
 def main(argv=None):
@@ -569,7 +609,10 @@ def main(argv=None):
         ("set-motor-id", cmd_set_motor_id, [("--name", {"default": ""}), ("--id", {"type": int, "default": 0}), ("--port", {"default": ""})]),
         ("light-monitor", cmd_light_monitor, [("--port", {"default": ""}), ("--baud", {"type": int, "default": 115200}), ("--seconds", {"type": float, "default": None})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
-        ("r2a", cmd_r2a, [("--checkpoint", {"default": ""}), ("--station", {"default": ""})]),
+        ("r2a", cmd_r2a, [("--checkpoint", {"default": ""}), ("--station", {"default": ""}),
+            ("--simulate", {"action": "store_true"}), ("--fault", {"default": "none", "choices": ["none", "preflight_unknown", "no_pick", "lost_carrier", "seat_unknown", "double_paper", "no_paper", "paper_unknown", "paper_on_jaws", "frame_failed", "stale_evidence", "stop_during_transfer", "deadline", "intervention"]}),
+            ("--variant", {"choices": ["R2a_no_frame", "R2a_with_frame"]}), ("--output", {"default": ""})]),
+        ("r2a-station", cmd_r2a_station, [("--measurements", {"required": True}), ("--output", {"required": True})]),
     ]:
         sp = sub.add_parser(name)
         if name == "r2a":

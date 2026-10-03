@@ -1,0 +1,12 @@
+# Copy to data/r2a/measurements.yaml on the robot laptop after calibration.
+# No sample robot coordinates are supplied: fill from actual measurements.
+kind: r2a-station-measurements
+method: "" # Describe measurement method and the calibrated TCP/jaw geometry.
+measured_on: ""
+by: ""
+calibration_id: "" # Copy the id reported by `farm r2a` on that laptop.
+assembly_mm: [] # At least 4 fixture landmarks, Nx3 in assembly frame A, mm.
+robot_m: []     # Same landmarks in the SAME ORDER, robot frame, metres.
+# Separate landmark >=10 mm from every fitted point. Never include it above.
+check_assembly_mm: []
+check_robot_m: []

@@ -96,6 +96,21 @@ two grip fins, an optional paper frame, a grip coupon) for the robot to assemble
 - Open hardware questions carried over: whether cameras were in the kit; the trough fixture (`nest_cress.stl`
   assumes a plain outline; the real trough has an offset refill bay).
 
+### R2a continuation, October 3 (development Mac)
+
+- User reports calibration currently running on the **other Mac connected to the robot**. It was not
+  restarted or touched from this session. Completion, calibration report, camera identities and motor-test
+  results have not yet been read back here. Local missing-device reports describe this development Mac only.
+- Print identity is known: `cress_R2a_full_prototype_plate.gcode`, carrier + frame + coupon; original trough
+  reused. The 15:19 JST observation is historical, not a new printer check. Print completion/inspection unknown.
+- Added offline discrete supervisor rehearsals for both variants and fault paths (`farm r2a --simulate`),
+  measured-point station fitting (`farm r2a-station`), and file-only laptop readiness/keyframe checks.
+  These are not physics/vision tests or hardware assembly. Synthetic traces cannot qualify as training data.
+- Fixed acceptance of non-affirmative OK readings, stale evidence/jaw readings, invalid grip thresholds,
+  fractional paper counts, malformed enable flags, non-finite deadlines and extra placement attempts.
+- [Connected-Mac continuation](docs/r2a-connected-mac.md) gives the measured inputs, isolated pose names,
+  commands and remaining live executor/observer/recording integration. Execution is still disabled.
+
 ## Second task: carton closing (2026-10-03)
 
 Separate scope, same robot: `software/carton/`, command `carton`, profile `carton-v0`. Measurements, reach analysis, plan and status in `docs/carton.md`. Built and tested on the simulator only. Needs the printed flap paddle and tape rest before anything can be taught.

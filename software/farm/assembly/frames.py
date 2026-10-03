@@ -143,7 +143,9 @@ class RobotFromAssembly:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "RobotFromAssembly":
         d = dict(d or {})
-        d.pop("units", None)
+        units = d.pop("units", "metres")
+        if units != "metres":
+            raise ValueError("station transform units must be metres")
         d["matrix"] = np.asarray(d.get("matrix", np.eye(4)), dtype=float)
         if d.get("measured") and not (d.get("method") and d.get("measured_on") and d.get("by")):
             raise ValueError("a measured transform must say how (method), when (measured_on) and by whom (by)")

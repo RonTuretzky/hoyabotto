@@ -7,6 +7,7 @@ farm's existing safety rules (farm/safety/rules.py) are not touched and not rela
 from __future__ import annotations
 
 import hashlib
+import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -127,8 +128,10 @@ def evidence_problems(evidence: dict[str, Any], required: tuple[str, ...]) -> di
         elif isinstance(v, Reading):
             if v.status is not Status.OK:
                 out[name] = v.status.value
-            elif v.value is False:
-                out[name] = "false"
+            elif v.value is not True:
+                out[name] = "false" if v.value is False else "not affirmative"
+            elif not math.isfinite(v.t) or not 0 <= v.age() <= 1.0:
+                out[name] = "STALE or invalid timestamp"
         elif isinstance(v, Status):
             if v is not Status.OK:
                 out[name] = v.value
@@ -242,7 +245,14 @@ def held_state_from_gripper(gripper_pos: Reading[float], empty_max: float | None
     """Measured thresholds only. With unmeasured thresholds the answer is UNKNOWN, never a guess from the bottle's numbers."""
     if empty_max is None or holding_min is None or gripper_pos.status is not Status.OK or gripper_pos.value is None:
         return HeldState.UNKNOWN
-    g = float(gripper_pos.value)
+    try:
+        g, low, high = float(gripper_pos.value), float(empty_max), float(holding_min)
+    except (TypeError, ValueError):
+        return HeldState.UNKNOWN
+    if (not all(math.isfinite(v) for v in (g, low, high, gripper_pos.t))
+            or not 0 <= low < high <= 100 or not 0 <= g <= 100
+            or not 0 <= gripper_pos.age() <= 0.5):
+        return HeldState.UNKNOWN
     if g <= empty_max:
         return HeldState.EMPTY
     if g >= holding_min:
@@ -255,7 +265,9 @@ def check_paper_pick(sheets_detected: int | None, declared: int = 1) -> Reading[
     """One declared sheet (or stack) only. None means the count could not be made: UNKNOWN, not success."""
     if sheets_detected is None:
         return unknown("r2a.paper_pick", "sheet count could not be determined")
-    n = int(sheets_detected)
+    if type(sheets_detected) is not int or type(declared) is not int or declared < 1 or sheets_detected < 0:
+        return unknown("r2a.paper_pick", "sheet counts must be nonnegative integers; declared count must be positive")
+    n = sheets_detected
     if n == declared:
         return Reading(True, Status.OK, source="r2a.paper_pick", meta={"sheets": n, "declared": declared})
     why = "double pickup" if n > declared else "no sheet picked" if n == 0 else "fewer sheets than declared"
@@ -370,6 +382,19 @@ class GripCfg:
     def missing(self) -> list[str]:
         return [k for k, v in self.__dict__.items() if k.endswith(("_max", "_min")) and v is None]
 
+    def problems(self) -> list[str]:
+        out = []
+        for part in ("carrier", "retainer", "paper"):
+            lo, hi = getattr(self, part + "_empty_max"), getattr(self, part + "_holding_min")
+            if lo is None or hi is None:
+                continue
+            if (type(lo) not in (int, float) or type(hi) not in (int, float)
+                    or not math.isfinite(lo) or not math.isfinite(hi) or not 0 <= lo < hi <= 100):
+                out.append(f"{part}: require finite 0 <= empty_max < holding_min <= 100")
+        if not self.missing() and not all(isinstance(v, str) and v.strip() for v in (self.measured_on, self.by)):
+            out.append("measurement date and operator missing")
+        return out
+
 
 @dataclass
 class AssemblyProfile:
@@ -424,14 +449,24 @@ def load_assembly_profile(name_or_path: str = "r2a-assembly-v0") -> AssemblyProf
     if arm not in ("left", "right"):
         raise ValueError("controlled_arm must be 'left' or 'right'")
     joints = list(raw.get("state_joints") or [])
-    if not joints or any(not j.startswith(f"{arm}_arm_") for j in joints):
-        raise ValueError(f"state_joints must all belong to the controlled {arm} arm")
+    from ..adapters.base import ARM_JOINTS, arm_joint
+    expected = [arm_joint(arm, j) for j in ARM_JOINTS]
+    if len(joints) != len(expected) or set(joints) != set(expected):
+        raise ValueError(f"state_joints must contain each of the six controlled {arm} arm joints exactly once")
+    if type(raw.get("execution_enabled", False)) is not bool:
+        raise ValueError("execution_enabled must be a YAML boolean, not a string")
     cams = dict(raw.get("cameras") or {})
     if not cams:
         raise ValueError("cameras must map at least one dataset image key to a farm camera")
     grip = GripCfg(**{k: v for k, v in (raw.get("grip") or {}).items() if k in GripCfg.__dataclass_fields__})
     ds = raw.get("dataset") or {}
     hw = raw.get("frame_hw") or [480, 640]
+    deadlines = {**DEFAULT_DEADLINES_S, **{k: float(v) for k, v in (raw.get("deadlines_s") or {}).items()}}
+    if any(not math.isfinite(v) or v <= 0 for v in deadlines.values()):
+        raise ValueError("every stage deadline must be finite and positive")
+    attempts = {**DEFAULT_MAX_ATTEMPTS, **(raw.get("max_attempts") or {})}
+    if any(type(v) is not int or v != 1 for v in attempts.values()):
+        raise ValueError("R2a permits one attempt per placement; a failure needs a physical reset")
     return AssemblyProfile(
         name=raw.get("profile", path.stem),
         execution_enabled=bool(raw.get("execution_enabled", False)),
@@ -441,8 +476,8 @@ def load_assembly_profile(name_or_path: str = "r2a-assembly-v0") -> AssemblyProf
         cameras=cams,
         fps=int(raw.get("fps", 10)),
         frame_hw=(int(hw[0]), int(hw[1])),
-        deadlines_s={**DEFAULT_DEADLINES_S, **{k: float(v) for k, v in (raw.get("deadlines_s") or {}).items()}},
-        max_attempts={**DEFAULT_MAX_ATTEMPTS, **{k: int(v) for k, v in (raw.get("max_attempts") or {}).items()}},
+        deadlines_s=deadlines,
+        max_attempts=attempts,
         grip=grip,
         station_file=raw.get("station_file", "data/r2a/station.yaml"),
         dataset_repo_id=ds.get("repo_id", "farm/r2a-assembly"),
@@ -457,16 +492,22 @@ def load_assembly_profile(name_or_path: str = "r2a-assembly-v0") -> AssemblyProf
 
 
 def execution_blockers(profile: AssemblyProfile, station: RobotFromAssembly | None = None, parts_report: dict[str, dict[str, Any]] | None = None) -> list[str]:
-    """Everything that stops an assembly policy from running. Empty list = may run (still supervised)."""
+    """Static contract checks only. Runtime readiness, sensing and paths are additional gates."""
     out: list[str] = []
     if not profile.execution_enabled:
         out.append("profile: execution_enabled is false")
     st = station if station is not None else RobotFromAssembly.load(profile.station_path())
     if not st.measured:
         out.append(f"station: T_robot_from_A not measured ({profile.station_path()})")
+    else:
+        if not (st.method and st.measured_on and st.by and st.calibration_id):
+            out.append("station: measurement provenance or calibration id missing")
+        if st.residual_mm is None or not math.isfinite(st.residual_mm) or not 0 <= st.residual_mm <= 2:
+            out.append("station: finite fit residual of at most 2 mm required")
     miss = profile.grip.missing()
     if miss:
         out.append("grip thresholds not measured: " + ", ".join(miss))
+    out.extend("grip: " + problem for problem in profile.grip.problems())
     rep = parts_report if parts_report is not None else verify_parts(profile.parts_path())
     if not parts_ok(rep):
         bad = [k for k, v in rep.items() if not v["ok"]]
