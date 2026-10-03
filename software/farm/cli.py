@@ -23,6 +23,7 @@
   farm light-monitor                stream the ESP32 lux readings
   farm sim        [--faults ...] [--record]   the same program on fakes
   farm backup     -p ...
+  farm r2a        [-p r2a-assembly-v0] [--checkpoint DIR] [--station FILE]   R2a assembly readiness report: parts, station, grips, schema (no motion)
   --record on run/once/sim writes the robot's own runs to data/dataset (LeRobotDataset)
 """
 from __future__ import annotations
@@ -506,6 +507,47 @@ def cmd_backup(a):
         print(json.dumps(s.store.verify_backup(path)))
 
 
+def cmd_r2a(a):
+    """R2a assembly contract: what is in place and what still blocks execution. Reads files only; never connects to the robot."""
+    from .assembly import frames as fr
+    from .assembly import r2a
+    from .assembly.schema import DatasetSchema
+    p = r2a.load_assembly_profile(a.profile)
+    st = fr.RobotFromAssembly.load(Path(a.station) if a.station else p.station_path())
+    parts = r2a.verify_parts(p.parts_path())
+    schema = DatasetSchema(p.controlled_arm, p.state_joints, p.cameras, p.fps, p.frame_hw)
+    print(f"R2a assembly profile {p.name}: execution_enabled={p.execution_enabled} variant={p.variant.value} arm={p.controlled_arm}")
+    print(f"  stages: {' -> '.join(s.value for s in r2a.stage_order(p.variant))}")
+    print(f"  deadlines_s: {p.deadlines_s}")
+    print(f"  max_attempts: {p.max_attempts}")
+    print("Parts (parts/r2a):")
+    for n, r in parts.items():
+        print(f"  {'OK ' if r['ok'] else 'BAD'} {n:16} {r['note'] or r['sha256'][:16]}")
+    print(f"Station transform ({p.station_path()}): {'measured by ' + st.by + ' on ' + st.measured_on + ' via ' + st.method if st.measured else 'NOT MEASURED'}")
+    miss = p.grip.missing()
+    print(f"Grip thresholds: {'all measured' if not miss else 'NOT MEASURED: ' + ', '.join(miss)}")
+    print(f"Dataset schema {schema.schema_version}: state/action {len(schema.joints)} joints of {p.controlled_arm} arm; cameras {schema.cameras}; fps {p.fps}")
+    print(f"  dataset root {p.dataset_path()} repo {p.dataset_repo_id}; holdout sessions {p.holdout_sessions or 'NONE DECLARED'}")
+    info = p.dataset_path() / "meta" / "info.json"
+    if info.exists():
+        probs = schema.problems_with_info(json.loads(info.read_text()))
+        print(f"  existing dataset: {'compatible' if not probs else 'INCOMPATIBLE: ' + '; '.join(probs)}")
+    else:
+        print("  existing dataset: none")
+    if a.checkpoint:
+        from .learning.infer import resolve_pretrained_dir
+        cfg = json.loads((Path(resolve_pretrained_dir(a.checkpoint)) / "config.json").read_text())
+        probs = schema.problems_with_checkpoint(cfg)
+        print(f"Checkpoint {a.checkpoint}: {'matches schema' if not probs else 'DOES NOT MATCH: ' + '; '.join(probs)}")
+    print("Nominal grasp candidates (CAD, assembly frame A, mm; not robot poses):")
+    for g in fr.grasp_candidates():
+        print(f"  {g.part:9} at {g.point_A_mm} close across {g.closure_axis} over {g.thickness_mm} mm  [{g.status}]")
+    blockers = r2a.execution_blockers(p, station=st, parts_report=parts)
+    print("Execution: " + ("ALLOWED (supervised trials only)" if not blockers else "BLOCKED"))
+    for b in blockers:
+        print(f"  - {b}")
+
+
 def main(argv=None):
     load_env()
     ap = argparse.ArgumentParser(prog="farm", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -527,9 +569,12 @@ def main(argv=None):
         ("set-motor-id", cmd_set_motor_id, [("--name", {"default": ""}), ("--id", {"type": int, "default": 0}), ("--port", {"default": ""})]),
         ("light-monitor", cmd_light_monitor, [("--port", {"default": ""}), ("--baud", {"type": int, "default": 115200}), ("--seconds", {"type": float, "default": None})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
+        ("r2a", cmd_r2a, [("--checkpoint", {"default": ""}), ("--station", {"default": ""})]),
     ]:
         sp = sub.add_parser(name)
-        if name != "sim":
+        if name == "r2a":
+            sp.add_argument("-p", "--profile", default="r2a-assembly-v0")
+        elif name != "sim":
             sp.add_argument("-p", "--profile", default="paper-tray-v0")
         for flag, kw in extra:
             sp.add_argument(flag, **kw)

@@ -1,0 +1,44 @@
+{
+  "revision": "Cress retrofit R2a",
+  "status": "Full prototype printing on Squareship; nonzero extrusion and speed verified. Physical adhesion, completion and functional validation pending.",
+  "execution_enabled": false,
+  "date": "2026-10-03",
+  "decision": "Minimal modification of the original Macce planter, reuse existing trough",
+  "scope_assumption": "Retain folded-wick architecture with human wick preparation. User may choose a different flat-mat architecture; no unconfirmed choice is recorded as user approval.",
+  "source": {
+    "author": "Macce",
+    "title": "Self-watering Cress or Microgreens Planter",
+    "url": "https://www.printables.com/model/434505-self-watering-cress-or-microgreens-planter",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "license_evidence": "Local handoff-print-cress.md. Upstream page could not be fetched in this turn.",
+    "derivative_changes": "Union original holder and four insets with connecting collars; add two grip fins; add new loose paper frame. Original trough unchanged.",
+    "units": "millimetres",
+    "original_scale": "100%, no geometric scaling",
+    "originals": "source/cressmaster-*.stl",
+    "source_hashes": "out/geometry-report.json"
+  },
+  "human_setup": ["Clean parts", "Secure original empty trough in a measured locating fixture", "Load four folded paper wicks", "Cut and stock separate top paper and frame"],
+  "robot_stages": ["PLACE_PREPARED_CARRIER", "PLACE_REAL_TOP_PAPER", "PLACE_RETAINER", "VERIFY_DRY_ASSEMBLY"],
+  "not_full_loose_part_construction": true,
+  "out_of_scope": ["Moving the trough with an unverified grip", "Robot paper folding", "Automatic wick loading", "Automatic water and seed dosing", "Cleaning and harvest", "Unsupervised motion"],
+  "assembly_frames_mm": {
+    "datum": "Original holder deck top z=0, original source XY",
+    "trough_source_translation": [0,0,0],
+    "carrier_export_translation": [0,0,-20.5],
+    "retainer_export_translation": [0,0,1],
+    "render_world_shift": [0,0,23.5],
+    "render_note": "Exploded views add further offsets for explanation only"
+  },
+  "candidate_grasps_mm": {
+    "carrier_fin_centres_relative_original_datum": [[0,-36.5,12],[0,36.5,12]],
+    "carrier_fin_section": [24,6],
+    "retainer_fin_centres_relative_retainer_export": [[-72,0,10],[72,0,10]],
+    "retainer_fin_section": [4,20],
+    "status": "Unvalidated geometric targets, not calibrated robot poses"
+  },
+  "media": {"starting_top_sheet_mm": [146,64], "frame_grow_opening_mm": [140,58], "nominal_stack_allowance_mm": 1, "actual_material_and_thickness": null, "seed_count": null, "water_target_ml": null},
+  "validation_required": ["6 mm carrier and 4 mm frame jaw grip", "Carrier fin root strength", "Physical trough fit and print shrinkage", "Level lift and carried load", "Finger approach and release clearance", "Four-wick capillary transfer", "Real top-paper pickup and single-sheet verification", "Frame seating with actual paper stack", "Support and bridge toolpath inspection", "Support removal without blocking wick wells", "Crop trial and cleaning suitability"],
+  "printing": {"scale": "100%", "profile": "Normal - M5C 0.4mm - PLA+ Basic", "supports": "Automatic build-plate-only grid supports, 30 degree threshold, 0.2 mm top contact gap; carrier deck supported. Removal from wick features remains untested.", "brim": "Automatic", "time_estimate": "4h 3m 14s", "filament_g": 105.61, "plate": "cress_R2a_full_prototype_plate.3mf", "gcode": "cress_R2a_full_prototype_plate.gcode", "contents": ["carrier", "optional retainer", "grip coupon"], "preparation_record": "plate-preparation.json", "printer_command_sent": true},
+  "training": {"runtime_changed": false, "calibrated_poses": null, "demonstrations": 0, "success_claim": "No physical robot execution", "mandatory_episode_metadata": ["R2a mesh hashes", "Human wick-preload scope", "Media type and stack", "Original trough instance", "Gripper calibration", "Fixture transform", "Stage result and human interventions"]}
+}

@@ -37,8 +37,10 @@ ACTION = "action"
 IMAGE_PREFIX = "observation.images."
 
 
-def dataset_features(joint_names: list[str], camera_names: list[str], frame_hw: tuple[int, int]) -> dict[str, dict[str, Any]]:
-    """LeRobot feature spec: float32 state/action vectors in joint order, one image feature per camera."""
+def dataset_features(joint_names: list[str], camera_names: list[str], frame_hw: tuple[int, int],
+                     extra: dict[str, dict[str, Any]] | None = None) -> dict[str, dict[str, Any]]:
+    """LeRobot feature spec: float32 state/action vectors in joint order, one image feature per camera,
+    plus optional extra float32 vector features (e.g. per-tick timing)."""
     h, w = frame_hw
     feats: dict[str, dict[str, Any]] = {
         OBS_STATE: {"dtype": "float32", "shape": (len(joint_names),), "names": list(joint_names)},
@@ -46,12 +48,15 @@ def dataset_features(joint_names: list[str], camera_names: list[str], frame_hw: 
     }
     for cam in camera_names:
         feats[f"{IMAGE_PREFIX}{cam}"] = {"dtype": "image", "shape": (h, w, 3), "names": ["height", "width", "channels"]}
+    for key, spec in (extra or {}).items():
+        feats[key] = dict(spec)
     return feats
 
 
 class EpisodeRecorder:
     def __init__(self, root: Path, repo_id: str, fps: int, camera_names: list[str], frame_hw: tuple[int, int] = (480, 640),
-                 joint_names: list[str] | None = None, robot_type: str = "xlerobot_2wheels"):
+                 joint_names: list[str] | None = None, robot_type: str = "xlerobot_2wheels",
+                 extra_features: dict[str, dict[str, Any]] | None = None):
         if not joint_names:
             raise ValueError("joint_names must list the joints in the order they are recorded")
         self.root = Path(root)
@@ -60,7 +65,8 @@ class EpisodeRecorder:
         self.camera_names = list(camera_names)
         self.frame_hw = (int(frame_hw[0]), int(frame_hw[1]))
         self.joint_names = list(joint_names)
-        self.features = dataset_features(self.joint_names, self.camera_names, self.frame_hw)
+        self.extra_features = dict(extra_features or {})
+        self.features = dataset_features(self.joint_names, self.camera_names, self.frame_hw, self.extra_features)
         self._task: str | None = None
         self._frames_in_episode = 0
         self.skipped = 0            # ticks dropped because a frame was missing or malformed
@@ -90,9 +96,15 @@ class EpisodeRecorder:
         self._task = task
         self._frames_in_episode = 0
 
-    def tick(self, joints: dict[str, float], action: dict[str, float], frames: dict[str, np.ndarray]) -> bool:
+    def tick(self, joints: dict[str, float], action: dict[str, float], frames: dict[str, np.ndarray],
+             extra: dict[str, np.ndarray] | None = None) -> bool:
         """Append one frame. Returns False (and records nothing) if any input is missing."""
         if self._task is None:
+            return False
+        extra = extra or {}
+        if any(k not in extra for k in self.extra_features):
+            self.skipped += 1
+            log.debug("tick skipped: extra features missing %s", [k for k in self.extra_features if k not in extra])
             return False
         missing = [j for j in self.joint_names if j not in joints or j not in action]
         if missing:
@@ -115,6 +127,8 @@ class EpisodeRecorder:
                 self.skipped += 1
                 return False
             frame[f"{IMAGE_PREFIX}{cam}"] = img
+        for key in self.extra_features:
+            frame[key] = np.asarray(extra[key], dtype=np.float32)
         try:
             self.ds.add_frame(frame)
         except Exception as e:  # noqa: BLE001

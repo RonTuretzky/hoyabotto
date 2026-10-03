@@ -7,6 +7,7 @@ If you are on the laptop connected to the robot, read these in order before doin
 1. `software/STATUS.md`: where the physical build stands, what is verified, what is assumed, and the next steps.
 2. `software/SETUP.md`: installing everything on a blank laptop.
 3. `software/README.md`: what the program is and its commands.
+4. `software/docs/r2a-assembly.md` if the task is the planter assembly (R2a): the contract is disabled until `farm r2a` shows no blockers.
 
 To bring the robot up (probe, profile, calibration, motors-only test), use the `farm-bringup` skill in `.claude/skills/`: type `/farm-bringup` or ask to "bring up the robot".
 

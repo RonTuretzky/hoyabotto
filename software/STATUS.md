@@ -80,6 +80,22 @@ Stop at any point with the red STOP button in the viewer.
 
 Decided 2026-10-03: teaching by hand was removed (no human operation, no exceptions); the two-computer policy server (`docs/gpu-server.md`) is parked until the existing checkpoint has been tried on the robot.
 
+## R2a planter assembly (decided 2026-10-03; contract only, nothing physical)
+
+The design chat handed over a modified cress planter ("R2a": the original holder with four insets fused in and
+two grip fins, an optional paper frame, a grip coupon) for the robot to assemble. The full handoff is
+`docs/r2a-handoff.md`; the reconciliation, station plan and what was built are in `docs/r2a-assembly.md`.
+
+- Code: `farm/assembly/` (frames and units, stage machine with required evidence, fail-closed dataset schema,
+  episode metadata and held-out split), `profiles/r2a-assembly-v0.yaml` with `execution_enabled: false`, 28 tests.
+  `farm r2a` prints what blocks execution. The watering profile and skills are untouched.
+- Parts: `parts/r2a/` holds the release STLs and records; hashes checked by the tests.
+- Physical state when written: the full plate was printing on the M5C after one failed start (nozzle traced
+  past the sheet edge; cause unresolved). Completion, part quality, fit, grips, fixture, station transform:
+  **all unknown**. Nothing may run until `farm r2a` shows no blockers, and then only supervised and dry.
+- Open hardware questions carried over: whether cameras were in the kit; the trough fixture (`nest_cress.stl`
+  assumes a plain outline; the real trough has an offset refill bay).
+
 ## Rules that were decided
 
 - Nobody drives the robot by hand. Poses are taught by the vision model (`farm teach`, `farm teach-all`); people only answer questions in the viewer or over Telegram.

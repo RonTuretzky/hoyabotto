@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-03",
+  "status": "Supervised retry printing on Squareship after prior off-edge failure; nonzero speed and extrusion verified, but physical placement, adhesion and final outcome not verified",
+  "user_intent": "Print the whole modified carrier as a prototype and add useful companion parts that fit",
+  "printer": "Squareship / AnkerMake M5C 0.4 mm",
+  "profile": "Normal - M5C 0.4mm - PLA+ Basic",
+  "filament": "AnkerMake PLA+ Basic (White)",
+  "layer_height_mm": 0.2,
+  "first_layer_height_mm": 0.14,
+  "walls": 3,
+  "infill": "10% grid",
+  "temperatures_c": {"nozzle_first": 230, "nozzle_other": 200, "bed": 65},
+  "supports": {"enabled": true, "build_plate_only": true, "style": "grid", "pattern": "rectilinear", "threshold_degrees": 30, "top_contact_gap_mm": 0.2, "xy_gap_mm": 0.8, "interface_layers": 2},
+  "brim": "Automatic; generated around frame and coupon",
+  "scale": "100% on all axes for all three meshes; identity rotation",
+  "parts": [
+    {"name": "carrier.stl", "bounds_min_mm": [21.0116577,89.5,0], "bounds_max_mm": [198.9883423,172.5,43.5]},
+    {"name": "retainer.stl", "purpose": "Optional comparison trial; original planter does not require it", "bounds_min_mm": [36.000001,17.5,0], "bounds_max_mm": [184.000001,83.5,18]},
+    {"name": "grip_coupon.stl", "purpose": "Dry gripper and fin strength test; not a wick test", "bounds_min_mm": [92.000001,178.5,0], "bounds_max_mm": [128.000001,202.5,25]}
+  ],
+  "reuse": "Existing original trough; no extra trough on this plate",
+  "estimate": {"time": "4h 3m 14s", "filament_g": 105.61, "filament_m": 35.40955},
+  "files": {
+    "project": "cress_R2a_full_prototype_plate.3mf",
+    "project_sha256": "c95d92b74958a7ee2fed9e820f562e6e02d40eaaec0a3cb9207ddcc4409bcdcb",
+    "gcode": "cress_R2a_full_prototype_plate.gcode",
+    "gcode_sha256": "ee76470bdab8628a0141b8ebe5705b80dcee0c74c1461ce35642cd3b70733ade"
+  },
+  "verification": {
+    "project_archive_and_three_mesh_bounds": "Passed",
+    "full_height_preview": "All three parts and generated supports within plate",
+    "first_layer_preview": "Four carrier feet, external deck supports, separate frame and coupon with brims; skirt stays inside plate",
+    "physical_adhesion": "Not observed; M5C has no camera",
+    "functional_validation": "Not performed; user requested full prototype trial",
+    "wick_note": "Only plastic pockets are fused. Four real paper wicks are still required. Sampled original and modified cross-sections preserve nominal 5.7 mm pocket opening; support cleanup, strength, fit and water transfer require physical testing."
+  },
+  "device_readback": {"job": "cress_R2a_full_prototype_plate.gcode", "state": "Printing", "layer": "0/275", "remaining": "04:02:45", "filament_g": 0.78, "speed_mm_s": 50, "nozzle_actual_c": 230, "bed_actual_c": 65, "bed_target_c": 65, "note": "Supervised retry observed around 2026-10-03 15:15 Asia/Tokyo; physical placement and adhesion not observed"},
+  "supervised_retry": {
+    "date_local": "2026-10-03",
+    "timezone": "Asia/Tokyo",
+    "prior_failure": "Studio reported Print Failed at 14:50 with 0/275 layers. User reported the nozzle tracing an outline beyond the outer edge of the sheet.",
+    "user_actions": "User washed and realigned the removable sheet and reported starting auto-leveling; successful leveling result not independently verified.",
+    "authorization": "User requested: lets just start the print and i'll watch it; then confirmed ready after correcting Studio window accessibility.",
+    "pre_start_state": "No active job or busy indication; Start Printing enabled; nozzle about 32 C and bed about 39 C.",
+    "file_unchanged": true,
+    "gcode_sha256": "ee76470bdab8628a0141b8ebe5705b80dcee0c74c1461ce35642cd3b70733ade",
+    "print_command_sent": true,
+    "printing_telemetry_confirmed": true,
+    "physical_positioning_verified": false,
+    "physical_adhesion_verified": false,
+    "failure_cause_resolved": false,
+    "physical_check_requested": "User to watch first outline and stop immediately if it crosses the sheet edge again."
+  },
+  "old_job_changed": false,
+  "new_print_command_sent": true,
+  "clear_bed_confirmation_received": true,
+  "start_attempt": {
+    "date_local": "2026-10-03",
+    "timezone": "Asia/Tokyo",
+    "user_confirmation": "yes start the new job",
+    "device_state": "Device disconnected; no temperature or progress telemetry",
+    "recovery": ["Refreshed printer list", "Reselected Squareship", "Restarted Studio", "Reopened saved full prototype project"],
+    "cancel_command_sent": false,
+    "print_command_sent": false,
+    "required_action": "Resolved on user-requested retry"
+  },
+  "successful_start_request": {
+    "date_local": "2026-10-03",
+    "timezone": "Asia/Tokyo",
+    "requested_at_local_approx": "14:43",
+    "user_request": "ok try printing now",
+    "pre_start_state": "Connected and idle with no active job; nozzle 23 C, bed 24 C",
+    "prior_paused_job": "No longer active on reconnection; agent did not send cancel",
+    "file": "cress_R2a_full_prototype_plate.gcode",
+    "print_command_sent": true,
+    "device_acknowledgement": "Correct filename progressed from Heating to Printing with 50 mm/s and 0.85 g extruded",
+    "printing_telemetry_confirmed": true,
+    "physical_adhesion_verified": false
+  }
+}

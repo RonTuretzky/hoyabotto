@@ -1,0 +1,42 @@
+# R2a cress-planter assembly: isolated, DISABLED configuration.
+# This is not the watering profile and does not replace it. The robot, cameras, limits and safety
+# rules still come from `farm_profile` (paper-tray-v0); nothing here may loosen them.
+# Flip execution_enabled only after: parts inspected, station transform measured, grip thresholds measured,
+# bring-up done (farm-bringup skill). Even then every trial is supervised with STOP reachable.
+kind: r2a-assembly
+profile: r2a-assembly-v0
+revision: R2a
+execution_enabled: false
+farm_profile: paper-tray-v0
+variant: R2a_no_frame            # R2a_no_frame | R2a_with_frame; declared before every episode
+require_real_paper: true          # rigid-only practice is recorded as RIGID_PRACTICE, never SUCCESS
+
+controlled_arm: right             # one arm; the left stays folded and clear during R2a trials
+state_joints: [right_arm_shoulder_pan, right_arm_shoulder_lift, right_arm_elbow_flex, right_arm_wrist_flex, right_arm_wrist_roll, right_arm_gripper]
+cameras:                          # dataset image key -> farm camera (identity by device, bound at bring-up)
+  wrist: right_wrist
+  head: head
+fps: 10
+frame_hw: [480, 640]
+
+deadlines_s: {PREFLIGHT: 60, PLACE_PREPARED_CARRIER: 60, VERIFY_CARRIER: 30, PLACE_REAL_TOP_PAPER: 60, PLACE_RETAINER: 60, VERIFY_DRY_ASSEMBLY: 30}
+max_attempts: {PLACE_PREPARED_CARRIER: 1, PLACE_REAL_TOP_PAPER: 1, PLACE_RETAINER: 1}   # no blind retries
+
+grip:                             # gripper units 0..100, measured on the printed parts; null = not measured
+  carrier_empty_max: null
+  carrier_holding_min: null
+  retainer_empty_max: null
+  retainer_holding_min: null
+  paper_empty_max: null
+  paper_holding_min: null
+  measured_on: ""
+  by: ""
+
+station_file: data/r2a/station.yaml          # T_robot_from_A; written by a person after measuring (farm r2a --station ...)
+parts_dir: parts/r2a
+
+dataset:
+  repo_id: farm/r2a-assembly
+  root: data/r2a/dataset                      # separate from data/dataset (watering runs)
+  holdout_sessions: []                        # session ids declared test BEFORE training
+  val_percent: 15

@@ -1,0 +1,70 @@
+{
+  "revision": "Cress retrofit R2a",
+  "status": "Prototype CAD; no physical fit, slicer or robot validation",
+  "parts": [
+    {
+      "file": "carrier.stl",
+      "sha256": "438fd4cdaa9ca21353d6958f6854e96f7fa7dffeac08d432e9c352c9838348f2",
+      "triangles": 5958,
+      "dimensions_mm": [
+        177.977,
+        83.0,
+        43.5
+      ],
+      "volume_mm3": 38787.81,
+      "manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "bed_envelope_with_8mm_brim_fits": true
+    },
+    {
+      "file": "retainer.stl",
+      "sha256": "e276ba3f244630971ae02e79efd09929df6dd4bda424b1558e2e915ac100de4c",
+      "triangles": 80,
+      "dimensions_mm": [
+        148.0,
+        66.0,
+        18.0
+      ],
+      "volume_mm3": 6451.2,
+      "manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "bed_envelope_with_8mm_brim_fits": true
+    },
+    {
+      "file": "grip_coupon.stl",
+      "sha256": "33d8bb116c3120c6c6e8c8ee06866d9a6051125afb754888a7da82d73c00eb3f",
+      "triangles": 28,
+      "dimensions_mm": [
+        36.0,
+        24.0,
+        25.0
+      ],
+      "volume_mm3": 5760.0,
+      "manifold_edges": true,
+      "consistent_winding": true,
+      "connected_components": 1,
+      "bed_envelope_with_8mm_brim_fits": true
+    }
+  ],
+  "collisions": {
+    "baseline_collision": {
+      "intersection_volume_mm3": 1.1842378929335002e-15,
+      "result": "surface contact only"
+    },
+    "carrier_collision": {
+      "intersection_volume_mm3": 1.1842378929335002e-15,
+      "result": "surface contact only"
+    },
+    "retainer_collision": {
+      "intersection_volume_mm3": 0.0,
+      "result": "empty"
+    }
+  },
+  "source_hashes": {
+    "cressmaster-holder.stl": "e4bd4281d031ce14d04ae58e3d353f7d9806f1aff131266eeb13181577c5aebf",
+    "cressmaster-trough.stl": "5af456157c9492d5d08c91c981f051d8f2ce7de5e931b36cc9bebcdc5302c5f8",
+    "cressmaster-inset.stl": "c72c55b1196989881689eeec1394e4635fd5005f249cecfde2846f653e748037"
+  }
+}
