@@ -51,14 +51,14 @@ class Outcome:
 
 
 class CartonCycle:
-    def __init__(self, system, box: Box, ask_timeout_s: float = 600.0, judge_frames: tuple[str, ...] = ("head",)):
+    def __init__(self, system, box: Box, ask_timeout_s: float | None = None, judge_frames: tuple[str, ...] = ("head",)):
         self.sys = system
         self.box = box
         self.store = system.store
         self.skills = system.skills
         self.cameras = system.cameras
         self.human = system.human
-        self.ask_timeout_s = ask_timeout_s
+        self.ask_timeout_s = ask_timeout_s if ask_timeout_s is not None else float(system.profile.deadlines.ask_s or 600)   # the profile decides how long a person gets
         self.judge_frames = judge_frames
         self.state = S.IDLE
         self.history: list[dict[str, Any]] = []
