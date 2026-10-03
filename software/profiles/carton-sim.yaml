@@ -1,0 +1,66 @@
+# Carton closing on the real robot. Fill ports and camera indices from `farm devices --probe`
+# (same hardware as the farm profile; copy them across).
+profile: carton-sim
+simulated: true
+data_dir: data-carton-sim
+viewer_port: 8765
+keyframes_file: keyframes-sim.yaml
+
+robot:
+  kind: sim
+  id: sim_xlerobot
+  port1: ""                # left arm + head
+  port2: ""                # right arm + wheels
+  max_relative_target: 8
+  wheels: false
+
+cameras:
+  head:        {match: "sim", width: 640, height: 480, fps: 30}
+  left_wrist:  {match: "sim", width: 640, height: 480, fps: 30}
+  right_wrist: {match: "sim", width: 640, height: 480, fps: 30}
+
+light: {enabled: false}
+arms: {bottle: right, paddle: right}      # the flap paddle lives in the right gripper for the whole job
+trays: {}
+
+carton:                                   # measured 2026-10-03, Hachiyo "B" carton
+  length_m: 0.379
+  width_m: 0.283
+  height_m: 0.108
+  flap_m: 0.14
+  mass_kg: 0.96
+  stance: {setback_m: 0.06, spacing_m: 0.30, height_m: 0.15, paddle_m: 0.15}   # measure spacing and height on the cart
+  tape: pre-cut masking tape strip, 8 cm, tab end free in the tape rest
+
+limits:
+  pour_tilt_max_deg: 0
+  pour_s_max: 0
+  servo_temp_max_c: 55
+  servo_load_max: 800
+  watchdog_s: 0.5
+  step_deg_max: 6
+  llm_servo_max_steps: 12
+
+deadlines: {identify_s: 10, inspect_s: 20, measure_s: 0, ask_s: 5, pick_s: 30, approach_s: 30, pour_s: 0, verify_s: 20, park_s: 30}
+
+llm:
+  backend: sim
+  vision_model: anthropic/claude-sonnet-5
+  jev_model: typesafe/jev-router
+  astra_model: openai/gpt-6-astra
+  max_cost_usd_per_day: 5
+  timeout_s: 120
+
+authority: {jev: shadow, astra: propose, jev_approve_min_p: 0.85}
+
+policy:
+  enabled: false
+  skill: close
+  checkpoint: ""           # e.g. data-train/act_box_closing/checkpoints/last/pretrained_model
+  device: mps
+  state_joints: [left_arm_shoulder_pan, left_arm_shoulder_lift, left_arm_elbow_flex, left_arm_wrist_flex, left_arm_wrist_roll, left_arm_gripper,
+                 right_arm_shoulder_pan, right_arm_shoulder_lift, right_arm_elbow_flex, right_arm_wrist_flex, right_arm_wrist_roll, right_arm_gripper]
+  camera_map: {observation.images.front: head, observation.images.top: head}
+  hz: 10
+  max_steps: 600
+  shadow: true

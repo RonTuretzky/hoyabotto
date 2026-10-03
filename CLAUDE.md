@@ -11,6 +11,8 @@ If you are on the laptop connected to the robot, read these in order before doin
 
 To bring the robot up (probe, profile, calibration, motors-only test), use the `farm-bringup` skill in `.claude/skills/`: type `/farm-bringup` or ask to "bring up the robot".
 
+A second task, closing cartons, lives in `software/carton/` (command `carton`); read `software/docs/carton.md` before touching it. Same rules apply.
+
 Working rules:
 
 - `farm` commands other than `farm sim` and the tests talk to real motors. Say what a command will move before running it, and keep the viewer's STOP button reachable.

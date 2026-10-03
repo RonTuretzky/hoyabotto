@@ -382,8 +382,40 @@ def part_bottle_rest():
     return t
 
 
+# 6) Carton flap paddle: held in the right gripper for the whole carton job. Handle like the light
+#    paddle (same grip grooves), then a long flat blade that pushes flaps and presses tape.
+FLAP_HANDLE_L, FLAP_BLADE_L, FLAP_BLADE_W, FLAP_T = 60.0, 150.0, 40.0, 6.0
+# 7) Tape rest: a block with a shallow slot; a pre-cut masking-tape strip lies sticky-side up
+#    across the slot with its tab end free over the gap, so the gripper can pinch the tab.
+TAPE_REST_L, TAPE_REST_W, TAPE_REST_T = 90.0, 40.0, 18.0
+TAPE_SLOT_L, TAPE_SLOT_D = 30.0, 12.0
+
+
+def part_flap_paddle():
+    total_l = FLAP_HANDLE_L + FLAP_BLADE_L
+    p = Plate(0.0, -FLAP_BLADE_W / 2, total_l, FLAP_BLADE_W / 2, 0.0, FLAP_T)
+    p.rect(0.0, -FLAP_BLADE_W / 2, FLAP_HANDLE_L, -HANDLE_W / 2, void=True)
+    p.rect(0.0, HANDLE_W / 2, FLAP_HANDLE_L, FLAP_BLADE_W / 2, void=True)
+    for gx in GRIP_GROOVE_POS:
+        if gx < FLAP_HANDLE_L - 5:
+            p.rect(gx - GRIP_GROOVE_W / 2, -HANDLE_W / 2, gx + GRIP_GROOVE_W / 2, HANDLE_W / 2,
+                   top=FLAP_T - GRIP_GROOVE_D, bottom=GRIP_GROOVE_D)
+    return p.build()
+
+
+def part_tape_rest():
+    p = Plate(0.0, 0.0, TAPE_REST_L, TAPE_REST_W, 0.0, TAPE_REST_T)
+    x0 = TAPE_REST_L - TAPE_SLOT_L - 10.0
+    p.rect(x0, -EPS, x0 + TAPE_SLOT_L, TAPE_REST_W + EPS, top=TAPE_REST_T - TAPE_SLOT_D)   # the gap the tab hangs over
+    p.hole(8.0, 8.0, M4_HOLE_D)
+    p.hole(8.0, TAPE_REST_W - 8.0, M4_HOLE_D)
+    return p.build()
+
+
 PARTS = [
     ("nest_cress.stl", part_nest_cress),
+    ("paddle_flap.stl", part_flap_paddle),
+    ("tape_rest.stl", part_tape_rest),
     ("tag_36h11_id1.stl", lambda: part_tag(1)),
     ("tag_36h11_id2.stl", lambda: part_tag(2)),
     ("paddle_bh1750.stl", part_paddle),

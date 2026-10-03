@@ -1,0 +1,236 @@
+far_done:
+  arm: right
+  joints:
+    right_arm_elbow_flex: 8.199401868631014
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 12.797478338950768
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: -20.996880207581782
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.78864
+far_touch:
+  arm: right
+  joints:
+    right_arm_elbow_flex: -68.19720163994158
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 44.39354202639288
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: 23.803659613548703
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.787238
+look_box:
+  arm: head
+  joints:
+    head_motor_1: 0.0
+    head_motor_2: -20.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.781481
+near_done:
+  arm: left
+  joints:
+    left_arm_elbow_flex: 8.199401868631014
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 12.797478338950768
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: -20.996880207581782
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.791859
+near_touch:
+  arm: left
+  joints:
+    left_arm_elbow_flex: -68.19720163994158
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 44.39354202639288
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: 23.803659613548703
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.790169
+paddle_carry:
+  arm: right
+  joints:
+    right_arm_elbow_flex: -15.52154765714765
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 1.2967841617737577
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: 14.224763495373892
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.78258
+paddle_rest_above:
+  arm: right
+  joints:
+    right_arm_elbow_flex: -12.763945992143093
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 9.241054445010093
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: 3.522891547133
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.7817369
+paddle_rest_grip:
+  arm: right
+  joints:
+    right_arm_elbow_flex: -11.93039170803965
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 20.670075337865782
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: -8.739683629826132
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.7821
+press_a:
+  arm: right
+  joints:
+    right_arm_elbow_flex: -8.859294496056066
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 21.48469037738346
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: -12.625395881327393
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.802809
+press_b:
+  arm: right
+  joints:
+    right_arm_elbow_flex: -8.859294496056066
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 21.48469037738346
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: -12.625395881327393
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.805453
+rest_left:
+  arm: left
+  joints:
+    left_arm_elbow_flex: 1.9871497542919627
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: -0.037941061431311596
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: -1.9492086928606511
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.81127
+rest_right:
+  arm: right
+  joints:
+    right_arm_elbow_flex: 1.9871497542919627
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: -0.037941061431311596
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: -1.9492086928606511
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.808234
+short_left_done:
+  arm: left
+  joints:
+    left_arm_elbow_flex: 8.199401868631014
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 12.797478338950768
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: -20.996880207581782
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.783964
+short_left_touch:
+  arm: left
+  joints:
+    left_arm_elbow_flex: -68.19720163994158
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 44.39354202639288
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: 23.803659613548703
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.783201
+short_right_done:
+  arm: right
+  joints:
+    right_arm_elbow_flex: 8.199401868631014
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 12.797478338950768
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: -20.996880207581782
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.786006
+short_right_touch:
+  arm: right
+  joints:
+    right_arm_elbow_flex: -68.19720163994158
+    right_arm_gripper: 0.0
+    right_arm_shoulder_lift: 44.39354202639288
+    right_arm_shoulder_pan: 0.0
+    right_arm_wrist_flex: 23.803659613548703
+    right_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.784899
+tape_down:
+  arm: left
+  joints:
+    left_arm_elbow_flex: -17.479319564789662
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 27.08973271571928
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: -9.610413150929617
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.800159
+tape_over_seam:
+  arm: left
+  joints:
+    left_arm_elbow_flex: -29.645316421475293
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 26.709461728154622
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: 2.935854693320671
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.7978601
+tape_rest_above:
+  arm: left
+  joints:
+    left_arm_elbow_flex: -12.763945992143093
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 9.241054445010093
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: 3.522891547133
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.79371
+tape_rest_grip:
+  arm: left
+  joints:
+    left_arm_elbow_flex: -11.93039170803965
+    left_arm_gripper: 0.0
+    left_arm_shoulder_lift: 20.670075337865782
+    left_arm_shoulder_pan: 0.0
+    left_arm_wrist_flex: -8.739683629826132
+    left_arm_wrist_roll: 0.0
+  learned_by: sim
+  note: sim seed
+  t: 1791011225.795709

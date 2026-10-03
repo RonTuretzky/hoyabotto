@@ -20,7 +20,7 @@ firmware/esp32_light/  BH1750 → JSON lines at 5 Hz
 profiles/              paper-tray-v0.yaml (real), sim.yaml (fakes)
 parts/                 printable nest plate, tag tiles, light paddle, bottle rest (AnkerMake M5C)
 assembly/            R2a planter-assembly contract (disabled): frames, stage machine, evidence, dataset schema, split
-  tests/                 98 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test, calibration report, auto-calibration wrapper, remote policy, soak, MCP tools
+  tests/                 109 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test, calibration report, auto-calibration wrapper, remote policy, soak, MCP tools, carton task
 ```
 
 ## Setup (MacBook)
@@ -30,7 +30,7 @@ cd software
 uv venv --python 3.12 .venv && . .venv/bin/activate
 uv pip install -e .            # lerobot[feetech], opencv, pyserial, fastapi, httpx …
 cp .env.example .env           # OPENROUTER_API_KEY=… (Jev/Astra). Claude vision uses the logged-in `claude` CLI.
-python -m pytest -q            # 98 passed
+python -m pytest -q            # 109 passed
 farm sim --auto-answer         # whole program on fakes; viewer at http://localhost:8765
 ```
 

@@ -16,7 +16,7 @@ Written 2026-10-02 for whoever picks this up on the robot's laptop (person or ag
 | Loose servo IDs | Set and read back on the real servos: head 7 and 8, wheels 9 and 10 (`farm set-motor-id`) |
 | Arm servos | One arm probed: IDs 1-6 all answer (STS3215). The other arm was not probed on its own. |
 | Motor power | A USB-C-to-12 V cable gave about 12.5 V on the bus |
-| Software | Fresh clone installs and passes 70 tests; simulator runs end to end |
+| Software | Fresh clone installs and passes 109 tests; simulator runs end to end |
 | LLM backends | Claude CLI and OpenRouter (Jev, Astra) both answered from the first laptop |
 
 ## What is not done
@@ -95,6 +95,10 @@ two grip fins, an optional paper frame, a grip coupon) for the robot to assemble
   **all unknown**. Nothing may run until `farm r2a` shows no blockers, and then only supervised and dry.
 - Open hardware questions carried over: whether cameras were in the kit; the trough fixture (`nest_cress.stl`
   assumes a plain outline; the real trough has an offset refill bay).
+
+## Second task: carton closing (2026-10-03)
+
+Separate scope, same robot: `software/carton/`, command `carton`, profile `carton-v0`. Measurements, reach analysis, plan and status in `docs/carton.md`. Built and tested on the simulator only. Needs the printed flap paddle and tape rest before anything can be taught.
 
 ## Rules that were decided
 
