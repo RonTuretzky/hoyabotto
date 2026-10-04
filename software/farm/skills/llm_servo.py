@@ -72,6 +72,8 @@ class LLMServo:
         return out
 
     def run(self, arm: str, goal: str, save_as: str | None = None, allow_gripper: bool = True) -> ServoOutcome:
+        if not self.runner.simulated_cartesian:
+            return ServoOutcome(False, "Legacy teaching uses unverified degree/normalized conversions; use carton-servo", 0)
         if arm == "head":
             return self.run_head(goal, save_as)
         m = self.runner.models[arm]
@@ -146,6 +148,8 @@ HEAD_SYSTEM = (
 
 
 def _head_run(self, goal: str, save_as: str | None) -> ServoOutcome:
+    if not self.runner.simulated_cartesian:
+        return ServoOutcome(False, "Head teaching requires an explicit measured motor-unit conversion", 0)
     from ..adapters.base import HEAD_JOINTS
     trace: list[dict[str, Any]] = []
     cost = 0.0

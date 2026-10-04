@@ -39,11 +39,13 @@ class SkillResult:
 
 
 class SkillRunner:
-    def __init__(self, robot: RobotAdapter, limits: LimitsCfg, arms: ArmsCfg, keyframes: KeyframeStore, on_tick=None):
+    def __init__(self, robot: RobotAdapter, limits: LimitsCfg, arms: ArmsCfg, keyframes: KeyframeStore, on_tick=None,
+                 simulated_cartesian: bool = False):
         self.robot = robot
         self.limits = limits
         self.arms = arms
         self.kf = keyframes
+        self.simulated_cartesian = simulated_cartesian
         self.models = {"left": ArmModel("left"), "right": ArmModel("right")}
         self.held: dict[str, str | None] = {"left": None, "right": None}   # tool currently gripped per arm
         self.on_tick = on_tick   # callback(joints) for evidence/telemetry
@@ -59,8 +61,9 @@ class SkillRunner:
         if not v.ok:
             self.stop()
             raise SafetyStop(v.reason)
-        for arm, m in self.models.items():
-            m.sync_from_joints(j.value)
+        if self.simulated_cartesian:
+            for arm, m in self.models.items():
+                m.sync_from_joints(j.value)
         return j.value
 
     def _guard(self, tick: int) -> None:
@@ -98,6 +101,8 @@ class SkillRunner:
                 return SkillResult(False, "move_joints", f"did not settle: max err {err:.1f}", joints=cur, steps=tick)
 
     def move_arm_pose(self, arm: str, pose: ArmPose, max_s: float = 6.0) -> SkillResult:
+        if not self.simulated_cartesian:
+            raise SafetyStop("Legacy Cartesian model mixes degrees and normalized motor units; use the measured carton-servo path")
         m = self.models[arm]
         m.pose = pose.copy()
         return self.move_joints(m.joints(), max_s=max_s)
@@ -127,6 +132,8 @@ class SkillRunner:
     def go_rest(self) -> SkillResult:
         rest = self.kf.get("rest_both")
         if rest is None:
+            if not self.simulated_cartesian:
+                raise SafetyStop("No measured rest pose; refusing legacy Cartesian fallback")
             rest = {**self.models["left"].joints_for(ArmPose()), **self.models["right"].joints_for(ArmPose()), **{h: 0.0 for h in HEAD_JOINTS}}
             for arm in ("left", "right"):  # keep whatever the gripper holds
                 rest[arm_joint(arm, "gripper")] = self._read_joints()[arm_joint(arm, "gripper")]

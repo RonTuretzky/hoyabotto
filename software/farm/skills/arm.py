@@ -1,11 +1,10 @@
 """Per-arm Cartesian model on top of XLeRobot's analytical IK.
 
-Convention (same as the upstream teleop examples): shoulder_lift/elbow_flex come
-from SO101Kinematics.inverse_kinematics(x, y) in degrees and are sent as the
-LeRobot-normalized position values directly; wrist_flex = -lift - elbow + pitch
-keeps the tool pitch constant while the elbow moves. x is forward from the
-shoulder (m), y is up (m). Repeatability is what matters here: the servo loop
-closes over cameras, and every reached pose can be saved as a keyframe.
+This legacy helper passes model degrees as normalized positions. Those units
+are NOT equivalent on a calibrated physical robot. SkillRunner permits this
+helper only for the abstract simulator until measured per-joint model offsets
+and conversion are integrated. The carton.servo path uses encoder ticks and
+measured image response instead. x is forward and y is up, in metres.
 """
 from __future__ import annotations
 

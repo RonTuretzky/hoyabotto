@@ -1,0 +1,23 @@
+{
+  "status": "ALIGNED_ONLY",
+  "environment": "SYNTHETIC_RENDERED_PIXELS",
+  "robot_connected": false,
+  "carton_contact_simulated": false,
+  "physical_task_completed": false,
+  "grasp_verified": false,
+  "error_px": [
+    1.9581622802353422,
+    0.0130501882007934,
+    1.9929751695412108,
+    -2.0002967597447707
+  ],
+  "calibration_commands": 24,
+  "alignment_commands": 15,
+  "observations": 57,
+  "initial_error_norm_px": 46.90060501794014,
+  "final_error_norm_px": 3.436234418167916,
+  "jacobian_condition": 2.170334063801996,
+  "holdout_max_error_px": 0.8635707628239981,
+  "validation_date": "2026-10-04",
+  "notes": "Rendered nonlinear joint-to-pixel plant. No camera, serial bus, contact physics, grasp or carton fold was exercised."
+}

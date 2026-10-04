@@ -1,7 +1,11 @@
 # Carton closing
 
-**Robot laptop: start with [the October 4 handoff](carton-connected-mac.md)** for the trained
-checkpoint download, checksums, station setup and remaining physical-integration work.
+**Robot laptop: start with [measured visual control](carton-visual-controller.md)**
+for the current approach without demonstration training. The
+[earlier handoff](carton-connected-mac.md) retains checkpoint and station history.
+Physical legacy Cartesian/LLM teaching is disabled because its motor units were
+not valid. The teaching commands and keyframe plan below describe the older
+workflow, not a commissioned physical carton skill.
 
 A second task for the same robot, separate from the farm: close a filled shipping carton the way the packing-line video shows. Fold the two short end flaps in, fold the two long flaps over so they meet at the centre, tape the seam. No conveyor, no pushing, no next station for now.
 
