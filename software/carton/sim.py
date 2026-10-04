@@ -19,9 +19,31 @@ class SimCartonVision:
     def mark(self, step: str) -> None:
         self.done.add(step)
 
+    def mark_tape(self, stage: str) -> None:
+        self.tape_stage = stage  # discrete fixture only, not tape/contact physics
+
     def complete_json(self, prompt: str, images=None, system: str = "", model: str | None = None):
         self.calls += 1
         meta = Meta(self.name, self.model, 1.0, 0.0, "")
+        if prompt.startswith("TAPE_CHECK"):
+            stage = getattr(self, "tape_stage", "ready")
+            fields = ("left_empty", "end_accessible", "end_in_jaws", "strip_ready", "tape_held",
+                      "clear_of_dispenser", "adhesive_down", "seam_ready", "tape_supported", "tape_on_seam")
+            d = {k: True for k in fields}
+            d.update(obstruction=bool(self.faults.get("obstruction")), confidence=0.95, notes="simulated tape checks")
+            if self.faults.get("tape_unknown") == stage:
+                d.update({k: "unknown" for k in fields})
+            if self.faults.get("tape_not_clear") and stage == "lifted":
+                d["clear_of_dispenser"] = False
+            if self.faults.get("tape_wrong_side"):
+                d["adhesive_down"] = False
+            if self.faults.get("tape_uncut"):
+                d["strip_ready"] = False
+            if self.faults.get("tape_dropped") and stage not in ("ready", "before_pinch"):
+                d["tape_held"] = False
+            if self.faults.get("tape_missed") and stage in ("supported", "released"):
+                d["tape_on_seam"] = False
+            return d, meta
         if "views" in prompt and "label" in prompt:
             return {"views": {n: n for n, _ in (images or [])}, "why": "sim"}, meta
         if "action" in system and "dx_mm" in system:          # LLM-servo request while teaching

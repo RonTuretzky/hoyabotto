@@ -4,6 +4,7 @@
   carton check        -p carton-v0     connect, judge the box once, print the typed judgement
   carton teach-all    -p carton-v0     the vision model teaches every keyframe the plan needs (no hands)
   carton teach        -p ... --name far_touch     re-teach one keyframe
+  carton tape-test    -p ... [--teach]            one direct dispenser pickup/place trial; --teach learns the whole sequence
   carton once         -p carton-v0 [--record]     close one carton; viewer at :8765 with STOP
   carton run          -p carton-v0 [--record]     close a carton, ask for the next one, repeat
   carton sim          [--faults ...]              whole task on the simulator
@@ -21,6 +22,28 @@ from farm.config import load_env
 
 def _log():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+
+def _start_viewer(s):
+    """Refuse motion if the STOP page is absent or belongs to another process."""
+    import time
+    import uuid
+    from urllib.request import urlopen
+    from farm.viewer.app import serve_in_thread
+    token = uuid.uuid4().hex
+    s.state["carton_viewer_session"] = token
+    thread = serve_in_thread(s, s.profile.viewer_port)
+    for _ in range(10):
+        if not thread.is_alive():
+            break
+        try:
+            with urlopen(f"http://127.0.0.1:{s.profile.viewer_port}/api/state", timeout=0.3) as response:
+                if json.load(response).get("carton_viewer_session") == token:
+                    return
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.1)
+    raise RuntimeError("STOP viewer did not start for this robot session; check for another process on its port")
 
 
 def _box_and_stance(profile):
@@ -81,18 +104,32 @@ def _teach_one(s, kf):
 
 def cmd_teach_all(a):
     _log()
-    from farm.viewer.app import serve_in_thread
     from .plan import KEYFRAMES
+    from .tape import POSES, TapeMotion
+    from farm.safety.rules import SafetyStop
     s = _system(a)
-    serve_in_thread(s, s.profile.viewer_port)
     failed = []
-    for kf in KEYFRAMES:
-        if kf.name in s.keyframes.names() and not a.force:
-            print(f"{kf.name}: already taught, skipping")
-            continue
-        if not _teach_one(s, kf):
-            failed.append(kf.name)
-    s.disconnect()
+    try:
+        _start_viewer(s)
+        for kf in KEYFRAMES:
+            if kf.name in POSES:
+                try:
+                    if a.force:
+                        raise SafetyStop("forced tape re-teach requires a separate trial")
+                    TapeMotion(s)._preflight_poses()
+                except SafetyStop:
+                    print("Tape poses require a fresh strip and closed carton: use carton tape-test --teach separately.")
+                    failed.append("tape sequence requires separate teaching")
+                    break
+                continue
+            if kf.name in s.keyframes.names() and not a.force:
+                print(f"{kf.name}: already taught, skipping")
+                continue
+            if not _teach_one(s, kf):
+                failed.append(kf.name)
+                break
+    finally:
+        s.disconnect()
     print("failed:", failed or "none")
     sys.exit(1 if failed else 0)
 
@@ -100,10 +137,55 @@ def cmd_teach_all(a):
 def cmd_teach(a):
     _log()
     from .plan import keyframe
+    from .tape import POSES
+    if a.name in POSES:
+        sys.exit("Tape poses must be taught together with carton tape-test --teach; no standalone tape pose motion.")
+    try:
+        kf = keyframe(a.name)
+    except StopIteration:
+        sys.exit(f"Unknown keyframe: {a.name}")
     s = _system(a)
-    ok = _teach_one(s, keyframe(a.name))
-    s.disconnect()
+    try:
+        _start_viewer(s)
+        ok = _teach_one(s, kf)
+    finally:
+        s.disconnect()
     sys.exit(0 if ok else 1)
+
+
+def cmd_tape_test(a):
+    from dataclasses import asdict
+    from farm.config import load_profile
+    from .tape import TapeMotion, POSES
+    if a.plan:
+        print(json.dumps({"motion": False, "arm": "left", "poses": POSES,
+                          "needs": "closed supported carton; dispenser stationary with automatic cycling disabled; fully cut strip with exposed end, backing mark, adhesive DOWN"}, indent=2))
+        return
+    if not load_profile(a.profile).simulated and not sys.stdin.isatty():
+        sys.exit("Run live tape-test in an attended interactive Terminal: shutdown needs confirmation before releasing torque.")
+    _log()
+    print("Tape trial moves the LEFT arm: pick exposed end, lift clear of dispenser, place, release, retract; no flip. Right arm stays parked.")
+    print("Have a closed carton and a fully cut adhesive-down marked strip ready. Disable dispenser automatic cycling. Disconnect releases motor torque; support arms at shutdown.")
+    s = _system(a)
+    cid = aid = None
+    try:
+        _start_viewer(s)
+        print(f"STOP viewer: http://localhost:{s.profile.viewer_port}")
+        cid = s.store.start_cycle("carton_tape", s.profile.name, s.profile.config_hash, s.robot.calibration_id, s.profile.simulated)
+        s.state["cycle_id"] = cid
+        aid = s.store.intent(cid, "tape_dispenser_pick_place", {"teach": a.teach})
+        s.store.attempt(aid)
+        out = TapeMotion(s, cid).run(teach=a.teach)
+        s.store.result(aid, "VERIFIED" if out.ok else "UNKNOWN", note=out.note)
+        s.store.end_cycle(cid, "TAPE_PLACED" if out.ok else "STOPPED", f"{out.stage}: {out.note}")
+        print(json.dumps(asdict(out), indent=2))
+        if not s.profile.simulated:
+            print("Motion ended; motors are holding. Prepare to support the arms before disconnect releases torque.")
+            # No hidden timeout that could drop an arm or a held strip. The operator ends the session.
+            input("When the arms are supported for torque-off, press ENTER to disconnect: ")
+    finally:
+        s.disconnect()
+    sys.exit(0 if out.ok else 1)
 
 
 def _close_one(s, record):
@@ -174,16 +256,21 @@ def seed_sim_keyframes(s):
     from farm.adapters.base import HEAD_JOINTS
     from farm.skills.arm import ArmPose
     from .plan import KEYFRAMES
+    from .tape import POSES, TapeMotion
+    if not s.profile.simulated:
+        raise ValueError("cannot seed simulated poses into a real system")
     poses = {"touch": ArmPose(0.22, 0.12), "done": ArmPose(0.18, 0.06), "above": ArmPose(0.18, 0.12), "grip": ArmPose(0.20, 0.08),
              "carry": ArmPose(0.16, 0.15), "over_seam": ArmPose(0.21, 0.10), "down": ArmPose(0.21, 0.07), "press": ArmPose(0.20, 0.07), "rest": ArmPose()}
     for kf in KEYFRAMES:
-        if kf.name in s.keyframes.names():
+        if kf.name in s.keyframes.names() and kf.name not in POSES:
             continue
         if kf.arm == "head":
             s.keyframes.save(kf.name, {HEAD_JOINTS[0]: 0.0, HEAD_JOINTS[1]: -20.0}, "head", "sim seed", "sim")
             continue
         key = next((k for k in poses if k in kf.name), "rest")
-        s.keyframes.save(kf.name, s.skills.models[kf.arm].joints_for(poses[key]), kf.arm, "sim seed", "sim")
+        pose = poses[key].copy()
+        learned_by = TapeMotion(s).tag + "sim-seed" if kf.name in POSES else "sim"
+        s.keyframes.save(kf.name, s.skills.models[kf.arm].joints_for(pose), kf.arm, "sim seed", learned_by)
 
 
 def cmd_train(a):
@@ -211,6 +298,7 @@ def main(argv=None):
     for name, fn, extra in [
         ("geometry", cmd_geometry, [("--setback", {"type": float}), ("--height", {"type": float}), ("--spacing", {"type": float}), ("--paddle", {"type": float})]),
         ("check", cmd_check, []), ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]), ("teach", cmd_teach, [("--name", {"required": True})]),
+        ("tape-test", cmd_tape_test, [("--teach", {"action": "store_true"}), ("--plan", {"action": "store_true"})]),
         ("once", cmd_once, [("--record", {"action": "store_true"})]), ("run", cmd_run, [("--record", {"action": "store_true"})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
         ("train", cmd_train, [("--repo-id", {"default": "yoshikokulala/box_closing3"}), ("--steps", {"type": int, "default": 8000}), ("--device", {"default": "mps"}),

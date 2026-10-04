@@ -113,7 +113,7 @@ two grip fins, an optional paper frame, a grip coupon) for the robot to assemble
 
 ## Second task: carton closing (2026-10-03)
 
-Separate scope, same robot: `software/carton/`, command `carton`, profile `carton-v0`. Measurements, reach analysis, plan and status in `docs/carton.md`. Built and tested on the simulator only. Needs the printed flap paddle and tape rest before anything can be taught.
+Separate scope, same robot: `software/carton/`, command `carton`, profile `carton-v0`. Measurements, reach analysis, plan and status in `docs/carton.md`. Built and tested on the simulator only. Uses the printed flap paddle and an ordered tape dispenser; actual dispenser setup/pickup remains unverified.
 
 ### Carton handoff, October 4 (development Mac)
 
@@ -129,10 +129,28 @@ Separate scope, same robot: `software/carton/`, command `carton`, profile `carto
 - 167 tests passed before this handoff. Print source meshes are tracked under `parts/carton/`.
 - Real policy profile now names missing `policy_front`/`policy_top` views explicitly instead of
   feeding the head image twice. Learned control remains disabled and is not wired into carton cycles.
-- Physical setup, print fit, teaching sequence/object state, individual teaching STOP viewer, fail-fast
-  teaching, observation-only ACT integration and hardware validation remain for the connected Mac.
+- Physical setup, print fit, teaching sequence/object state, observation-only ACT integration and
+  hardware validation remain for the connected Mac. Teaching CLI changes are described below.
 - Existing hardware calibration may have progressed independently on that Mac. Read it back; do not
   overwrite it or restart calibration based on this development-Mac status.
+
+### Direct dispenser pickup follow-up, October 4 (development Mac)
+
+- [Tape test instructions](docs/carton-tape.md): `carton tape-test --plan` is hardware-free;
+  `carton tape-test -p profiles/carton-local.yaml --teach` physically teaches and executes pickup,
+  lift-clear, adhesive-down placement, release and retract on a closed carton. **No flip/turnover.**
+- Owner ordered a dispenser; exact model and strip dimensions are pending. Printed tape rest/folded tab
+  are no longer required. First trial uses a stopped dispenser with automatic refill disabled; no machine
+  control/interlock or autonomous replenishment has been implemented.
+- Added staged head/wrist checks, locked gripper during transport, strict finite left-only poses,
+  calibration/profile-bound teaching bundles and no retry/release on uncertain tape state.
+- The full carton cycle uses the same tape sequence. Existing tape keyframes require re-teaching.
+- Tape trial/individual teaching verifies the STOP viewer belongs to its session; ordinary batch
+  teaching stops on the first failure. Live tape trials require attended Terminal shutdown.
+- Validation: 199 tests passed, including 32 tape-controller tests; `carton tape-test --plan`
+  lists six direct-pickup poses and opens no hardware. No training job or physical motion was run.
+- These are controller/simulator checks only. Physical tape grip, visual face recognition, clearance,
+  adhesion and release remain unverified. Put a visible mark on the strip's nonsticky backing for teaching.
 
 ## Rules that were decided
 

@@ -129,6 +129,12 @@ class CartonCycle:
     # ---- motion ---------------------------------------------------------------------
     def _play(self, step: Step) -> str | None:
         """Run a step's keyframes with the usual clamps. Returns an error string or None."""
+        if step.name == "tape":
+            from .tape import TapeMotion
+            out = TapeMotion(self.sys, self.cycle_id).run()
+            if not out.ok:
+                raise SafetyStop(f"tape stopped at {out.stage}: {out.note}")
+            return None
         kf = self.sys.keyframes
         grip = arm_joint(step.arm, "gripper") if step.arm in ("left", "right") else None
         for name in step.keyframes:
@@ -235,6 +241,10 @@ class CartonCycle:
                 self.steps_done.append(step.name)
                 self.store.event(self.cycle_id, "step_done", {"step": step.name, "attempt": attempt})
                 return "ok"
+            if step.name == "tape":
+                self.store.result(aid, "UNKNOWN" if ok is None else "ABORTED", note="tape final check failed; no automatic retry")
+                self._pause("tape final check failed or unknown; inspect and reset the strip before a new trial")
+                return "stop: tape result uncertain; no automatic retry"
             if ok is None:
                 self.store.result(aid, "UNKNOWN", note="model could not tell")
                 self._pause(f"after {step.name}: the model cannot tell whether it worked")

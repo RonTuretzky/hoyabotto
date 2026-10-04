@@ -18,7 +18,7 @@ Hachiyo "B" carton, 子持めかぶ 塩分30%カット, marked 40 g × 3+1 × 12
 | Long flaps | 2 × 14 = 28.0 vs 28.3 wide: they meet at the centre seam with a 3 mm gap |
 | Short flaps | 2 × 14 = 28 vs 37.9 long: a 9.9 cm opening stays between them (covered by the long flaps) |
 | Contents | 24 × 40 g ≈ 0.96 kg; the robot never lifts the box |
-| Seal | masking tape for now; a pre-cut strip (about 8 cm) with its tab end free in a printed tape rest |
+| Seal | dispenser-cut masking tape; exposed end for direct pickup, adhesive down; actual strip length/width to be recorded |
 
 Photos of the empty carton with flaps standing: `.context/carton-photos/` in the research workspace.
 
@@ -39,12 +39,18 @@ Left arm, bare fingers; right arm holding the paddle for the whole job. Order as
 | fold_short_right | right | touch → done → carry | short_right folded |
 | fold_long_far | right | touch in line with the shoulder → done (edge at the seam) → carry | long_far folded |
 | fold_long_near | left | touch → done → rest | long_near folded |
-| tape | left | above tape rest → pinch tab → over seam → down → release | tape_on_seam |
+| tape | left | approach dispenser → pinch exposed end → lift clear → over seam → supported placement → release → retract | staged grip/clearance/orientation checks, then tape_on_seam |
 | press | right | near end → far end → rest | tape_pressed |
 
-Every keyframe is taught by the vision model (`carton teach-all`), as in the farm: nobody positions the arms by hand. After each step the head camera is judged (`carton/perception.py`, every field has an unknown). True moves on; false retries once then asks a person; unknown asks a person. STOP wins at any time. Results are written INTENT → ATTEMPT → RESULT like the farm.
+Ordinary keyframes are taught by the vision model; tape poses require the whole
+[`carton tape-test --teach` sequence](carton-tape.md), preserving adhesive-down orientation without any flip/turnover.
+Nobody positions the arms by hand. Tape uses both head and left-wrist checks between phases and
+stops on false/unknown without an automatic retry or release. Other steps use the existing head-camera
+judgement/retry behavior. STOP ends motion; results use INTENT → ATTEMPT → RESULT.
 
 ## Printed parts
+
+The owner has ordered a dispenser; its exact model and pickup geometry are pending. The printed tape rest is now optional legacy hardware. No tape flip/turnover will be taught.
 
 Tracked meshes: [parts/carton](../parts/carton/README.md), `paddle_flap.stl` (210 × 40 × 6 mm: 60 mm handle, 150 mm blade) and `tape_rest.stl` (90 × 40 × 18 mm block). Slice on the intended printer; fit/grip and physical execution are unverified. Development-Mac print preparations under `~/Downloads/` do not transfer with Git.
 
@@ -70,7 +76,10 @@ The full suite passed 167 tests on October 4. Training and saved-model inference
 ```sh
 carton geometry [--setback 0.06 --height 0.15]    # reach check, no hardware
 carton check                                       # connect and judge the box once
-carton teach-all                                   # vision model teaches the 20 keyframes
+carton teach-all                                   # ordinary poses; tape uses separate complete trial
+carton tape-test --plan                            # show tape stages without hardware
+carton tape-test -p profiles/carton-local.yaml --teach  # LIVE: learn direct dispenser pickup/place on a closed box
+carton tape-test -p profiles/carton-local.yaml      # LIVE: repeat with a fresh strip
 carton once [--record]                             # close one carton (viewer at :8765)
 carton run [--record]                              # close, ask for the next box, repeat
 carton sim [--auto-answer] [--faults flap_stuck=fold_long_far judge_unknown no_box]

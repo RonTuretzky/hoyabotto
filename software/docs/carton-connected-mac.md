@@ -92,7 +92,7 @@ Left/right below always mean the robot's perspective.
                        37.9 cm
                     NEAR LONG FLAP
 
-        tape rest                         paddle pickup
+        tape dispenser                    paddle pickup
            LEFT ARM                  RIGHT ARM
                          ROBOT
 ```
@@ -106,10 +106,13 @@ Left/right below always mean the robot's perspective.
   from the shoulder joint centres to the near box wall, not from the cart front. Check table/cart clearance.
 - Set `carton.stance.height_m` to **actual shoulder height minus actual tabletop height minus 0.108**,
   all in metres. For the estimated 82/70 cm heights this is `0.012`, not `0.15`.
-- Right arm holds the printed paddle; left arm uses its fingers. Fix the paddle pickup and tape rest
+- Right arm holds the printed paddle; left arm uses its fingers. Fix the paddle pickup and dispenser
   within their respective arms' reach, outside flap travel. Tool pickup positions are not in the reach checker.
-- Prepare an approximately 8 cm masking-tape strip with a nonsticky pinch tab, supported with its
-  adhesive facing the box at placement. The software does not cut tape, replenish strips, or load boxes.
+- The owner ordered a dispenser (exact model pending). Use its fully cut strip at a repeatable exposed-end
+  pickup point, **adhesive down**. No folded tab, printed tape rest or flip/turnover training is required.
+  Record the actual strip width/length; the previous 8 cm target is no longer assumed. Test closure strength.
+  Keep the dispenser stopped with automatic refill disabled for initial trials. This software does not
+  control the dispenser or replenish strips; unattended replenishment still needs model-specific integration.
 - Use even lighting; the head camera must see all four flaps, and wrist cameras must see their grippers.
   Keep cables clear. Start with an empty carton and isolated movements before filled/taped cycles.
 
@@ -180,15 +183,16 @@ It connects/configures motors and captures the head camera for a model judgement
 a folding trajectory. Start at rest; disconnect can release torque. Confirm that the real box and
 flap states are recognized, rather than treating a simulator result as visual validation.
 
-Before teaching, the receiving agent must address these existing CLI limitations:
+For direct dispenser pickup and placement, follow [carton-tape.md](carton-tape.md).
+The October 4 follow-up resolves these teaching CLI gaps:
 
-- `carton teach` currently does not launch the viewer STOP server; add and verify this before using
-  it for individual live poses. Ensure disconnect happens even on exceptions.
-- `carton teach-all` currently continues after a failed pose. Make it stop on failure before a batch
-  physical run. Do not blindly run all 20 poses as the first test.
+- Individual ordinary `carton teach` now starts/verifies its STOP viewer and disconnects on exceptions.
+- `carton teach-all` stops on the first failure. Tape poses require the separate complete
+  `carton tape-test --teach` sequence. Do not blindly batch-teach the full plan as the first test.
 - The paddle-grip teaching goal positions an open gripper; later carry poses assume it is held.
   Verify actual pickup and maintain the required object/flap state between teaching steps. Teaching
-  is a physical sequence, not 20 independent arbitrary poses. Tape pickup/release also needs testing.
+  is a physical sequence, not independent arbitrary poses. Direct dispenser pickup/placement/release has a guarded
+  software sequence now, but still needs physical testing with a marked strip and an already-closed box.
 
 Then teach and verify one pose/step at a time with STOP and physical power cutoff available. Preserve
 the existing step/temperature/load limits. Reset the carton as needed; never use simulator keyframes
