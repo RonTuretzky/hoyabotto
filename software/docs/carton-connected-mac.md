@@ -108,10 +108,14 @@ Left/right below always mean the robot's perspective.
   all in metres. For the estimated 82/70 cm heights this is `0.012`, not `0.15`.
 - Right arm holds the printed paddle; left arm uses its fingers. Fix the paddle pickup and dispenser
   within their respective arms' reach, outside flap travel. Tool pickup positions are not in the reach checker.
-- The owner ordered a dispenser (exact model pending). Use its fully cut strip at a repeatable exposed-end
-  pickup point, **adhesive down**. No folded tab, printed tape rest or flip/turnover training is required.
-  Record the actual strip width/length; the previous 8 cm target is no longer assumed. Test closure strength.
-  Keep the dispenser stopped with automatic refill disabled for initial trials. This software does not
+- The owner ordered the [LUKDOF M1000, ASIN B0DQY77P16](https://www.amazon.co.jp/dp/B0DQY77P16).
+  Its listing specifies 20–999 mm cuts and 7–50 mm tape width. Start at **80 mm**, measure the actual
+  cut and record tape width. Face the front outlet toward the left gripper, with the unit outside flap travel.
+  Present a fully cut strip at a repeatable exposed-end pickup point, **adhesive down**; verify that
+  orientation and jaw clearance on the delivered unit. No flip/turnover training or folded tab is planned;
+  the printed tape rest is optional. Test grip, release and closure strength as in [carton-tape.md](carton-tape.md).
+  Use manual mode with automatic refill disabled and verify strip removal does not restart the mechanism.
+  Keep the dispenser stopped during initial pickup trials. This software does not
   control the dispenser or replenish strips; unattended replenishment still needs model-specific integration.
 - Use even lighting; the head camera must see all four flaps, and wrist cameras must see their grippers.
   Keep cables clear. Start with an empty carton and isolated movements before filled/taped cycles.

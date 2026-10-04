@@ -1,8 +1,12 @@
 # Direct tape pickup from the dispenser
 
-Updated October 4, 2026: the owner ordered a dispenser and chose **no tape flip/turnover training**.
-The exact purchased model, outlet geometry, tape width and strip length still need to be recorded
-on the connected Mac. Do not assume it is the carousel discussed during shopping or assume 80 mm.
+Updated October 4, 2026: the owner ordered the **LUKDOF M1000**, Amazon Japan ASIN
+[B0DQY77P16](https://www.amazon.co.jp/dp/B0DQY77P16), and chose **no tape flip/turnover training**.
+This is a front-outlet dispenser. The listing specifies 20–999 mm cuts in 1 mm increments,
+7–50 mm tape width, and manual/automatic modes. Start with the original **80 mm** strip target;
+record the actual tape width and measured cut length on the connected Mac. These are seller
+specifications, not physical pickup validation. The listing includes masking tape but excludes
+excessively strong adhesive; confirm the actual roll feeds, cuts and releases cleanly.
 **No physical dispenser pickup, adhesion or placement has been demonstrated.** This is a keyframe
 controller; it does not train or execute the ACT checkpoint.
 
@@ -24,18 +28,23 @@ not force/contact sensing or a reliable machine-motion interlock.
 ## First station setup
 
 1. Preserve robot calibration and follow [carton-connected-mac.md](carton-connected-mac.md).
-   Fix the dispenser near the left arm, outside flap travel; keep its cutter/feed mechanism and
-   cover outside the gripper path. The right paddle stays clear during this isolated test.
-2. Record the purchased model and actual tape/strip dimensions. Present one **fully cut** strip
-   with a reachable end and adhesive facing down. The printed tape rest is no longer required.
+   Fix the M1000 near the left arm, with its front outlet facing the left gripper approach and the
+   whole unit outside flap travel. Determine distance and height from actual reach and outlet geometry;
+   keep the cutter/feed mechanism and cover outside the gripper path. The right paddle stays clear
+   during this isolated test.
+2. Confirm the delivered model matches the order and record actual tape/strip dimensions. Set an
+   initial 80 mm cut. Present one **fully cut** strip with a reachable end and adhesive facing down.
+   The printed tape rest is no longer required.
    Test that the end can be gripped and released without sticking to the jaws; this is not yet proven.
-3. For the first trial, stop the dispenser and disable automatic cycling/refill. The robot software
-   has no dispenser control or interlock. For a carousel, the disc must remain stopped throughout
-   pickup. Automatic replenishment is a later model-specific integration, not implemented here.
+3. For the first trial, use manual mode with automatic cycling/refill disabled according to the
+   supplied manual. Stage one cut strip, wait until the mechanism has stopped, and verify removing
+   it does not trigger another feed/cut before testing robot pickup. The robot software has no
+   dispenser control or interlock. Automatic replenishment requires checking this unit’s sensor
+   and refill timing with the robot clear; that integration is not implemented here.
 4. Put a visible mark on the nonsticky backing of the test strip so the cameras can establish its
    face. Use an already-closed, supported carton with an untaped seam. Verify the chosen strip
-   length bridges the seam and, after paddle pressing, holds the flaps shut. Shorter strips are
-   accepted as a prototype choice, not established sealing performance.
+   length bridges the seam and, after paddle pressing, holds the flaps shut. The 80 mm setting is
+   an initial prototype target, not established sealing performance.
 5. Both head and left-wrist cameras must see the pickup and placement. Keep the physical power
    cutoff reachable. Run from an attended Terminal with camera permission; no detached live job.
 

@@ -139,9 +139,12 @@ Separate scope, same robot: `software/carton/`, command `carton`, profile `carto
 - [Tape test instructions](docs/carton-tape.md): `carton tape-test --plan` is hardware-free;
   `carton tape-test -p profiles/carton-local.yaml --teach` physically teaches and executes pickup,
   lift-clear, adhesive-down placement, release and retract on a closed carton. **No flip/turnover.**
-- Owner ordered a dispenser; exact model and strip dimensions are pending. Printed tape rest/folded tab
-  are no longer required. First trial uses a stopped dispenser with automatic refill disabled; no machine
-  control/interlock or autonomous replenishment has been implemented.
+- Owner identified the ordered dispenser as [LUKDOF M1000, ASIN B0DQY77P16](https://www.amazon.co.jp/dp/B0DQY77P16).
+  Listing checked October 4: front outlet, 20–999 mm cuts, 7–50 mm tape width, manual/automatic modes.
+  Initial cut target is 80 mm; actual tape width, adhesive orientation, outlet clearance and release
+  still need physical checks. Printed tape rest/folded tab are not required by the controller.
+  First trial uses manual mode with automatic refill disabled and the mechanism stopped; verify removal
+  does not trigger another feed/cut. No machine control/interlock or autonomous replenishment is implemented.
 - Added staged head/wrist checks, locked gripper during transport, strict finite left-only poses,
   calibration/profile-bound teaching bundles and no retry/release on uncertain tape state.
 - The full carton cycle uses the same tape sequence. Existing tape keyframes require re-teaching.

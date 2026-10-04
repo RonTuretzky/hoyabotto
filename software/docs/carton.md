@@ -50,7 +50,7 @@ judgement/retry behavior. STOP ends motion; results use INTENT → ATTEMPT → R
 
 ## Printed parts
 
-The owner has ordered a dispenser; its exact model and pickup geometry are pending. The printed tape rest is now optional legacy hardware. No tape flip/turnover will be taught.
+The owner ordered the [LUKDOF M1000, ASIN B0DQY77P16](https://www.amazon.co.jp/dp/B0DQY77P16), a front-outlet dispenser listed for 20–999 mm cuts and 7–50 mm tape width. Start at 80 mm and verify actual outlet geometry, adhesive-down presentation and grip/release on the delivered unit; see [carton-tape.md](carton-tape.md). The printed tape rest is now optional legacy hardware. No tape flip/turnover will be taught.
 
 Tracked meshes: [parts/carton](../parts/carton/README.md), `paddle_flap.stl` (210 × 40 × 6 mm: 60 mm handle, 150 mm blade) and `tape_rest.stl` (90 × 40 × 18 mm block). Slice on the intended printer; fit/grip and physical execution are unverified. Development-Mac print preparations under `~/Downloads/` do not transfer with Git.
 
