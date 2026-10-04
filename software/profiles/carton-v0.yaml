@@ -46,7 +46,7 @@ deadlines: {identify_s: 10, inspect_s: 20, measure_s: 0, ask_s: 600, pick_s: 30,
 llm:
   backend: claude-cli
   vision_model: anthropic/claude-sonnet-5
-  jev_model: typesafe/jev-router
+  jev_model: typesafe/jev-1.13
   astra_model: openai/gpt-6-astra
   max_cost_usd_per_day: 5
   timeout_s: 120

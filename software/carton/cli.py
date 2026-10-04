@@ -9,6 +9,7 @@
   carton run          -p carton-v0 [--record]     close a carton, ask for the next one, repeat
   carton sim          [--faults ...]              whole task on the simulator
   carton train        [--steps 8000]              train ACT on the public SO-101 box-closing episodes
+  carton jev-advice   [--input observations.jsonl] text-only persistent recommendations; NO device connection
 """
 from __future__ import annotations
 
@@ -59,6 +60,9 @@ def _system(a):
     from farm.config import load_profile
     from farm.system import System
     p = load_profile(a.profile)
+    if getattr(a, "jev_shadow", False):
+        p.llm.jev_carton_shadow = True
+        p.raw.setdefault("llm", {})["jev_carton_shadow"] = True
     s = System(p)
     if p.simulated:
         from .sim import SimCartonVision
@@ -291,6 +295,21 @@ def cmd_train(a):
     sys.exit(rc)
 
 
+def cmd_jev_advice(a):
+    from contextlib import nullcontext
+    from farm.config import load_profile
+    from farm.llm.decisions import DecisionsClient, DEFAULT_MODEL
+    from .jev import CartonAdvisor, stream_advice
+    cfg = load_profile(a.profile).llm
+    model = DEFAULT_MODEL if cfg.jev_model == "typesafe/jev-router" else cfg.jev_model
+    source = open(a.input) if a.input else nullcontext(sys.stdin)
+    with source as lines, DecisionsClient(model, cfg.jev_timeout_s) as backend:
+        advisor = CartonAdvisor(backend, cfg.jev_observation_max_age_s)
+        rc = stream_advice(lines, sys.stdout, advisor, a.max_cost_usd)
+    if rc:
+        raise SystemExit(rc)
+
+
 def main(argv=None):
     load_env()
     ap = argparse.ArgumentParser(prog="carton", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -299,7 +318,9 @@ def main(argv=None):
         ("geometry", cmd_geometry, [("--setback", {"type": float}), ("--height", {"type": float}), ("--spacing", {"type": float}), ("--paddle", {"type": float})]),
         ("check", cmd_check, []), ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]), ("teach", cmd_teach, [("--name", {"required": True})]),
         ("tape-test", cmd_tape_test, [("--teach", {"action": "store_true"}), ("--plan", {"action": "store_true"})]),
-        ("once", cmd_once, [("--record", {"action": "store_true"})]), ("run", cmd_run, [("--record", {"action": "store_true"})]),
+        ("once", cmd_once, [("--record", {"action": "store_true"}), ("--jev-shadow", {"action": "store_true"})]),
+        ("run", cmd_run, [("--record", {"action": "store_true"}), ("--jev-shadow", {"action": "store_true"})]),
+        ("jev-advice", cmd_jev_advice, [("--input", {}), ("--max-cost-usd", {"type": float, "default": 0.05})]),
         ("sim", cmd_sim, [("--faults", {"nargs": "*"}), ("--auto-answer", {"action": "store_true"}), ("--record", {"action": "store_true"})]),
         ("train", cmd_train, [("--repo-id", {"default": "yoshikokulala/box_closing3"}), ("--steps", {"type": int, "default": 8000}), ("--device", {"default": "mps"}),
                               ("--output", {"default": "act_box_closing"}), ("--batch-size", {"type": int, "default": 8}), ("--save-freq", {"type": int, "default": 2000})]),

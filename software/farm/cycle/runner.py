@@ -303,9 +303,7 @@ class CareCycle:
         packet = self._packet()
         jev_route = jev_pour = None
         if self.jev is not None and ok:
-            imgs = [(n, f.value) for n, f in frames if f.status is Status.OK]
-            jev_route = self.jev.next_review(packet, imgs)
-            jev_pour = self.jev.pour_decision(packet, imgs)
+            jev_route, jev_pour = self.jev.care_decisions(packet)
         v = self.authority.decide_pour(self.cycle_id, ok, reason, jev_pour, jev_route)
         self.store.event(self.cycle_id, "verdict", {"authorized": v.authorized, "by": v.by, "reason": v.reason, "ask_human": v.ask_human, "route": v.route})
         if v.authorized:

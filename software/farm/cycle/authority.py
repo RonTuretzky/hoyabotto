@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..config import AuthorityCfg
+from ..llm.jev import SCHEMA_VERSION
 
 log = logging.getLogger(__name__)
 LEVELS = ["shadow", "route", "approve"]
@@ -43,7 +44,14 @@ class Authority:
     def _load_level(self) -> str:
         rows = self.store.query("SELECT payload_json FROM events WHERE kind='authority_level' ORDER BY t DESC LIMIT 1")
         if rows:
-            lvl = json.loads(rows[0]["payload_json"]).get("level", "shadow")
+            record = json.loads(rows[0]["payload_json"])
+            # Chat-generated probabilities were a different decision mechanism.
+            # Its old approval history does not validate native Jev decisions.
+            if record.get("decision_schema") != SCHEMA_VERSION:
+                return "shadow"
+            lvl = record.get("level", "shadow")
+            if lvl not in LEVELS:
+                return "shadow"
             return lvl if LEVELS.index(lvl) <= LEVELS.index(self.max_level) else self.max_level
         return "shadow"
 
@@ -53,20 +61,20 @@ class Authority:
         if LEVELS.index(level) > LEVELS.index(self.max_level):
             level = self.max_level
         self.level = level
-        self.store.event(None, "authority_level", {"level": level, "who": who, "why": why})
+        self.store.event(None, "authority_level", {"level": level, "who": who, "why": why, "decision_schema": SCHEMA_VERSION})
         log.info("Jev authority -> %s (%s: %s)", level, who, why)
 
     # ---- evidence-based promotion ----------------------------------------------
     def consider_promotion(self) -> None:
         n = self.cfg.jev_shadow_cycles
         if self.level == "shadow" and LEVELS.index(self.max_level) >= 1:
-            rows = self.store.query("SELECT choice, note FROM decisions WHERE kind='jev_route' ORDER BY t DESC LIMIT ?", (n,))
+            rows = self.store.query("SELECT choice, note FROM decisions WHERE kind='jev_route' AND schema_version=? ORDER BY t DESC LIMIT ?", (SCHEMA_VERSION, n))
             if len(rows) >= n:
                 agree = sum(1 for r in rows if (r.get("note") or "").startswith("agree"))
                 if agree / len(rows) >= 0.8:
                     self.set_level("route", "auto", f"{agree}/{len(rows)} route agreements")
         elif self.level == "route" and LEVELS.index(self.max_level) >= 2:
-            rows = self.store.query("SELECT choice, note FROM decisions WHERE kind='jev_pour' ORDER BY t DESC LIMIT ?", (n,))
+            rows = self.store.query("SELECT choice, note FROM decisions WHERE kind='jev_pour' AND schema_version=? ORDER BY t DESC LIMIT ?", (SCHEMA_VERSION, n))
             if len(rows) >= n and all((r.get("note") or "").startswith("agree") for r in rows):
                 self.set_level("approve", "auto", f"{n} pour decisions agreed with the human")
 
@@ -84,14 +92,14 @@ class Authority:
         route = "routine"
         if jev_route is not None:
             honoured = self.level in ("route", "approve")
-            self.store.decision(cycle_id, "jev_route", jev_route.question, "", jev_route.choice, jev_route.probabilities, "farm-jev-1",
+            self.store.decision(cycle_id, "jev_route", jev_route.question, "", jev_route.choice, jev_route.probabilities, SCHEMA_VERSION,
                                 jev_route.meta.model, jev_route.meta.latency_ms, jev_route.meta.cost_usd, honoured=honoured, note=("pending:" + jev_route.why)[:300])
             if honoured and jev_route.choice not in ("routine", "unknown"):
                 return Verdict(False, "jev", f"route={jev_route.choice}: {jev_route.why}", ask_human=True, route=jev_route.choice)
             route = jev_route.choice
         if jev_pour is not None:
             honoured = self.level == "approve" and jev_pour.choice == "pour" and jev_pour.p >= self.cfg.jev_approve_min_p
-            self.store.decision(cycle_id, "jev_pour", jev_pour.question, "", jev_pour.choice, jev_pour.probabilities, "farm-jev-1",
+            self.store.decision(cycle_id, "jev_pour", jev_pour.question, "", jev_pour.choice, jev_pour.probabilities, SCHEMA_VERSION,
                                 jev_pour.meta.model, jev_pour.meta.latency_ms, jev_pour.meta.cost_usd, honoured=honoured, note=("pending:" + jev_pour.why)[:300])
             if honoured:
                 return Verdict(True, "jev", f"p={jev_pour.p:.2f}: {jev_pour.why}", ask_human=False, route=route)

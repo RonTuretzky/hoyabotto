@@ -67,6 +67,18 @@ class CartonCycle:
         self.steps_done: list[str] = []
         self.last_frames: dict[str, str] = {}
         self.vision = system.backends.vision
+        self._frame_times: list[float] = []
+        self._observation_seq = 0
+        self._shadow_step, self._shadow_attempt = STEPS[0], 0
+        self._jev_shadow = None
+        if system.profile.llm.jev_carton_shadow:
+            from farm.llm.backends import NoLLM
+            from .jev import CartonAdvisor, ShadowObserver
+            backend = system.backends.jev
+            if not isinstance(backend, NoLLM):
+                self._jev_shadow = ShadowObserver(
+                    CartonAdvisor(backend, system.profile.llm.jev_observation_max_age_s),
+                    self.store, system.state, system.backends.over_budget)
 
     # ---- bookkeeping ---------------------------------------------------------------------
     def _go(self, new: S, why: str = "") -> None:
@@ -81,12 +93,14 @@ class CartonCycle:
 
     def _frames(self):
         out = []
+        self._frame_times = []
         for n in self.judge_frames:
             cam = self.cameras.get(n)
             if cam is None:
                 continue
             r = cam.frame()
             if r.status is Status.OK:
+                self._frame_times.append(r.t)
                 h = self.store.save_image(r.value)
                 self.last_frames[n] = h
                 self.store.observation(self.cycle_id, f"camera.{n}", r.status.value, {"age_s": r.age()}, r.t, image_hash=h)
@@ -102,11 +116,30 @@ class CartonCycle:
                 self._pause(f"safety stop while looking: {e}")
                 return None
         j = perception.judge(self.vision, self.box, self._frames(), self.store, self.cycle_id)
+        self._observe_jev(j.value if j.ok else {})
         if not j.ok:
             return None
         self.judgement = j.value
         self._publish()
         return j.value
+
+    def _observe_jev(self, judgement):
+        if self._jev_shadow is None:
+            return
+        try:
+            self._observation_seq += 1
+            step = self._shadow_step
+            health = self.sys.robot.health()
+            self._jev_shadow.submit({
+                "observation_id": f"{self.cycle_id}:{self._observation_seq}",
+                "observed_at": min(self._frame_times, default=0.0),
+                "stage": self.state.value, "step": step.name, "attempt": self._shadow_attempt,
+                "judgement": dict(judgement), "held": dict(self.skills.held),
+                "missing_keyframes": [n for n in step.keyframes if n not in self.sys.keyframes.names()],
+                "stop_requested": self.skills.estop.is_set(), "health_ok": health.status is Status.OK,
+            }, self.cycle_id)
+        except Exception as exc:
+            self.store.event(self.cycle_id, "carton_jev_error", {"error_type": type(exc).__name__})
 
     def _pause(self, reason: str) -> None:
         log.warning("PAUSED: %s", reason)
@@ -188,6 +221,9 @@ class CartonCycle:
                 except Exception:  # noqa: BLE001
                     pass
             return Outcome(self.cycle_id, "CRASHED", str(e), self.steps_done, self.history)
+        finally:
+            if self._jev_shadow is not None:
+                self._jev_shadow.close()
 
     def _run(self) -> Outcome:
         self._publish()
@@ -218,6 +254,7 @@ class CartonCycle:
     def _do_step(self, step: Step) -> str:
         """'ok', 'stop', or a reason the step could not be completed."""
         for attempt in (1, 2):
+            self._shadow_step, self._shadow_attempt = step, attempt
             self._go(S.STEP, step.name)
             aid = self.store.intent(self.cycle_id, step.name, {"arm": step.arm, "keyframes": list(step.keyframes), "attempt": attempt})
             self.store.attempt(aid)

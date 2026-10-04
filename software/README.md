@@ -41,7 +41,7 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 | Role | Default | Fallback |
 |---|---|---|
 | Vision judgements + LLM-servo | `claude` CLI on your subscription (`llm.backend: claude-cli`) | OpenRouter `anthropic/claude-sonnet-5` |
-| Jev (typed choices) | OpenRouter `typesafe/jev-router` | — |
+| Jev (typed choices) | OpenRouter Decisions `typesafe/jev-1.13` | Text evidence only; see [Jev integration](docs/jev.md) |
 | Astra (daily proposals) | OpenRouter `openai/gpt-6-astra` | — |
 
 `llm.max_cost_usd_per_day` caps OpenRouter spend; when it is hit, rules refuse to pour.

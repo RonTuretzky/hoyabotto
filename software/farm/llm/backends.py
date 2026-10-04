@@ -2,8 +2,8 @@
 
 - ClaudeCLI: the `claude` CLI on the user's subscription, headless (`-p --output-format json`).
   Images are passed as file paths the CLI reads with its Read tool.
-- OpenRouter: chat/completions with image data URLs. Used for Jev (typesafe/jev-router),
-  Astra (openai/gpt-6-astra) and as the vision fallback.
+- OpenRouter: chat/completions with image data URLs, for Astra and vision.
+- DecisionsClient: pooled text-only native Jev API, resolved lazily by Backends.
 
 Both expose complete_json(prompt, images) -> (dict, Meta). Cost is tracked so
 the orchestrator can refuse to spend past the daily budget. No backend ever
@@ -204,6 +204,7 @@ class Backends:
         self.store = store
         self._vision = None
         self._router = None
+        self._jev = None
 
     def _openrouter(self, model: str):
         return OpenRouter(model, timeout_s=self.cfg.timeout_s)
@@ -231,7 +232,18 @@ class Backends:
     def jev(self):
         if self.cfg.backend in ("none", "sim"):
             return NoLLM()
-        return self._openrouter(self.cfg.jev_model)
+        if self._jev is None:
+            from .decisions import DecisionsClient, DEFAULT_MODEL
+            model = self.cfg.jev_model
+            if model == "typesafe/jev-router":
+                log.warning("Migrating legacy jev-router setting to native %s", DEFAULT_MODEL)
+                model = DEFAULT_MODEL
+            self._jev = DecisionsClient(model, self.cfg.jev_timeout_s)
+        return self._jev
+
+    def close(self):
+        if self._jev is not None:
+            self._jev.close()
 
     @property
     def astra(self):
