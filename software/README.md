@@ -1,5 +1,12 @@
 # farm — the XLeRobot plant-care program
 
+## Mac Joy-Con input reader
+
+For the new manual-control path, start with the
+[native Mac Joy-Con reader](tools/mac-joycon-reader/README.md). It displays paired
+controller inputs and streams JSON without connecting to motors or calling an AI
+service. Robot motion integration is a separate step.
+
 ## R3.2 planter assembly preparation
 
 See [the connected-Mac handoff](docs/r32-handoff.md) first, then
@@ -10,7 +17,7 @@ and the live robot adapter remains to be integrated.
 
 A Python program on the Mac that turns the XLeRobot kit (two SO-101 arms, head, three cameras) into a supervised plant caretaker for paper-grown cress in fixed trays. It stands on Hugging Face LeRobot 0.6 and XLeRobot's own robot class and IK solver (vendored under `farm/vendor/`, Apache-2.0).
 
-Nobody drives the robot. Motion is taught by a vision model (the LLM-servo loop), decisions are made by rules → Jev → a person only when needed, and every action is written down before, during and after it happens.
+The autonomous path teaches motion with a vision model (the LLM-servo loop), makes decisions through rules → Jev → a person only when needed, and records every action before, during and after it happens. The separate manual-control path now starts with the Mac Joy-Con input reader above; its inputs are not yet connected to robot motion.
 
 ```
 farm/
