@@ -1,0 +1,17 @@
+{
+  "revision": "R3.2",
+  "source": "physical_robot",
+  "collection_method": "robot_driven_visual_teaching",
+  "session_id": "FILL_AFTER_DECLARING_SESSION",
+  "split": "train",
+  "stage": "PLACE_RESERVOIR",
+  "mesh_sha256": "COPY profile.part_hashes; not a string in a real record",
+  "calibration_id": "",
+  "robot_id": "",
+  "printed_instance": "",
+  "tool_geometry_id": "",
+  "station_measurement_id": "",
+  "camera_identity_id": "",
+  "material_profile": "",
+  "code_commit": ""
+}

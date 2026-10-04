@@ -1,5 +1,13 @@
 # farm — the XLeRobot plant-care program
 
+## R3.2 planter assembly preparation
+
+See [the connected-Mac handoff](docs/r32-handoff.md) first, then
+[training instructions](docs/r32-training.md). The current open-front planter
+parts and offline training tools are included; no R3.2 policy has been trained
+and the live robot adapter remains to be integrated.
+
+
 A Python program on the Mac that turns the XLeRobot kit (two SO-101 arms, head, three cameras) into a supervised plant caretaker for paper-grown cress in fixed trays. It stands on Hugging Face LeRobot 0.6 and XLeRobot's own robot class and IK solver (vendored under `farm/vendor/`, Apache-2.0).
 
 Nobody drives the robot. Motion is taught by a vision model (the LLM-servo loop), decisions are made by rules → Jev → a person only when needed, and every action is written down before, during and after it happens.

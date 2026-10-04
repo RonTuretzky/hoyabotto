@@ -1,0 +1,25 @@
+{
+  "kind": "r32-offline-training-preparation",
+  "revision": "R3.2",
+  "execution_enabled": false,
+  "controlled_arm": "right",
+  "state_joints": ["right_arm_shoulder_pan", "right_arm_shoulder_lift", "right_arm_elbow_flex", "right_arm_wrist_flex", "right_arm_wrist_roll", "right_arm_gripper"],
+  "cameras": {"wrist": "right_wrist", "head": "head"},
+  "fps": 10,
+  "frame_hw": [480, 640],
+  "interface_status": "Proposed; confirm real joints and camera identities on connected Mac",
+  "collection_method": "robot-driven visual teaching",
+  "initial_task": "PLACE_RESERVOIR",
+  "dataset_root": "data/r32/dataset",
+  "dataset_repo_id": "farm/r32-assembly",
+  "sessions_file": "data/r32/sessions.json",
+  "parts_dir": "parts/r32",
+  "part_hashes": {
+    "reservoir.stl": "53da2c309af4e45e2164e41f352fbe0568b6228737eaddddf993763418610fa1",
+    "basket.stl": "f1f5ee7ee10b72f97859644417b335ff7ca21d8c73b41cc8d23260229f06df81",
+    "retainer.stl": "5da6b27ffe457e97cbd7a4d5c69df3c980f3797e1589e5921a3369878215b8a1"
+  },
+  "hardware_measurements": {"calibration_id": null, "station_transforms": null, "grip_thresholds": null, "validated_poses": null},
+  "policy": {"type": "act", "device": "mps", "steps": 5000, "batch_size": 8},
+  "wet_fill": "Separate fixed-station integration; excluded from initial dry training"
+}

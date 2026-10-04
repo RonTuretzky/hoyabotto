@@ -59,7 +59,7 @@ def frame_to_obs(item: dict, camera_keys: list[str]) -> tuple[np.ndarray, dict[s
 
 
 def evaluate(checkpoint: str, repo_id: str, root: str | None, episodes: int = 3, stride: int = 5, device: str = "mps",
-             max_frames: int | None = None) -> dict:
+             max_frames: int | None = None, episode_ids: list[int] | None = None) -> dict:
     ds = load_dataset(repo_id, root)
     meta = ds.meta
     runner = PolicyRunner(checkpoint, device=device)
@@ -72,7 +72,9 @@ def evaluate(checkpoint: str, repo_id: str, root: str | None, episodes: int = 3,
     if missing:
         raise KeyError(f"policy expects cameras {missing} that the dataset does not have ({meta.camera_keys})")
 
-    ep_ids = list(range(meta.total_episodes - episodes, meta.total_episodes))
+    ep_ids = list(episode_ids) if episode_ids is not None else list(range(meta.total_episodes - episodes, meta.total_episodes))
+    if not ep_ids or len(set(ep_ids)) != len(ep_ids) or any(type(i) is not int or not 0 <= i < meta.total_episodes for i in ep_ids):
+        raise ValueError("invalid or empty evaluation episode selection")
     abs_err, abs_err_state, chunk_ms, select_ms = [], [], [], []
     n_frames = 0
     t_all = time.perf_counter()
@@ -113,7 +115,7 @@ def evaluate(checkpoint: str, repo_id: str, root: str | None, episodes: int = 3,
         "stride": stride,
         "n_frames": int(n_frames),
         "held_out": False,
-        "note": "episodes were in the training set; offline MAE is not a success rate",
+        "note": "held-out status not independently verified; offline MAE is not a success rate",
         "action_names": list(action_names),
         "mae_per_dim": {n: round(float(v), 3) for n, v in zip(action_names, mae)},
         "mae_mean": round(float(mae.mean()), 3),
