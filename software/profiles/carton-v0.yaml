@@ -60,7 +60,9 @@ policy:
   device: mps
   state_joints: [left_arm_shoulder_pan, left_arm_shoulder_lift, left_arm_elbow_flex, left_arm_wrist_flex, left_arm_wrist_roll, left_arm_gripper,
                  right_arm_shoulder_pan, right_arm_shoulder_lift, right_arm_elbow_flex, right_arm_wrist_flex, right_arm_wrist_roll, right_arm_gripper]
-  camera_map: {observation.images.front: head, observation.images.top: head}
+  # Intentionally unconfigured: ACT requires two distinct validated fixed views.
+  # See docs/carton-connected-mac.md; do not alias both inputs to the head camera.
+  camera_map: {observation.images.front: policy_front, observation.images.top: policy_top}
   hz: 10
   max_steps: 600
   shadow: true

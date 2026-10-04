@@ -11,7 +11,10 @@ If you are on the laptop connected to the robot, read these in order before doin
 
 To bring the robot up (probe, profile, calibration, motors-only test), use the `farm-bringup` skill in `.claude/skills/`: type `/farm-bringup` or ask to "bring up the robot".
 
-A second task, closing cartons, lives in `software/carton/` (command `carton`); read `software/docs/carton.md` before touching it. Same rules apply.
+A second task, closing cartons, lives in `software/carton/` (command `carton`). Start with
+`software/docs/carton-connected-mac.md`: it has the released ACT checkpoint, checksums, installation,
+station setup and the live-motion integration blockers. Then read `software/docs/carton.md`.
+The carton cycle uses keyframes; it does not yet execute the trained ACT model. Same rules apply.
 
 Working rules:
 

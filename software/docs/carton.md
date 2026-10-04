@@ -1,5 +1,8 @@
 # Carton closing
 
+**Robot laptop: start with [the October 4 handoff](carton-connected-mac.md)** for the trained
+checkpoint download, checksums, station setup and remaining physical-integration work.
+
 A second task for the same robot, separate from the farm: close a filled shipping carton the way the packing-line video shows. Fold the two short end flaps in, fold the two long flaps over so they meet at the centre, tape the seam. No conveyor, no pushing, no next station for now.
 
 Code: `software/carton/` (`carton` command). Shares the farm's devices, skill runner, safety clamps, evidence store, viewer, STOP button and vision-model teaching.
@@ -21,9 +24,9 @@ Photos of the empty carton with flaps standing: `.context/carton-photos/` in the
 
 ## Reach: why the right arm holds a paddle
 
-The cart stands along one long side. The SO-101 arm reaches about 32 cm from the shoulder with bare fingers (25 cm of arm, 10 cm of gripper, 3 cm margin). The far long flap stands 28 cm plus the cart's setback away: bare fingers reach it only with the shoulders within 3 cm of the near rim. A 15 cm printed paddle held in the right gripper makes the far flap reachable from 18 cm back, and its flat blade presses the tape. `carton geometry` prints the table; with the profile's stance (6 cm setback, 15 cm above the rim) every target is within reach, the tightest being the tape laid by the left arm (6 cm margin).
+The cart stands along one long side. The simplified reach calculation uses about 32 cm from the shoulder with bare fingers (25 cm of arm, 10 cm of gripper, 3 cm margin), plus 15 cm for the right-hand paddle. `carton geometry` prints shoulder-to-target distances. The current profile starts at 6 cm setback and shoulders level with the rim. This calculation does not check joint limits, collision, contact forces or the tool pickup positions; its pass is not physical validation.
 
-Two stance numbers come from the upstream robot model (simulation/mujoco/xlerobot.xml, URDF): the two arm bases sit 30 cm apart, and the shoulder joint is about 82 cm above the floor when the robot stands on its cart. The box rim is the table height plus 10.8 cm, so on a 70 cm table the shoulders are level with the rim, on an 80 cm table 9 cm below it. The reach check passes for tables from 70 to 80 cm; `height_m` in the profile is shoulder minus rim and only needs changing if the table is outside that range.
+The upstream robot model (simulation/mujoco/xlerobot.xml, URDF) places the arm bases 30 cm apart and shoulders about 82 cm above the floor. Confirm both on the assembled robot. Set `height_m` to measured shoulder height minus tabletop height minus 10.8 cm, in metres, for every station. For the model estimate and a 70 cm table this is 0.012 m; at 80 cm it is -0.088 m.
 
 ## The plan
 
@@ -43,7 +46,7 @@ Every keyframe is taught by the vision model (`carton teach-all`), as in the far
 
 ## Printed parts
 
-`parts/out/paddle_flap.stl` (210 × 40 × 6 mm: 60 mm handle with the light paddle's grip grooves, 150 mm blade) and `parts/out/tape_rest.stl` (90 × 40 × 18 mm block with a slot the tape tab hangs over). One plate: `~/Downloads/xlerobot-farm-parts/carton/plate_carton_paddle_tape_rest.3mf`.
+Tracked meshes: [parts/carton](../parts/carton/README.md), `paddle_flap.stl` (210 × 40 × 6 mm: 60 mm handle, 150 mm blade) and `tape_rest.stl` (90 × 40 × 18 mm block). Slice on the intended printer; fit/grip and physical execution are unverified. Development-Mac print preparations under `~/Downloads/` do not transfer with Git.
 
 ## Learning
 
@@ -56,11 +59,11 @@ Carton closing is a well-covered task on the Hub. Same arms and joint names as o
 | masato-ka/donuts-shop-close-box-dataset-v0 | 30 | front, back | Apache-2.0 |
 | andrejarden/bimanual-close-box | 10 | front, left_wrist, right_wrist | Apache-2.0 |
 
-`carton train` downloads box_closing3 and trains ACT on it (12-joint state and action, matching our two arms). The policy's `front`/`top` views map to our head camera in `profiles/carton-v0.yaml`; a model trained on someone else's box, table and camera placement is a motion prior, not a finished skill. The keyframe path is what closes boxes first; the robot's own recorded runs (`carton run --record`) are what a policy is fine-tuned on later.
+`carton train` downloads box_closing3 and trains ACT (12-joint state and action). The October 3 run completed 8,000 steps, final loss 0.293. The saved model loads; see the handoff for evaluation limits. Real-profile `front`/`top` inputs now name unconfigured `policy_front`/`policy_top` views instead of duplicating `head`. Joint order, normalization and camera setup require validation. The current carton cycle runs taught keyframes, not this checkpoint. Robot-specific recordings can support later fine-tuning; neither path has closed a real box here.
 
 ## Status
 
-Built and tested on the simulator (11 carton tests; 109 in the suite). Nothing has run on the real robot. Open items: print the paddle and tape rest; teach the 20 keyframes with a real carton on a table at the chosen height; the download of the training data was slow on the first attempt.
+The full suite passed 167 tests on October 4. Training and saved-model inference checks are complete; physical carton execution is unverified. See the connected-Mac handoff for station setup, calibration readback, print/grip checks and specific teaching/ACT integration blockers before movement.
 
 ## Commands
 

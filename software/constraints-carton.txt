@@ -1,0 +1,7 @@
+# Core versions used to train and verify the October 3 carton checkpoint.
+# Install with: uv pip install -e '.[dev]' -c constraints-carton.txt
+lerobot==0.6.1
+torch==2.11.0
+torchvision==0.26.0
+av==15.1.0
+safetensors==0.8.0

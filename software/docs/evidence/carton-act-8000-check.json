@@ -1,0 +1,120 @@
+{
+  "checkpoint": "carton-act-8000/pretrained_model",
+  "policy_type": "act",
+  "device": "mps",
+  "repo_id": "yoshikokulala/box_closing3",
+  "episodes": [
+    47,
+    48,
+    49
+  ],
+  "stride": 200,
+  "n_frames": 27,
+  "held_out": false,
+  "note": "episodes were in the training set; offline MAE is not a success rate",
+  "action_names": [
+    "left_shoulder_pan.pos",
+    "left_shoulder_lift.pos",
+    "left_elbow_flex.pos",
+    "left_wrist_flex.pos",
+    "left_wrist_roll.pos",
+    "left_gripper.pos",
+    "right_shoulder_pan.pos",
+    "right_shoulder_lift.pos",
+    "right_elbow_flex.pos",
+    "right_wrist_flex.pos",
+    "right_wrist_roll.pos",
+    "right_gripper.pos"
+  ],
+  "mae_per_dim": {
+    "left_shoulder_pan.pos": 2.936,
+    "left_shoulder_lift.pos": 1.767,
+    "left_elbow_flex.pos": 2.771,
+    "left_wrist_flex.pos": 4.323,
+    "left_wrist_roll.pos": 3.006,
+    "left_gripper.pos": 2.225,
+    "right_shoulder_pan.pos": 3.577,
+    "right_shoulder_lift.pos": 6.798,
+    "right_elbow_flex.pos": 5.65,
+    "right_wrist_flex.pos": 6.58,
+    "right_wrist_roll.pos": 3.012,
+    "right_gripper.pos": 4.014
+  },
+  "mae_mean": 3.888,
+  "baseline_state_equals_action_mae_per_dim": {
+    "left_shoulder_pan.pos": 1.341,
+    "left_shoulder_lift.pos": 1.024,
+    "left_elbow_flex.pos": 1.536,
+    "left_wrist_flex.pos": 1.03,
+    "left_wrist_roll.pos": 0.584,
+    "left_gripper.pos": 1.328,
+    "right_shoulder_pan.pos": 1.445,
+    "right_shoulder_lift.pos": 3.634,
+    "right_elbow_flex.pos": 4.511,
+    "right_wrist_flex.pos": 1.362,
+    "right_wrist_roll.pos": 1.702,
+    "right_gripper.pos": 2.475
+  },
+  "baseline_state_equals_action_mae_mean": 1.831,
+  "mae_p90_per_dim": {
+    "left_shoulder_pan.pos": 4.279,
+    "left_shoulder_lift.pos": 3.861,
+    "left_elbow_flex.pos": 6.909,
+    "left_wrist_flex.pos": 12.39,
+    "left_wrist_roll.pos": 4.304,
+    "left_gripper.pos": 6.693,
+    "right_shoulder_pan.pos": 7.024,
+    "right_shoulder_lift.pos": 16.248,
+    "right_elbow_flex.pos": 8.417,
+    "right_wrist_flex.pos": 18.368,
+    "right_wrist_roll.pos": 5.598,
+    "right_gripper.pos": 4.929
+  },
+  "latency_ms": {
+    "predict_action_chunk_mean": 28.5,
+    "predict_action_chunk_p50": 20.28,
+    "predict_action_chunk_max": 238.59,
+    "select_action_mean": 5.63,
+    "select_action_p50": 3.57,
+    "select_action_max": 24.15,
+    "model_load_s": 0.46
+  },
+  "input_spec": {
+    "policy_type": "act",
+    "device": "mps",
+    "cameras": {
+      "observation.images.front": [
+        480,
+        640
+      ],
+      "observation.images.top": [
+        480,
+        640
+      ]
+    },
+    "camera_names": [
+      "front",
+      "top"
+    ],
+    "state_dim": 12,
+    "action_dim": 12,
+    "chunk_size": 100,
+    "n_action_steps": 100,
+    "normalization": {
+      "VISUAL": "NormalizationMode.MEAN_STD",
+      "STATE": "NormalizationMode.MEAN_STD",
+      "ACTION": "NormalizationMode.MEAN_STD"
+    }
+  },
+  "wall_s": 1.2,
+  "model_sha256": "6ef1ad8d3be6f69b4ce53122745c8be5ef945e77c56ecdda9d360e86e6c1b1ab",
+  "versions": {
+    "lerobot": "0.6.1",
+    "torch": "2.11.0",
+    "torchvision": "0.26.0",
+    "av": "15.1.0",
+    "safetensors": "0.8.0"
+  },
+  "duplicate_run_note": "Two same-seed processes wrote this output directory and both completed. This check validates the final saved inference files, not an isolated-run provenance or optimizer resume state.",
+  "checked_date": "2026-10-04"
+}

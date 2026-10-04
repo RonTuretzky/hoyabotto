@@ -115,6 +115,25 @@ two grip fins, an optional paper frame, a grip coupon) for the robot to assemble
 
 Separate scope, same robot: `software/carton/`, command `carton`, profile `carton-v0`. Measurements, reach analysis, plan and status in `docs/carton.md`. Built and tested on the simulator only. Needs the printed flap paddle and tape rest before anything can be taught.
 
+### Carton handoff, October 4 (development Mac)
+
+- Start at [docs/carton-connected-mac.md](docs/carton-connected-mac.md) on the robot Mac. It covers
+  preserving local calibration, the release download/checksums, local profile, station and remaining integration.
+- ACT completed 8,000 steps on October 3 at 18:23 JST, final loss 0.293. Two duplicate same-seed
+  processes wrote the directory; both ended. Final inference files were subsequently verified on MPS.
+- [Release](https://github.com/RonTuretzky/xlerobot-farm/releases/tag/carton-act-8000-2026-10-04)
+  contains the inference checkpoint; `git pull` alone does not download weights. Optimizer state excluded.
+- Real recorded-frame check: 27 frames, episodes 47–49, **not held out**. MAE 3.888 versus a
+  hold-current-state baseline of 1.831. Synthetic inference outputs `(12,)` and `(100, 12)`.
+  [Evidence](docs/evidence/carton-act-8000-check.json). Neither is a physical success rate.
+- 167 tests passed before this handoff. Print source meshes are tracked under `parts/carton/`.
+- Real policy profile now names missing `policy_front`/`policy_top` views explicitly instead of
+  feeding the head image twice. Learned control remains disabled and is not wired into carton cycles.
+- Physical setup, print fit, teaching sequence/object state, individual teaching STOP viewer, fail-fast
+  teaching, observation-only ACT integration and hardware validation remain for the connected Mac.
+- Existing hardware calibration may have progressed independently on that Mac. Read it back; do not
+  overwrite it or restart calibration based on this development-Mac status.
+
 ## Rules that were decided
 
 - Nobody drives the robot by hand. Poses are taught by the vision model (`farm teach`, `farm teach-all`); people only answer questions in the viewer or over Telegram.

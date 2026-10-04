@@ -15,3 +15,5 @@ software/data-sim/
 software/*.egg-info/
 software/parts/out/
 software/data-train/
+software/data-carton/
+software/profiles/carton-local.yaml

@@ -1,5 +1,9 @@
 # Setting up a new laptop to run the robot
 
+For the carton task and its trained checkpoint, start with
+[the connected-Mac handoff](docs/carton-connected-mac.md). It includes current dependency constraints,
+download checksums and motion blockers; the carton task does not need the light-sensor steps below.
+
 Everything a blank laptop needs to run the XLeRobot farm program, in order. Written for an agent or a person; about 30 minutes plus downloads (~2 GB).
 
 Assumes an Apple-silicon Mac (M1 or newer). Linux differences are at the end. Intel Macs will not work (PyTorch no longer ships builds for them); Windows is untested.
