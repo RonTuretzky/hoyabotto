@@ -12,6 +12,8 @@ for the measured carton. Keep carton-only scope: no conveyor, pushing or cycle-t
 
 - A macOS camera publisher with immutable, hashed frames and capture timestamps.
 - Read-only camera timing checks and annotated target/tool tracking.
+- Reuse of the farm's AprilTag detector for identified tool/target/anchor features.
+- LeRobot/Placo FK and checked reach proposals using the pinned upstream SO-101 model.
 - Bounded single-joint probes that measure a local encoder-to-image Jacobian,
   plus independent half-sized probes withheld from fitting.
 - A numerical correction loop with no LLM request between movements.
@@ -27,13 +29,26 @@ do not establish full gripper orientation or contact geometry. Use it initially
 for a nearby, collision-clear approach to the paddle handle, then establish the
 separate grasp and contact primitives on the robot.
 
-Development-Mac validation on October 4: **243 tests passed**, including 44
-controller-specific cases; the Swift publisher compiled. The rendered-image
+Development-Mac validation on October 4 after upstream integration: **265 tests
+passed in 82.19 seconds**, including 44 controller cases and 22 upstream integration
+cases, with no skips. The Swift publisher compiled before this refactor and is
+unchanged. The rendered-image
 experiment measured a four-joint model, passed independent probes (maximum
 0.864px prediction error), then reached the target with 15 corrections and
 three final observations. All four feature errors were within 2.001px.
 See [sanitized synthetic evidence](evidence/carton-servo-synthetic-check.json).
 The test contains no carton/contact physics and opens no devices.
+
+The subsequent upstream integration was also exercised with the **actual**
+LeRobot/Placo solver and pupil-apriltags detector. Two nonzero URDF reach cases
+converged in 2 and 3 solver iterations, with position residuals of 0.275 mm and
+0.131 mm. These are model-consistency errors, not measured robot accuracy. See
+[the reproducible solver evidence](evidence/carton-upstream-kinematics-check.json).
+The original environment, without Placo, also passed 58 controller/integration
+tests with 8 explicit solver skips. The wheel includes the shared adapters and
+model manifest; a fresh `model-fetch` verified all 16 upstream files. Full-suite
+validation used an environment excluding global site packages after a Homebrew
+SciPy/native-library conflict was found in the initial test environment.
 
 ## Transfer without disturbing the existing session
 
@@ -43,7 +58,9 @@ calibration files, profiles and environment. Fetch this branch into a **separate
 worktree**; do not reset or replace the live checkout. Launch this package with
 the existing environment's Python and `PYTHONPATH` pointing to this worktree's
 `software/`. A fresh install of the entire LeRobot/training stack is unnecessary.
-The new runtime needs NumPy and OpenCV, already used by this project.
+The visual loop needs NumPy/OpenCV and uses the existing pupil-apriltags dependency
+when tag features are selected. Optional geometric proposals need the isolated
+kinematics dependencies below; they do not require replacing the live environment.
 
 First reproduce, without cameras or motors:
 
@@ -133,6 +150,24 @@ rectangles. Repeat for `right_wrist` with tool and target. `--point name:x,y`
 selects a reference point within a region. See `seed --help` for syntax.
 If the plastic or cardboard has no distinctive texture, use a better visible
 feature or a fixed visual marker; never accept an arbitrary tracker match.
+
+To reuse the farm's existing AprilTag perception, put distinct **tag36h11** IDs
+on the gripper/tool, target and fixed head-view background, then use:
+
+```sh
+python -m carton.servo seed --config data-carton/paddle-approach-01/experiment.json \
+  --camera head --tag tool:2 --tag target:3 --tag anchor:1
+python -m carton.servo seed --config data-carton/paddle-approach-01/experiment.json \
+  --camera right_wrist --tag tool:2 --tag target:3
+```
+
+IDs above are examples; identify the mounted markers in both actual reference
+images. Features can mix patches and tags. A tag point defaults to its centre;
+`--point` can select a point inside its quadrilateral. Missing/duplicate IDs,
+weak/corrected decoding, a moving head anchor, a resolution change or more than
+100 pixels of displacement from the seed refuse. Anchor corner checks also catch
+rotation. This is 2D tracking; tags do not automatically establish camera intrinsics,
+depth, robot registration or a grasp pose. Mount tags outside contact/occlusion areas.
 
 The default feature order is head target-minus-tool x/y followed by wrist
 target-minus-tool x/y. **The default `[0,0,0,0]` is not an automatically safe grasp
@@ -231,9 +266,98 @@ is supporting evidence, not a tactile sensor or a standalone grasp guarantee.
 (metres), plus `start_deg`, `end_deg`, optional `step_deg` (default 5°). It keeps
 the contact point on a circular crease arc. It does not establish paddle
 orientation, forces, springback or a camera/robot transform. For full approach
-and fold trajectories, reuse LeRobot's URDF-based kinematics after measuring
+and fold geometry, use the integrated LeRobot proposals below after measuring
 model zero/sign and station registration. Do not extrapolate this local image
 model across the fold.
+
+## Reuse of existing perception and kinematics
+
+The shared implementation is in `farm/kinematics/`; the carton package supplies
+configuration, provenance and observation adapters. It calls LeRobot's
+`RobotKinematics`, with Placo enforcing the upstream joint limits. It does not
+connect through LeRobot's motor driver or use the legacy planar Cartesian helper.
+
+For the optional geometric tools, use Python 3.12 and a separate environment.
+The pins match LeRobot 0.6.1's kinematics requirements; do not install a newer
+Placo into the currently running motor owner's environment.
+
+```sh
+uv venv .venv-carton-geometry --python 3.12
+uv pip install --python .venv-carton-geometry/bin/python -e '.[dev,carton-kinematics]' \
+  -c constraints-carton.txt -c constraints-carton-kinematics.txt
+.venv-carton-geometry/bin/python -m carton.servo model-fetch \
+  --out data-carton/models/so101
+.venv-carton-geometry/bin/python -m carton.servo kinematics-check \
+  --model-dir data-carton/models/so101 --out data-carton/kinematics-check.json
+.venv-carton-geometry/bin/python -m pytest -q tests/test_carton_upstream.py
+```
+
+Only `model-fetch` downloads files. The unchanged upstream URDF, referenced
+meshes, README and license are pinned in `farm/kinematics/so101-assets.json` and
+checked before every model load. Conflicting local files are preserved and
+refused. The model is ignored data, not a new vendored solver. Set
+`CARTON_MODEL_DIR` for tests if it lives elsewhere. Real solver tests explicitly
+skip when the optional assets/dependency are absent; skips are not solver validation.
+
+Create a draft bound to this robot's existing motor calibration:
+
+```sh
+.venv-carton-geometry/bin/python -m carton.servo kinematics-template \
+  --config data-carton/paddle-approach-01/experiment.json \
+  --model-dir data-carton/models/so101 --out data-carton/paddle-kinematics.json
+```
+
+The draft deliberately has unknown values. Measure these before using it:
+
+- `joints`: each of the five arm joints needs a `model_zero_tick` and a
+  `model_sign` of +1 or -1 relative to **this new-calibration URDF**. Saved travel
+  endpoints alone do not determine a geometric zero. The shared adapter uses
+  4096 encoder ticks per revolution; it never equates normalized values to degrees.
+- `gripper_from_tool`: a right-handed 4×4 transform in metres mapping tool
+  coordinates into `gripper_frame_link`. Identity explicitly selects the URDF
+  frame origin, which is not automatically the grasp/contact point.
+- `workspace_bounds_m`: measured `[minimum_xyz, maximum_xyz]` limits in the
+  arm-base frame. Bounds constrain proposed endpoints; they are not collision checks.
+- `base_from_station`: a right-handed 4×4 transform mapping station coordinates
+  into this arm's base frame. It may remain null for arm-base-only requests.
+
+Check model predictions against independent measured tool positions at several
+separated poses before relying on this mapping. The code checks file binding,
+units, transforms, ranges and numerical consistency; it cannot certify physical
+calibration from a supplied JSON file. Record those physical residuals separately.
+
+Use the same session and image observations as the visual loop:
+
+```sh
+.venv-carton-geometry/bin/python -m carton.servo inspect \
+  --config data-carton/paddle-approach-01/experiment.json \
+  --kinematics data-carton/paddle-kinematics.json --out data-carton/geometric-inspect-01
+.venv-carton-geometry/bin/python -m carton.servo plan-reach \
+  --config data-carton/paddle-approach-01/experiment.json \
+  --kinematics data-carton/paddle-kinematics.json \
+  --request data-carton/reach-request.json --out data-carton/reach-proposal-01
+```
+
+`reach-request.json` requires `frame` (`arm_base` or `station`), `units` (`metres`),
+`orientation` (`constrained` or explicitly `position_only`) and `tool_poses` (1–100
+4×4 transforms). Start by checking the currently observed tool pose from
+`geometric-inspect-01/result.json` before specifying independently measured targets.
+An offset tool requires constrained orientation. A five-joint arm cannot realize
+every six-dimensional pose; infeasible requests refuse instead of clamping.
+
+Each proposal checks upstream FK residuals and then checks them again after
+rounding to encoder ticks and applying the full tool offset. Results include the
+starting encoders, fresh camera/session identity, configuration fingerprint,
+model revision and actual LeRobot/Placo versions. Changed calibration, a different
+arm, mismatched ranges or a stale/moving starting state refuse.
+
+`KINEMATIC_PROPOSAL_ONLY` has no execution switch. Waypoint endpoints do not prove
+clearance of intervening motion, reach of the other arm, contact forces or flap
+progress. Placo reports adjacent mesh intersections at the upstream model's
+neutral pose; this model has not been configured as a validated collision model.
+The proposals explicitly report `collision_checked: false`. The existing bounded
+visual loop remains the only added powered behavior. Do not replay proposal ticks
+as a folding sequence or pipe them directly into the motor owner.
 
 ## Changes to older paths
 

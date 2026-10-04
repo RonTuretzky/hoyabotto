@@ -8,6 +8,8 @@ sensor-shopping.html
 *.blend1
 software/.env
 software/.venv/
+software/.venv-carton-geometry/
+software/build/
 software/data/
 __pycache__/
 *.pyc

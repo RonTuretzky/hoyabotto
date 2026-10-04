@@ -160,6 +160,7 @@ class RegionTracker:
 
 class Observer:
     def __init__(self, config, limits: Limits, clock=time.time, sleep=time.sleep):
+        from .features import FeatureTracks
         self.config, self.limits, self.clock, self.sleep = config, limits, clock, sleep
         self.cameras, self.trackers = {}, {}
         for name, cam in config["cameras"].items():
@@ -167,7 +168,7 @@ class Observer:
             if reference is None:
                 raise Refused(f"Cannot read {name} seed image")
             self.cameras[name] = ManifestCamera(cam["manifest"], cam["camera_id"], limits.frame_age_s, clock)
-            self.trackers[name] = {n: RegionTracker(reference, s) for n, s in cam["regions"].items()}
+            self.trackers[name] = FeatureTracks(reference, cam["regions"])
         self.last_sequences = {}
         self.last_frames = {}
 
@@ -184,7 +185,7 @@ class Observer:
             self.sleep(.02)
         points = {}
         for name, frame in frames.items():
-            points[name] = {n: t.locate(frame.image) for n, t in self.trackers[name].items()}
+            points[name] = self.trackers[name].locate(frame.image)
         values = []
         for m in self.config["measurements"]:
             p = points[m["camera"]]

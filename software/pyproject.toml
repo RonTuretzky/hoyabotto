@@ -18,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+carton-kinematics = ["lerobot[kinematics]==0.6.1"]
 
 [project.scripts]
 farm = "farm.cli:main"
@@ -30,6 +31,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["farm*", "carton*"]
+
+[tool.setuptools.package-data]
+"farm.kinematics" = ["so101-assets.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

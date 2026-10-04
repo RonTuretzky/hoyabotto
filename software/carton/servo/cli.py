@@ -72,7 +72,10 @@ def seed(a):
         roi = [int(v) for v in raw.split(",")]
         if len(roi) != 4:
             raise Refused("Region format: name:x,y,width,height")
-        cam["regions"][name] = {"roi": roi, "anchor": name == "anchor"}
+        cam["regions"][name] = {"type": "patch", "roi": roi, "anchor": name == "anchor"}
+    for value in a.tag:
+        name, raw = value.split(":", 1)
+        cam["regions"][name] = {"type": "apriltag", "tag_id": int(raw), "anchor": name == "anchor"}
     for value in a.point:
         name, raw = value.split(":", 1)
         point = [float(v) for v in raw.split(",")]
@@ -81,13 +84,12 @@ def seed(a):
         cam["regions"][name]["point"] = point
     if a.target:
         c["target"] = [float(v) for v in a.target.split(",")]
-    # Validate the actual image patches now, before replacing the config.
-    from .vision import RegionTracker
+    # Validate the actual patches/tags now, before replacing the config.
+    from .features import FeatureTracks
     im = cv2.imread(cam["reference"])
     if im is None:
         raise Refused("Seed image is unreadable")
-    for spec in cam["regions"].values():
-        RegionTracker(im, spec).locate(im)
+    FeatureTracks(im, cam["regions"]).locate(im)
     atomic_json(path, c)
     return {"status": "SEEDS_SAVED", "camera": a.camera, "regions": list(cam["regions"]), "motor_writes": 0}
 
@@ -135,14 +137,31 @@ def experiment(a):
     trace = Trace(Path(a.out).resolve())
     transport = SessionTransport(config, limits, execute=a.execute)
     try:
+        arm = None
+        if getattr(a, "kinematics", None):
+            from .kinematics import load_arm
+            arm, geometry_fingerprint = load_arm(a.kinematics, config)
         trace.write("start", command=a.command, execute=a.execute, fingerprint=fingerprint, limits=vars(limits))
         with transport:
             observer = Observer(config, limits)
             e = Experiment(config, transport, observer, trace, fingerprint)
-            if a.command == "inspect":
+            if a.command in ("inspect", "plan-reach"):
                 obs, q = e.observe()
                 result = {"status": "OBSERVED_ONLY", "features": obs.values.tolist(), "joints": q,
                           "motor_writes": 0, "fingerprint": fingerprint}
+                if arm is not None:
+                    result.update(tool_pose_estimate=arm.forward(q).tolist(), pose_frame="arm_base", pose_units="metres",
+                                  kinematics_fingerprint=geometry_fingerprint, source=arm.solver.provenance(),
+                                  physical_calibration_verified=False)
+                if a.command == "plan-reach":
+                    result.update(arm.plan(q, read_json(a.request)))
+                    # A proposal must remain tied to the still-observed start.
+                    fresh, after = transport.status()
+                    if (fresh["phase"] != "holding" or any(abs(after[n]-q[n]) > limits.settle_ticks for n in q)
+                            or time.time()-obs.captured_at > limits.frame_age_s):
+                        raise Refused("Scene or joint start became stale while computing the proposal")
+                    result.update(captured_at=obs.captured_at, camera_streams=obs.streams, camera_sequences=obs.sequences,
+                                  session_started=transport.started)
             elif a.command == "calibrate":
                 if not a.execute:
                     raise Refused("Calibration requires bounded physical probes; inspect first, then use --execute")
@@ -185,20 +204,31 @@ def parser():
     s = sub.add_parser("seed", help="Identify regions on the saved image; does not move the robot")
     s.add_argument("--config", required=True); s.add_argument("--camera", required=True)
     s.add_argument("--region", action="append", default=[], help="name:x,y,width,height; head needs anchor, tool, target")
+    s.add_argument("--tag", action="append", default=[], help="name:tag36h11_ID; reuse the farm's AprilTag detector")
     s.add_argument("--point", action="append", default=[], help="Optional tracked reference point name:x,y inside its ROI")
     s.add_argument("--target", help="Desired measurement values in config order, comma separated")
     s = sub.add_parser("camera-check", help="Audit coherent image streams without connecting to motors")
     s.add_argument("--frames", required=True); s.add_argument("--arm", choices=["left", "right"], default="right")
     s.add_argument("--seconds", type=float, default=20)
-    for command in ("inspect", "calibrate", "align"):
+    for command in ("inspect", "plan-reach", "calibrate", "align"):
         s = sub.add_parser(command)
         s.add_argument("--config", required=True); s.add_argument("--out", required=True)
-        if command != "inspect":
+        if command in ("calibrate", "align"):
             s.add_argument("--execute", action="store_true", help="Send bounded commands to an already-running guarded session")
         else:
             s.set_defaults(execute=False)
         if command == "align":
             s.add_argument("--model", required=True)
+        if command in ("inspect", "plan-reach"):
+            s.add_argument("--kinematics", required=command == "plan-reach", help="Measured URDF zero/sign and tool/station configuration")
+        if command == "plan-reach":
+            s.add_argument("--request", required=True, help="Explicit metre-frame tool poses; proposals only")
+    s = sub.add_parser("model-fetch", help="Download the pinned upstream SO-101 URDF, meshes and license; no devices")
+    s.add_argument("--out", required=True)
+    s = sub.add_parser("kinematics-template", help="Prepare a draft requiring measured geometric calibration")
+    s.add_argument("--config", required=True); s.add_argument("--model-dir", required=True); s.add_argument("--out", required=True)
+    s = sub.add_parser("kinematics-check", help="Run actual LeRobot FK/IK on the pinned model without hardware")
+    s.add_argument("--model-dir", required=True); s.add_argument("--out", required=True)
     s = sub.add_parser("simulate", help="Run rendered-pixel regression; no motors and no carton physics")
     s.add_argument("--out", required=True)
     s = sub.add_parser("hinge-plan", help="Generate a measured crease arc; no motor commands")
@@ -219,7 +249,16 @@ def main(argv=None):
         if a.command == "prepare": result = prepare(a)
         elif a.command == "seed": result = seed(a)
         elif a.command == "camera-check": result = camera_check(a)
-        elif a.command in ("inspect", "calibrate", "align"): result = experiment(a)
+        elif a.command in ("inspect", "plan-reach", "calibrate", "align"): result = experiment(a)
+        elif a.command == "model-fetch":
+            from farm.kinematics.assets import fetch_model
+            result = fetch_model(a.out)
+        elif a.command == "kinematics-template":
+            from .kinematics import template
+            result = template(load_config(a.config), a.model_dir, a.out)
+        elif a.command == "kinematics-check":
+            from .kinematics import check_model
+            result = check_model(a.model_dir); atomic_json(a.out, result)
         elif a.command == "simulate":
             from .simulation import run
             result = run(a.out)

@@ -48,13 +48,13 @@ def test_units_require_measured_zero_and_are_not_degrees():
     u = JointUnits(1000, 3000)
     assert u.normalized_to_ticks(50) == 2500
     assert u.ticks_to_normalized(2500) == 50
-    with pytest.raises(Refused, match="zero"):
+    with pytest.raises(ValueError, match="zero"):
         u.ticks_to_model_degrees(2500)
     u = JointUnits(1000, 3000, model_zero_tick=2048, model_sign=-1)
     assert u.ticks_to_model_degrees(2500) != 50
     assert u.model_degrees_to_ticks(u.ticks_to_model_degrees(2500)) == pytest.approx(2500)
     assert JointUnits(1000, 3000, gripper=True).normalized_to_ticks(50) == 2000
-    with pytest.raises(Refused): u.normalized_to_ticks(101)
+    with pytest.raises(ValueError): u.normalized_to_ticks(101)
 
 
 @pytest.mark.parametrize("override", [{"step_ticks": 69}, {"probe_ticks": True}, {"temperature_c": 56},

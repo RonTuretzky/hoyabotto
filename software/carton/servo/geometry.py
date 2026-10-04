@@ -2,57 +2,13 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 
 import numpy as np
 
 from .common import Refused, finite, vector
+from farm.kinematics.units import JointUnits  # compatibility export
 
 
-@dataclass(frozen=True)
-class JointUnits:
-    range_min: int
-    range_max: int
-    # Must be measured when converting into a geometric model. Calibration
-    # range endpoints alone do NOT establish a URDF/kinematic zero angle.
-    model_zero_tick: float | None = None
-    model_sign: int = 1
-    gripper: bool = False
-
-    def __post_init__(self):
-        if (type(self.range_min) is not int or type(self.range_max) is not int
-                or not 0 <= self.range_min < self.range_max <= 4095 or type(self.model_sign) is not int
-                or self.model_sign not in (-1, 1)):
-            raise Refused("Invalid joint-unit calibration")
-        if self.model_zero_tick is not None:
-            finite(self.model_zero_tick, "model zero")
-
-    def normalized_to_ticks(self, value):
-        lo, span = (0, 100) if self.gripper else (-100, 200)
-        value = finite(value)
-        if not lo <= value <= lo + span:
-            raise Refused("Normalized position outside calibration")
-        return self.range_min + (value-lo)/span*(self.range_max-self.range_min)
-
-    def ticks_to_normalized(self, ticks):
-        ticks = finite(ticks)
-        if not self.range_min <= ticks <= self.range_max:
-            raise Refused("Encoder outside calibration")
-        lo, span = (0, 100) if self.gripper else (-100, 200)
-        return lo + (ticks-self.range_min)/(self.range_max-self.range_min)*span
-
-    def ticks_to_model_degrees(self, ticks):
-        if self.model_zero_tick is None:
-            raise Refused("Measure the model zero/sign before using analytical IK")
-        self.ticks_to_normalized(ticks)
-        return self.model_sign*(ticks-self.model_zero_tick)*360/4096
-
-    def model_degrees_to_ticks(self, degrees):
-        if self.model_zero_tick is None:
-            raise Refused("Measure the model zero/sign before using analytical IK")
-        ticks = self.model_zero_tick + self.model_sign*finite(degrees)*4096/360
-        self.ticks_to_normalized(ticks)
-        return ticks
 
 
 def hinge_path(hinge, axis, contact, start_deg, end_deg, step_deg=5):
