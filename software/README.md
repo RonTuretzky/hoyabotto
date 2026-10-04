@@ -1,10 +1,10 @@
 # farm — the XLeRobot plant-care program
 
-## R3.2 planter assembly preparation
+## R3.3 planter assembly preparation
 
-See [the connected-Mac handoff](docs/r32-handoff.md) first, then
+See [the connected-Mac handoff](docs/r33-handoff.md) first, then
 [training instructions](docs/r32-training.md). The current open-front planter
-parts and offline training tools are included; no R3.2 policy has been trained
+parts and offline training tools are included; no R3.3 policy has been trained
 and the live robot adapter remains to be integrated.
 
 

@@ -1,4 +1,4 @@
-"""R3.2 offline assembly supervisor and rehearsal. Never opens a hardware device."""
+"""R3.3 offline assembly supervisor and rehearsal. Never opens a hardware device."""
 from __future__ import annotations
 import argparse
 import hashlib
@@ -9,7 +9,7 @@ from farm.status import Reading, Status
 
 SOFTWARE = Path(__file__).resolve().parents[2]
 PROFILE = SOFTWARE / 'profiles/r32-assembly-v0.json'
-REVISION = 'R3.2'
+REVISION = 'R3.3'
 STAGES = ('PREFLIGHT', 'PLACE_RESERVOIR', 'PLACE_BASKET_ON_STAND', 'PLACE_CLOTH',
           'PLACE_GROW_PAD', 'GUIDE_TAIL', 'PLACE_RETAINER', 'PLACE_LOADED_BASKET', 'VERIFY_DRY_ASSEMBLY')
 CHECKS = {
@@ -29,7 +29,7 @@ FAULTS = ('none', 'no_pick', 'double_cloth', 'tail_folded', 'ring_misaligned', '
 def load_profile(path=PROFILE):
  p = json.loads(Path(path).read_text())
  if p.get('revision') != REVISION or p.get('kind') != 'r32-offline-training-preparation':
-  raise ValueError('R3.2 training profile required; old R2a/watering profiles are incompatible')
+  raise ValueError('R3.3 training profile required; old R2a/watering profiles are incompatible')
  if p.get('execution_enabled') is not False:
   raise ValueError('This offline module cannot enable hardware execution')
  if len(p.get('state_joints', [])) != 6 or len(set(p['state_joints'])) != 6:
@@ -80,7 +80,7 @@ class Supervisor:
   if self.phase!=phase:self.block('out-of-order action: '+action)
   if action=='release' and self.held!='HELD':self.block('cannot release unknown held object')
   if self.stage=='PLACE_RETAINER' and action=='release':
-   names=('held_after_transfer','release_method_validated','release_zone_verified')
+   names=('held_after_transfer','supported_before_release','ring_seated','release_method_validated','release_zone_verified')
   self.require(evidence,names,now)
   self.held=held;self.phase=next_phase
   self.events.append({'stage':self.stage,'event':'INTENT_ONLY','action':action})
@@ -101,13 +101,14 @@ def rehearsal(with_retainer=False, fault='none'):
    stage=m.stage;now+=.1
    if stage in PLACEMENTS:
     for action in ['grasp','lift','transfer','release','retreat']:
-     e=evidence(('gripper_empty','grasp_confirmed','held_after_lift','held_after_transfer','supported_before_release','jaws_clear','part_stays','one_sheet','release_method_validated','release_zone_verified'))
+     e=evidence(('gripper_empty','grasp_confirmed','held_after_lift','held_after_transfer','supported_before_release','jaws_clear','part_stays','one_sheet','release_method_validated','release_zone_verified','ring_seated'))
      if stage=='PLACE_RESERVOIR':
       if fault=='no_pick' and action=='lift':e['grasp_confirmed'].value=False
       if fault=='seat_unknown' and action=='release':e['supported_before_release'].status=Status.UNKNOWN
       if fault=='stop' and action=='transfer':m.block('STOP requested')
       if fault=='deadline' and action=='transfer':now+=61
      if fault=='double_cloth' and stage=='PLACE_CLOTH' and action=='transfer':e['one_sheet'].value=False
+     if fault=='ring_misaligned' and stage=='PLACE_RETAINER' and action=='release':e['ring_seated'].value=False
      m.action(action,e,now)
    e=evidence(CHECKS[stage])
    if fault=='stale' and stage=='PREFLIGHT':e['cameras_fresh'].t=now-2

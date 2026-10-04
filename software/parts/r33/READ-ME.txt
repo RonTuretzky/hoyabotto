@@ -1,0 +1,10 @@
+R3.3 MATCHED PROTOTYPE
+
+Print upright, millimetres, 100% scale. Slice afresh.
+01-reservoir: new wider opening and 8 mm lower rests.
+02-grow-basket: identical to your R3.2 basket; reuse that print.
+03-retainer: heavier gravity ring with raised rear pickup handle; PRINT AT 100% INFILL. About 17 g at assumed solid density 1.2 g/cm3. No latch.
+04-replacement-layout: reservoir and retainer ONLY; alternative to 01 + 03. Set the retainer object to 100% infill. Basket not included.
+
+Geometry checked: watertight solids, zero downward area beyond 45 degrees excluding bed faces, clear nominal fit and sampled vertical approaches. Jaw envelopes checked, not real robot motion. Ring contact covers 64 mm2 (1.73%) of the grow pad.
+R3.3 has not been physically printed or tested. No new G-code is supplied. Check printed fit, ring strength/weight, actual 2 mm cloth + 3 mm pad thickness, leakage and wicking. Do not use old R3.2 G-code or prepared 3MF for these revised parts.

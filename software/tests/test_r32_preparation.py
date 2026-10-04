@@ -1,4 +1,4 @@
-"""Offline R3.2 acceptance cases; no hardware or optimizer calls."""
+"""Offline R3.3 acceptance cases; no hardware or optimizer calls."""
 import json
 import time
 from pathlib import Path
@@ -28,6 +28,16 @@ def test_sequence_cannot_skip_or_release_unknown():
  m=Supervisor();e={n:Reading(True,Status.OK,t=0) for n in CHECKS['PREFLIGHT']};m.advance(e,0)
  with pytest.raises(Blocked):m.action('release',{},0)
  with pytest.raises(Blocked):m.advance({},0)
+
+@pytest.mark.parametrize('missing',['supported_before_release','ring_seated'])
+def test_ring_must_be_seated_before_jaws_open(missing):
+ m=Supervisor(with_retainer=True);m.index=m.order.index('PLACE_RETAINER')
+ m.phase='transferred';m.held='HELD'
+ e={n:Reading(True,Status.OK,t=0) for n in ('held_after_transfer','supported_before_release','ring_seated','release_method_validated','release_zone_verified')}
+ e[missing].status=Status.UNKNOWN
+ with pytest.raises(Blocked):m.action('release',e,0)
+ assert m.held=='HELD' and m.events[-1]['event']=='STOP_HOLD'
+ assert not any(v.get('action')=='release' for v in m.events)
 
 def test_profile_and_mesh_identity(tmp_path):
  p=load_profile();assert not part_problems(p)
@@ -90,7 +100,7 @@ def test_missing_provenance_and_old_data_refused(dataset,tmp_path):
  with pytest.raises(ValueError,match='missing provenance'):select_episodes(r,p,s,'PLACE_RESERVOIR')
  with pytest.raises(ValueError):Recorder(p,r,s,step_max=5,watchdog_s=.5)
  (r/'meta/r32_schema.json').unlink()
- with pytest.raises(ValueError,match='non-R3.2'):Recorder(p,r,s,step_max=5,watchdog_s=.5)
+ with pytest.raises(ValueError,match='non-R3.3'):Recorder(p,r,s,step_max=5,watchdog_s=.5)
 
 def test_real_lerobot_roundtrip(tmp_path):
  # Uses physical-source metadata ONLY inside an isolated test tmpdir to exercise serialization.
