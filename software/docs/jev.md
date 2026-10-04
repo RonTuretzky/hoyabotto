@@ -1,9 +1,15 @@
 # Native Jev integration
 
-Jev now uses `POST https://openrouter.ai/api/alpha/decisions` with
-`typesafe/jev-1.13`. It receives compact text evidence and typed Choice questions.
-It does not receive camera images, generate explanations, or write motor commands.
-Vision and planning remain separate backends.
+Jev uses native typed decisions through either TypeSafe directly or OpenRouter.
+With `TYPESAFE_API_KEY` available, `jev_provider: auto` selects
+`POST https://api.typesafe.ai/v1/systemone` and pinned `jev-1.13.0`.
+Otherwise it uses `OPENROUTER_API_KEY` at
+`POST https://openrouter.ai/api/alpha/decisions` with `typesafe/jev-1.13`.
+There is no automatic provider failover or credential forwarding between providers.
+It receives compact text evidence and typed Choice questions, not images.
+Vision and planning remain separate backends. The bounded motion executor and
+carton-specific Jev/Astra roles are described in
+[Jev for this carton task](jev-carton-design.md).
 
 The previous `typesafe/jev-router` setting called a chat router and extracted
 generated JSON. Existing profiles with that value are migrated in memory to the
@@ -11,7 +17,7 @@ native model with a warning. Update the saved profile when convenient.
 
 ## Persistent interface for the connected Mac
 
-From `software/`, with `OPENROUTER_API_KEY` already available in the environment
+From `software/`, with `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` already available in the environment
 or the existing untracked `.env`:
 
 ```sh
@@ -69,6 +75,7 @@ Configuration is also available in the existing profile:
 
 ```yaml
 llm:
+  jev_provider: auto
   jev_model: typesafe/jev-1.13
   jev_timeout_s: 2.0
   jev_observation_max_age_s: 5.0
@@ -103,17 +110,14 @@ answers, quotas, timeouts, stale evidence, bounded background work, and the
 carton simulator's unchanged action/evidence sequence. These use mock transport;
 they do not demonstrate physical folding or provider inference performance.
 
-The first live evaluation on October 4, 2026 authenticated successfully but
-inference returned HTTP 403, `Key limit exceeded (daily limit)`. No successful
-Jev latency or accuracy measurement is claimed. No credential is included in
-this branch.
-
-Next, connect the motor-free stream to the robot's current observation producer,
-compare recommendations with labelled outcomes, and measure perception, API,
-actuator and verification times separately. Enabling Jev to select executable
-primitives still requires a station-specific candidate/validation interface.
-Missing pickup/folding poses and the angle-unit mismatch are separate work.
-This integration does not accelerate the outer Codex chat loop by itself.
+The first OpenRouter test on October 4, 2026 returned HTTP 403, key daily limit.
+The subsequent direct TypeSafe key succeeded: 48 synthetic carton requests,
+203 ms median, 467 ms p95, 46/48 full route/candidate matches. These are API and
+text-routing measurements, not physical folding results. See the detailed
+[evaluation and integration design](jev-carton-design.md) for thresholds,
+failures, exact scope and the remaining motor-owner/perception integration.
+No credential is included in this branch. This code does not accelerate the
+outer Codex chat loop until installed into the persistent robot session.
 
 Sources: [OpenRouter Jev guide](https://openrouter.ai/docs/guides/community/jev),
 [Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request),

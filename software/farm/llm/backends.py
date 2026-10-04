@@ -238,7 +238,10 @@ class Backends:
             if model == "typesafe/jev-router":
                 log.warning("Migrating legacy jev-router setting to native %s", DEFAULT_MODEL)
                 model = DEFAULT_MODEL
-            self._jev = DecisionsClient(model, self.cfg.jev_timeout_s)
+            provider = self.cfg.jev_provider
+            if provider == "auto":
+                provider = "typesafe" if os.environ.get("TYPESAFE_API_KEY") else "openrouter"
+            self._jev = DecisionsClient(model, self.cfg.jev_timeout_s, provider=provider)
         return self._jev
 
     def close(self):

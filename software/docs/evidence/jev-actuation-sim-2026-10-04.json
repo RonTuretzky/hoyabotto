@@ -1,0 +1,620 @@
+{
+  "kind": "live Jev to simulated actuators; one eligible action per request; no physical validation",
+  "requests": 36,
+  "executed": 36,
+  "all_wheels_stopped": true,
+  "results": [
+    {
+      "action": "left_arm_shoulder_pan_increase",
+      "executed": true,
+      "choice": "left_arm_shoulder_pan_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 291.3752499734983,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.707e-05,
+      "motors_sent": [
+        "left_arm_shoulder_pan_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_shoulder_pan_decrease",
+      "executed": true,
+      "choice": "left_arm_shoulder_pan_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 207.16895908117294,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7112e-05,
+      "motors_sent": [
+        "left_arm_shoulder_pan_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_shoulder_lift_increase",
+      "executed": true,
+      "choice": "left_arm_shoulder_lift_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 180.82204193342477,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.728e-05,
+      "motors_sent": [
+        "left_arm_shoulder_lift_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_shoulder_lift_decrease",
+      "executed": true,
+      "choice": "left_arm_shoulder_lift_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 162.0179999154061,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7322e-05,
+      "motors_sent": [
+        "left_arm_shoulder_lift_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_elbow_flex_increase",
+      "executed": true,
+      "choice": "left_arm_elbow_flex_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 169.46879192255437,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7112e-05,
+      "motors_sent": [
+        "left_arm_elbow_flex_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_elbow_flex_decrease",
+      "executed": true,
+      "choice": "left_arm_elbow_flex_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 171.4509999146685,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.715400000000001e-05,
+      "motors_sent": [
+        "left_arm_elbow_flex_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_wrist_flex_increase",
+      "executed": true,
+      "choice": "left_arm_wrist_flex_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 0.99,
+      "confidence": 0.99,
+      "latency_ms": 163.90845796559006,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.707e-05,
+      "motors_sent": [
+        "left_arm_wrist_flex_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_wrist_flex_decrease",
+      "executed": true,
+      "choice": "left_arm_wrist_flex_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 165.22074991371483,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.715400000000001e-05,
+      "motors_sent": [
+        "left_arm_wrist_flex_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_wrist_roll_increase",
+      "executed": true,
+      "choice": "left_arm_wrist_roll_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 176.22783302795142,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6944e-05,
+      "motors_sent": [
+        "left_arm_wrist_roll_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_wrist_roll_decrease",
+      "executed": true,
+      "choice": "left_arm_wrist_roll_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 168.84716704953462,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6986e-05,
+      "motors_sent": [
+        "left_arm_wrist_roll_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_gripper_increase",
+      "executed": true,
+      "choice": "left_arm_gripper_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 180.21404091268778,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.673400000000001e-05,
+      "motors_sent": [
+        "left_arm_gripper_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_arm_gripper_decrease",
+      "executed": true,
+      "choice": "left_arm_gripper_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 177.427125046961,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.677600000000001e-05,
+      "motors_sent": [
+        "left_arm_gripper_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_shoulder_pan_increase",
+      "executed": true,
+      "choice": "right_arm_shoulder_pan_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 174.3865410098806,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7112e-05,
+      "motors_sent": [
+        "right_arm_shoulder_pan_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_shoulder_pan_decrease",
+      "executed": true,
+      "choice": "right_arm_shoulder_pan_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 173.90850000083447,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7238e-05,
+      "motors_sent": [
+        "right_arm_shoulder_pan_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_shoulder_lift_increase",
+      "executed": true,
+      "choice": "right_arm_shoulder_lift_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 174.2920420365408,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7238e-05,
+      "motors_sent": [
+        "right_arm_shoulder_lift_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_shoulder_lift_decrease",
+      "executed": true,
+      "choice": "right_arm_shoulder_lift_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 193.86866700369865,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7322e-05,
+      "motors_sent": [
+        "right_arm_shoulder_lift_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_elbow_flex_increase",
+      "executed": true,
+      "choice": "right_arm_elbow_flex_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 185.15279202256352,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.707e-05,
+      "motors_sent": [
+        "right_arm_elbow_flex_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_elbow_flex_decrease",
+      "executed": true,
+      "choice": "right_arm_elbow_flex_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 216.03012504056096,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.7196e-05,
+      "motors_sent": [
+        "right_arm_elbow_flex_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_wrist_flex_increase",
+      "executed": true,
+      "choice": "right_arm_wrist_flex_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 246.08462501782924,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.707e-05,
+      "motors_sent": [
+        "right_arm_wrist_flex_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_wrist_flex_decrease",
+      "executed": true,
+      "choice": "right_arm_wrist_flex_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 256.96170900482684,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.715400000000001e-05,
+      "motors_sent": [
+        "right_arm_wrist_flex_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_wrist_roll_increase",
+      "executed": true,
+      "choice": "right_arm_wrist_roll_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 270.4147920012474,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6902e-05,
+      "motors_sent": [
+        "right_arm_wrist_roll_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_wrist_roll_decrease",
+      "executed": true,
+      "choice": "right_arm_wrist_roll_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 204.12287500221282,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6986e-05,
+      "motors_sent": [
+        "right_arm_wrist_roll_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_gripper_increase",
+      "executed": true,
+      "choice": "right_arm_gripper_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 181.49874999653548,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.677600000000001e-05,
+      "motors_sent": [
+        "right_arm_gripper_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_arm_gripper_decrease",
+      "executed": true,
+      "choice": "right_arm_gripper_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 200.15308307483792,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.686e-05,
+      "motors_sent": [
+        "right_arm_gripper_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "head_motor_1_increase",
+      "executed": true,
+      "choice": "head_motor_1_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 174.7535839676857,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.673400000000001e-05,
+      "motors_sent": [
+        "head_motor_1_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "head_motor_1_decrease",
+      "executed": true,
+      "choice": "head_motor_1_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 231.81366606149822,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.686e-05,
+      "motors_sent": [
+        "head_motor_1_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "head_motor_2_increase",
+      "executed": true,
+      "choice": "head_motor_2_increase",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 0.99,
+      "confidence": 0.99,
+      "latency_ms": 163.8341669458896,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.677600000000001e-05,
+      "motors_sent": [
+        "head_motor_2_increase"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "head_motor_2_decrease",
+      "executed": true,
+      "choice": "head_motor_2_decrease",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 227.21449995879084,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6818e-05,
+      "motors_sent": [
+        "head_motor_2_decrease"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "drive_forward",
+      "executed": true,
+      "choice": "drive_forward",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 169.7728328872472,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.5894e-05,
+      "motors_sent": [
+        "drive_forward"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "drive_backward",
+      "executed": true,
+      "choice": "drive_backward",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 218.55545800644904,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.581000000000001e-05,
+      "motors_sent": [
+        "drive_backward"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "turn_left",
+      "executed": true,
+      "choice": "turn_left",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 183.01004101522267,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.5894e-05,
+      "motors_sent": [
+        "turn_left"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "turn_right",
+      "executed": true,
+      "choice": "turn_right",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 196.98583404533565,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.5894e-05,
+      "motors_sent": [
+        "turn_right"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_wheel_forward",
+      "executed": true,
+      "choice": "left_wheel_forward",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 182.55949998274446,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6146e-05,
+      "motors_sent": [
+        "left_wheel_forward"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "left_wheel_backward",
+      "executed": true,
+      "choice": "left_wheel_backward",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 204.58354195579886,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6146e-05,
+      "motors_sent": [
+        "left_wheel_backward"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_wheel_forward",
+      "executed": true,
+      "choice": "right_wheel_forward",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 1.0,
+      "latency_ms": 176.7706659156829,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6146e-05,
+      "motors_sent": [
+        "right_wheel_forward"
+      ],
+      "wheels_stopped": true
+    },
+    {
+      "action": "right_wheel_backward",
+      "executed": true,
+      "choice": "right_wheel_backward",
+      "mode": "motion",
+      "reason": "bounded command completed; observe again before next move",
+      "sequence": 1,
+      "probability": 1.0,
+      "confidence": 0.99,
+      "latency_ms": 214.50487500987947,
+      "model": "jev-1.13.0",
+      "cost_usd": 7.6188e-05,
+      "motors_sent": [
+        "right_wheel_backward"
+      ],
+      "wheels_stopped": true
+    }
+  ]
+}

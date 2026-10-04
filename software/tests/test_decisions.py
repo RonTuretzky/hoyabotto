@@ -6,7 +6,7 @@ import pytest
 
 from farm.config import LLMCfg
 from farm.llm.backends import Backends, LLMError
-from farm.llm.decisions import DecisionsClient, URL
+from farm.llm.decisions import DecisionsClient, TYPESAFE_URL, TYPESAFE_MODEL, URL
 from farm.llm.jev import EVIDENCE_QUALITY, Jev, question
 
 
@@ -43,6 +43,37 @@ def test_native_endpoint_pools_and_batches_without_images_or_chat():
         assert route.meta.cost_usd + pour.meta.cost_usd == 0.0001
         assert route.meta.model.endswith("20260917") and route.meta.tokens["request_id"] == "test-request"
     assert client.is_closed
+
+
+def test_direct_typesafe_endpoint_and_token_cost(monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "direct-test-key")
+    def handler(request):
+        assert str(request.url) == TYPESAFE_URL
+        assert request.headers["Authorization"] == "Bearer direct-test-key"
+        assert json.loads(request.content)["model"] == TYPESAFE_MODEL
+        data = response_for(request)
+        data["model"] = TYPESAFE_MODEL
+        del data["usage"]["cost"]
+        return httpx.Response(200, json=data)
+    with DecisionsClient(provider="typesafe", transport=httpx.MockTransport(handler)) as backend:
+        answer = Jev(backend).evidence_quality({})
+        assert answer.error is None and answer.meta.backend == "typesafe-decisions"
+        assert answer.meta.tokens["cost_estimated"] is True
+        assert answer.meta.cost_usd == 123 * .042 / 1_000_000
+    backends = Backends(LLMCfg())
+    assert backends.jev.provider == "typesafe" and backends.jev.model == TYPESAFE_MODEL
+    backends.close()
+
+
+def test_direct_transport_does_not_send_key_to_openrouter_on_failure():
+    urls = []
+    def handler(request):
+        urls.append(str(request.url))
+        return httpx.Response(401, json={"error": "secret"})
+    with DecisionsClient(provider="typesafe", api_key="test", transport=httpx.MockTransport(handler)) as backend:
+        assert Jev(backend).evidence_quality({}).error
+        assert Jev(backend).evidence_quality({}).error
+    assert urls == [TYPESAFE_URL]
 
 
 @pytest.mark.parametrize("mutation", [

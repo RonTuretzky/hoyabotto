@@ -13,7 +13,8 @@ farm/
   perception/          OpenCV frame quality / green fraction; VLM typed judgements (each has UNKNOWN)
   cycle/               state machine, care-cycle runner, authority ladder (Jev earns approval rights)
   evidence/            SQLite + images by hash; INTENT → ATTEMPT → RESULT; crash ⇒ UNKNOWN
-  llm/                 backends (Claude CLI on the subscription; OpenRouter for Jev/Astra/vision), Jev, Astra
+  llm/                 backends (Claude CLI; TypeSafe for Jev; OpenRouter for Astra/vision), Jev, Astra
+  control/             bounded all-servo Jev actions and connected motor-owner adapter
   viewer/              local web page: state, frames, questions, reconciliation, authority, proposals
   safety/              joint clamps, step limits, temperature/load, watchdog, pour bounds (code, not config)
 firmware/esp32_light/  BH1750 → JSON lines at 5 Hz
@@ -29,7 +30,7 @@ assembly/            R2a planter-assembly contract (disabled): frames, stage mac
 cd software
 uv venv --python 3.12 .venv && . .venv/bin/activate
 uv pip install -e .            # lerobot[feetech], opencv, pyserial, fastapi, httpx …
-cp .env.example .env           # OPENROUTER_API_KEY=… (Jev/Astra). Claude vision uses the logged-in `claude` CLI.
+cp .env.example .env           # TYPESAFE_API_KEY for Jev; OPENROUTER_API_KEY for Astra. Claude uses its logged-in CLI.
 python -m pytest -q            # 109 passed
 farm sim --auto-answer         # whole program on fakes; viewer at http://localhost:8765
 ```
@@ -41,7 +42,7 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 | Role | Default | Fallback |
 |---|---|---|
 | Vision judgements + LLM-servo | `claude` CLI on your subscription (`llm.backend: claude-cli`) | OpenRouter `anthropic/claude-sonnet-5` |
-| Jev (typed choices) | OpenRouter Decisions `typesafe/jev-1.13` | Text evidence only; see [Jev integration](docs/jev.md) |
+| Jev (typed choices) | TypeSafe `jev-1.13.0` or OpenRouter Decisions `typesafe/jev-1.13` | Text evidence only; see [carton roles and live evaluation](docs/jev-carton-design.md) |
 | Astra (daily proposals) | OpenRouter `openai/gpt-6-astra` | — |
 
 `llm.max_cost_usd_per_day` caps OpenRouter spend; when it is hit, rules refuse to pour.

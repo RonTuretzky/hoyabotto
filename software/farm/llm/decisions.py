@@ -1,4 +1,4 @@
-"""Native, text-only OpenRouter Decisions transport. No chat or motor interface.
+"""Native, text-only TypeSafe / OpenRouter transport. No chat or motor interface.
 
 One pooled client per Backends instance; no automatic retries. Provider failures
 become typed errors, and quota/auth errors open a circuit for this process.
@@ -19,6 +19,8 @@ from .backends import LLMError, Meta
 
 DEFAULT_MODEL = "typesafe/jev-1.13"
 URL = "https://openrouter.ai/api/alpha/decisions"
+TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone"
+TYPESAFE_MODEL = "jev-1.13.0"
 MAX_PACKET_BYTES = 64_000
 
 
@@ -50,13 +52,21 @@ class DecisionsClient:
     name = "openrouter-decisions"
 
     def __init__(self, model: str = DEFAULT_MODEL, timeout_s: float = 2.0, api_key: str | None = None,
-                 transport=None, cooldown_s: float = 30.0):
+                 transport=None, cooldown_s: float = 30.0, provider: str = "openrouter"):
+        if provider not in ("typesafe", "openrouter"):
+            raise ValueError("Jev provider must be typesafe or openrouter")
+        self.provider = provider
+        self.name = f"{provider}-decisions"
+        self.url = TYPESAFE_URL if provider == "typesafe" else URL
+        self.key_env = "TYPESAFE_API_KEY" if provider == "typesafe" else "OPENROUTER_API_KEY"
+        if provider == "typesafe" and model == DEFAULT_MODEL:
+            model = TYPESAFE_MODEL
         if model == "typesafe/jev-router":
             raise LLMError("jev-router is a chat router; configure typesafe/jev-1.13 for Decisions")
         if not math.isfinite(timeout_s) or timeout_s <= 0:
             raise ValueError("Jev timeout must be finite and positive")
         self.model, self.timeout_s = model, timeout_s
-        self._key = api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
+        self._key = api_key if api_key is not None else os.environ.get(self.key_env, "")
         self._transport, self._client = transport, None
         self._lock = threading.Lock()
         self._blocked_until = 0.0
@@ -71,7 +81,7 @@ class DecisionsClient:
             criteria = question.get("criteria") if isinstance(question, dict) else None
             if (not isinstance(question, dict) or question.get("type") != "choice" or
                     not isinstance(question.get("instructions"), str) or not question["instructions"].strip() or
-                    not isinstance(criteria, dict) or len(criteria) < 2 or
+                    not isinstance(criteria, dict) or not 2 <= len(criteria) <= 255 or
                     not all(isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in criteria.items())):
                 raise LLMError("Jev questions need Choice instructions and described options")
         try:
@@ -86,13 +96,13 @@ class DecisionsClient:
             if time.monotonic() < self._blocked_until:
                 raise LLMError(self._blocked_reason)
             if not self._key:
-                raise LLMError("OPENROUTER_API_KEY is not configured")
+                raise LLMError(f"{self.key_env} is not configured")
             if self._client is None:
                 self._client = httpx.Client(timeout=self.timeout_s, transport=self._transport, follow_redirects=False,
                                             headers={"Authorization": f"Bearer {self._key}", "Content-Type": "application/json"})
             started = time.monotonic()
             try:
-                response = self._client.post(URL, content=encoded)
+                response = self._client.post(self.url, content=encoded)
             except httpx.RequestError as exc:
                 self._block("Jev transport unavailable", permanent=False)
                 raise LLMError("Jev transport unavailable") from exc
@@ -120,9 +130,19 @@ class DecisionsClient:
                 served_model = data.get("model")
                 if not isinstance(served_model, str) or not served_model:
                     raise LLMError("Jev did not identify the served model")
+                estimated = False
+                # TypeSafe reports tokens, not dollars. Pinned 1.13 pricing as of
+                # 2026-10-04: $0.042 / million input tokens; output is free.
+                if self.provider == "typesafe" and "cost" not in usage:
+                    tokens = usage.get("input_tokens")
+                    if type(tokens) is not int or tokens < 0 or served_model != TYPESAFE_MODEL:
+                        raise LLMError("Jev direct usage or model has no known cost basis")
+                    cost = tokens * 0.042 / 1_000_000
+                    estimated = True
                 meta = Meta(self.name, served_model, latency_ms, float(cost), tokens={
                     "input_tokens": usage.get("input_tokens"), "output_tokens": usage.get("output_tokens"),
-                    "request_id": data.get("id"), "cost_reported": "cost" in usage})
+                    "request_id": data.get("id") or response.headers.get("x-request-id"),
+                    "cost_reported": "cost" in usage, "cost_estimated": estimated})
                 answers = data["answers"]
                 if set(answers) != set(questions):
                     raise LLMError("Jev returned missing or unexpected answers")

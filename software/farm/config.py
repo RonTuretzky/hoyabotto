@@ -92,6 +92,7 @@ class LLMCfg:
     backend: str = "claude-cli"          # claude-cli (subscription) | openrouter
     vision_model: str = "anthropic/claude-sonnet-5"   # openrouter model for perception/servo
     jev_model: str = "typesafe/jev-1.13"
+    jev_provider: str = "auto"          # typesafe when TYPESAFE_API_KEY exists; otherwise openrouter
     jev_timeout_s: float = 2.0           # independent of slow vision/planning calls
     jev_carton_shadow: bool = False     # asynchronous recommendations, never motion authority
     jev_observation_max_age_s: float = 5.0
