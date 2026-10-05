@@ -6,10 +6,14 @@ Depth is aligned to RGB, uint16 millimetres; zero means missing, not contact.
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
+import os
 from pathlib import Path
 import time
+import uuid
 
 import numpy as np
 
@@ -52,14 +56,58 @@ def save_capture(root: Path, rgb: np.ndarray, depth: np.ndarray, metadata: dict)
     return dest
 
 
+class StreamWriter:
+    """Bounded immutable RGB/depth files, exposed together by an atomic manifest."""
+    def __init__(self, folder, metadata, keep=90):
+        self.folder = Path(folder)
+        self.folder.mkdir(parents=True, exist_ok=True)
+        self.metadata = metadata
+        self.stream = uuid.uuid4().hex
+        self.seq, self.keep, self.files = 0, keep, deque()
+
+    def publish(self, rgb, depth, captured_at, depth_captured_at):
+        import cv2
+        if rgb.shape[:2] != depth.shape or depth.dtype != np.uint16:
+            raise ValueError("Expected aligned uint16 millimetre depth")
+        if abs(captured_at-depth_captured_at) > .033:
+            raise ValueError("Unsynchronized OAK frames")
+        if not all(0 <= time.time()-stamp <= 1 for stamp in (captured_at, depth_captured_at)):
+            raise ValueError("OAK capture timestamps are stale or in the future")
+        self.seq += 1
+        files = []
+        hashes = []
+        for suffix, im in (("rgb.jpg", rgb), ("depth.png", depth)):
+            path = self.folder / f"{self.stream}-{self.seq:09d}-{suffix}"
+            encoded = cv2.imencode(path.suffix, im)[1].tobytes()
+            with path.open("xb") as f:
+                f.write(encoded)
+            files.append(path)
+            hashes.append(hashlib.sha256(encoded).hexdigest())
+        record = {**self.metadata, "schema": 1, "camera_id": "oak-"+self.metadata["device_id"],
+                  "stream_id": self.stream, "seq": self.seq,
+                  "captured_at": min(captured_at, depth_captured_at), "rgb_captured_at": captured_at,
+                  "depth_captured_at": depth_captured_at, "host": os.uname().nodename,
+                  "width": depth.shape[1], "height": depth.shape[0], "image": files[0].name,
+                  "sha256": hashes[0], "depth_image": files[1].name, "depth_sha256": hashes[1],
+                  "depth_units": "mm", "invalid_depth": 0, "robot_frame_calibrated": False}
+        tmp = self.folder / f".{self.stream}.manifest.tmp"
+        tmp.write_text(json.dumps(record, allow_nan=False))
+        tmp.replace(self.folder / "oak.json")
+        self.files.append(files)
+        while len(self.files) > self.keep:
+            for old in self.files.popleft():
+                old.unlink(missing_ok=True)
+        return record
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["list", "capture", "preview"])
+    parser.add_argument("mode", choices=["list", "capture", "preview", "stream"])
     parser.add_argument("--device", help="Device ID; required if multiple OAKs are connected")
     parser.add_argument("--usb2", action="store_true", help="Force USB 2 as a connection diagnostic")
     parser.add_argument("--output", type=Path, default=Path("data/oak-captures"))
     parser.add_argument("--timeout", type=float, default=20, help="No-frame timeout in seconds")
-    parser.add_argument("--seconds", type=float, default=60, help="Preview duration")
+    parser.add_argument("--seconds", type=float, default=60, help="Preview or stream duration")
     parser.add_argument("--capture-seconds", type=float, default=2, help="Stream duration before saving a capture")
     args = parser.parse_args(argv)
     if args.timeout <= 0 or args.seconds <= 0 or args.capture_seconds <= 0:
@@ -86,7 +134,8 @@ def main(argv=None) -> int:
         rgb.setFps(15)
         rgb.setMeshSource(dai.CameraProperties.WarpMeshSource.CALIBRATION)
         # Keep autofocus from changing the calibrated RGB/depth geometry.
-        lens_position = device.readCalibration2().getLensPosition(dai.CameraBoardSocket.CAM_A)
+        calibration = device.readCalibration2()
+        lens_position = calibration.getLensPosition(dai.CameraBoardSocket.CAM_A)
         if lens_position:
             rgb.initialControl.setManualFocus(lens_position)
         left = pipeline.create(dai.node.MonoCamera)
@@ -114,7 +163,9 @@ def main(argv=None) -> int:
                     "usb_speed": str(device.getUsbSpeed()), "alignment": "CAM_A RGB",
                     "stereo_size": [640, 400], "extended_disparity": True,
                     "left_right_check": True, "subpixel": False, "fps": 15,
-                    "rgb_undistortion": "factory calibration", "calibrated_lens_position": lens_position}
+                    "rgb_undistortion": "factory calibration", "calibrated_lens_position": lens_position,
+                    "intrinsics": calibration.getCameraIntrinsics(dai.CameraBoardSocket.CAM_A, 640, 360),
+                    "projection": "rectified_pinhole", "coordinate_frame": "CAM_A_optical"}
         print(json.dumps(metadata), flush=True)
         device.startPipeline(pipeline)
         queue = device.getOutputQueue("rgbd", maxSize=2, blocking=False)
@@ -122,6 +173,7 @@ def main(argv=None) -> int:
         frames = 0
         max_sync_skew = 0.0
         point = [320, 180]
+        writer = StreamWriter(args.output, metadata) if args.mode == "stream" else None
         if args.mode == "preview":
             cv2.namedWindow("OAK RGB", cv2.WINDOW_AUTOSIZE)
             def click(event, x, y, flags, param):
@@ -134,7 +186,7 @@ def main(argv=None) -> int:
                 now = time.monotonic()
                 if now - last_frame > args.timeout:
                     raise TimeoutError("No fresh synchronized RGB/depth frames")
-                if args.mode == "preview" and now - start >= args.seconds:
+                if args.mode in ("preview", "stream") and now - start >= args.seconds:
                     break
                 msg = queue.tryGet()
                 if msg is None:
@@ -152,6 +204,13 @@ def main(argv=None) -> int:
                               "depth_device_timestamp_s": msg["depth"].getTimestampDevice().total_seconds()}
                 max_sync_skew = max(max_sync_skew, abs(frame_meta["rgb_device_timestamp_s"] - frame_meta["depth_device_timestamp_s"]))
                 frame_meta.update(received_frames=frames, elapsed_s=now-start, max_sync_skew_s=max_sync_skew)
+                if writer is not None:
+                    # SDK timestamps share dai.Clock.now(); account for USB/queue
+                    # delay instead of pretending the frame was just captured.
+                    wall, host_clock = time.time(), dai.Clock.now()
+                    writer.publish(color, depth,
+                                   wall-(host_clock-msg["rgb"].getTimestamp()).total_seconds(),
+                                   wall-(host_clock-msg["depth"].getTimestamp()).total_seconds())
                 # Allow exposure to settle; a missing-depth capture remains explicitly invalid.
                 if args.mode == "capture" and frames >= 30 and now-start >= args.capture_seconds:
                     dest = save_capture(args.output, color, depth, frame_meta)

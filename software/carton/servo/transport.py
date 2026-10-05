@@ -103,9 +103,21 @@ class SessionTransport:
         return self.status()[1]
 
     def move(self, joint, ticks):
+        return self._move(joint, ticks, gripper=False)
+
+    def move_gripper(self, ticks):
+        """Exact-position jaw step, with the same health and settling checks.
+
+        This is deliberately not a stall/contact detector. A blocked jaw that
+        cannot settle is a fault, not permission to keep increasing its load.
+        """
+        return self._move(f'{self.config["arm"]}_arm_gripper', ticks, gripper=True)
+
+    def _move(self, joint, ticks, *, gripper):
         if not self.execute:
             raise Refused("Read-only mode cannot send motor commands")
-        if joint not in self.config["joints"] or type(ticks) is not int or not 0 < abs(ticks) <= 68:
+        allowed = [f'{self.config["arm"]}_arm_gripper'] if gripper else self.config["joints"]
+        if joint not in allowed or type(ticks) is not int or not 0 < abs(ticks) <= 68:
             raise Refused("Invalid single-joint encoder command")
         s, before = self.status()
         if s["phase"] != "holding":
