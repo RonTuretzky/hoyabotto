@@ -59,6 +59,13 @@ jaw aperture on three fresh frame pairs. Wrist-relative retention is monitored
 during every later alignment correction, not just between stages.
 
 There is no automatic re-energization, fault retry or lease reset in this client.
+The owner must publish an integer `gripper_release_generation` (incremented on
+every jaw torque release) and `automatic_gripper_reenable: false` while this
+program executes. Any generation change invalidates all grasp evidence. Older
+owners without these fields are rejected before motion. The exported owner's
+temperature-confirmation path can release and re-enable the claw; that behavior
+must not silently continue inside a grasp sequence. The owner integration for
+this contract remains required before deployment.
 Accepted-command lease behavior remains with the motor owner. A fault requests
 the owner's STOP/release policy; the client never substitutes a new torque
 policy. Successful checks retain the owner's healthy session and its existing

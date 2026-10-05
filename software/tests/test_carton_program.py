@@ -18,6 +18,8 @@ class RecipeRig(FileMotorOwner):
     def __init__(self, folder, failure=None):
         super().__init__(folder)
         self.failure, self.seq, self.commands, self.closed = failure, 0, [], set()
+        self.s.update(gripper_release_generation=0, automatic_gripper_reenable=False)
+        self.publish()
         self.limits = Limits()
         ref = folder / "reference.txt"
         ref.write_text("synthetic reference, never presented as a camera image")
@@ -179,3 +181,12 @@ def test_gripper_stall_is_not_treated_as_contact_success(tmp_path):
     with pytest.raises(Refused, match="settling"):
         run_rig(rig, tmp_path / "trace")
     assert read_json(rig.folder / "command.json")["op"] == "stop"
+
+
+def test_old_owner_cannot_silently_reenergize_the_gripper_during_a_grasp(tmp_path):
+    rig = RecipeRig(tmp_path / "owner")
+    del rig.s["gripper_release_generation"]
+    rig.publish()
+    with pytest.raises(Refused, match="release generation"):
+        run_rig(rig, tmp_path / "trace")
+    assert not (rig.folder / "command.json").exists()

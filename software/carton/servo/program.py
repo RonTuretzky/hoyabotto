@@ -72,6 +72,7 @@ def preflight(recipe, config, model):
         "must fit the total program time budget"))
 
     def check_model():
+        require(limits is not None, "repair the experiment configuration first")
         require(isinstance(model, dict), "supply the measured, validated local model")
         require(model.get("fingerprint") == binding(config), "model does not match this configuration")
         # Validate the full sample/holdout structure without reading a motor or camera.
@@ -254,6 +255,10 @@ class Program:
         if self.recipe.get("depth") is not None and self.depth_observer is None:
             raise Refused("Recipe requires the OAK depth observer")
         status, q = self.transport.status()
+        generation = status.get("gripper_release_generation")
+        if (type(generation) is not int or generation < 0
+                or status.get("automatic_gripper_reenable") is not False):
+            raise Refused("Owner must expose gripper release generation and disable automatic jaw re-enable for grasp execution")
         if status["lease_remaining"] < self.recipe["minimum_lease_s"]:
             raise Refused("Insufficient owner lease for this program; prepare everything before starting the owner")
         if abs(q[self.gripper]-self.recipe["gripper"]["open_ticks"]) > self.e.limits.settle_ticks:
@@ -266,6 +271,10 @@ class Program:
         class MonitoredObserver:
             def observe(self, **kwargs):
                 obs = observer.observe(**kwargs)
+                current, _ = program.transport.status()
+                if (current.get("gripper_release_generation") != generation
+                        or current.get("automatic_gripper_reenable") is not False):
+                    raise Refused("Claw torque/recovery state changed; previous grasp evidence is invalid")
                 if program.depth_observer is not None:
                     program.latest_depth = program.depth_observer.observe(obs.captured_at)
                     program.trace.write("depth_observation", **program.latest_depth)
