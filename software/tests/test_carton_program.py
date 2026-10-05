@@ -74,6 +74,8 @@ class RecipeRig(FileMotorOwner):
                 "table_edge": [0, 50], "anchor": [0, 0]}
         for name in FLAPS:
             closed = name in self.closed and not (self.failure == "springback" and x < 25)
+            if self.failure == "late_springback" and name == "short_left" and "near_long" in self.closed:
+                closed = False
             head[name] = [10 if closed else 100, 0]
         wrist = {"tool": [0, 0], "target": [10 if self.failure == "slip" and x >= 25 else 2, 0]}
         return Observation(np.array([x], float), self.now,
@@ -190,3 +192,11 @@ def test_old_owner_cannot_silently_reenergize_the_gripper_during_a_grasp(tmp_pat
     with pytest.raises(Refused, match="release generation"):
         run_rig(rig, tmp_path / "trace")
     assert not (rig.folder / "command.json").exists()
+
+
+def test_last_fold_reopening_an_earlier_flap_is_caught_by_final_check(tmp_path):
+    rig = RecipeRig(tmp_path / "owner", "late_springback")
+    with pytest.raises(Refused, match="flap evidence failed"):
+        run_rig(rig, tmp_path / "trace")
+    assert read_json(tmp_path / "trace" / "progress.json")["stage"] == "verify_all_flaps"
+    assert read_json(rig.folder / "command.json")["op"] == "stop"

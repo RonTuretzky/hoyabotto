@@ -342,6 +342,7 @@ class Program:
             # Folding a later flap can reopen an earlier one. Check all four
             # together in the final retracted pose rather than trusting history.
             self._progress("verify_all_flaps")
+            self.folded = []
             first = None
             count = 0
             while True:
@@ -352,6 +353,7 @@ class Program:
                 count += 1
                 if count >= 3 and obs.captured_at-first >= max(f["verification"]["seconds"] for f in self.recipe["folds"]):
                     break
+            self.folded = list(FLAPS)
             self._progress("visual_checks_passed")
             return {"status": "CARTON_VISUAL_CHECKS_PASSED", "verified_flaps": self.folded,
                     "grasp_visual_evidence": True, "physical_task_completed": False,
