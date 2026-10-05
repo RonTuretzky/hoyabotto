@@ -103,3 +103,36 @@ def test_publisher_rejects_old_captures_instead_of_timestamping_them_as_new(tmp_
     with pytest.raises(ValueError, match="stale"):
         writer.publish(np.zeros((100, 100, 3), np.uint8), np.full((100, 100), 500, np.uint16), 1, 1)
     assert not (tmp_path / "oak.json").exists()
+
+
+def test_real_tracker_and_depth_consumer_verify_lift_and_detect_camera_displacement(tmp_path):
+    s = spec(tmp_path)
+    locations = {f"table{i}": p for i, p in enumerate([(30, 30), (150, 30), (270, 30),
+                                                       (30, 210), (150, 210), (270, 210)])}
+    locations.update(tool=(100, 120), paddle=(140, 120), bottom=(180, 120))
+    rng = np.random.default_rng(19)
+    rgb = np.full((240, 300, 3), 24, np.uint8)
+    for name, (x, y) in locations.items():
+        rgb[y-12:y+12, x-12:x+12] = rng.integers(35, 230, (24, 24, 3), dtype=np.uint8)
+        s["regions"][name] = {"roi": [x-12, y-12, 24, 24], "point": [x, y], "anchor": name.startswith("table")}
+    cv2.imwrite(s["reference"], rgb)
+    writer = stream(tmp_path)
+    writer.metadata["intrinsics"] = [[200, 0, 150], [0, 200, 120], [0, 0, 1]]
+    observer = DepthObserver(s)
+
+    def frame(lift=0, table_shift=0):
+        depth = np.full((240, 300), 500+table_shift, np.uint16)
+        for name in ("tool", "paddle", "bottom"):
+            x, y = locations[name]
+            depth[y-6:y+7, x-6:x+7] = (490 if name == "bottom" else 480)-lift
+        stamp = time.time()-.005
+        writer.publish(rgb, depth, stamp, stamp)
+        return observer.observe(stamp)
+
+    before = frame()
+    after = frame(lift=20)
+    result = verify_depth_lift(before, after, s)
+    assert result["paddle_lift_mm"] == pytest.approx(20)
+    assert result["bottom_clearance_mm"] == pytest.approx(30)
+    with pytest.raises(Refused, match="registration moved"):
+        frame(lift=20, table_shift=6)
