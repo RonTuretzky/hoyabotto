@@ -79,7 +79,8 @@ def seed(a):
         cam["regions"][name] = {"type": "patch", "roi": roi, "anchor": name == "anchor"}
     for value in a.tag:
         name, raw = value.split(":", 1)
-        cam["regions"][name] = {"type": "apriltag", "tag_id": int(raw), "anchor": name == "anchor"}
+        cam["regions"][name] = {"type": "apriltag", "tag_id": int(raw), "anchor": name == "anchor",
+                                "min_edge_px": a.min_tag_edge_px}
     for value in a.point:
         name, raw = value.split(":", 1)
         point = [float(v) for v in raw.split(",")]
@@ -213,6 +214,8 @@ def parser():
     s.add_argument("--config", required=True); s.add_argument("--camera", required=True)
     s.add_argument("--region", action="append", default=[], help="name:x,y,width,height; head needs anchor, tool, target")
     s.add_argument("--tag", action="append", default=[], help="name:tag36h11_ID; reuse the farm's AprilTag detector")
+    s.add_argument("--min-tag-edge-px", type=float, default=24,
+                   help="Shortest tag edge required on every observation (default 24 pixels)")
     s.add_argument("--point", action="append", default=[], help="Optional tracked reference point name:x,y inside its ROI")
     s.add_argument("--target", help="Desired measurement values in config order, comma separated")
     s = sub.add_parser("camera-check", help="Audit coherent image streams without connecting to motors")
@@ -220,6 +223,19 @@ def parser():
     s.add_argument("--seconds", type=float, default=20)
     s.add_argument('--camera-pair', choices=['head_wrist','head_oak'], default='head_wrist')
     s.add_argument('--oak-frames', help='Separate directory containing oak.json; otherwise --frames')
+    s = sub.add_parser("tag-kit", help="Generate verified tag36h11 markers and a printable vector sheet; no devices")
+    s.add_argument("--out", required=True)
+    s.add_argument("--anchor-mm", type=float, default=60)
+    s.add_argument("--tool-mm", type=float, default=40)
+    s.add_argument("--target-mm", type=float, default=40)
+    s = sub.add_parser("tag-check", help="Audit AprilTag visibility/tracking using existing image streams; no motor session needed")
+    source = s.add_mutually_exclusive_group(required=True)
+    source.add_argument("--frames", help="Existing head/wrist manifest directory; IDs 1=anchor, 2=tool, 3=target")
+    source.add_argument("--config", help="Seeded experiment; check its exact tag IDs and reference points")
+    s.add_argument("--arm", choices=["left", "right"], default="right")
+    s.add_argument("--seconds", type=float, default=20)
+    s.add_argument("--min-edge-px", type=float, default=24)
+    s.add_argument("--out", required=True)
     for command in ("inspect", "plan-reach", "calibrate", "align"):
         s = sub.add_parser(command)
         s.add_argument("--config", required=True); s.add_argument("--out", required=True)
@@ -259,6 +275,13 @@ def main(argv=None):
         if a.command == "prepare": result = prepare(a)
         elif a.command == "seed": result = seed(a)
         elif a.command == "camera-check": result = camera_check(a)
+        elif a.command == "tag-kit":
+            from .tag_kit import make_kit
+            result = make_kit(a.out, a.anchor_mm, a.tool_mm, a.target_mm)
+        elif a.command == "tag-check":
+            from .tag_check import check_tags
+            result = check_tags(a.out, a.seconds, a.min_edge_px, frames_dir=a.frames, arm=a.arm,
+                                config=load_config(a.config) if a.config else None)
         elif a.command in ("inspect", "plan-reach", "calibrate", "align"): result = experiment(a)
         elif a.command == "model-fetch":
             from farm.kinematics.assets import fetch_model
@@ -287,7 +310,7 @@ def main(argv=None):
             result.update(commands=sum(e["event"] == "command" for e in events),
                           first_error_px=errors[0] if errors else None, last_error_px=errors[-1] if errors else None)
         print(json.dumps(result, indent=2, allow_nan=False))
-        return 2 if result.get("status") in ("GRASP_NOT_VERIFIED", "CAMERA_TIMING_FAILED", "REFUSED") else 0
+        return 2 if result.get("status") in ("GRASP_NOT_VERIFIED", "CAMERA_TIMING_FAILED", "TAG_CHECK_FAILED", "REFUSED") else 0
     except (Refused, ValueError, KeyError, OSError) as exc:
         print(json.dumps({"status": "REFUSED", "reason": str(exc), "physical_task_completed": False}))
         return 2

@@ -38,6 +38,9 @@ class TagTracker:
         self.radius = finite(spec.get("max_displacement_px", 100))
         if not 1 <= self.radius <= 100:
             raise Refused("Tag tracking is limited to 100 pixels around the reviewed seed")
+        self.min_edge = finite(spec.get("min_edge_px", 8))
+        if not 8 <= self.min_edge <= 200:
+            raise Refused("Minimum tag edge must be 8–200 pixels")
         self.reference_corners, centre = self._measurement(detections)
         self.point = vector(spec.get("point", centre), 2)
         if cv2.pointPolygonTest(self.reference_corners.astype(np.float32), tuple(self.point), False) < 0:
@@ -50,8 +53,8 @@ class TagTracker:
         corners = np.asarray(found["corners"], float)
         if corners.shape != (4, 2) or not np.isfinite(corners).all():
             raise Refused("Invalid tag quadrilateral")
-        if min(np.linalg.norm(corners-np.roll(corners, 1, axis=0), axis=1)) < 8:
-            raise Refused("Tag is too small for precise alignment")
+        if min(np.linalg.norm(corners-np.roll(corners, 1, axis=0), axis=1)) < self.min_edge:
+            raise Refused(f"Tag is too small for precise alignment (minimum edge {self.min_edge:g}px)")
         return corners, vector(found["center"], 2)
 
     def locate(self, image, detections):
