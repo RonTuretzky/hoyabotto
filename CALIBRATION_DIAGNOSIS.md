@@ -29,15 +29,23 @@ On `codex/carton-local-program`, `docs/carton.md` now says that legacy physical 
 
 So the old way to move the arms has been switched off, and the new way needs four things that do not exist yet. The branch adds about 7,100 lines of gates and tests in 12 commits since Oct 4, but no physical motion.
 
-## 3. The unit mix, measured
+## 3. The unit mix, and what Ron's branch already fixes
 
-On `main`, `farm/skills/arm.py` sends IK angles in **degrees** as LeRobot **RANGE_M100_100** values (`use_degrees: False`). The comment says this follows upstream's teleop examples. With this calibration, one normalized unit is 0.92–1.06° (span/200), so the scale error is **up to about 8% per joint**, plus an offset wherever the calibrated mid-range differs from the IK zero pose. It is real, but it is small, and it applies only to Cartesian moves.
+On `main`, `farm/skills/arm.py` sends IK angles in **degrees** as LeRobot **RANGE_M100_100** values (`use_degrees: False`). With this calibration one unit is 0.92–1.06° (span/200), so the scale error is up to about 8% per joint, plus an offset. Joint-space commands (keyframes, `robot-test`) are not affected.
 
-Joint-space commands (keyframes, `robot-test`) are not affected.
+There is a second bug on `main`. The vendored `SO101Kinematics` IK and FK disagree: IK → FK misses by up to about 6 cm. `SkillRunner` re-estimates the Cartesian pose with FK on every joint read.
+
+**Both are already handled on `codex/carton-local-program`** (commit `1d76688`, Oct 4):
+- IK was corrected to match FK, and it now raises on unreachable targets instead of clamping. The test `test_real_inverse_forward_regressions` asserts an exact round trip.
+- `carton/servo` adds `JointUnits` (ticks ↔ normalized ↔ model degrees) with a **measured model zero tick and sign per joint**.
+- Legacy Cartesian moves stay refused on the real robot until those are measured.
+
+Correction (Claude, later the same day): an earlier version of this note proposed a new unit fix. I prototyped one, fixing FK rather than IK. Applied on top of `codex/carton-local-program` it broke 8 of that branch's tests, because the two fixes cancel. It was not pushed. The branch's approach is the one to keep.
 
 ## 4. Proposed order (for Ron to decide)
 
-1. **First physical motion, today:** on the robot Mac, run `farm calibration-report`, then `farm robot-test`, then `farm robot-test --move --ask`. This is joint-space only: small nudges per joint, not touched by the unit issue. It also covers the "healthy actuators" prerequisite.
-2. **Fix the unit mix at its source** instead of disabling motion: either run the arm in `use_degrees: True` (LeRobot DEGREES mode) or convert degrees to normalized units through each joint's calibrated span. Measure the IK-zero offset once. Add a unit test, which is cheap with the calibration file now in the repo.
-3. **Then one measured carton milestone:** pick up and put down the paddle once, with the smallest recipe, before adding more gates.
-4. If Ron's assistant runs at a high reasoning setting, each step is slow. Routine bring-up commands do not need it.
+1. **First physical motion, today:** on the robot Mac, run `farm calibration-report`, then `farm robot-test`, then `farm robot-test --move --ask`. This is joint-space only and is not affected by either bug. It also covers the "healthy actuators" prerequisite.
+2. **Measure the per-joint model zero tick and sign** that `JointUnits` requires, once, with the arm in the model's zero pose. This is what unblocks the Cartesian path on the branch.
+3. **Merge** `codex/carton-local-program` into `main` when ready. Note that it already conflicts with `main` in `.gitignore` and `farm/oak_camera.py`, because the OAK commit exists on both with different hashes.
+4. **Then one measured carton milestone:** pick up and put down the paddle once, with the smallest recipe, before adding more gates.
+5. If Ron's assistant runs at a high reasoning setting, each step is slow. Routine bring-up commands do not need it.
