@@ -162,6 +162,7 @@ class Observation:
     sequences: dict
     points: dict
     streams: dict
+    captured_times: dict | None = None
 
 
 class Trace:

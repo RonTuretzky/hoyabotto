@@ -249,6 +249,8 @@ def parser():
     s.add_argument("--out", required=True)
     s = sub.add_parser("program-template", help="Write an uncommissioned carton recipe; no devices")
     s.add_argument("--config", required=True); s.add_argument("--out", required=True)
+    s.add_argument("--task", choices=["pickup", "fold"], default="pickup")
+    s.add_argument("--motion", choices=["continuous", "alignment"], default="continuous")
     for command in ("program-check", "program-run"):
         s = sub.add_parser(command, help="Check or execute a measured local carton sequence without model calls")
         s.add_argument("--recipe", required=True)
@@ -297,7 +299,7 @@ def main(argv=None):
             from .program import template
             if Path(a.out).exists():
                 raise Refused("Existing recipe preserved; choose a new output path")
-            result = template(a.config); atomic_json(a.out, result)
+            result = template(a.config, a.task, a.motion); atomic_json(a.out, result)
         elif a.command in ("program-check", "program-run"):
             from .program import load_recipe, preflight, execute
             recipe, config, model = load_recipe(a.recipe)

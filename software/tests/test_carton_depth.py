@@ -136,3 +136,17 @@ def test_real_tracker_and_depth_consumer_verify_lift_and_detect_camera_displacem
     assert result["bottom_clearance_mm"] == pytest.approx(30)
     with pytest.raises(Refused, match="registration moved"):
         frame(lift=20, table_shift=6)
+
+
+def test_three_camera_skew_uses_both_head_and_wrist_timestamps(tmp_path):
+    s = spec(tmp_path)
+    m = publish(stream(tmp_path))
+    observer = DepthObserver(s)
+    stamp = m["captured_at"]
+    # The depth frame is within 300ms of the older RGB camera, but the full
+    # group spans 500ms. The previous oldest-timestamp-only check accepted it.
+    times = iter([stamp+.6, stamp+2])
+    observer.clock = lambda: next(times)
+    observer.read = lambda: (m, None, None)
+    with pytest.raises(Refused, match="synchronized"):
+        observer.observe({"head": stamp+.25, "right_wrist": stamp+.5})

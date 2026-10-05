@@ -119,12 +119,19 @@ class DepthObserver:
         return m, rgb, depth
 
     def observe(self, paired_at):
+        # Bound the entire head/wrist/OAK group, not distance to its oldest
+        # timestamp alone (which could admit 600 ms of total camera skew).
+        paired = list(paired_at.values()) if isinstance(paired_at, dict) else [paired_at]
+        paired = [finite(t) for t in paired]
+        if not paired or max(paired)-min(paired) > .3:
+            raise Refused("Invalid head/wrist camera pairing")
         end = self.clock()+1
         while True:
             m, rgb, depth = self.read()
-            if m["seq"] > self.seq and abs(m["captured_at"]-paired_at) <= .3:
+            stamps = paired+[m["rgb_captured_at"], m["depth_captured_at"]]
+            if m["seq"] > self.seq and max(stamps)-min(stamps) <= .3:
                 break
-            if self.clock() >= end or m["captured_at"] > paired_at+.3:
+            if self.clock() >= end or m["captured_at"] > min(paired)+.3:
                 raise Refused("No distinct depth frame synchronized with the head/wrist pair")
             self.sleep(.02)
         self.seq = m["seq"]

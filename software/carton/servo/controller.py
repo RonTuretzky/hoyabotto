@@ -47,6 +47,7 @@ class Experiment:
         self.joints = config["joints"]
         self.counter = 0
         self.latest = None
+        self.capture_evidence = True
 
     def observe(self, after=0.0):
         obs = self.observer.observe(after=after)
@@ -55,7 +56,7 @@ class Experiment:
         self.counter += 1
         self.trace.write("observation", index=self.counter, features=obs.values.tolist(),
                          captured_at=obs.captured_at, sequences=obs.sequences, streams=obs.streams, joints=q, points=obs.points)
-        if hasattr(self.observer, "evidence"):
+        if self.capture_evidence and hasattr(self.observer, "evidence"):
             self.observer.evidence(self.trace.folder / f"frame-{self.counter:04d}", obs)
         return obs, q
 

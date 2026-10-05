@@ -22,9 +22,9 @@ from .vision import Observer
 FLAPS = ("short_left", "short_right", "far_long", "near_long")
 
 
-def template(config_path):
+def template(config_path, task="fold", motion="alignment"):
     """Uncommissioned, intentionally non-executable; no invented joint poses."""
-    return {"schema": 1, "config": str(Path(config_path).resolve()), "model": None,
+    recipe = {"schema": 1, "task": task, "config": str(Path(config_path).resolve()), "model": None,
             "minimum_lease_s": 120, "approach": [None],
             "gripper": {"open_ticks": None, "empty_closed_ticks": None,
                         "goal_ticks": None, "min_aperture_ticks": None},
@@ -34,7 +34,14 @@ def template(config_path):
                      "min_clearance_px": None},
             "folds": [{"name": name, "targets": [None], "retract": [None],
                        "verification": {"seconds": 1.0, "constraints": [None]}}
-                      for name in FLAPS]}
+                      for name in FLAPS] if task == "fold" else []}
+    if task == "pickup":
+        recipe["finish"] = {"mode": "place_and_park", "place_targets": [None], "park_targets": [None],
+                            "park_positions": None, "supported_park_evidence": None,
+                            "placement_seconds": 1, "max_placement_drift_px": 2, "max_table_gap_px": 3}
+    if motion == "continuous":
+        recipe["motion"] = {"mode": "continuous", "profile": None, "segments": {}}
+    return recipe
 
 
 def load_recipe(path):
@@ -83,13 +90,18 @@ def preflight(recipe, config, model):
         e.validate_model(model, SimpleNamespace(values=vector(model["origin_features"]),
                                                 streams=model["camera_streams"]), model["origin"])
 
-    check("model", check_model)
+    continuous = recipe.get("motion", {}).get("mode") == "continuous"
+    if not continuous:
+        check("model", check_model)
+    check("task", lambda: require(recipe.get("task", "fold") in ("fold", "pickup"), "expected fold or pickup"))
+    check("motion", lambda: require(recipe.get("motion", {}).get("mode", "alignment") in ("alignment", "continuous"),
+                                    "expected alignment or continuous"))
 
     def targets(label, values):
         require(isinstance(values, list) and 0 < len(values) <= 40, f"{label} needs measured image targets")
         for value in values:
             target = vector(value, len(config["measurements"]))
-            if isinstance(model, dict) and limits:
+            if not continuous and isinstance(model, dict) and limits:
                 j = np.asarray(model["jacobian"], float)
                 dq = np.linalg.lstsq(j, target-vector(model["origin_features"]), rcond=None)[0]
                 require(max(abs(dq)) <= min(limits.trust_ticks, model["limits"]["trust_ticks"]),
@@ -113,7 +125,7 @@ def preflight(recipe, config, model):
         require(lo+4 <= min(opened, empty, goal) and max(opened, empty, goal) <= hi-4, "jaw baseline outside saved range")
         require(min(opened, empty) < goal < max(opened, empty), "jaw goal must be between measured open and empty closure")
         require(0 < aperture <= abs(goal-empty), "jaw goal must leave a measurable nonempty aperture")
-        if limits:
+        if limits and not continuous:
             require(abs(goal-opened) <= limits.trust_ticks, "jaw closure exceeds local travel envelope")
     check("gripper", grip)
 
@@ -135,7 +147,9 @@ def preflight(recipe, config, model):
     check("lift.evidence", lift)
 
     folds = recipe.get("folds", [])
-    check("fold order", lambda: require([f["name"] for f in folds] == list(FLAPS), "commission all four flaps in order"))
+    expected_flaps = list(FLAPS) if recipe.get("task", "fold") == "fold" else []
+    check("fold order", lambda: require([f["name"] for f in folds] == expected_flaps,
+                                       "commission all four flaps in order for fold; no folds for pickup"))
     for index, fold in enumerate(folds):
         name = fold.get("name", str(index))
         check(name+".targets", lambda f=fold: targets(name, f["targets"]))
@@ -159,6 +173,79 @@ def preflight(recipe, config, model):
             require(m["a"] not in moving and m.get("b") not in moving,
                     "control model must exclude the paddle; track it independently for grasp evidence")
     check("control features", stationary_model)
+    if continuous:
+        from .continuous import validate_profile, trajectory
+        def continuous_paths():
+            require(limits is not None, "repair the experiment configuration first")
+            motion = recipe["motion"]
+            profile = motion["profile"]
+            require(isinstance(profile, dict), "supply the owner's measured continuous profile")
+            validate_profile(profile, config)
+            stages = ["approach", "close_gripper", "lift"]
+            for fold in folds:
+                stages.extend(["fold_"+fold["name"], "retract_"+fold["name"]])
+            if recipe.get("finish", {}).get("mode") == "place_and_park":
+                stages.extend(["place", "open_gripper", "park"])
+            require(set(motion["segments"]) == set(stages), "supply exactly the motion segments used by this program")
+            last, travel, duration = None, 0, 0
+            jaw = f'{config["arm"]}_arm_gripper'
+            jaw_goal = recipe["gripper"]["open_ticks"]
+            end_targets = {"approach": recipe["approach"][-1], "lift": recipe["lift"]["targets"][-1]}
+            for fold in folds:
+                end_targets.update({"fold_"+fold["name"]: fold["targets"][-1], "retract_"+fold["name"]: fold["retract"][-1]})
+            if "finish" in recipe:
+                end_targets.update(place=recipe["finish"]["place_targets"][-1], park=recipe["finish"]["park_targets"][-1])
+            for name in stages:
+                segment = motion["segments"][name]
+                path = trajectory(profile, segment["waypoints"])
+                start, end = path.sample(0)[0], path.sample(path.duration)[0]
+                if last is not None:
+                    path.assert_start(last, profile["start_ticks"])
+                for key in ("start_features", "end_features"):
+                    vector(segment[key], len(config["measurements"]))
+                if name in end_targets:
+                    require(np.allclose(segment["end_features"], end_targets[name], atol=1e-6),
+                            "trajectory visual endpoint must match the stage target")
+                bounds = np.asarray(segment["feature_bounds"], float)
+                require(bounds.shape == (len(config["measurements"]), 2) and np.isfinite(bounds).all()
+                        and np.all(bounds[:, 0] < bounds[:, 1]), "supply measured visual bounds for each segment")
+                for key in ("start_features", "end_features"):
+                    value = vector(segment[key])
+                    require(np.all(value >= bounds[:, 0]) and np.all(value <= bounds[:, 1]), "visual target outside corridor")
+                require(abs(start[jaw]-jaw_goal) <= profile["start_ticks"], "segment starts with unexpected jaw aperture")
+                if name in ("close_gripper", "open_gripper"):
+                    jaw_goal = recipe["gripper"]["goal_ticks" if name == "close_gripper" else "open_ticks"]
+                    for point in path.q:
+                        require(all(abs(point[i]-start[n]) <= profile["start_ticks"] for i, n in enumerate(path.joints) if n != jaw),
+                                "jaw stage cannot move positioning joints")
+                else:
+                    require(all(abs(point[path.joints.index(jaw)]-jaw_goal) <= profile["start_ticks"] for point in path.q),
+                            "positioning stage cannot change jaw aperture")
+                require(abs(end[jaw]-jaw_goal) <= profile["settle_ticks"], "jaw endpoint differs from measured grip/open goal")
+                last, travel, duration = end, travel+path.travel_ticks, duration+path.duration
+            if "finish" in recipe:
+                require(all(abs(last[n]-v) <= profile["settle_ticks"] for n, v in recipe["finish"]["park_positions"].items()),
+                        "trajectory must end at the measured supported park pose")
+            require(travel <= limits.max_path_ticks, "complete program exceeds travel budget")
+            require(duration < recipe["minimum_lease_s"], "motion alone exceeds reserved lease")
+        check("continuous motion", continuous_paths)
+    if recipe.get("task", "fold") == "pickup" and "finish" not in recipe:
+        check("finish", lambda: require(False, "pickup needs an explicit terminal behavior"))
+    if recipe.get("finish") is not None:
+        def finish():
+            spec = recipe["finish"]
+            require(spec["mode"] == "place_and_park", "terminal mode must be place_and_park")
+            require(isinstance(spec["supported_park_evidence"], str) and bool(spec["supported_park_evidence"].strip()),
+                    "supply evidence that the unloaded park pose is mechanically supported before release")
+            targets("place", spec["place_targets"])
+            targets("park", spec["park_targets"])
+            require(set(spec["park_positions"]) == set(config["ranges"]), "park needs all six measured joint positions")
+            for n, position in spec["park_positions"].items():
+                require(config["ranges"][n][0]+4 <= finite(position) <= config["ranges"][n][1]-4, "park outside saved ranges")
+            require(.5 <= finite(spec["placement_seconds"]) <= 5, "placement observation interval must be 0.5–5 seconds")
+            require(0 < finite(spec["max_placement_drift_px"]) <= 3 and 0 < finite(spec["max_table_gap_px"]) <= 3,
+                    "placement needs tight measured stability and tabletop clearance")
+        check("finish", finish)
     if recipe.get("depth") is not None:
         from .depth import validate_depth_spec
         check("depth", lambda: validate_depth_spec(recipe["depth"]))
@@ -238,9 +325,26 @@ class Program:
     def _observe(self, after=0):
         return self.e.observe(after)
 
-    def _align(self, targets, model):
+    def _align(self, targets, model, stage):
+        if self.recipe.get("motion", {}).get("mode") == "continuous":
+            self._trajectory(stage)
+            return
         for target in targets:
             self.e.align(model, target=target)
+
+    def _trajectory(self, stage):
+        started = self.e.clock()
+        self.trace.write("trajectory_dispatch", stage=stage)
+        capture = self.e.capture_evidence
+        self.e.capture_evidence = False
+        try:
+            self.transport.play(self.recipe["motion"]["segments"][stage], lambda: self._observe()[0])
+        finally:
+            self.e.capture_evidence = capture
+        self.trace.write("trajectory_complete", stage=stage, elapsed_s=self.e.clock()-started)
+        # Measurements remain in the trace every frame. Encode evidence images
+        # at stage boundaries, outside the vision watchdog's critical path.
+        self._observe()
 
     def _progress(self, stage):
         self.stage = stage
@@ -276,7 +380,7 @@ class Program:
                         or current.get("automatic_gripper_reenable") is not False):
                     raise Refused("Claw torque/recovery state changed; previous grasp evidence is invalid")
                 if program.depth_observer is not None:
-                    program.latest_depth = program.depth_observer.observe(obs.captured_at)
+                    program.latest_depth = program.depth_observer.observe(obs.captured_times or obs.captured_at)
                     program.trace.write("depth_observation", **program.latest_depth)
                 if program.held_relative is not None:
                     spec = program.recipe["lift"]
@@ -293,10 +397,13 @@ class Program:
         self.e.observer = MonitoredObserver()
         try:
             self._progress("approach")
-            self._align(self.recipe["approach"], model)
+            self._align(self.recipe["approach"], model, "approach")
             self._progress("close_gripper")
             goal = self.recipe["gripper"]["goal_ticks"]
-            for _ in range(self.e.limits.max_steps):
+            continuous = self.recipe.get("motion", {}).get("mode") == "continuous"
+            if continuous:
+                self._trajectory("close_gripper")
+            for _ in range(0 if continuous else self.e.limits.max_steps):
                 obs, q = self._observe()
                 remaining = int(round(goal-q[self.gripper]))
                 if abs(remaining) <= self.e.limits.settle_ticks:
@@ -307,11 +414,14 @@ class Program:
                 _, stamp = self.transport.move_gripper(int(np.clip(remaining, -self.e.limits.step_ticks, self.e.limits.step_ticks)))
                 self._observe(after=stamp)
             else:
-                raise Refused("Jaw closure step budget exhausted")
+                if not continuous:
+                    raise Refused("Jaw closure step budget exhausted")
             before, _ = self._observe()
             before_depth = copy.deepcopy(self.latest_depth)
+            wrist = before.points[f"{self.arm}_wrist"]
+            self.held_relative = vector(wrist[self.recipe["lift"]["object"]], 2)-vector(wrist[self.recipe["lift"]["tool"]], 2)
             self._progress("test_lift")
-            self._align(self.recipe["lift"]["targets"], model)
+            self._align(self.recipe["lift"]["targets"], model, "lift")
             # Three independent post-lift observations prevent a one-frame success.
             for _ in range(3):
                 after, q = self._observe()
@@ -323,11 +433,20 @@ class Program:
                     self.trace.write("depth_grasp_observation", **verify_depth_lift(
                         before_depth, self.latest_depth, self.recipe["depth"]))
             self.held_relative = vector(evidence["wrist_relative_px"], 2)
+            if self.recipe.get("task", "fold") == "pickup":
+                self._finish(model)
+                self._progress("pickup_cycle_passed")
+                return {"status": "PADDLE_PICKUP_CYCLE_PASSED", "grasp_visual_evidence": True,
+                        "paddle_replaced": True, "supported_park_released": True,
+                        "pickup_cycle_completed": True,
+                        "physical_task_completed": False, "model_calls": 0,
+                        "path_ticks": self.transport.path_ticks, "owner_session_started": self.transport.started,
+                        "limitation": "Grasp/lift/placement evidence does not establish carton folding or a tape seal."}
             for fold in self.recipe["folds"]:
                 self._progress("fold_"+fold["name"])
-                self._align(fold["targets"], model)
+                self._align(fold["targets"], model, "fold_"+fold["name"])
                 self._progress("retract_"+fold["name"])
-                self._align(fold["retract"], model)
+                self._align(fold["retract"], model, "retract_"+fold["name"])
                 self._progress("verify_"+fold["name"])
                 started, count = None, 0
                 while True:
@@ -354,6 +473,8 @@ class Program:
                 if count >= 3 and obs.captured_at-first >= max(f["verification"]["seconds"] for f in self.recipe["folds"]):
                     break
             self.folded = list(FLAPS)
+            if self.recipe.get("finish") is not None:
+                self._finish(model)
             self._progress("visual_checks_passed")
             return {"status": "CARTON_VISUAL_CHECKS_PASSED", "verified_flaps": self.folded,
                     "grasp_visual_evidence": True, "physical_task_completed": False,
@@ -363,13 +484,75 @@ class Program:
         finally:
             self.e.observer = observer
 
+    def _finish(self, model):
+        spec = self.recipe["finish"]
+        self._progress("place_paddle")
+        self._align(spec["place_targets"], model, "place")
+        lift = self.recipe["lift"]
+        def stationary_placement():
+            start, baseline, count = None, None, 0
+            while True:
+                obs, _ = self._observe()
+                p = obs.points["head"]
+                relative = vector(p[lift["object"]], 2)-vector(p[lift["table"]], 2)
+                clearance = float((vector(p[lift["bottom"]], 2)-vector(p[lift["table"]], 2)) @ vector(lift["up_normal"], 2))
+                if abs(clearance) > spec["max_table_gap_px"]:
+                    raise Refused("Paddle has not reached the measured table placement")
+                if baseline is None:
+                    baseline, start = relative, obs.captured_at
+                if np.linalg.norm(relative-baseline) > spec["max_placement_drift_px"]:
+                    raise Refused("Paddle placement is not stationary")
+                count += 1
+                if count >= 3 and obs.captured_at-start >= spec["placement_seconds"]:
+                    return baseline
+        before_open = stationary_placement()
+        self._progress("open_gripper")
+        self.held_relative = None
+        if self.recipe.get("motion", {}).get("mode") == "continuous":
+            self._trajectory("open_gripper")
+        else:
+            for _ in range(self.e.limits.max_steps):
+                _, q = self._observe()
+                remaining = int(round(self.recipe["gripper"]["open_ticks"]-q[self.gripper]))
+                if abs(remaining) <= self.e.limits.settle_ticks:
+                    break
+                self.transport.move_gripper(int(np.clip(remaining, -self.e.limits.step_ticks, self.e.limits.step_ticks)))
+            else:
+                raise Refused("Jaw opening budget exhausted")
+        if np.linalg.norm(stationary_placement()-before_open) > spec["max_placement_drift_px"]:
+            raise Refused("Paddle shifted while opening jaw")
+        self._progress("supported_park")
+        self._align(spec["park_targets"], model, "park")
+        if np.linalg.norm(stationary_placement()-before_open) > spec["max_placement_drift_px"]:
+            raise Refused("Paddle was not left at the placement")
+        _, q = self.transport.status()
+        if any(abs(q[n]-value) > self.e.limits.settle_ticks for n, value in spec["park_positions"].items()):
+            raise Refused("Arm did not reach the commissioned supported park pose")
+        if self.recipe["folds"]:
+            self.folded = []
+            first, count = None, 0
+            while True:
+                obs, _ = self._observe()
+                for fold in self.recipe["folds"]:
+                    gate_values(obs, fold["verification"])
+                first = obs.captured_at if first is None else first
+                count += 1
+                if count >= 3 and obs.captured_at-first >= max(f["verification"]["seconds"] for f in self.recipe["folds"]):
+                    break
+            self.folded = list(FLAPS)
+        self.transport.release_and_verify()
+
 
 def execute(recipe, config, model, out, *, execute=False):
     ready = preflight(recipe, config, model)
     if ready["problems"] or not execute:
         return ready
     trace = Trace(Path(out).resolve())
-    transport = SessionTransport(config, validate_config(config), execute=True)
+    if recipe.get("motion", {}).get("mode") == "continuous":
+        from .continuous import ContinuousTransport
+        transport = ContinuousTransport(config, validate_config(config), recipe["motion"]["profile"], execute=True)
+    else:
+        transport = SessionTransport(config, validate_config(config), execute=True)
     program = None
     started = time.monotonic()
     try:
