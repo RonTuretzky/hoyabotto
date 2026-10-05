@@ -1,0 +1,55 @@
+{
+  "environment": "SOFTWARE_AND_RENDERED_IMAGES_ONLY",
+  "baseline_commit": "0e17b22e5a00cfbfda09bcdf6cbd91abf3d93a46",
+  "robot_connected": false,
+  "physical_mount_verified": false,
+  "physical_task_completed": false,
+  "tests": {
+    "full_suite_passed": 287,
+    "full_suite_seconds": 85.4,
+    "additional_seeded_reference_cases_passed": 2
+  },
+  "wall_clock_synthetic_manifest_audit": {
+    "status": "TAG_CHECK_PASSED",
+    "duration_s": 5.03052029106766,
+    "pairs": 25,
+    "failed_pairs": 0,
+    "failures": [],
+    "max_pair_skew_s": 0.0,
+    "cameras": {
+      "head": {
+        "frames": 25,
+        "capture_fps": 4.789934329704757,
+        "longest_capture_gap_s": 0.21202993392944336
+      },
+      "right_wrist": {
+        "frames": 25,
+        "capture_fps": 4.789934329704757,
+        "longest_capture_gap_s": 0.21202993392944336
+      }
+    },
+    "motor_writes": 0
+  },
+  "pdf": {
+    "path": "docs/assets/carton-apriltags.pdf",
+    "sha256": "38c76c53c8fcd2c2991e0521e7b8be9a133870d2034fb4305ba94beedd3b3188",
+    "pages": 1,
+    "format": "A4 vector",
+    "rendered_decode": {
+      "1": {
+        "hamming": 0,
+        "margin": 120.0
+      },
+      "2": {
+        "hamming": 0,
+        "margin": 119.0
+      },
+      "3": {
+        "hamming": 0,
+        "margin": 120.41666412353516
+      }
+    },
+    "physical_print_scale_verified": false
+  },
+  "note": "The live-clock audit uses generated tag images, not camera hardware. Print at actual size and verify the 100 mm ruler."
+}

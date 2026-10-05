@@ -127,6 +127,10 @@ still need validation on the connected Mac; local compilation cannot prove them.
 
 ## Seed the experiment before enabling movement
 
+For the marker-based setup, start with the [AprilTag print, mount and camera-only
+commissioning guide](carton-apriltags.md). `tag-kit` produces verified patterns;
+`tag-check` tests them without a motor session and retains raw failed frames.
+
 Use the actual calibration file already loaded by the motor owner:
 
 ```sh
@@ -168,6 +172,9 @@ weak/corrected decoding, a moving head anchor, a resolution change or more than
 100 pixels of displacement from the seed refuse. Anchor corner checks also catch
 rotation. This is 2D tracking; tags do not automatically establish camera intrinsics,
 depth, robot registration or a grasp pose. Mount tags outside contact/occlusion areas.
+New `seed --tag` entries require a shortest marker edge of 24 pixels on every
+observation; the minimum is saved in the configuration. Existing tag configs
+without this field retain their previous 8 pixel hard floor.
 
 The default feature order is head target-minus-tool x/y followed by wrist
 target-minus-tool x/y. **The default `[0,0,0,0]` is not an automatically safe grasp
