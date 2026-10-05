@@ -184,7 +184,8 @@ def preflight(recipe, config, model):
             stages = ["approach", "close_gripper", "lift"]
             for fold in folds:
                 stages.extend(["fold_"+fold["name"], "retract_"+fold["name"]])
-            if recipe.get("finish", {}).get("mode") == "place_and_park":
+            finish_spec = recipe.get("finish") if isinstance(recipe.get("finish"), dict) else {}
+            if finish_spec.get("mode") == "place_and_park":
                 stages.extend(["place", "open_gripper", "park"])
             require(set(motion["segments"]) == set(stages), "supply exactly the motion segments used by this program")
             last, travel, duration = None, 0, 0
@@ -193,8 +194,8 @@ def preflight(recipe, config, model):
             end_targets = {"approach": recipe["approach"][-1], "lift": recipe["lift"]["targets"][-1]}
             for fold in folds:
                 end_targets.update({"fold_"+fold["name"]: fold["targets"][-1], "retract_"+fold["name"]: fold["retract"][-1]})
-            if "finish" in recipe:
-                end_targets.update(place=recipe["finish"]["place_targets"][-1], park=recipe["finish"]["park_targets"][-1])
+            if finish_spec:
+                end_targets.update(place=finish_spec["place_targets"][-1], park=finish_spec["park_targets"][-1])
             for name in stages:
                 segment = motion["segments"][name]
                 path = trajectory(profile, segment["waypoints"])
@@ -223,13 +224,14 @@ def preflight(recipe, config, model):
                             "positioning stage cannot change jaw aperture")
                 require(abs(end[jaw]-jaw_goal) <= profile["settle_ticks"], "jaw endpoint differs from measured grip/open goal")
                 last, travel, duration = end, travel+path.travel_ticks, duration+path.duration
-            if "finish" in recipe:
-                require(all(abs(last[n]-v) <= profile["settle_ticks"] for n, v in recipe["finish"]["park_positions"].items()),
+            if finish_spec:
+                require(isinstance(finish_spec.get("park_positions"), dict), "supply measured supported park positions")
+                require(all(abs(last[n]-v) <= profile["settle_ticks"] for n, v in finish_spec["park_positions"].items()),
                         "trajectory must end at the measured supported park pose")
             require(travel <= limits.max_path_ticks, "complete program exceeds travel budget")
             require(duration < recipe["minimum_lease_s"], "motion alone exceeds reserved lease")
         check("continuous motion", continuous_paths)
-    if recipe.get("task", "fold") == "pickup" and "finish" not in recipe:
+    if recipe.get("task", "fold") == "pickup" and not isinstance(recipe.get("finish"), dict):
         check("finish", lambda: require(False, "pickup needs an explicit terminal behavior"))
     if recipe.get("finish") is not None:
         def finish():

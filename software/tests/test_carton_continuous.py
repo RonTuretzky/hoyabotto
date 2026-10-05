@@ -205,3 +205,12 @@ def test_missing_terminal_measurements_are_collected_before_motion(tmp_path):
     ready = preflight(rig.recipe, rig.config, None)
     assert any("supported" in p for p in ready["problems"])
     assert not rig.commands
+
+
+@pytest.mark.parametrize('terminal', [None, {}, {'mode': 'place_and_park', 'park_positions': None}])
+def test_partial_terminal_recipe_refuses_before_any_command(tmp_path, terminal):
+    rig = ContinuousRig(tmp_path / 'owner')
+    rig.recipe['finish'] = terminal
+    ready = preflight(rig.recipe, rig.config, None)
+    assert ready['status'] == 'PROGRAM_NOT_READY'
+    assert not rig.commands
