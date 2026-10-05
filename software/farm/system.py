@@ -168,6 +168,9 @@ class System:
         except Exception:  # noqa: BLE001
             pass
         self.store.event(None, "shutdown", {})
+        close_backends = getattr(self.backends, "close", None)
+        if close_backends is not None:
+            close_backends()
 
     # ---- checks --------------------------------------------------------------------
     def verify_views(self) -> dict[str, Any]:

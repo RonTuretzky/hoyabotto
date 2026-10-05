@@ -8,8 +8,28 @@ sys.path.insert(0, str(ROOT))
 
 from farm.adapters.sim import Faults, ScriptedHuman  # noqa: E402
 from farm.config import load_profile  # noqa: E402
-from farm.llm.backends import ScriptedLLM  # noqa: E402
+from farm.llm.backends import LLMError, Meta, ScriptedLLM  # noqa: E402
 from farm.system import System  # noqa: E402
+
+
+class ScriptedDecisions:
+    name = "scripted-decisions"
+    model = "typesafe/jev-test"
+
+    def __init__(self, replies=None, cost=0.0):
+        self.replies = list(replies or [])
+        self.calls = []
+        self.cost = cost
+
+    def decide(self, state, questions):
+        self.calls.append({"state": state, "questions": questions})
+        if len(self.replies) < len(questions):
+            raise LLMError("scripted decisions exhausted")
+        answers = {}
+        for name in questions:
+            reply = self.replies.pop(0)
+            answers[name] = {"type": "choice", "confidence": 0.9, **reply}
+        return answers, Meta(self.name, self.model, 1.0, self.cost)
 
 
 class FakeBackends:
@@ -17,7 +37,7 @@ class FakeBackends:
 
     def __init__(self, vision=None, jev=None, astra=None, budget_exhausted=False):
         self.vision = vision or ScriptedLLM()
-        self.jev = jev or ScriptedLLM()
+        self.jev = jev if hasattr(jev, "decide") else ScriptedDecisions(getattr(jev, "replies", []))
         self.astra = astra or ScriptedLLM()
         self._over = budget_exhausted
 

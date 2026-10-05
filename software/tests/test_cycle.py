@@ -6,6 +6,7 @@ from conftest import AFTER_JUDGEMENT, GOOD_JUDGEMENT, FakeBackends, jev_reply
 from farm.adapters.sim import Faults
 from farm.cycle.runner import CareCycle
 from farm.llm.backends import ScriptedLLM
+from farm.llm.jev import SCHEMA_VERSION
 
 
 def vision(*judgements):
@@ -119,11 +120,11 @@ def test_authority_promotes_on_evidence(sim):
     s = sim(script={})
     n = s.profile.authority.jev_shadow_cycles
     for _ in range(n):
-        s.store.decision("c", "jev_route", "q", "", "routine", {}, "v", note="agree:x")
+        s.store.decision("c", "jev_route", "q", "", "routine", {}, SCHEMA_VERSION, note="agree:x")
     s.authority.consider_promotion()
     assert s.authority.level == "route"
     for _ in range(n):
-        s.store.decision("c", "jev_pour", "q", "", "pour", {}, "v", note="agree:x")
+        s.store.decision("c", "jev_pour", "q", "", "pour", {}, SCHEMA_VERSION, note="agree:x")
     s.authority.consider_promotion()
     assert s.authority.level == "approve"
     s.authority.demote_after_false_approval("spill")

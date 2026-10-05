@@ -48,11 +48,12 @@ def test_extract_json_tolerates_fences_and_prose():
         pass
 
 
-def test_jev_normalizes_and_falls_back_to_unknown():
-    j = Jev(ScriptedLLM([{"choice": "usable", "probabilities": {"usable": 3, "reacquire": 1}}]))
+def test_jev_preserves_typed_probabilities_and_falls_back_to_unknown():
+    from conftest import ScriptedDecisions
+    j = Jev(ScriptedDecisions([{"choice": "usable", "probabilities": {"usable": 0.75, "reacquire": 0.25, "conflicting": 0, "unknown": 0}}]))
     c = j.evidence_quality({"x": 1})
     assert c.choice == "usable" and abs(sum(c.probabilities.values()) - 1) < 1e-6 and c.p == 0.75
-    j2 = Jev(ScriptedLLM([]))  # exhausted backend -> unknown
+    j2 = Jev(ScriptedDecisions([]))  # exhausted backend -> unknown
     assert j2.next_review({}).choice == "unknown"
 
 

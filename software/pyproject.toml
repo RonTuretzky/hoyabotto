@@ -22,6 +22,7 @@ dev = ["pytest"]
 [project.scripts]
 farm = "farm.cli:main"
 carton = "carton.cli:main"
+jev-control = "farm.control.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

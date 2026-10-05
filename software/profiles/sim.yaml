@@ -16,5 +16,5 @@ trays:
   B: {nest: right_front, kind: cress-wick, tag_id: 2}
 limits: {pour_tilt_max_deg: 40, pour_s_max: 4, servo_temp_max_c: 55, servo_load_max: 800, watchdog_s: 0.5, step_deg_max: 6, llm_servo_max_steps: 12}
 deadlines: {identify_s: 5, inspect_s: 5, measure_s: 5, ask_s: 5, pick_s: 5, approach_s: 5, pour_s: 5, verify_s: 5, park_s: 5}
-llm: {backend: sim, vision_model: anthropic/claude-sonnet-5, jev_model: typesafe/jev-router, astra_model: openai/gpt-6-astra, max_cost_usd_per_day: 1, timeout_s: 30}
+llm: {backend: sim, vision_model: anthropic/claude-sonnet-5, jev_model: typesafe/jev-1.13, astra_model: openai/gpt-6-astra, max_cost_usd_per_day: 1, timeout_s: 30}
 authority: {jev: approve, astra: propose, jev_approve_min_p: 0.85, jev_shadow_cycles: 2}
