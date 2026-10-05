@@ -16,6 +16,8 @@ Depth, head and right-wrist images are live. The extra wrist camera enumerates b
 
 Model-angle to encoder to normalized-driver conversion is implemented locally, including reverse conversion for measured feedback. Thirteen new reference tests pass. No physical model reference has yet been measured; calibration midpoints are not treated as model zeros. These are software results, not evidence of a successful pickup.
 
+Latest hardware-free verification: the pinned geometry solver is now installed in an isolated workspace environment. Three actual URDF FK/IK pose checks passed, with maximum numerical position error below 0.3 mm; all 22 upstream geometry/perception tests passed. No motors were commanded. Depth readings on the white handle include holes and inconsistent distances, so a valid handle target and full-arm reference framing remain unresolved.
+
 ## Next steps
 
 Obtain a side view of the full shoulder-to-claw chain and table edge, measure the arm reference and direction signs, verify the reach path, grasp and lift the paddle, then fold the carton. Independent continuous-controller integration and offline tests continue in parallel.
