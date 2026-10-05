@@ -1,0 +1,57 @@
+{
+  "family": "tag36h11",
+  "generator": "OpenCV 5.0.0 DICT_APRILTAG_36h11",
+  "markers": [
+    {
+      "name": "anchor",
+      "tag_id": 1,
+      "black_square_mm": 60.0,
+      "quiet_zone_mm_each_side": 7.5,
+      "cut_square_mm": 75.0,
+      "grid_black_is_1": [
+        "11111111",
+        "10110111",
+        "10100101",
+        "11110011",
+        "11100001",
+        "10001011",
+        "11001001",
+        "11111111"
+      ]
+    },
+    {
+      "name": "tool",
+      "tag_id": 2,
+      "black_square_mm": 40.0,
+      "quiet_zone_mm_each_side": 5.0,
+      "cut_square_mm": 50.0,
+      "grid_black_is_1": [
+        "11111111",
+        "11000111",
+        "11101111",
+        "10110111",
+        "11111101",
+        "11011011",
+        "10001001",
+        "11111111"
+      ]
+    },
+    {
+      "name": "target",
+      "tag_id": 3,
+      "black_square_mm": 40.0,
+      "quiet_zone_mm_each_side": 5.0,
+      "cut_square_mm": 50.0,
+      "grid_black_is_1": [
+        "11111111",
+        "11110011",
+        "11011001",
+        "10110101",
+        "10001101",
+        "10001111",
+        "10110001",
+        "11111111"
+      ]
+    }
+  ]
+}

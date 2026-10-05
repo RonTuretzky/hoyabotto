@@ -43,6 +43,31 @@ view. Never put the same ID on two distinct objects. Do not span a moving jaw,
 joint or carton fold. A tag that disappears behind the hand requires a different
 mount or camera view; a depth camera does not make a hidden marker visible.
 
+### Gripper placement illustration from the actual mesh
+
+The actual SO-101 housing has a narrow fixed band below the jaw pivot, not a
+50 mm square flat face. The default tag therefore needs a separate rigid backing.
+These Blender views show a **proposed** 52 mm square backing attached to that fixed
+band. The added blue backing/spacers are illustrative, not a manufactured bracket
+or a validated adhesive attachment. Keep the moving horn, jaw and grip area clear.
+
+![Proposed tag placement using the actual gripper mesh](assets/gripper-tag-installed.png)
+![Backing separated to expose its fixed attachment area](assets/gripper-tag-attachment.png)
+
+[Editable Blender scene](assets/gripper-apriltag-placement.blend) ·
+[Geometry and clearance-check record](evidence/gripper-tag-placement.json)
+
+The imported gripper mesh is byte-identical to the one used in the existing
+`robot-farm-design` render. The assembly uses the pinned SO-101 URDF transforms.
+The tag is the actual ID 2 pattern and decoded successfully from both renders.
+Sampled jaw poses from -10 to 100 degrees, at 5-degree intervals, showed no mesh
+surface intersections with the proposed backing/spacers. This is not a full
+collision or continuous swept-volume validation. The installed wrist camera,
+cables, fasteners and the rest of the arm are absent from this close-up model.
+**Confirm camera visibility and real clearance before fixing the plate in place.**
+In particular, this picture does not establish that the wrist camera can see
+this face; if it cannot, change the mounting/view arrangement and rerun `tag-check`.
+
 The default placement assumes one gripper marker and one paddle marker can each
 be seen in both views. If that is impossible, a different face may have its own
 distinct ID and be configured separately with `seed --tag`. It is a different
