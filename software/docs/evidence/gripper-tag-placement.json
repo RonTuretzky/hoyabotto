@@ -1,0 +1,144 @@
+{
+  "source_repository": "TheRobotStudio/SO-ARM100",
+  "source_revision": "5f6d2b876a53a4872e405b991dd925556c9e38a4",
+  "blender_version": "5.0.0",
+  "actual_geometry": [
+    {
+      "name": "ACTUAL | wrist_link | sts3215_03a_no_horn_v1",
+      "min_mm": [
+        -38.1,
+        -10.791,
+        -14.098
+      ],
+      "max_mm": [
+        1.5,
+        35.762,
+        12.882
+      ]
+    },
+    {
+      "name": "ACTUAL | wrist_link | wrist_roll_pitch_so101_v2",
+      "min_mm": [
+        -73.098,
+        -27.83,
+        -17.354
+      ],
+      "max_mm": [
+        4.729,
+        36.132,
+        21.295
+      ]
+    },
+    {
+      "name": "ACTUAL | gripper_link | sts3215_03a_v1",
+      "min_mm": [
+        11.0,
+        -19.3,
+        -15.0
+      ],
+      "max_mm": [
+        35.8,
+        20.3,
+        30.4
+      ]
+    },
+    {
+      "name": "ACTUAL | gripper_link | wrist_roll_follower_so101_v1",
+      "min_mm": [
+        -1.0,
+        -28.0,
+        -35.2
+      ],
+      "max_mm": [
+        104.425,
+        24.0,
+        30.0
+      ]
+    },
+    {
+      "name": "ACTUAL | moving_jaw_so101_v1_link | moving_jaw_so101_v1",
+      "min_mm": [
+        9.653,
+        -24.1,
+        4.49
+      ],
+      "max_mm": [
+        99.736,
+        23.9,
+        71.584
+      ]
+    }
+  ],
+  "backing_center_display_frame_m": [
+    0.031,
+    -0.032,
+    -0.012
+  ],
+  "backing_dimensions_mm": [
+    52,
+    1.5,
+    52
+  ],
+  "attachment_pad_centers_display_frame_m": [
+    [
+      0.015,
+      -0.024,
+      -0.008
+    ],
+    [
+      0.024,
+      -0.024,
+      -0.008
+    ]
+  ],
+  "tag_id": 2,
+  "family": "tag36h11",
+  "black_square_mm": 40,
+  "paper_mm": 50,
+  "sampled_jaw_angles_deg": [
+    -10,
+    -5,
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55,
+    60,
+    65,
+    70,
+    75,
+    80,
+    85,
+    90,
+    95,
+    100
+  ],
+  "sampled_mesh_surface_intersections": [],
+  "limitations": [
+    "Surface intersection samples are not a continuous swept-volume or full robot collision test.",
+    "Wrist camera, cables, fasteners and physical mounting are not modeled or validated.",
+    "This is a placement illustration, not a manufacturing-ready bracket."
+  ],
+  "physical_validation": false,
+  "rendered_tag_decode": {
+    "gripper-tag-installed": {
+      "2": {
+        "margin": 67.54544830322266,
+        "hamming": 0
+      }
+    },
+    "gripper-tag-attachment": {
+      "2": {
+        "margin": 66.79608154296875,
+        "hamming": 0
+      }
+    }
+  }
+}
