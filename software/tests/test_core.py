@@ -62,8 +62,8 @@ def test_safety_clamps_and_health():
     assert out["right_arm_wrist_flex"] == 6.0 and out["right_arm_gripper"] == 44.0
     from farm.config import LimitsCfg
     lim = LimitsCfg()
-    assert check_health(Reading({"m": {"temperature": 30, "load": 10}}, Status.OK), lim).ok
-    assert not check_health(Reading({"m": {"temperature": 60, "load": 10}}, Status.OK), lim).ok
+    assert check_health(Reading({"m": {"load": 10}}, Status.OK), lim).ok
+    assert not check_health(Reading({"m": {"load": 900}}, Status.OK), lim).ok
     assert not check_health(Reading(None, Status.INVALID), lim).ok
 
 

@@ -29,7 +29,7 @@ class RobotAdapter(Protocol):
     def joints(self) -> Reading[dict[str, float]]:
         """All joint positions keyed by motor name (no '.pos' suffix)."""
     def health(self) -> Reading[dict[str, dict[str, float]]]:
-        """Per-motor {temperature, load} when the bus supports it."""
+        """Per-motor {load} when the bus supports it."""
     def move_to(self, targets: dict[str, float], max_step: float | None = None) -> Reading[dict[str, float]]:
         """Command goal positions (clamped by the robot's max_relative_target). Returns what was sent."""
     def stop(self) -> None:

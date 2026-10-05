@@ -294,7 +294,7 @@ These are code/configuration observations at the above HEAD, not changes impleme
 7. **Grip thresholds are task-specific.** Existing runner thresholds describe bottle/paddle usage. Measure a 6 mm carrier fin, 4 mm frame fin and deformable paper independently; record closure units and a reliable empty/held/released test.
 8. **Offline evaluation is not independent assembly evidence.** The existing evaluator reports `held_out: false` and first-action error on selected episodes. Establish a genuinely excluded validation/test split by recording session/part/setup before training. Do not report that existing metric as held-out physical success.
 
-The profile currently keeps policy execution disabled, shadow mode true, wheels disabled, and limits including 6-degree maximum skill steps, relative-target bound 8, a 0.5 s watchdog, servo temperature limit 55°C and load limit 800. Preserve or tighten the effective safety limits; do not increase them to force a fit or make a rollout pass. Confirm the adapter's actual calibrated command units before issuing any joint target—render radians, CAD millimetres and runtime joint values are different quantities.
+The profile currently keeps policy execution disabled, shadow mode true, wheels disabled, and limits including 6-degree maximum skill steps, relative-target bound 8, a 0.5 s watchdog and load limit 800. Preserve or tighten the effective safety limits; do not increase them to force a fit or make a rollout pass. Confirm the adapter's actual calibrated command units before issuing any joint target—render radians, CAD millimetres and runtime joint values are different quantities.
 
 The existing learned pouring checkpoint is not an assembly policy. The repository also records the remote policy-server approach as parked pending better checkpoint evidence; this task does not require enabling it.
 
@@ -319,7 +319,7 @@ Minimum episode metadata:
 - Revision and mesh hashes; actual printed instance, material/profile, support cleanup and any manual modifications.
 - Variant with/without frame; stage name, goal, start/end time, success/failure reason, retry count and human interventions.
 - Human-prepared four-wick scope; real top-medium type, cut dimensions, thickness/stack count, moisture condition; original trough instance and orientation.
-- Robot/calibration identity; tool/jaw geometry; joint ordering and units; commanded and measured state; safety-clamped actions, temperatures/load/stop events where available.
+- Robot/calibration identity; tool/jaw geometry; joint ordering and units; commanded and measured state; safety-clamped actions, load/stop events where available.
 - Fixture/source-station transforms with units and calibration date; camera identities/intrinsics/extrinsics and image timestamps.
 - Pre-grasp, post-lift, seated, released and final verification images; confidence/unknown states rather than fabricated certainty.
 - Dataset schema version, code commit, train/validation/test allocation and any later relabeling.

@@ -41,7 +41,7 @@ def d_stack():
     layers = [
         (7, 'Learning loop', [('policy server · built, parked', 'df'), ('Dexbotic path · rented NVIDIA', 'df')]),
         (6, 'Review · viewer, Jev, Astra', [('unchanged', 'df')]),
-        (5, 'Evidence store', [('soak-test log', 'ex')]),
+        (5, 'Evidence store', [('unchanged', 'df')]),
         (4, 'Care-cycle orchestrator', [('unchanged', 'df')]),
         (3, 'Perception', [('unchanged', 'df')]),
         (2, 'Skills', [('remote policy skill · built, parked', 'df'), ('teach by hand · removed', 'df')]),
@@ -85,7 +85,7 @@ def d_bringup():
         (450, 750, 'farm devices --probe', 'ink'), (750, 1050, 'ping every servo ID', 'ink'),
         (450, 750, 'writes ports + camera indices into the profile', 'ink'),
         (150, 750, 'farm calibrate (your hands on the arms)', 'red'),
-        (450, 750, 'farm robot-test', 'ink'), (750, 1050, 'read 14 joints, temperature, load', 'ink'),
+        (450, 750, 'farm robot-test', 'ink'), (750, 1050, 'read 14 joints and load', 'ink'),
         (150, 750, 'farm robot-test --move --ask (you watch)', 'red'), (750, 1050, 'nudge one joint, return', 'ink'),
         (450, 750, 'farm check; STATUS.md pushed', 'ink'),
     ]
@@ -126,7 +126,7 @@ def d_teaching():
 def d_remote():
     s = box(40, 60, 250, 150, 'Policy skill', ['on the robot laptop', 'asks for actions when a learned motion is selected'], kind='ex', fs=14, tfs=17, cw=28)
     s += box(360, 60, 250, 150, 'Policy server', ['on this Mac', 'checkpoint loaded once; answers in tens of milliseconds'], kind='ex', fs=14, tfs=17, cw=28)
-    s += box(680, 60, 220, 150, 'Clamps', ['on the robot laptop', 'step size, joint range, temperature, watchdog'], kind='ex', fs=14, tfs=17, cw=24)
+    s += box(680, 60, 220, 150, 'Clamps', ['on the robot laptop', 'step size, joint range, load, watchdog'], kind='ex', fs=14, tfs=17, cw=24)
     s += box(970, 60, 190, 150, 'Motors', ['one small step at a time'], kind='hw', fs=14, tfs=17, cw=20)
     s += arrow(290, 110, 360, 110) + arrow(360, 165, 290, 165)
     s += label(325, 98, 'obs', 12, 700, GREY, 'middle') + label(325, 188, 'actions', 12, 700, GREY, 'middle')
@@ -144,36 +144,10 @@ def d_remote():
     return svg(1200, 600, s, 'A remote policy: observation out, actions back, clamps stay on the robot laptop')
 
 
-def d_soak():
-    x0, y0, w, h = 90, 60, 620, 400
-    s = f'<rect x="{x0}" y="{y0}" width="{w}" height="{h}" fill="#fffefa" stroke="{GREY}" stroke-width="1.5"/>'
-    for t in (30, 40, 50, 60):
-        y = y0 + h - (t - 25) / 40 * h
-        s += f'<line x1="{x0}" y1="{y:.0f}" x2="{x0 + w}" y2="{y:.0f}" stroke="{GREY}" stroke-width=".6" stroke-dasharray="3 5"/>' + label(x0 - 10, y + 5, f'{t} °C', 13, 400, GREY, 'end')
-    for m in (0, 10, 20, 30):
-        x = x0 + m / 30 * w
-        s += label(x, y0 + h + 22, f'{m} min', 13, 400, GREY, 'middle')
-    yc = y0 + h - (55 - 25) / 40 * h
-    s += f'<line x1="{x0}" y1="{yc:.0f}" x2="{x0 + w}" y2="{yc:.0f}" stroke="{RED}" stroke-width="2.5"/>' + label(x0 + w - 8, yc - 8, 'ceiling 55 °C: test stops, arm goes to rest', 13, 700, RED, 'end')
-    import math
-    pts = []
-    for i in range(61):
-        m = i / 2
-        temp = 31 + 17 * (1 - math.exp(-m / 9))
-        pts.append(f'{x0 + m / 30 * w:.1f},{y0 + h - (temp - 25) / 40 * h:.1f}')
-    s += f'<polyline points="{" ".join(pts)}" fill="none" stroke="{BLUE}" stroke-width="3"/>'
-    s += label(x0 + 330, y0 + 178, 'hottest servo', 14, 700, BLUE)
-    s += label(x0, y0 - 14, 'Illustrative shape only. No temperatures have been measured on this robot yet.', 13, 700, ORANGE)
-    s += box(760, 60, 400, 190, 'farm soak', ['Holds a taught pose (the pour pose is the hardest) and logs every servo’s temperature and load every two seconds.', 'Stops at the ceiling or after the set time.'], kind='ex', fs=14, tfs=18, cw=50)
-    s += box(760, 270, 400, 190, 'What it tells you', ['Peak temperature and which servo', 'How fast it is still rising at the end', 'Whether an hourly cycle leaves time to cool', 'Saved as a CSV next to the evidence'], kind='ex', fs=14, tfs=18, cw=50)
-    s += label(90, 530, 'From the XLeRobot-Pro measurement protocols. Run once before the robot is left alone for days.', 15, 700)
-    return svg(1200, 600, s, 'Soak test: servo temperature while a pose is held, with a hard ceiling')
-
-
 def d_mcp():
     s = box(40, 60, 250, 420, 'MCP client', ['Claude Code on the robot laptop, started in the repo.', '', 'It can see what the robot sees while it helps you bring it up, instead of asking you to describe it.'], kind='bd', fs=14, tfs=18, cw=30)
     s += arrow(290, 270, 350, 270)
-    s += box(350, 60, 260, 420, 'Look', ['get_state: joints, temperatures, what the cycle is doing', 'get_camera_image: head or wrist', 'list_keyframes', 'recent evidence'], kind='ex', fs=14, tfs=18, cw=30)
+    s += box(350, 60, 260, 420, 'Look', ['get_state: joints, what the cycle is doing', 'get_camera_image: head or wrist', 'list_keyframes', 'recent evidence'], kind='ex', fs=14, tfs=18, cw=30)
     s += box(630, 60, 260, 420, 'Act through skills', ['stop', 'go_rest', 'go_keyframe (a saved pose)', '', 'Same clamps and the same STOP as the viewer. Every call is written to the evidence store.'], kind='bd', fs=14, tfs=18, cw=30)
     s += box(910, 60, 250, 420, 'Never exposed', ['Raw joint targets', 'Wheel commands', 'Changing limits', 'Authorizing a pour', 'Editing the profile'], kind='bad', fs=14, tfs=18, cw=28)
     s += label(40, 525, 'Modelled on xlerobot-mcp, which exposes raw servo positions. Ours stops at the skill layer, because our rule is that', 15, 700)
@@ -229,8 +203,8 @@ def d_invariants():
 
 
 def d_plan():
-    done = ['Bring-up skill, farm robot-test', 'Calibration report', 'Automatic calibration (untested)', 'Soak test', 'MCP tool surface', 'Review of all 43 entries']
-    nxt = ['Probe, fill in the profile', 'Calibrate (automatic in stages, or by hand)', 'calibration-report, robot-test', 'Try the trained checkpoint: farm policy-test --real', 'Teach poses, soak, first watering cycle']
+    done = ['Bring-up skill, farm robot-test', 'Calibration report', 'Automatic calibration (untested)', 'MCP tool surface', 'Review of all 43 entries']
+    nxt = ['Probe, fill in the profile', 'Calibrate (automatic in stages, or by hand)', 'calibration-report, robot-test', 'Try the trained checkpoint: farm policy-test --real', 'Teach poses, first watering cycle']
     s = box(40, 40, 340, 250, 'Built, pushed', done, kind='ex', fs=15, tfs=18, cw=38)
     s += box(410, 40, 380, 250, 'On the robot laptop, in order', nxt, kind='hu', fs=15, tfs=18, cw=44)
     s += box(820, 40, 340, 250, 'Not doing', ['Teaching by hand (removed)', 'Policy server (built, parked)', 'Dexbotic on this Mac (needs NVIDIA)', 'Any teleoperation stack', 'Raw-servo MCP tools'], kind='df', fs=15, tfs=18, cw=38)
@@ -248,7 +222,7 @@ def d_plan():
 
 SLIDES = [
  ('summary', 'Community page review · Oct 2', '43 community projects, 7 that matter, 8 changes to our software',
-  'Most of the page is about people driving the robot. What is left sharpens bring-up, calibration, teaching and training, without touching the safety model. Six are in use, one is built and parked, and one was built and removed.', d_funnel, [
+  'Most of the page is about people driving the robot. What is left sharpens bring-up, calibration, teaching and training, without touching the safety model. Five are in use, one is built and parked, and two were built and removed.', d_funnel, [
   ('Checked', 'Every entry’s summary, and the README of the eleven closest. Nothing was installed or run on the robot.'),
   ('Biggest gap found', 'Nobody has published watering or pouring data for this robot. The one paper that pours on an XLeRobot released nothing.'),
   ('Full list', 'software/docs/community-projects.md in the repo.')],
@@ -297,13 +271,6 @@ SLIDES = [
   ('Training', 'Same commands as now (farm.learning.train), run here against episodes copied from the robot laptop.')],
   'Built. There are no episodes from our robot yet, so this is plumbing until the robot has run recorded cycles. The care cycle does not call a policy yet; today it is reached through farm policy-test.'),
 
- ('soak', 'Endurance', 'A soak test before the robot is left alone',
-  'We already refuse to act above 55 °C. What we do not know is how close a held pour pose gets, or how long cooling takes.', d_soak, [
-  ('Source', 'XLeRobot-Pro’s thermal-endurance protocol: hold a pose under load, log per-servo telemetry, abort at the ceiling.'),
-  ('Ours', 'One command, one CSV, one summary line. No licence on their repo, so the idea is reused, not the code.'),
-  ('When', 'After the pour pose is taught, before the first unattended hour.')],
-  'The command is built and tested with a simulated heating servo. The curve is drawn to show the idea. It is not data.'),
-
  ('mcp', 'Agent access', 'An MCP door that stops at the skill layer',
   'The community MCP server hands an agent raw servo control. Ours gives it eyes and named skills, under the existing clamps.', d_mcp, [
   ('Use', 'Once the robot is calibrated, the agent can read joint state and look through a camera itself, instead of asking you to describe it.'),
@@ -326,7 +293,7 @@ SLIDES = [
 
  ('plan', 'Plan', 'Built, decided, and what happens next on the robot',
   'Everything built is tested on the simulator (70 tests), except the automatic calibration’s motion, which only real servos can exercise.', d_plan, [
-  ('Verified here', 'A live MCP session; soak with a simulated heating servo; the calibration report on synthetic files; the file handling around automatic calibration.'),
+  ('Verified here', 'A live MCP session; the calibration report on synthetic files; the file handling around automatic calibration.'),
   ('Not verified', 'Anything on the real robot. Most of all the automatic calibration, which has never moved this arm.')],
   'This deck is generated from handbook/community.py. The repo’s STATUS.md says what has actually run on the robot.'),
 ]

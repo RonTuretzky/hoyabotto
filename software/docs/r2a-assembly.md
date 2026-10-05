@@ -120,7 +120,7 @@ Nothing in the renders is a trajectory; the images are for orientation only.
 ## 4. Baseline and learning plan (not started)
 
 1. **Bounded scripted baseline per stage** using the existing skill runner (`move_joints` under the same 6-unit
-   step clamp, watchdog, load and temperature rules). Keyframes come from the LLM-servo teach path exactly as for
+   step clamp, watchdog and load rules). Keyframes come from the LLM-servo teach path exactly as for
    the watering skills; no leader arm, no teleoperation. Each stage ends with the camera-based evidence the
    contract requires, judged by the vision model with UNKNOWN allowed.
 2. **Record** only after the baseline works, into `data/r2a/dataset` through `R2aRecorder` + `StrictTick`,

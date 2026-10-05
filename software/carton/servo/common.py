@@ -69,7 +69,6 @@ class Limits:
     frame_skew_s: float = 0.3
     status_age_s: float = 0.75
     command_timeout_s: float = 5.0
-    temperature_c: float = 55.0
     load_raw: int = 500
     tolerance_px: float = 3.0
     model_error_px: float = 4.0
@@ -88,7 +87,7 @@ class Limits:
             raise Refused("Probe/step exceeds the existing six-degree command limit")
         if self.trust_ticks > 136 or self.probe_ticks > self.trust_ticks:
             raise Refused("Local experiment envelope exceeds 136 encoder ticks")
-        if self.temperature_c > 55 or self.load_raw > 500:
+        if self.load_raw > 500:
             raise Refused("Cannot relax the connected Mac's existing health limits")
         if self.max_seconds > 300 or self.max_steps > 200 or self.frame_age_s > 2 or self.status_age_s > 2:
             raise Refused("Experiment duration or freshness limit is too permissive")

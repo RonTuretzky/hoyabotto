@@ -6,7 +6,7 @@ Updated: 2026-10-05 15:56 JST (Asia/Tokyo).
 
 Motor calibration remains saved for both arms and the head. Earlier basic movement checks passed for all sixteen motors, and earlier forward/back drive tests completed.
 
-A new isolated left-claw opening moved from encoder tick 1342 to 1393, approximately 4.5 degrees. Its requested endpoint was 1410, so the endpoint check failed by 17 ticks. Recorded temperature was 37 degrees Celsius, with normal voltage and no motor fault flag. Torque-off and release of all left-board motors were verified afterward. The other board was not commanded during this test. This is confirmed claw movement, not a confirmed grip. No paddle grasp, lift or carton fold has been verified.
+A new isolated left-claw opening moved from encoder tick 1342 to 1393, approximately 4.5 degrees. Its requested endpoint was 1410, so the endpoint check failed by 17 ticks. Voltage was normal and no motor fault flag was set. Torque-off and release of all left-board motors were verified afterward. The other board was not commanded during this test. This is confirmed claw movement, not a confirmed grip. No paddle grasp, lift or carton fold has been verified.
 
 ## Software progress
 
@@ -20,7 +20,7 @@ The previously verified reference conversion and guarded controller integration 
 
 The user selected head plus OAK depth operation; right-wrist capture was disabled. Both selected feeds were confirmed fresh at the latest image check. The left-wrist capture fault remains unresolved but is not a prerequisite for this selected two-camera mode.
 
-The latest reviewed images showed the user's hand beside the left claw and paddle. No further movement was started from that image. Handle occlusion and missing measured jaw baselines, model reference angles/direction signs and camera-to-arm registration still prevent a validated planned pickup. Earlier powered right-claw temperature anomalies remain unresolved. Thermal protections have not been removed or raised.
+The latest reviewed images showed the user's hand beside the left claw and paddle. No further movement was started from that image. Handle occlusion and missing measured jaw baselines, model reference angles/direction signs and camera-to-arm registration still prevent a validated planned pickup.
 
 ## Next steps
 

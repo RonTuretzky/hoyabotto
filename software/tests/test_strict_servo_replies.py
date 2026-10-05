@@ -35,8 +35,8 @@ def test_reproduces_existing_index_error_on_write_ack():
         bus_for(packet(), guard=False).packet_handler.read2ByteTxRx(Port(), 9, 56)
 
 
-def test_write_ack_cannot_be_decoded_as_temperature():
-    value, result, _ = bus_for(packet()).packet_handler.read1ByteTxRx(Port(), 9, 63)
+def test_write_ack_cannot_be_decoded_as_a_one_byte_read():
+    value, result, _ = bus_for(packet()).packet_handler.read1ByteTxRx(Port(), 9, 65)
     assert result == COMM_RX_CORRUPT
 
 

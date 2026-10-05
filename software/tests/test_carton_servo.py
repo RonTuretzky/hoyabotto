@@ -57,7 +57,7 @@ def test_units_require_measured_zero_and_are_not_degrees():
     with pytest.raises(ValueError): u.normalized_to_ticks(101)
 
 
-@pytest.mark.parametrize("override", [{"step_ticks": 69}, {"probe_ticks": True}, {"temperature_c": 56},
+@pytest.mark.parametrize("override", [{"step_ticks": 69}, {"probe_ticks": True},
                                       {"load_raw": 501}, {"frame_age_s": math.nan}, {"max_seconds": 1000}])
 def test_safety_limits_cannot_be_relaxed(override):
     with pytest.raises(Refused): Limits(**override)
@@ -181,7 +181,7 @@ class FileMotorOwner:
 
     def publish(self):
         self.s.update(time=self.now, rows={n: {"Present_Position": v, "Present_Load": 20,
-                                              "Present_Temperature": 35, "Status": 0} for n, v in self.q.items()})
+                                              "Status": 0} for n, v in self.q.items()})
         atomic_json(self.folder / "status.json", self.s)
 
     def sleep(self, seconds):

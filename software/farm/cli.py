@@ -10,7 +10,6 @@
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
   farm teach-all  -p ...            learn every keyframe the profile needs, in order
-  farm soak       -p ... [--keyframe pour_B] [--minutes 20]   hold a pose, log servo temperature and load, stop at the ceiling
   farm mcp        -p ...            stdio MCP server: state, camera frames and named skills for an agent (no raw joint access)
   farm calibrate-pour -p ... --tilt 25 --seconds 1.5 --ml 28        record a measured cup pour
   farm once       -p ... --tray B   run one care cycle (viewer included)
@@ -190,38 +189,6 @@ def cmd_teach(a):
     ok = _teach_one(s, a.save, a.arm, a.goal)
     s.disconnect()
     sys.exit(0 if ok else 1)
-
-
-def cmd_soak(a):
-    """Hold a pose and log servo temperature and load; stop at the ceiling. Run before leaving the robot unattended."""
-    _log()
-    from .safety.rules import SafetyStop
-    from .tools import soak
-    s = _system(a)
-    problems = s.connect()
-    if any(p.startswith("robot") for p in problems):
-        sys.exit("robot not connected: " + "; ".join(problems))
-    from .viewer.app import serve_in_thread
-    serve_in_thread(s, s.profile.viewer_port)
-    limit = s.profile.limits.servo_temp_max_c
-    try:
-        if a.keyframe:
-            print(f"moving to keyframe {a.keyframe}")
-            s.skills.move_joints(s.skills.keyframe_or_fail(a.keyframe), max_s=10)
-        else:
-            print("holding the current pose")
-        path = s.profile.data_path / "soak" / time.strftime("soak-%Y%m%d-%H%M%S.csv")
-        res = soak.run(s.robot, a.minutes, path, interval_s=a.interval, temp_max_c=limit, should_stop=s.skills.estop.is_set)
-        s.store.event(None, "soak_test", {**res, "keyframe": a.keyframe})
-        print(soak.summary(res, limit))
-    except SafetyStop as e:
-        print("safety stop:", e)
-    finally:
-        try:
-            s.skills.go_rest()
-        except Exception as e:  # noqa: BLE001 - too hot to move is a valid outcome; disconnect lets the motors go limp
-            print("did not return to rest:", e)
-        s.disconnect()
 
 
 def cmd_mcp(a):
@@ -597,7 +564,6 @@ def main(argv=None):
         ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
-        ("soak", cmd_soak, [("--keyframe", {"default": ""}), ("--minutes", {"type": float, "default": 20.0}), ("--interval", {"type": float, "default": 2.0})]),
         ("mcp", cmd_mcp, []),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),
         ("calibrate-pour", cmd_calibrate_pour, [("--tilt", {"type": float, "required": True}), ("--seconds", {"type": float, "required": True}), ("--ml", {"type": float, "required": True}), ("--who", {"required": True})]),

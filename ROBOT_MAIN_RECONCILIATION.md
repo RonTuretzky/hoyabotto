@@ -22,6 +22,6 @@ The combined checkout's full suite produced 504 passing tests, eight optional sk
 
 The paddle has not been securely grasped or lifted and the carton has not been folded. The latest left-claw opening moved about 4.5 degrees but settled short of its requested endpoint and then released. All capture/viewer processes and recurring reporting were stopped at handoff. This reconciliation sent no motor commands and did not change live calibration.
 
-The packaged head/OAK owner is source-tested but had not replaced the older work-directory owner during physical operation. Do not interpret publication as that deployment having happened. Physical model zero/sign reference, camera-to-arm/station registration, reliable visible/depth grasp features and a validated approach/lift path remain uncommissioned. The blank reference templates deliberately fail validation. Thermal protection remains in place; the earlier requests to remove it or raise it to 100 C were not implemented.
+The packaged head/OAK owner is source-tested but had not replaced the older work-directory owner during physical operation. Do not interpret publication as that deployment having happened. Physical model zero/sign reference, camera-to-arm/station registration, reliable visible/depth grasp features and a validated approach/lift path remain uncommissioned. The blank reference templates deliberately fail validation.
 
 The earlier handoff/progress files are retained as dated records; statements that source publication was pending describe their original time, not the current reconciliation.

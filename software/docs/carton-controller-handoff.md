@@ -1,6 +1,6 @@
 # Robot-Mac controller source handoff
 
-This source exports the currently commissioned owner and diagnostic clients. It does not certify grasping or folding. All hardware stays released during source handoff. The right gripper has an unresolved repeated powered-temperature reporting fault; do not restart sessions to reset its two-confirmation budget.
+This source exports the currently commissioned owner and diagnostic clients. It does not certify grasping or folding. All hardware stays released during source handoff.
 
 ## Entry points and deployment
 
@@ -45,11 +45,11 @@ Lease starts at180seconds. Accepted move or processed hold resets it to180; ther
 
 Explicit visual checkpoint creates another caller-reviewed local series from stable measured pose without releasing or renewing a lease. It has no automated motion loop, permits at most3new phases, and has not been exercised on hardware. Each local series has5steps/240ticks total and128tick per-joint origin envelope. Gripper contact diagnostics are separate bounded moves; do not concatenate these as a folding trajectory.
 
-## Gripper semantics and thermal behavior
+## Gripper semantics
 
 Partial jaw motion requires12–68ticks requested, actual movement≥12ticks, three stable samples and matching completion, abs(load)<=250, other-joint drift≤5, saved-range and command-envelope checks. It reports PARTIAL_CLOSURE_ONLY/PARTIAL_OPEN_ONLY, never a verified grasp. Up to24tick endpoint shortfall with load≥50 is possible_contact only. There is no empty-gripper reference proving contact force; friction can look identical. Verification requires the object following a measured lift in independent views.
 
-Owner temperature limit55°C, selected-arm load limit500; gripper diagnostic cap250. The packaged owner now releases a claw on a high reading and stops without automatic re-enable. It exposes `automatic_gripper_reenable:false` and increments `gripper_release_generation` for claw releases. A program must invalidate grip evidence whenever that generation changes. The older pure release/confirmation helper is retained for diagnostic regression tests; the powered owner does not call it.
+Selected-arm load limit500; gripper diagnostic cap250. The packaged owner exposes `automatic_gripper_reenable:false` and increments `gripper_release_generation` for claw releases. A program must invalidate grip evidence whenever that generation changes.
 
 ## Continuous trajectory protocol
 

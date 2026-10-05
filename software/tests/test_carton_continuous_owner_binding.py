@@ -42,9 +42,9 @@ class Rig:
         return SimpleNamespace(camera_id=self.identities[name],stream=self.streams[name],
             seq=self.seq+self.frame_seq_offset[name],stamp=self.now+self.frame_stamp_offset[name])
     def rows(self):
-        return {n:{'Present_Position':q,'Present_Temperature':36,'Present_Load':20,'Status':0} for n,q in self.q.items()}
+        return {n:{'Present_Position':q,'Present_Load':20,'Status':0} for n,q in self.q.items()}
     def guard(self):
-        if self.guard_fault:raise Refused('Independent owner thermal/STOP guard')
+        if self.guard_fault:raise Refused('Independent owner STOP guard')
     def write(self,goals):self.writes.append(goals.copy());self.q.update(goals)
     def stop(self):self.stops+=1
     def create(self):
@@ -116,7 +116,7 @@ def test_path_and_settling_local30second_horizon(tmp_path):
 
 
 @pytest.mark.parametrize('fault',[ 'oldest_motor','stream','relabel','future_sequence','bad_command',
-                                 'bad_session','stale_camera','guard','stop','thermal',
+                                 'bad_session','stale_camera','guard','stop',
                                  'following','corridor','status','tracking','rollback','load'])
 def test_every_fault_stops_before_another_sdk_callback(tmp_path,fault):
     rig=Rig(tmp_path/'session');owner=rig.create();command=rig.start(owner)
@@ -134,7 +134,6 @@ def test_every_fault_stops_before_another_sdk_callback(tmp_path,fault):
     if fault=='rollback':
         rig.vision(command,sequences={n:0 for n in rig.streams})
     rows=rig.rows()
-    if fault=='thermal':rows['right_arm_gripper']['Present_Temperature']=94
     if fault=='following':rows[PAN]['Present_Position']+=25
     if fault=='corridor':rows[PAN]['Present_Position']=1799
     if fault=='status':rows[PAN]['Status']=1

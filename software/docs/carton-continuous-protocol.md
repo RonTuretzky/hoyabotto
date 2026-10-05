@@ -17,8 +17,7 @@ in status, alongside the existing arm/session/health/row/lease fields.
 
 Require one command writer and the existing lease/STOP/strict coherent telemetry
 checks. Keep `automatic_gripper_reenable: false`; increment integer
-`gripper_release_generation` whenever jaw torque is released. Do not run the
-old release-and-reenable temperature path invisibly during a grasp.
+`gripper_release_generation` whenever jaw torque is released.
 
 Profile fields:
 
@@ -115,4 +114,4 @@ gripper health, synchronized grasp/lift evidence and final release.
 
 The fixture's 40-degree command and sub-30-second complete cycle are **synthetic
 software checks**. They do not establish real motor speed, collision clearance,
-contact physics, temperature validity, OAK availability or a physical grasp.
+contact physics, OAK availability or a physical grasp.

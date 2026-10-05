@@ -75,8 +75,8 @@ class ContinuousRig(RecipeRig):
                                                        session_started=self.s["started"], lease_remaining=self.s["lease_remaining"]))
                 if self.engine.active:
                     self.publish()
-                    if self.failure == "thermal" and len(self.writes) > 8:
-                        self.s["rows"]["right_arm_gripper"]["Present_Temperature"] = 94
+                    if self.failure == "load" and len(self.writes) > 8:
+                        self.s["rows"]["right_arm_gripper"]["Present_Load"] = 600
                     try:
                         self.s.update(self.engine.tick(self.s["rows"], read_json(self.folder / "trajectory-vision.json"),
                                                        telemetry_at=self.now))
@@ -128,7 +128,7 @@ def test_full_pickup_cycle_is_six_whole_paths_then_verified_release(tmp_path):
 
 
 @pytest.mark.parametrize("failure,reason", [("stuck", "following error"), ("vision", "Vision watchdog"),
-                                          ("thermal", "thermal/load"), ("restart", "stream mismatch"),
+                                          ("load", "load limit"), ("restart", "stream mismatch"),
                                           ("no_grasp", "Lift not verified"), ("slip", "retention lost")])
 def test_inflight_faults_stop_without_retry(tmp_path, failure, reason):
     rig = ContinuousRig(tmp_path / "owner", failure)

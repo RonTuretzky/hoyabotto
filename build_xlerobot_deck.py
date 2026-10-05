@@ -290,7 +290,7 @@ slide("05 · Roadmap slide 04 · closed-loop environment", f'''
   {mrow("Temperature + humidity<br><b>BASIC</b>", sensor_links("temp") + "<br>" + sensor_links("humidity"), "Water probe on arm; air chip on cart. Detect cold / damp.")}
   {mrow("Water use / weight<br><b>BASIC</b>", sensor_links("scale", "weights"), "Cart scale: water-loss proxy. Weigh cut shoots for yield.")}
   {mrow("Light<br><b>BASIC + optional</b>", sensor_links("lux") + "<br>Optional spectrum: " + sensor_links("spectrum"), "Wrist: brightness / optional spectrum. Not calibrated PAR.")}
-  {mrow("Growth / symptoms / wear<br><b>ALREADY INCLUDED</b>", "Robot cameras + servo telemetry · <b>$0 extra</b><br>Paper size-reference tags; reuse your Mac and powered hub.", "Photos show growth / symptoms; telemetry flags strain / heat.")}
+  {mrow("Growth / symptoms / wear<br><b>ALREADY INCLUDED</b>", "Robot cameras + servo telemetry · <b>$0 extra</b><br>Paper size-reference tags; reuse your Mac and powered hub.", "Photos show growth / symptoms; telemetry flags strain.")}
   {mrow("Leaks<br><b>BASIC</b>", sensor_links("leak"), "One fixed catch-tray pad. No sensors inside pods.")}
   {mrow("pH + conductivity<br><b>OPTIONAL chemistry</b>", sensor_links("ph", "ec") + "<br>" + sensor_links("kcl"), "Arm: acidity + salts. Both kits include calibration fluids.")}
   {mrow("Probe interface + care<br><b>WITH chemistry</b>", sensor_links("adc", "resistors", "rinse"), "Share ADC; dip separately, rinse, store pH wet in KCl.")}
@@ -321,7 +321,7 @@ slide("09 · Day by day · before you fly", f'''
   <div class="head">When</div><div class="head">Planned output</div><div class="head">Check without hardware</div>
   {mrow(L("Sep 19–20"), "Set up the development environment; record dependency versions. Draft pod, split-tray and scale-plate CAD for an A1.", "Imports work on the Mac. CAD exports; each tray half targets ≤ 150 × 200 mm including joints.")}
   {mrow(L("Sep 21–23"), "Draft tags.py, image measurement and the SQLite log. Prepare tag / checkerboard PDFs. Slice draft parts in Bambu Studio.", "Read sample images and generated tags. Record slicer dimensions, material and time estimates; no physical print.")}
-  {mrow(L("Sep 24–25"), "Draft round.py and sensor interfaces, scale firmware, watchdog and stop / retry logic.", "Mock serial readings and robot commands. Inject stale data, missing tags and excess temperature; confirm the scheduler stops.")}
+  {mrow(L("Sep 24–25"), "Draft round.py and sensor interfaces, scale firmware, watchdog and stop / retry logic.", "Mock serial readings and robot commands. Inject stale data and missing tags; confirm the scheduler stops.")}
   {mrow(L("Sep 26–27"), "Draft the botany notebook and approval screen; run a complete simulated round.", "Synthetic data stays labelled simulated. Unapproved recipes cannot become robot tasks. Export logs and resume after a mock crash.")}
   {mrow(L("Sep 28–29"), "Freeze the environment; save repos, CAD, PDFs and draft slicer projects offline. Write the Sep 30 checklist.", "Re-run the software checks offline. Leave calibration values unset until the real robot is present.")}
 </div>
@@ -384,7 +384,7 @@ slide("14 · Roadmap slide 08 · highest-value thesis", f'''
 <h2>Co-design the farm, the reasoner and the robot as one machine.</h2>
 <div class="grid-3" style="margin-top:18px">
   <div class="card"><div class="num">ROBOT-SERVICEABLE INFRASTRUCTURE</div><h3>The interface is the product</h3><p>Everything the robot touches is a rigid plastic part with a ± 5 mm target: a pod lip, a cone base, a tile guide. This cheap arm is loose by about a degree, and it never has to be better than that. FarmBot, Jubilee, Opentrons and every 95 %-success transplanter teach the same lesson.</p></div>
-  <div class="card" style="background:linear-gradient(150deg, rgba(94,214,222,.10), rgba(255,255,255,.018))"><div class="num">AI FAILURE DIAGNOSIS</div><h3>Three kinds of clue</h3><p>{W("Machine:")} motor temperature and strain, docking retries. {W("Sensor:")} scale disagreeing with itself, tags going missing. {W("Plant:")} growth slowing, colour shifting, weight not dropping. Every fault you cause on purpose is labelled; the agent learns from your farm's own failure log.</p></div>
+  <div class="card" style="background:linear-gradient(150deg, rgba(94,214,222,.10), rgba(255,255,255,.018))"><div class="num">AI FAILURE DIAGNOSIS</div><h3>Three kinds of clue</h3><p>{W("Machine:")} motor strain, docking retries. {W("Sensor:")} scale disagreeing with itself, tags going missing. {W("Plant:")} growth slowing, colour shifting, weight not dropping. Every fault you cause on purpose is labelled; the agent learns from your farm's own failure log.</p></div>
   <div class="card"><div class="num">VERIFIED ROBOTIC REPAIR</div><h3>Repair = replace, then prove</h3><p>A deliberately small vocabulary: swap a pod, swap a tile, top up, recalibrate, re-seat. Each ends with a check — re-weigh, re-photograph, re-read the tag — before the log entry closes. The farm is designed so those five verbs are enough.</p></div>
 </div>''', "Reconciliation · thesis")
 
@@ -463,7 +463,7 @@ slide("20 · The daily round", f'''<h2>Eight steps, scripted, twice a day.</h2><
 <div class="grid-3" style="margin-top:8px">
   <div class="card"><h3>Finding its way</h3><p>Paper AprilTags on the floor and the table edge. It approaches slowly, stops within 2 cm, retries up to three times, then calls you.</p></div>
   <div class="card"><h3>Why scripted</h3><p>Teaching this arm by demonstration takes hundreds of examples for 60–90 % success and fails on anything new. A tag-referenced script is quicker to write and more reliable.</p></div>
-  <div class="card"><h3>Protection</h3><p>A watchdog checks every motor's temperature and strain ten times a second. Work is seconds long, rests are minutes long.</p></div>
+  <div class="card"><h3>Protection</h3><p>A watchdog checks every motor's strain ten times a second. Work is seconds long, rests are minutes long.</p></div>
 </div>''', "The robot", fig=True)
 
 slide("21 · On the cart", f'''<h2>What rides where.</h2><div style="margin-top:8px">{FIG_CART}</div>''', "The robot", fig=True)

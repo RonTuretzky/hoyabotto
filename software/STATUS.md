@@ -1,5 +1,15 @@
 # Where the build stands
 
+## Servo temperature sensing removed — 2026-10-05
+
+- At the owner's direction the software no longer reads or acts on servo temperature anywhere: the `farm` safety
+  rules, `farm robot-test`, `farm mcp`, the simulator, and the carton motor owner and its clients.
+  `farm soak` and the profile key `servo_temp_max_c` are gone.
+- Load, step, travel, watchdog, lease and STOP checks are unchanged, and a nonzero servo `Status` byte still stops
+  the carton owner.
+- A robot-Mac working copy of the carton owner outside this repository (`work/`) keeps its old checks until the
+  packaged scripts in `software/scripts/carton_robot/` replace it.
+
 ## OAK-D Lite test — 2026-10-05
 
 - User has an OAK-D Lite connected to the development Mac, separate from the
@@ -76,7 +86,7 @@ Run from Terminal (camera permission is per app), inside `software/` with the en
    - Automatic (decided 2026-10-03 to try it; **never run on this robot**): `farm calibrate --auto --arm left`, then `--arm right`, then `farm calibrate --head`. Go up in stages first (`--motor gripper`, `--motor wrist_roll`, `--unfold-only`); the `farm-bringup` skill, Step 4B, has the procedure and what to do when a stage goes wrong. Write down what happened here.
 
    Then `farm calibration-report`: reads the saved file and flags a wrapped reading, a short sweep, or arms that disagree, before anything moves.
-4. `farm robot-test`, then `farm robot-test --move --ask`: motors only (no cameras, no models, no trays). The first reads every joint, temperature and load. The second nudges one joint at a time and asks whether the named part moved; this catches swapped left/right boards and swapped head motors. Start with the arms folded; the motors go limp when it ends.
+4. `farm robot-test`, then `farm robot-test --move --ask`: motors only (no cameras, no models, no trays). The first reads every joint and load. The second nudges one joint at a time and asks whether the named part moved; this catches swapped left/right boards and swapped head motors. Start with the arms folded; the motors go limp when it ends.
 5. `farm check`: connects everything and has the vision model confirm which camera is which.
 6. Put the bottle, paddle and trays in their fixed places, then `farm teach-all`.
 7. `farm once --tray B` with an empty bottle; authorize from the viewer (http://localhost:8765).
@@ -100,7 +110,7 @@ Stop at any point with the red STOP button in the viewer.
 
 ## Built after the community review, not yet run on the robot
 
-`farm calibration-report`, `farm robot-test`, `farm calibrate --auto` and `--head`, `farm soak`, `farm mcp`, and `farm policy-server` with `farm policy-test --server`. All pass on the simulator, except that the limit-seeking motion inside `farm calibrate --auto` (LeRobot PR #3282, vendored) cannot be simulated and is untested here. The README has a table of them; `docs/community-projects.md` is the review they came from.
+`farm calibration-report`, `farm robot-test`, `farm calibrate --auto` and `--head`, `farm mcp`, and `farm policy-server` with `farm policy-test --server`. All pass on the simulator, except that the limit-seeking motion inside `farm calibrate --auto` (LeRobot PR #3282, vendored) cannot be simulated and is untested here. The README has a table of them; `docs/community-projects.md` is the review they came from.
 
 Decided 2026-10-03: teaching by hand was removed (no human operation, no exceptions); the two-computer policy server (`docs/gpu-server.md`) is parked until the existing checkpoint has been tried on the robot.
 

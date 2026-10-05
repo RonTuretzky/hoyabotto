@@ -1,7 +1,7 @@
 """Client of the Mac's existing guarded session. Never opens a motor port.
 
-The motor owner retains STOP, speed, torque, temperature, travel and lease
-checks. Commands remain one joint at a time. This client adds a much smaller
+The motor owner retains STOP, speed, torque, travel and lease checks.
+Commands remain one joint at a time. This client adds a much smaller
 total experiment envelope, strict acknowledgements, and measured settling.
 """
 from __future__ import annotations
@@ -85,8 +85,6 @@ class SessionTransport:
         for name, row in rows.items():
             if finite(row.get("Status"), "motor status") != 0:
                 raise Refused(f"{name}: motor fault")
-            if finite(row.get("Present_Temperature"), "temperature") >= self.limits.temperature_c:
-                raise Refused(f"{name}: temperature limit")
             if abs(finite(row.get("Present_Load"), "load")) >= self.limits.load_raw:
                 raise Refused(f"{name}: load limit")
             q[name] = finite(row.get("Present_Position"), "encoder position")

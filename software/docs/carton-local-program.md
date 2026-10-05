@@ -96,7 +96,7 @@ without a `finish` retains a healthy supervised session and is not unattended.
 The owner must publish `gripper_release_generation` and
 `automatic_gripper_reenable: false`. Any unplanned jaw release invalidates the
 grasp. The program never resets a fault budget or silently releases/regrips.
-Motor thermal/load faults, encoder lag, stale vision, stale telemetry, tick
+Motor load faults, encoder lag, stale vision, stale telemetry, tick
 watchdog expiry and STOP interrupt a trajectory. Existing strict telemetry
 validation and the owner's torque/release policy remain authoritative.
 
@@ -147,7 +147,7 @@ or image Jacobians must not be silently reused.
 ## Verification boundary
 
 Tests exercise the actual command/status file transport plus synthetic image
-features, thermal faults, absent grasp, lost retention, springback, stale models,
+features, load faults, absent grasp, lost retention, springback, stale models,
 missing commissioning data and strict depth manifests. They open no motor or
 camera devices and do not simulate carton contact mechanics. Hardware speed,
 grasp reliability and folding success require separate physical evidence.

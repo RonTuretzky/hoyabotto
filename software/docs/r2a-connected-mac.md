@@ -19,7 +19,7 @@ coupon. It reuses the printed original trough. Completion and usable parts have 
    on this Mac; do not replace it with a development or simulator file.
 4. Continue the repository's `farm-bringup` skill at the post-calibration checks: motors-only readback,
    supervised joint identity checks, then camera identity/freshness verification. Preserve the wheels-off
-   setting and existing motion, watchdog, temperature and load limits.
+   setting and existing motion, watchdog and load limits.
 
 ## Physical setup for the assembly milestone
 

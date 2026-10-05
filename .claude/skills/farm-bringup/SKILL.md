@@ -138,7 +138,7 @@ Stages 1 to 3 change settings stored inside the servos (offset and limits) witho
 farm robot-test
 ```
 
-Reads every joint, temperature and load; nothing moves. Every row should have a number and the last line should be `ALL OK`.
+Reads every joint and load; nothing moves. Every row should have a number and the last line should be `ALL OK`.
 
 Then the moving test. Tell the user first: arms folded at rest, hands clear, each joint will move a few degrees and return, and the motors go limp when it finishes. Because it asks a question after each joint, the user runs it in their Terminal window:
 

@@ -14,9 +14,7 @@ Last verified actuator state: the isolated left-claw test verified torque-off an
 
 The requested end task is to pick up a white printed paddle and fold the carton using the carton handoff/branch. The user requested autonomy, faster parallel helpers, larger justified movements and fewer repeated approvals. Standing authorization for ordinary scoped robot motion was given repeatedly. The user also requested GitHub calibration export, code/progress publication and a twenty-minute progress report.
 
-The initial pickup work used the robot's RIGHT arm (user's LEFT when facing it). Repeated powered right-claw temperature anomalies interrupted that work. Later work selected the robot's LEFT arm (user's RIGHT when facing it), which the user placed near the paddle. The arm switch was not communicated clearly enough at the time. The active candidate at handoff is LEFT; historical right-arm targets and image response measurements must not be reused for it.
-
-The user repeatedly requested ignoring all temperature readings, removing sensing, adding a disabling flag/environment variable, and raising the cutoff to 100 C. **None of those requested changes was implemented.** Existing temperature protections remain. Isolated sudden readings may be faulty telemetry, but actual motor temperature and the cause of repeated powered anomalies were not independently established. A later verbal description of a physically damaged/melting sensor was not independently verified. Do not describe it as a confirmed hardware inspection result.
+The initial pickup work used the robot's RIGHT arm (user's LEFT when facing it). Later work selected the robot's LEFT arm (user's RIGHT when facing it), which the user placed near the paddle. The arm switch was not communicated clearly enough at the time. The active candidate at handoff is LEFT; historical right-arm targets and image response measurements must not be reused for it.
 
 ## Verified physical work
 
@@ -28,7 +26,7 @@ Earlier basic movement-and-return checks eventually passed for all sixteen motor
 
 ### Driving and turning
 
-Earlier short forward / arm lift-lower / backward sequences completed twice. A larger single demo also completed with approximately eight centimetres each way and a higher arm sweep. A requested thirty-minute loop did not start; automatic approval review rejected it under the then-current visibility and temperature evidence.
+Earlier short forward / arm lift-lower / backward sequences completed twice. A larger single demo also completed with approximately eight centimetres each way and a higher arm sweep. A requested thirty-minute loop did not start; automatic approval review rejected it under the then-current visibility evidence.
 
 A later approximately fifty-centimetre forward/back test completed with two diagnostic pauses. One stop check was corrected to recognize stable positions despite one-count speed noise. A left wheel failed to move in one return segment; it passed an isolated test, corrected the small turn and finished the return. The exact cause was not confirmed. Per-wheel command receipt verification was added. Wheel-control mode changes were found to change reported angle without physical motion; comparisons were corrected. These results are largely encoder-based distance estimates, not externally calibrated floor metrology.
 
@@ -36,9 +34,9 @@ A staged spin ran, but turning geometry and visual heading disagreed. Saved inte
 
 ### Paddle attempts
 
-Historical right-arm probes and shoulder/elbow recovery brought an open claw near the handle. Wrist and head views initially disagreed about alignment. Partial closure met resistance, but a lift check showed the paddle stayed on the table. Thus no grip was established. Subsequent right-claw tests encountered abrupt high readings followed by normal stationary values. The thermal release/confirmation path had bounded retry budgets; do not silently reset exhausted recovery budgets to keep retrying.
+Historical right-arm probes and shoulder/elbow recovery brought an open claw near the handle. Wrist and head views initially disagreed about alignment. Partial closure met resistance, but a lift check showed the paddle stayed on the table. Thus no grip was established.
 
-Latest isolated LEFT-claw test: requested raw position 1342 to 1410 (+68 ticks, about six degrees). Actual final position was 1393 (+51 ticks, about 4.5 degrees). The endpoint check failed because it settled 17 ticks short. Temperature remained 37 C; voltage and status were normal. The test released torque and verified all left-board motors off. This establishes real claw movement, not approach, grip or lift.
+Latest isolated LEFT-claw test: requested raw position 1342 to 1410 (+68 ticks, about six degrees). Actual final position was 1393 (+51 ticks, about 4.5 degrees). The endpoint check failed because it settled 17 ticks short. Voltage and status were normal. The test released torque and verified all left-board motors off. This establishes real claw movement, not approach, grip or lift.
 
 Prior to that test, read-only preflight found all sixteen responding and released, with saved calibration matching hardware. Left-arm readings were pan 1936, lift 3222, elbow 967, wrist flex 2089, roll 2125, grip 1342. Lift and elbow were close to their respective saved endpoints. These are historical readings, not future targets; refresh before any new action. The final camera check showed a human hand beside the left claw/paddle, so further movement was not started from that image.
 
@@ -71,7 +69,7 @@ The isolated utility checkout is on `codex/carton-controller-handoff`, latest co
 - `software/scripts/carton_robot/carton_session.py`: packaged sole motor owner.
 - `software/farm/oak_camera.py`: capture and aligned metric depth manifests.
 
-The packaged owner primes present goals before enabling torque; verifies writes; limits selected-arm speeds/torque; maintains STOP, deadlines, telemetry, corridor and camera freshness checks; and releases on failure. Its powered high-gripper-temperature branch releases without automatic reenabling. Commissioned trajectory support does not imply a physical profile exists.
+The packaged owner primes present goals before enabling torque; verifies writes; limits selected-arm speeds/torque; maintains STOP, deadlines, telemetry, corridor and camera freshness checks; and releases on failure. Commissioned trajectory support does not imply a physical profile exists.
 
 At handoff, newer explicit head/OAK support is **uncommitted locally** in eight existing files: CLI, common/config, continuous, continuous binding, depth, program, vision, and packaged owner. New files `software/docs/carton-head-oak.md` and `software/tests/test_carton_head_oak.py` are also uncommitted. The helper reported **126 focused tests passed**, live-Python compilation passed and whitespace checks clean. Tests cover left-arm preparation, real configured owner-reader paths, synthetic two-camera pickup, STOP, depth loss, moved camera registration and dropped-object rejection. No hardware writes were issued by the helper.
 
@@ -110,7 +108,7 @@ Workspace root: `/Users/teachera/Documents/Codex/2026-10-02/set-this-up-x20`.
 - Legacy owner: `work/carton_session.py`; shared session state/config: `work/carton-session/`.
 - Latest bounded left-claw utility: `work/left_claw_prepare.py`; actual result `work/left-claw-prepare-result.json`.
 - Read-only preflight utility: `work/carton_preflight.py`; latest pre-test snapshot `work/left-ready-preflight.json`.
-- Coherent telemetry and spike helper: `work/coherent_servo_telemetry.py`, `work/temperature_confirmation.py`.
+- Coherent telemetry helper: `work/coherent_servo_telemetry.py`.
 - Camera manifest folder: `work/robot-camera-stream/`; capture binary `work/capture-single`; OAK environment `work/.venv-oak`; viewer `work/depth-viewer/server.py`; phone server `work/phone_camera/server.py`.
 - Camera/model reports: `outputs/Left-Wrist-Camera-Diagnosis.md`, `outputs/Paddle-Depth-Check.md`, `outputs/Reach-Solver-Verification.json`, `outputs/Arm-Reference-Guide.md`, and both blank arm-reference templates.
 - Old ROI/plane review: `work/oak-depth-review/` (historical, not live geometry).

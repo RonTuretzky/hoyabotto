@@ -38,7 +38,6 @@ trays:
 limits:
   pour_tilt_max_deg: 40
   pour_s_max: 4
-  servo_temp_max_c: 55
   servo_load_max: 800
   watchdog_s: 0.5
   step_deg_max: 6

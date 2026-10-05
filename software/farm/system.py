@@ -211,7 +211,7 @@ class System:
             return False
 
     def idle_rest(self, seconds: float) -> None:
-        """Between cycles: rest the arms, release torque so servos cool, watch temperature, then re-engage."""
+        """Between cycles: rest the arms, release torque, watch servo load, then re-engage."""
         from .safety.rules import check_health
         try:
             self.skills.go_rest()

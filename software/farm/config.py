@@ -67,7 +67,6 @@ class ArmsCfg:
 class LimitsCfg:
     pour_tilt_max_deg: float = 40.0
     pour_s_max: float = 4.0
-    servo_temp_max_c: float = 55.0
     servo_load_max: int = 800            # raw Present_Load ceiling (STS3215 scale 0..1000)
     watchdog_s: float = 0.5
     step_deg_max: float = 6.0            # per-tick joint step for LLM-servo moves

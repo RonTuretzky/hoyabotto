@@ -87,8 +87,8 @@ class TrajectoryExecutor:
         for n, row in rows.items():
             if finite(row["Status"]) != 0:
                 raise Refused(f"{n}: motor fault")
-            if finite(row["Present_Temperature"]) >= 55 or abs(finite(row["Present_Load"])) >= 500:
-                raise Refused(f"{n}: thermal/load limit")
+            if abs(finite(row["Present_Load"])) >= 500:
+                raise Refused(f"{n}: load limit")
             q[n] = finite(row["Present_Position"])
             lo, hi = self.profile["corridor"][n]
             if not lo <= q[n] <= hi:

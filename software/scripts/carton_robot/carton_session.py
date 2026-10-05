@@ -18,45 +18,6 @@ from farm.config import load_profile
 from farm.adapters.robot_lerobot import LeRobotXLeRobot
 from strict_servo_replies import guard_replies
 from elbow_recovery_plan import recovery_target
-from temperature_confirmation import confirm_temperature
-
-def confirm_gripper_spike(row, phase, goal, calibration, attempts,
-                          release, read_sample, write, sleep, record, guard):
-    """Release/confirm a suspect gripper reading, then restore the same goal."""
-    if row['Present_Temperature'] <= 55:
-        return row, attempts
-    if phase not in ('holding','moving') or row['Status'] or abs(row['Present_Load'])>250:
-        raise RuntimeError('Right gripper temperature confirmation is not eligible')
-    if attempts >= 2:
-        raise RuntimeError('Right gripper temperature confirmation budget exhausted')
-    record('gripper_temperature_trigger',row.copy())
-    samples=[]
-    def followup():
-        guard()
-        fresh=read_sample()
-        record('gripper_temperature_confirmation',fresh.copy())
-        samples.append(fresh)
-        if abs(fresh['Present_Load'])>250:
-            raise RuntimeError('Right gripper confirmation load limit')
-        return {'temperature':fresh['Present_Temperature'], 'status':fresh['Status'],
-                'torque':fresh['Torque_Enable']}
-    def wait(seconds):
-        guard();sleep(seconds);guard()
-    confirm_temperature(row['Present_Temperature'],55,release,followup,wait)
-    current=samples[-1]['Present_Position']
-    if not calibration.range_min <= current <= calibration.range_max:
-        raise RuntimeError('Released gripper outside saved range')
-    if type(goal) is not int or not calibration.range_min <= goal <= calibration.range_max or abs(goal-current)>68:
-        raise RuntimeError('Original gripper goal no longer within its bounded step')
-    guard()
-    write('Goal_Position',current)
-    write('Torque_Enable',1)
-    write('Lock',1)
-    write('Goal_Position',goal)
-    record('gripper_temperature_resumed',{'current':current,'original_goal':goal})
-    resumed=samples[-1].copy()
-    resumed.pop('Torque_Enable',None)  # Released-state readback remains in confirmation log.
-    return resumed, attempts+1
 from coherent_servo_telemetry import read_servo_telemetry
 
 def plan_delta(current, delta, calibration, selected):
@@ -215,17 +176,8 @@ def run(arm, recover_right_elbow=False):
                 if row['Goal_Position'] != goals[n]:
                     raise RuntimeError('Elbow live goal changed during recovery')
             c=r.calibration[n]
-            if n.endswith('gripper') and row['Present_Temperature']>55:
-                # A suspect sensor does not justify automatically repowering a claw.
-                state['gripper_release_generation']+=1
-                bus.disable_torque([n],num_retry=3)
-                if read(n,'Torque_Enable')!=0:
-                    raise RuntimeError('Hot gripper release not verified')
-                history.write(json.dumps({'event':'gripper_thermal_release','time':time.time(),
-                    'motor':n,'row':row,'generation':state['gripper_release_generation']})+'\n')
-                raise RuntimeError(f'{n}: temperature above55C; released without automatic reenable')
             rows[n]=row
-            if row['Status'] or row['Present_Temperature'] > 55 or abs(row['Present_Load']) > 500:
+            if row['Status'] or abs(row['Present_Load']) > 500:
                 raise RuntimeError(f'{n}: health limit or fault')
             if recovery and n==recovery[0]:
                 if abs(row['Present_Load'])>400 or abs(row['Present_Velocity'])>200:
@@ -280,7 +232,7 @@ def run(arm, recover_right_elbow=False):
             for f,v in [('Homing_Offset',c.homing_offset),('Min_Position_Limit',c.range_min),('Max_Position_Limit',c.range_max)]:
                 if read(n,f)!=v: raise RuntimeError(f'{n}: calibration mismatch')
             if read(n,'Operating_Mode')!=0: raise RuntimeError(f'{n}: not position mode')
-            if read(n,'Status') or read(n,'Present_Temperature')>55: raise RuntimeError(f'{n}: preflight health')
+            if read(n,'Status'): raise RuntimeError(f'{n}: preflight health')
             current[n]=read(n,'Present_Position')
             old[n]={f:read(n,f) for f in ('Lock','Goal_Velocity','Goal_Time','Acceleration','Torque_Limit','P_Coefficient')}
         outside=[n for n in selected if not r.calibration[n].range_min<=current[n]<=r.calibration[n].range_max]

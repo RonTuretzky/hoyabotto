@@ -33,7 +33,6 @@ def decode_telemetry(data, communication, packet_error):
         'Present_Velocity': signed(word(2), 15),
         'Present_Load': signed(word(4), 10),
         'Present_Voltage': data[6],
-        'Present_Temperature': data[7],
         'Status': data[9],
         'Moving': data[10],
         'Present_Current': word(13),

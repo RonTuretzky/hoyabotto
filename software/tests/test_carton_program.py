@@ -60,8 +60,8 @@ class RecipeRig(FileMotorOwner):
         for i, name in enumerate(FLAPS):
             if x >= 25+i*8:
                 self.closed.add(name)
-        if self.failure == "temperature" and self.q["right_arm_gripper"] != 2000:
-            self.s["rows"]["right_arm_gripper"]["Present_Temperature"] = 94
+        if self.failure == "load" and self.q["right_arm_gripper"] != 2000:
+            self.s["rows"]["right_arm_gripper"]["Present_Load"] = 600
             from carton.servo.common import atomic_json
             atomic_json(self.folder / "status.json", self.s)
 
@@ -108,7 +108,7 @@ def test_continuous_program_uses_one_owner_and_does_not_stop_between_phases(tmp_
 
 
 @pytest.mark.parametrize("failure,reason", [("no_grasp", "Lift not verified"), ("slip", "retention lost"),
-                                            ("springback", "flap evidence failed"), ("temperature", "temperature limit")])
+                                            ("springback", "flap evidence failed"), ("load", "load limit")])
 def test_failed_physical_evidence_or_health_stops_without_retry(tmp_path, failure, reason):
     rig = RecipeRig(tmp_path / "owner", failure)
     with pytest.raises(Refused, match=reason):

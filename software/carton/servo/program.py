@@ -586,7 +586,7 @@ def execute(recipe, config, model, out, *, execute=False):
             result = program.run(model)
     except BaseException as exc:
         # Context manager requests the owner's existing STOP policy on failure.
-        # Never retry an unreliable temperature read or re-energize a stopped arm.
+        # Never re-energize a stopped arm.
         result = {"status": "PROGRAM_STOPPED", "reason": str(exc),
                   "stage": program.stage if program else "preflight", "physical_task_completed": False,
                   "verified_flaps": program.folded if program else [], "path_ticks": transport.path_ticks}

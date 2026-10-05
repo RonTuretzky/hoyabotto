@@ -85,10 +85,9 @@ class LeRobotXLeRobot:
             r = self.robot
             out: dict[str, dict[str, float]] = {}
             for bus, motors in ((r.bus1, r.left_arm_motors + r.head_motors), (r.bus2, r.right_arm_motors)):
-                temp = bus.sync_read("Present_Temperature", motors, normalize=False)
                 load = bus.sync_read("Present_Load", motors, normalize=False)
                 for m in motors:
-                    out[m] = {"temperature": float(temp[m]), "load": float(load[m])}
+                    out[m] = {"load": float(load[m])}
             return Reading(out, Status.OK, source=self.name)
         except Exception as e:
             return invalid(self.name, f"health read failed: {e}")

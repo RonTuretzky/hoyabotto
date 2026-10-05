@@ -206,7 +206,7 @@ The October 4 follow-up resolves these teaching CLI gaps:
   software sequence now, but still needs physical testing with a marked strip and an already-closed box.
 
 Then teach and verify one pose/step at a time with STOP and physical power cutoff available. Preserve
-the existing step/temperature/load limits. Reset the carton as needed; never use simulator keyframes
+the existing step/load limits. Reset the carton as needed; never use simulator keyframes
 as real poses. Once all prerequisites and actual observations pass, the single-cycle command is:
 
 ```sh

@@ -254,7 +254,7 @@ def test_read_only_cli_binds_real_kinematics_to_existing_session(tmp_path, model
                "tool_poses": [arm.solver.forward([3, -3, 3, -3, 3]).tolist()]}
     request_path = tmp_path / "request.json"; atomic_json(request_path, request)
     status = {"arm": "right", "phase": "holding", "ok": True, "started": time.time()-10, "lease_remaining": 180,
-              "rows": {n: {"Present_Position": q, "Present_Load": 0, "Present_Temperature": 30, "Status": 0}
+              "rows": {n: {"Present_Position": q, "Present_Load": 0, "Status": 0}
                        for n, q in rig.q.items()}}
     rig.now = time.time()-.2; rig.publish()
     atomic_json(session / "status.json", {**status, "time": time.time()})

@@ -82,10 +82,10 @@ Its STOP viewer remains reachable. The new client writes its existing
 Confirm this contract against the current owner before powered tests:
 
 - `arm`, `phase`, `ok`, `started`, `time`, `lease_remaining`, and all six selected
-  arm `rows` with raw `Present_Position`, `Present_Load`, `Present_Temperature`, `Status`.
+  arm `rows` with raw `Present_Position`, `Present_Load`, `Status`.
 - One-joint `{id, op: "move", delta_ticks: {joint: integer}}` commands; an exact
   `completed` ID; `{id, op: "stop"}` retains the owner's established stop policy.
-- Saved travel ranges and existing speed, torque, temperature, load and lease checks.
+- Saved travel ranges and existing speed, torque, load and lease checks.
 
 Stop the old manual command producer before giving this client command ownership.
 The new clients share a file lock and detect foreign command writes, but the old

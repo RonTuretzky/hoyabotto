@@ -13,7 +13,7 @@ def payload(position=3198, velocity=0, load=0, status=0):
     for offset, value in ((0, position), (2, velocity), (4, load), (13, 513)):
         data[offset:offset+2] = [value & 255, value >> 8]
     data[6], data[7], data[9], data[10] = 120, 37, status, 1
-    # Reserved bytes must not be mistaken for temperature/status/current.
+    # Reserved bytes must not be mistaken for status/current.
     data[8], data[11], data[12] = 255, 254, 253
     return data
 
@@ -28,7 +28,7 @@ def test_one_complete_transaction_and_exact_field_offsets():
                           packet_handler=SimpleNamespace(readTxRx=read))
     assert read_servo_telemetry(bus, 'elbow') == {
         'Present_Position': 3198, 'Present_Velocity': 0, 'Present_Load': 0,
-        'Present_Voltage': 120, 'Present_Temperature': 37, 'Status': 0,
+        'Present_Voltage': 120, 'Status': 0,
         'Moving': 1, 'Present_Current': 513}
     assert calls == [(port, 3, 56, 15)]
 

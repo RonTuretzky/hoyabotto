@@ -1,7 +1,7 @@
 """Robot-only self-test: motors and nothing else (no cameras, no LLM, no trays).
 
-Stage 1 (always, no motion beyond holding position): connect, read every joint,
-temperature and load.
+Stage 1 (always, no motion beyond holding position): connect, read every joint
+and load.
 
 Stage 2 (--move): nudge one joint at a time by a few units and bring it back,
 naming the joint first, so a person can watch that the named joint is the one
@@ -92,7 +92,7 @@ def nudge(robot, joint: str, delta: float = 5.0, tol: float = 2.0, timeout_s: fl
 
 def run(robot, move: bool = False, delta: float = 5.0, only: str | None = None,
         ask: Callable[[str], str] | None = None, out: Callable[[str], None] = print,
-        sleep: Callable[[float], None] = time.sleep, temp_max_c: float = 55.0) -> dict[str, Any]:
+        sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
     """Run the self-test on an already-connected robot adapter. Returns {ok, joints, health, nudges, problems}."""
     problems: list[str] = []
     groups = [only] if only else ["head", "left", "right"]
@@ -103,13 +103,10 @@ def run(robot, move: bool = False, delta: float = 5.0, only: str | None = None,
     if not pos.ok:
         problems.append(f"joint read failed: {pos.note}")
         return {"ok": False, "problems": problems, "joints": {}, "health": {}, "nudges": []}
-    out(f"{'joint':<26}{'position':>10}{'temp C':>8}{'load':>7}")
+    out(f"{'joint':<26}{'position':>10}{'load':>7}")
     for j in joints:
         h = (health.value or {}).get(j, {}) if health.ok else {}
-        t = h.get("temperature")
-        out(f"{j:<26}{pos.value[j]:>10.1f}{(f'{t:.0f}' if t is not None else '-'):>8}{(str(int(h['load'])) if 'load' in h else '-'):>7}")
-        if t is not None and t > temp_max_c:
-            problems.append(f"{j}: {t:.0f} C is above {temp_max_c:.0f} C")
+        out(f"{j:<26}{pos.value[j]:>10.1f}{(str(int(h['load'])) if 'load' in h else '-'):>7}")
     if not health.ok:
         problems.append(f"health read failed: {health.note}")
 

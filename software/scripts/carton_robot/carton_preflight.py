@@ -18,7 +18,7 @@ def run():
             bus.connect(handshake=False)
             for name in bus.motors:
                 row = {'name': name}
-                for field in ('Torque_Enable', 'Status', 'Present_Position', 'Present_Temperature', 'Present_Load', 'Present_Voltage', 'Operating_Mode'):
+                for field in ('Torque_Enable', 'Status', 'Present_Position', 'Present_Load', 'Present_Voltage', 'Operating_Mode'):
                     row[field] = int(bus.read(field, name, normalize=False, num_retry=3))
                 if name in robot.calibration and not name.startswith('base_'):
                     cal = robot.calibration[name]
