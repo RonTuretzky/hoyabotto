@@ -1,25 +1,29 @@
 # Robot bring-up status
 
-Updated: 2026-10-05 15:36 JST (Asia/Tokyo).
+Updated: 2026-10-05 15:56 JST (Asia/Tokyo).
 
 ## Verified physical progress
 
-Motor calibration remains saved for both arms and the head. Earlier basic checks passed for all sixteen motors and earlier forward/back drive tests completed. No new autonomous motor movement, grasp, lift or carton fold has been verified since the previous report. The paddle remains ungrasped. This reporting run sent no motor commands and changed no calibration.
+Motor calibration remains saved for both arms and the head. Earlier basic movement checks passed for all sixteen motors, and earlier forward/back drive tests completed.
+
+A new isolated left-claw opening moved from encoder tick 1342 to 1393, approximately 4.5 degrees. Its requested endpoint was 1410, so the endpoint check failed by 17 ticks. Recorded temperature was 37 degrees Celsius, with normal voltage and no motor fault flag. Torque-off and release of all left-board motors were verified afterward. The other board was not commanded during this test. This is confirmed claw movement, not a confirmed grip. No paddle grasp, lift or carton fold has been verified.
 
 ## Software progress
 
-Measured-reference angle/encoder/normalized-unit conversion and guarded continuous-controller integration remain committed locally as e8d369c. The focused controller/reference suite passed 109 tests. The isolated pinned geometry solver passed three actual URDF numerical pose checks, with maximum numerical position error below 0.3 mm; 22 upstream geometry/perception tests passed. These are software results, not physical pickup evidence. Source publication remains pending exact-payload approval; only this status file is published by this automation.
+Explicit head-plus-OAK support is implemented locally in preparation, camera audit, packaged motor-owner readers, continuous-controller binding and grasp observation. OAK retains its actual identity and aligned metric depth; it is not relabeled as a wrist camera. Fixed-camera retention uses a metric paddle-to-tool displacement rather than wrist-relative image coordinates. No camera-to-arm transform or physical reference was invented.
 
-## New camera diagnosis
+The helper reported 126 focused tests passed, compilation passed and whitespace checks clean. Tests include left-arm preparation and synthetic two-camera pickup observations, STOP, depth loss, camera movement and dropped-object rejection. These are software tests; they do not establish a physical grasp or deployed full-arm reach.
 
-The left-wrist camera briefly produced fresh frames after a restart, then froze. With the unused right-wrist producer disabled, the head continued at approximately five frames per second while the left camera delivered zero callbacks for roughly seventy seconds. No timestamp rejections occurred. The negotiated mode was 640 by 480 YUV with minimum and maximum frame duration 0.2 seconds, so this was not merely application-level frame throttling.
+The previously verified reference conversion and guarded controller integration remain committed locally as e8d369c. The isolated pinned geometry solver passed three numerical URDF pose checks with maximum position error below 0.3 mm, and 22 upstream geometry/perception tests passed. Source publication remains pending exact-payload approval; this automation publishes only this report.
 
-The camera advertises a lower 320 by 240 / five-fps mode. Attempts to use it encountered an intermittently missing device and a macOS camera-device error before frame delivery. Disabling the right feed did not recover the left; shared USB bandwidth is a hypothesis, not a confirmed cause. No sustained thirty-frame recovery has been verified.
+## Cameras and current blockers
 
-The head and right-wrist publishers were restored. The depth publisher had reached its timed capture limit and was restarted. All three were confirmed fresh at the last camera check; this is not a claim of a new check during the reporting run.
+The user selected head plus OAK depth operation; right-wrist capture was disabled. Both selected feeds were confirmed fresh at the latest image check. The left-wrist capture fault remains unresolved but is not a prerequisite for this selected two-camera mode.
 
-## Current blockers and next steps
+The latest reviewed images showed the user's hand beside the left claw and paddle. No further movement was started from that image. Handle occlusion and missing measured jaw baselines, model reference angles/direction signs and camera-to-arm registration still prevent a validated planned pickup. Earlier powered right-claw temperature anomalies remain unresolved. Thermal protections have not been removed or raised.
 
-Reconnect only the left wrist camera USB data cable, preferably directly to the Mac temporarily to isolate the hub. Leave motor-power wiring unchanged. After reconnecting, verify at least thirty consecutive fresh frames with advancing source timestamps before relying on the stream. Use head/wrist views for jaw geometry and depth for distances rather than requiring one view to show everything.
+## Next steps
 
-Refresh scene references after camera or arm changes, establish a measured local approach or physical model reference, verify clearance, then attempt a bounded paddle grasp and lift. The earlier powered right-claw reading anomalies and uncertain narrow-handle depth remain unresolved.
+Refresh both images before any motion; measure an unobstructed claw/handle reference and opening baseline. Complete actual-runner integration without duplicate motor owners, record the real arm's model references and direction signs, establish the camera/station relationship, then validate a bounded approach, grip and lift. Continue to distinguish numerical solver success, motor movement and confirmed object pickup.
+
+This reporting run issued no motor commands and changed no calibration or motor settings.
