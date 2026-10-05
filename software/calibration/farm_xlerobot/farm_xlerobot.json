@@ -1,0 +1,114 @@
+{
+    "left_arm_shoulder_pan": {
+        "id": 1,
+        "drive_mode": 0,
+        "homing_offset": -22,
+        "range_min": 959,
+        "range_max": 3135
+    },
+    "left_arm_shoulder_lift": {
+        "id": 2,
+        "drive_mode": 0,
+        "homing_offset": 975,
+        "range_min": 855,
+        "range_max": 3239
+    },
+    "left_arm_elbow_flex": {
+        "id": 3,
+        "drive_mode": 0,
+        "homing_offset": 107,
+        "range_min": 942,
+        "range_max": 3152
+    },
+    "left_arm_wrist_flex": {
+        "id": 4,
+        "drive_mode": 0,
+        "homing_offset": -826,
+        "range_min": 898,
+        "range_max": 3196
+    },
+    "left_arm_wrist_roll": {
+        "id": 5,
+        "drive_mode": 0,
+        "homing_offset": 1318,
+        "range_min": 115,
+        "range_max": 3979
+    },
+    "left_arm_gripper": {
+        "id": 6,
+        "drive_mode": 0,
+        "homing_offset": 121,
+        "range_min": 1275,
+        "range_max": 2819
+    },
+    "head_motor_1": {
+        "id": 7,
+        "drive_mode": 0,
+        "homing_offset": 1900,
+        "range_min": 1019,
+        "range_max": 3151
+    },
+    "head_motor_2": {
+        "id": 8,
+        "drive_mode": 0,
+        "homing_offset": 1591,
+        "range_min": 1932,
+        "range_max": 2665
+    },
+    "right_arm_shoulder_pan": {
+        "id": 1,
+        "drive_mode": 0,
+        "homing_offset": -131,
+        "range_min": 875,
+        "range_max": 3219
+    },
+    "right_arm_shoulder_lift": {
+        "id": 2,
+        "drive_mode": 0,
+        "homing_offset": 784,
+        "range_min": 845,
+        "range_max": 3249
+    },
+    "right_arm_elbow_flex": {
+        "id": 3,
+        "drive_mode": 0,
+        "homing_offset": 574,
+        "range_min": 1002,
+        "range_max": 3092
+    },
+    "right_arm_wrist_flex": {
+        "id": 4,
+        "drive_mode": 0,
+        "homing_offset": -766,
+        "range_min": 903,
+        "range_max": 3191
+    },
+    "right_arm_wrist_roll": {
+        "id": 5,
+        "drive_mode": 0,
+        "homing_offset": 792,
+        "range_min": 138,
+        "range_max": 3956
+    },
+    "right_arm_gripper": {
+        "id": 6,
+        "drive_mode": 0,
+        "homing_offset": 324,
+        "range_min": 1292,
+        "range_max": 2802
+    },
+    "base_left_wheel": {
+        "id": 9,
+        "drive_mode": 0,
+        "homing_offset": 85,
+        "range_min": 0,
+        "range_max": 4095
+    },
+    "base_right_wheel": {
+        "id": 10,
+        "drive_mode": 0,
+        "homing_offset": 85,
+        "range_min": 0,
+        "range_max": 4095
+    }
+}

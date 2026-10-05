@@ -259,7 +259,9 @@ def seed_sim_keyframes(s):
     from .tape import POSES, TapeMotion
     if not s.profile.simulated:
         raise ValueError("cannot seed simulated poses into a real system")
-    poses = {"touch": ArmPose(0.22, 0.12), "done": ArmPose(0.18, 0.06), "above": ArmPose(0.18, 0.12), "grip": ArmPose(0.20, 0.08),
+    # Stay inside the corrected analytical model's elbow limits. These are
+    # abstract simulator fixtures, never physical station measurements.
+    poses = {"touch": ArmPose(0.20, 0.12), "done": ArmPose(0.18, 0.06), "above": ArmPose(0.18, 0.12), "grip": ArmPose(0.20, 0.08),
              "carry": ArmPose(0.16, 0.15), "over_seam": ArmPose(0.21, 0.10), "down": ArmPose(0.21, 0.07), "press": ArmPose(0.20, 0.07), "rest": ArmPose()}
     for kf in KEYFRAMES:
         if kf.name in s.keyframes.names() and kf.name not in POSES:

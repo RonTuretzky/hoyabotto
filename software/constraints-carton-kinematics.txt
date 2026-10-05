@@ -1,0 +1,6 @@
+# Optional URDF solver tested on macOS arm64 / Python 3.12.
+# Install alongside -c constraints-carton.txt; do not upgrade the live robot env.
+placo==0.9.15
+cmeel-urdfdom==4.0.1
+cmeel-tinyxml2==10.0.0
+numpy==2.2.6
