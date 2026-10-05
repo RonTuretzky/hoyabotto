@@ -10,6 +10,7 @@ software/.env
 software/.venv/
 software/.venv-carton-geometry/
 software/build/
+software/.venv-oak/
 software/data/
 __pycache__/
 *.pyc

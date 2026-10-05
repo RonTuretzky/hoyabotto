@@ -247,6 +247,16 @@ def parser():
     s.add_argument("--model-dir", required=True); s.add_argument("--out", required=True)
     s = sub.add_parser("simulate", help="Run rendered-pixel regression; no motors and no carton physics")
     s.add_argument("--out", required=True)
+    s = sub.add_parser("program-template", help="Write an uncommissioned carton recipe; no devices")
+    s.add_argument("--config", required=True); s.add_argument("--out", required=True)
+    s.add_argument("--task", choices=["pickup", "fold"], default="pickup")
+    s.add_argument("--motion", choices=["continuous", "alignment"], default="continuous")
+    for command in ("program-check", "program-run"):
+        s = sub.add_parser(command, help="Check or execute a measured local carton sequence without model calls")
+        s.add_argument("--recipe", required=True)
+        if command == "program-run":
+            s.add_argument("--out", required=True)
+            s.add_argument("--execute", action="store_true")
     s = sub.add_parser("hinge-plan", help="Generate a measured crease arc; no motor commands")
     s.add_argument("--spec", required=True); s.add_argument("--out", required=True)
     s = sub.add_parser("verify-grasp", help="Evaluate observed jaw aperture and co-motion from a bounded lift")
@@ -285,6 +295,16 @@ def main(argv=None):
         elif a.command == "simulate":
             from .simulation import run
             result = run(a.out)
+        elif a.command == "program-template":
+            from .program import template
+            if Path(a.out).exists():
+                raise Refused("Existing recipe preserved; choose a new output path")
+            result = template(a.config, a.task, a.motion); atomic_json(a.out, result)
+        elif a.command in ("program-check", "program-run"):
+            from .program import load_recipe, preflight, execute
+            recipe, config, model = load_recipe(a.recipe)
+            result = (preflight(recipe, config, model) if a.command == "program-check" else
+                      execute(recipe, config, model, a.out, execute=a.execute))
         elif a.command == "hinge-plan":
             result = hinge_path(**read_json(a.spec)); atomic_json(a.out, result)
         elif a.command == "verify-grasp":
@@ -300,7 +320,8 @@ def main(argv=None):
             result.update(commands=sum(e["event"] == "command" for e in events),
                           first_error_px=errors[0] if errors else None, last_error_px=errors[-1] if errors else None)
         print(json.dumps(result, indent=2, allow_nan=False))
-        return 2 if result.get("status") in ("GRASP_NOT_VERIFIED", "CAMERA_TIMING_FAILED", "TAG_CHECK_FAILED", "REFUSED") else 0
+        return 2 if result.get("status") in ("GRASP_NOT_VERIFIED", "CAMERA_TIMING_FAILED", "TAG_CHECK_FAILED", "REFUSED",
+                                             "PROGRAM_NOT_READY", "PROGRAM_STOPPED") else 0
     except (Refused, ValueError, KeyError, OSError) as exc:
         print(json.dumps({"status": "REFUSED", "reason": str(exc), "physical_task_completed": False}))
         return 2

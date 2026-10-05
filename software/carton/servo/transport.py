@@ -25,6 +25,7 @@ class SessionTransport:
         self.origin = None
         self.last_id = 0
         self.aborted = False
+        self.commands_sent = 0
         self.deadline = clock() + limits.max_seconds
 
     def __enter__(self):
@@ -94,18 +95,33 @@ class SessionTransport:
                 raise Refused(f"{name}: outside saved encoder range")
         if self.origin is None:
             self.origin = q.copy()
+        self.check_envelope(q)
+        return s, q
+
+    def check_envelope(self, q):
         for name in self.config["joints"]:
             if abs(q[name] - self.origin[name]) > self.limits.trust_ticks + self.limits.settle_ticks:
                 raise Refused("Actual joint position left the local experiment envelope")
-        return s, q
 
     def positions(self):
         return self.status()[1]
 
     def move(self, joint, ticks):
+        return self._move(joint, ticks, gripper=False)
+
+    def move_gripper(self, ticks):
+        """Exact-position jaw step, with the same health and settling checks.
+
+        This is deliberately not a stall/contact detector. A blocked jaw that
+        cannot settle is a fault, not permission to keep increasing its load.
+        """
+        return self._move(f'{self.config["arm"]}_arm_gripper', ticks, gripper=True)
+
+    def _move(self, joint, ticks, *, gripper):
         if not self.execute:
             raise Refused("Read-only mode cannot send motor commands")
-        if joint not in self.config["joints"] or type(ticks) is not int or not 0 < abs(ticks) <= 68:
+        allowed = [f'{self.config["arm"]}_arm_gripper'] if gripper else self.config["joints"]
+        if joint not in allowed or type(ticks) is not int or not 0 < abs(ticks) <= 68:
             raise Refused("Invalid single-joint encoder command")
         s, before = self.status()
         if s["phase"] != "holding":
@@ -122,6 +138,7 @@ class SessionTransport:
         command_id = max(time.time_ns(), (self.last_id or 0) + 1)
         atomic_json(path, {"id": command_id, "op": "move", "delta_ticks": {joint: ticks}})
         self.last_id = command_id
+        self.commands_sent += 1
         self.path_ticks += abs(ticks)
         end = self.clock() + self.limits.command_timeout_s
         stable = 0
@@ -149,10 +166,30 @@ class SessionTransport:
         Used only after this client issued a move. It never reconnects, clears
         STOP, renews a lease blindly, or changes the owner's torque behavior.
         """
-        if not self.execute or self.path_ticks == 0 or self.aborted:
+        if not self.execute or (self.path_ticks == 0 and self.commands_sent == 0) or self.aborted:
             return
         s = read_json(self.folder / "status.json")
         if s.get("started") != self.started:
             return  # Do not send STOP to a replacement session owned by someone else.
         atomic_json(self.folder / "command.json", {"id": time.time_ns(), "op": "stop"})
         self.aborted = True
+
+    def release_and_verify(self):
+        """STOP only at a commissioned supported park; verify owner release."""
+        self.abort()
+        if not self.aborted:
+            raise Refused("No release was requested from this owner")
+        command = read_json(self.folder / "command.json")
+        end = self.clock()+self.limits.command_timeout_s
+        while self.clock() < end:
+            s = read_json(self.folder / "status.json")
+            if s.get("started") != self.started:
+                raise Refused("Owner restarted during park release")
+            if read_json(self.folder / "command.json").get("id") != command["id"]:
+                raise Refused("Park release command was overwritten")
+            if (s.get("released") is True and s.get("release_errors") == []
+                    and s.get("completed") == command["id"] and s.get("phase") in ("released", "stopped")
+                    and 0 <= self.clock()-finite(s.get("time")) <= self.limits.status_age_s):
+                return
+            self.sleep(.03)
+        raise Refused("Owner did not confirm all-motor release at supported park")

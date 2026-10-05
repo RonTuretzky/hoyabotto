@@ -197,7 +197,7 @@ class Observer:
         self.last_frames = frames
         return Observation(vector(values), min(f.stamp for f in frames.values()),
                            dict(self.last_sequences), {c: {n: p.tolist() for n, p in ps.items()} for c, ps in points.items()},
-                           {n: f.stream for n, f in frames.items()})
+                           {n: f.stream for n, f in frames.items()}, {n: f.stamp for n, f in frames.items()})
 
     def evidence(self, folder, observation):
         folder = Path(folder)

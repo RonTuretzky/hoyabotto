@@ -1,5 +1,29 @@
 # Where the build stands
 
+## OAK-D Lite test — 2026-10-05
+
+- User has an OAK-D Lite connected to the development Mac, separate from the
+  robot-control Mac. Added a camera-only DepthAI utility and
+  [setup guide](docs/oak-d-lite.md). It does not connect motors or integrate
+  depth observations into the farm controller.
+- DepthAI 3.10.0 failed at boot in both USB modes, including after the user
+  unplugged/reconnected directly. Switched the isolated Python 3.12 environment
+  to DepthAI 2.33.0.0 (OpenCV 5.0.0.93, NumPy 2.5.3); v2 boots and streams.
+  Four depth evidence/storage tests pass. A v2 device-info-only probe reported
+  a crash during shutdown; the final 30-second capture exited cleanly.
+- Live capture: 448 synchronized RGB/depth pairs in 30.032 s over USB 2,
+  640×360 output, maximum timestamp skew 1.265 ms. Last depth frame had
+  30.89% valid pixels; centre patch had no valid depth. Camera was facing the
+  room/ceiling, not the planter. RGB image inspected; raw 16-bit depth saved.
+- Local evidence on development Mac:
+  `/Users/wk/conductor/workspaces/research/minsk/.context/oak-captures/20261005T005902.949416Z/`.
+  Camera imagery stays local and is not committed. USB 3 remains unverified.
+- Next: aim at stationary trough/carrier, compare measurements with a ruler,
+  check fin/rim depth coverage, then calibrate camera-to-robot coordinates.
+  No claim of planter accuracy, robot integration, or successful assembly.
+
+## Earlier robot handoff
+
 Written 2026-10-02 for whoever picks this up on the robot's laptop (person or agent). Read this first, then `SETUP.md` (installing) and `README.md` (what the program is). `docs/community-projects.md` reviews the 43 projects on the XLeRobot community page against this plan.
 
 ## The robot
