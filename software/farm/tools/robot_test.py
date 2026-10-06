@@ -111,7 +111,7 @@ def run(robot, move: bool = False, delta: float = 5.0, only: str | None = None,
         problems.append(f"health read failed: {health.note}")
 
     nudges: list[dict[str, Any]] = []
-    if move:
+    if move and not problems:
         out("\nNudging one joint at a time. Keep hands clear. Ctrl-C stops the test.")
         for j in joints:
             out(f"\n{j}  ->  expect: {describe(j)}")
@@ -128,6 +128,9 @@ def run(robot, move: bool = False, delta: float = 5.0, only: str | None = None,
                 if not res["confirmed"]:
                     problems.append(f"{j}: a different part moved (check bus ports / head motor order)")
             nudges.append(res)
+            if problems:
+                robot.stop()
+                break
 
     out("\n" + ("ALL OK" if not problems else "PROBLEMS:\n  " + "\n  ".join(problems)))
     return {"ok": not problems, "problems": problems, "joints": dict(pos.value), "health": health.value if health.ok else {}, "nudges": nudges}

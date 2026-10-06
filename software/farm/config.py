@@ -21,6 +21,7 @@ class RobotCfg:
     max_relative_target: float = 8.0     # LeRobot clamp, per tick, in normalized units
     wheels: bool = False                 # base driving is off in V0
     calibration_dir: str = ""            # defaults to ~/.cache/huggingface/lerobot/calibration/robots/xlerobot_2wheels
+    position_settings: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
 @dataclass

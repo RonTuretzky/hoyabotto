@@ -4,10 +4,11 @@ Differences from the upstream class's own connect():
 - calibration is restored from the saved file without an input() prompt; if it is
   missing we refuse to connect (run `farm calibrate` once, with the arms supported).
 - cameras are handled by CameraAdapters, not by the robot object.
-- wheels stay at zero velocity; a watchdog stop is available at any time.
+- wheels are never commanded; arm/head hold targets are verified before torque.
 """
 from __future__ import annotations
 
+import math
 import json
 import logging
 import time
@@ -46,24 +47,75 @@ class LeRobotXLeRobot:
         fpath = r.calibration_fpath
         if not fpath.is_file():
             raise RuntimeError(f"No calibration at {fpath}. Run `farm calibrate --profile ...` once with the arms supported.")
-        r.bus1.connect(); r.bus2.connect()
-        r.bus1.calibration = {k: v for k, v in r.calibration.items() if k in r.bus1.motors}
-        r.bus2.calibration = {k: v for k, v in r.calibration.items() if k in r.bus2.motors}
-        r.bus1.write_calibration(r.bus1.calibration)
-        r.bus2.write_calibration(r.bus2.calibration)
-        r.configure()
-        self.calibration_id = f"{fpath.name}:{int(fpath.stat().st_mtime)}"
-        self._connected = True
-        self.stop()
-        log.info("robot connected; calibration %s", self.calibration_id)
+        settings = self.cfg.position_settings
+        allowed_motors = set(r.left_arm_motors + r.head_motors + r.right_arm_motors)
+        bounds = {"P_Coefficient": (1, 32), "Torque_Limit": (1, 1000), "Goal_Velocity": (1, 1000)}
+        for motor, overrides in settings.items():
+            if motor not in allowed_motors:
+                raise ValueError(f"Position settings must name an arm/head joint: {motor}")
+            for field, value in overrides.items():
+                if field not in bounds or type(value) is not int or not bounds[field][0] <= value <= bounds[field][1]:
+                    raise ValueError(f"Invalid position setting for {motor}: {field}={value}")
+        try:
+            for bus, motors in self._groups():
+                bus.connect()
+                bus.calibration = {m: r.calibration[m] for m in motors}
+                bus.disable_torque(motors)
+                # Calibration must already match hardware; connection never rewrites it.
+                for m in motors:
+                    c = bus.calibration[m]
+                    for field, value in (("Homing_Offset", c.homing_offset),
+                                         ("Min_Position_Limit", c.range_min),
+                                         ("Max_Position_Limit", c.range_max)):
+                        if bus.read(field, m, normalize=False, num_retry=3) != value:
+                            raise RuntimeError(f"Calibration mismatch: {m} {field}")
+                    bus.write("Operating_Mode", m, OperatingMode.POSITION.value, num_retry=3)
+                    for field, value in (("P_Coefficient", 16), ("I_Coefficient", 0), ("D_Coefficient", 43)):
+                        bus.write(field, m, value, num_retry=3)
+                    for field, value in settings.get(m, {}).items():
+                        bus.write(field, m, value, normalize=False, num_retry=3)
+                        if bus.read(field, m, normalize=False, num_retry=3) != value:
+                            raise RuntimeError(f"Position setting readback mismatch: {m} {field}")
+                self._prime_hold(bus, motors)
+            # Both buses are fully prepared before any torque is enabled.
+            for bus, motors in self._groups():
+                self._prime_hold(bus, motors)
+                bus.enable_torque(motors)
+            self._connected = True
+            self.calibration_id = f"{fpath.name}:{int(fpath.stat().st_mtime)}"
+        except BaseException:
+            self.disconnect()
+            raise
+
+    def _groups(self):
+        r = self.robot
+        return ((r.bus1, r.left_arm_motors + r.head_motors), (r.bus2, r.right_arm_motors))
+
+    @staticmethod
+    def _prime_hold(bus, motors):
+        present = bus.sync_read("Present_Position", motors, normalize=False, num_retry=3)
+        for m, pos in present.items():
+            c = bus.calibration[m]
+            if not c.range_min <= pos <= c.range_max:
+                raise RuntimeError(f"{m} is outside its calibrated range; reposition before enabling torque")
+        bus.sync_write("Goal_Position", present, normalize=False, num_retry=3)
+        for m, pos in present.items():
+            if bus.read("Goal_Position", m, normalize=False, num_retry=3) != pos:
+                raise RuntimeError(f"Hold target readback mismatch: {m}")
 
     def disconnect(self) -> None:
-        if self._connected:
-            try:
-                self.stop()
-            finally:
-                self.robot.disconnect()
-                self._connected = False
+        errors = []
+        for bus, motors in self._groups():
+            if bus.is_connected:
+                try:
+                    bus.disable_torque(motors, num_retry=3)
+                except Exception as e:
+                    errors.append(e)
+                finally:
+                    bus.disconnect(disable_torque=False)
+        self._connected = False
+        if errors:
+            raise RuntimeError(f"Could not release all motor torque: {errors}")
 
     # ---- reads -------------------------------------------------------------
     def joints(self) -> Reading[dict[str, float]]:
@@ -96,48 +148,55 @@ class LeRobotXLeRobot:
     def move_to(self, targets: dict[str, float], max_step: float | None = None) -> Reading[dict[str, float]]:
         if not self._connected:
             return invalid(self.name, "not connected")
-        action = {f"{k}.pos": float(v) for k, v in targets.items()}
         try:
-            if max_step is not None:
-                old = self.robot.config.max_relative_target
-                self.robot.config.max_relative_target = max_step
-                try:
-                    sent = self.robot.send_action(action)
-                finally:
-                    self.robot.config.max_relative_target = old
-            else:
-                sent = self.robot.send_action(action)
-            return Reading({k[:-4]: v for k, v in sent.items() if k.endswith(".pos")}, Status.OK, source=self.name)
+            allowed = {m for _, motors in self._groups() for m in motors}
+            if not set(targets) <= allowed:
+                raise ValueError("Only arm and head joints may be commanded")
+            step = min(self.cfg.max_relative_target, max_step if max_step is not None else self.cfg.max_relative_target)
+            if not math.isfinite(step) or step <= 0:
+                raise ValueError("Invalid movement step")
+            sent = {}
+            pending = []
+            for bus, motors in self._groups():
+                selected = [m for m in motors if m in targets]
+                if not selected:
+                    continue
+                present = bus.sync_read("Present_Position", selected, num_retry=3)
+                goals = {}
+                for m in selected:
+                    target = float(targets[m])
+                    if not math.isfinite(target):
+                        raise ValueError("Non-finite target")
+                    lo = 0 if m.endswith("gripper") else -100
+                    target = max(lo, min(100, target))
+                    goals[m] = max(present[m] - step, min(present[m] + step, target))
+                pending.append((bus, goals))
+            for bus, goals in pending:
+                bus.sync_write("Goal_Position", goals, num_retry=3)
+                sent.update(goals)
+            return Reading(sent, Status.OK, source=self.name)
         except Exception as e:
             return invalid(self.name, f"send failed: {e}")
 
     def stop(self) -> None:
-        """Hold position: goal := present for both arms and head; wheels := 0."""
-        r = self.robot
-        try:
-            r.stop_base()
-        except Exception as e:
-            log.warning("stop_base failed: %s", e)
-        for bus, motors in ((r.bus1, r.left_arm_motors + r.head_motors), (r.bus2, r.right_arm_motors)):
-            try:
-                present = bus.sync_read("Present_Position", motors)
-                bus.sync_write("Goal_Position", present)
-            except Exception as e:
-                log.warning("hold failed on %s: %s", motors[0], e)
+        """Hold arms/head where they are; never command wheels."""
+        for bus, motors in self._groups():
+            if bus.is_connected:
+                present = bus.sync_read("Present_Position", motors, normalize=False, num_retry=3)
+                bus.sync_write("Goal_Position", present, normalize=False, num_retry=3)
 
     def torque_off(self, motors: list[str] | None = None) -> None:
-        r = self.robot
-        for bus in (r.bus1, r.bus2):
-            sel = [m for m in bus.motors if motors is None or m in motors]
-            if sel:
-                bus.disable_torque(sel)
+        for bus, allowed in self._groups():
+            selected = [m for m in allowed if motors is None or m in motors]
+            if selected:
+                bus.disable_torque(selected, num_retry=3)
 
     def torque_on(self, motors: list[str] | None = None) -> None:
-        r = self.robot
-        for bus in (r.bus1, r.bus2):
-            sel = [m for m in bus.motors if motors is None or m in motors]
-            if sel:
-                bus.enable_torque(sel)
+        for bus, allowed in self._groups():
+            selected = [m for m in allowed if motors is None or m in motors]
+            if selected:
+                self._prime_hold(bus, selected)
+                bus.enable_torque(selected, num_retry=3)
 
     # ---- one-time calibration (interactive by necessity: LeRobot's procedure) -----
     def calibrate_interactive(self) -> Path:

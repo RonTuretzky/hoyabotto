@@ -198,11 +198,15 @@ def cmd_servo_protection(a):
         print("This writes the servos' permanent memory: temperature limit 100 C and no unload or alarm on temperature.")
         print("Torque is switched off on each servo while it is written, so support the arms or leave them folded at rest.")
         input("Press ENTER to write, Ctrl-C to stop … ")
-    r.bus1.connect(); r.bus2.connect()
+    connected = []
     try:
+        for bus in (r.bus1, r.bus2):
+            bus.connect(handshake=bool(a.write))
+            connected.append(bus)
         res = servo_protection.run([r.bus1, r.bus2], write=a.write, only=only)
     finally:
-        r.bus1.disconnect(); r.bus2.disconnect()
+        for bus in connected:
+            bus.disconnect(disable_torque=bool(a.write))
     sys.exit(0 if res["ok"] else 1)
 
 

@@ -214,7 +214,7 @@ class FeetechCalibrationMixin:
 
     def _prepare_motors_for_range_measure(self, motors: list[str]) -> None:
         """Prepare motors for range measurement: clear overload, disable torque, set Phase(BIT4=0), Homing_Offset=0, velocity mode, enable torque."""
-        from .feetech import OperatingMode
+        from lerobot.motors.feetech.feetech import OperatingMode  # farm: installed driver
 
         for m in motors:
             self._safe_stop_and_clear_overload(m)
@@ -249,24 +249,34 @@ class FeetechCalibrationMixin:
     ) -> tuple[dict[str, str], dict[str, int]]:
         """Start specified motors with a single command, poll for stall then stop and clear overload. velocity can be a single int or per-motor dict. Returns (per-motor stop reason, per-motor stall position)."""
         vel_dict = velocity if isinstance(velocity, dict) else dict.fromkeys(motors, velocity)
-        self.sync_write(
-            "Goal_Velocity",
-            vel_dict,
-            normalize=False,
-        )
-        time.sleep(initial_move_delay_s)
-        if len(motors) == 1:
-            m = motors[0]
-            reason = self._wait_for_stall(m, stall_confirm_samples, timeout_s, sample_interval_s)
-            reasons = {m: reason}
-            positions = {m: self._read_with_retry("Present_Position", m)}
-        else:
-            reasons, positions = self._wait_for_stall_multi(
-                motors, stall_confirm_samples, timeout_s, sample_interval_s
-            )
-        # for m in motors:
-        #     self._safe_stop_and_clear_overload(m)
-        return reasons, positions
+        # farm: stop on every exit, and never turn a timeout or lost feedback into a limit.
+        try:
+            self.sync_write("Goal_Velocity", vel_dict, normalize=False)
+            time.sleep(initial_move_delay_s)
+            if len(motors) == 1:
+                m = motors[0]
+                reason = self._wait_for_stall(m, stall_confirm_samples, timeout_s, sample_interval_s)
+                reasons = {m: reason}
+                positions = {m: self._read_with_retry("Present_Position", m)}
+            else:
+                reasons, positions = self._wait_for_stall_multi(
+                    motors, stall_confirm_samples, timeout_s, sample_interval_s
+                )
+            for m in motors:
+                if "timeout" in reasons[m] or "communication error" in reasons[m]:
+                    raise RuntimeError(f"{m}: limit not established: {reasons[m]}")
+            return reasons, positions
+        finally:
+            failed = []
+            for m in motors:
+                try:
+                    self.write("Goal_Velocity", m, 0, normalize=False, num_retry=3)
+                except Exception as exc:
+                    failed.append(f"{m}: {type(exc).__name__}: {exc}")
+            if failed:
+                self.safe_disable_all(motors)
+                raise RuntimeError(f"Could not confirm stop command for {failed}")
+
 
     def _compute_mid_and_range_from_limits(
         self,

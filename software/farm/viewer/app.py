@@ -186,5 +186,11 @@ def serve_in_thread(system, port: int) -> threading.Thread:
     server = uvicorn.Server(cfg)
     t = threading.Thread(target=server.run, name="viewer", daemon=True)
     t.start()
-    time.sleep(0.3)
+    deadline = time.monotonic() + 3.0
+    while not server.started:
+        if not t.is_alive() or time.monotonic() >= deadline:
+            server.should_exit = True
+            t.join(timeout=1.0)
+            raise RuntimeError(f"STOP viewer failed to start on port {port}")
+        time.sleep(0.01)
     return t

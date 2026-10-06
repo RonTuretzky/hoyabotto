@@ -119,7 +119,14 @@ def test_robot_test_reports_stuck_joint_and_wrong_part():
 
     r2 = _fake_robot()
     res2 = robot_test.run(r2, move=True, only="head", ask=lambda q: "n", out=lambda s: None, sleep=_tick)
-    assert not res2["ok"] and all("different part moved" in p for p in res2["problems"]) and len(res2["problems"]) == 2
+    assert not res2["ok"] and all("different part moved" in p for p in res2["problems"]) and len(res2["problems"]) == 1
+
+    from farm.status import invalid
+    r3 = _fake_robot()
+    r3.health = lambda: invalid("fake", "untrusted telemetry")
+    res3 = robot_test.run(r3, move=True, only="head", out=lambda s: None, sleep=_tick)
+    assert not res3["ok"] and "untrusted telemetry" in res3["problems"][0]
+    assert res3["nudges"] == []
 
 
 def test_robot_test_describe():

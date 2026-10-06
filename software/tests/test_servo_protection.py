@@ -82,3 +82,24 @@ def test_run_reports_a_failing_servo_and_continues():
     bus = FakeBus(["a", "b"], fail_write="Lock")
     res = sp.run([bus], write=True, out=lambda s: None)
     assert not res["ok"] and "error" in res["motors"]["a"] and "error" in res["motors"]["b"]
+
+
+def test_readonly_cli_does_not_disable_torque_and_closes_partial_connection(monkeypatch):
+    from types import SimpleNamespace
+    from farm import cli
+    import farm.config
+    import farm.adapters.robot_lerobot
+    calls=[]
+    class Bus:
+        def __init__(self, fail=False): self.fail=fail
+        def connect(self, **kwargs):
+            calls.append(("connect",kwargs))
+            if self.fail:raise RuntimeError("silent second bus")
+        def disconnect(self, **kwargs):calls.append(("disconnect",kwargs))
+    robot=SimpleNamespace(bus1=Bus(),bus2=Bus(True))
+    monkeypatch.setattr(farm.config,"load_profile",lambda _:SimpleNamespace(simulated=False,robot=SimpleNamespace(kind="xlerobot")))
+    monkeypatch.setattr(farm.adapters.robot_lerobot,"LeRobotXLeRobot",lambda _:SimpleNamespace(robot=robot))
+    import pytest
+    with pytest.raises(RuntimeError,match="silent second bus"):
+        cli.cmd_servo_protection(SimpleNamespace(profile="unused",write=False,only=None))
+    assert calls==[("connect",{"handshake":False}),("connect",{"handshake":False}),("disconnect",{"disable_torque":False})]

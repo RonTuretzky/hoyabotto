@@ -16,6 +16,8 @@ What this module adds around the vendored code:
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
@@ -111,24 +113,76 @@ def calibrate_head(robot_cfg, ask: Callable[[str], str] = input, out: Callable[[
         from lerobot.motors import Motor, MotorNormMode
         from lerobot.motors.feetech import FeetechMotorsBus
         bus = FeetechMotorsBus(port=robot_cfg.port1, motors={n: Motor(i, "sts3215", MotorNormMode.RANGE_M100_100) for n, i in HEAD.items()})
-    bus.connect()
-    try:
-        bus.disable_torque()
-        ask("Head motors are limp. Face the head straight ahead and level, then press ENTER... ")
-        homing = bus.set_half_turn_homings(list(HEAD))
-        out("Turn the head fully left and right, then nod it fully up and down (mind the camera cable). Press ENTER when done.")
-        mins, maxes = bus.record_ranges_of_motion(list(HEAD))
-    finally:
-        bus.disconnect()
     if cal_path is None:
         from .calibration_report import calibration_path
         cal_path = calibration_path(robot_cfg)
     cal = json.loads(cal_path.read_text()) if cal_path.is_file() else {}
-    for name, mid in HEAD.items():
-        cal[name] = {"id": mid, "drive_mode": 0, "homing_offset": int(homing[name]), "range_min": int(mins[name]), "range_max": int(maxes[name])}
-    cal_path.parent.mkdir(parents=True, exist_ok=True)
-    cal_path.write_text(json.dumps(cal, indent=4))
-    out(f"head saved into {cal_path}")
+    registers = {"homing_offset": "Homing_Offset", "range_min": "Min_Position_Limit", "range_max": "Max_Position_Limit"}
+
+    def read_settings():
+        return {n: {key: int(bus.read(reg, n, normalize=False, num_retry=3))
+                    for key, reg in registers.items()} for n in HEAD}
+
+    def ensure_released():
+        bus.disable_torque(num_retry=3)
+        for n in HEAD:
+            if bus.read("Torque_Enable", n, normalize=False, num_retry=3) != 0:
+                raise RuntimeError(f"Cannot confirm torque off for {n}")
+
+    def write_and_verify(settings):
+        ensure_released()
+        for n in HEAD:
+            for key, reg in registers.items():
+                bus.write(reg, n, settings[n][key], normalize=False, num_retry=3)
+        if read_settings() != {n: {k: settings[n][k] for k in registers} for n in HEAD}:
+            raise RuntimeError("Head calibration readback does not match")
+
+    original = None
+    temp_path = None
+    bus.connect()
+    try:
+        ensure_released()
+        original = read_settings()
+        ask("Head torque is verified off. Point the camera straight ahead and level, looking at the horizon. Press ENTER when ready... ")
+        homing = bus.set_half_turn_homings(list(HEAD))
+        ensure_released()
+        out("RECORDING: gently turn the head left and right, then tilt it up and down by hand. Keep the camera cable loose; do not force a stop or turn a full circle. Return it forward and level, then press ENTER.")
+        mins, maxes = bus.record_ranges_of_motion(list(HEAD), display_values=False)
+        from .calibration_report import DEG, EDGE_TICKS, NOMINAL
+        head = {}
+        for name, mid in HEAD.items():
+            lo, hi = int(mins[name]), int(maxes[name])
+            span = (hi - lo) * DEG
+            _, minimum, maximum = NOMINAL[name]
+            if not (EDGE_TICKS < lo < hi < 4095 - EDGE_TICKS) or not minimum <= span <= maximum:
+                raise ValueError(f"{name}: measured {span:.1f} degrees ({lo}..{hi}); needs review, not saved")
+            head[name] = {"id": mid, "drive_mode": 0, "homing_offset": int(homing[name]), "range_min": lo, "range_max": hi}
+        write_and_verify(head)
+        cal.update(head)
+        cal_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(mode="w", dir=cal_path.parent, prefix=cal_path.name + ".", suffix=".tmp", delete=False) as f:
+            temp_path = Path(f.name)
+            f.write(json.dumps(cal, indent=4))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, cal_path)
+        temp_path = None
+    except BaseException:
+        if original is not None:
+            try:
+                write_and_verify(original)
+                out("Previous head settings restored and verified with torque off; calibration file unchanged.")
+            except BaseException as restore_error:
+                out(f"Could not verify restoration of head settings: {restore_error}")
+        raise
+    finally:
+        try:
+            ensure_released()
+        finally:
+            bus.disconnect(disable_torque=False)
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+    out(f"Head calibration saved and hardware verified with torque off: {cal_path}")
     still = missing_for_connect(cal)
     if still:
         out("still missing before the farm program can connect: " + ", ".join(still))

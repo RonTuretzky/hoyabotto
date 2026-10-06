@@ -103,7 +103,7 @@ class SO101Kinematics:
         theta1 = joint2_rad - theta1_offset
         theta2 = joint3_rad - theta2_offset
         
-        # Forward kinematics calculations
+        # Match the upstream IK convention: theta2 = pi - delta.
         x = l1 * math.cos(theta1) + l2 * math.cos(theta1 + theta2 - math.pi)
         y = l1 * math.sin(theta1) + l2 * math.sin(theta1 + theta2 - math.pi)
         

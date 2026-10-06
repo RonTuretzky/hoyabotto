@@ -63,9 +63,13 @@ def _system(a):
     if p.simulated:
         from .sim import SimCartonVision
         s.backends.vision = SimCartonVision(s.faults)
-    problems = s.connect()
-    if any(x.startswith("robot") for x in problems):
-        sys.exit("robot not connected: " + "; ".join(problems))
+    try:
+        problems = s.connect()
+        if any(x.startswith(("robot", "camera")) for x in problems):
+            raise SystemExit("required devices not connected: " + "; ".join(problems))
+    except BaseException:
+        s.disconnect()
+        raise
     return s
 
 
@@ -85,13 +89,15 @@ def cmd_geometry(a):
 def cmd_check(a):
     _log()
     s = _system(a)
-    box, _ = _box_and_stance(s.profile)
-    from . import perception
-    frames = [(n, c.frame()) for n, c in s.cameras.items() if n == "head"]
-    j = perception.judge(s.backends.vision, box, frames, s.store, None)
-    print("judgement:", json.dumps(j.value if j.ok else {"status": j.status.value, "note": j.note}, indent=1, default=str))
-    print("keyframes taught:", s.keyframes.names())
-    s.disconnect()
+    try:
+        box, _ = _box_and_stance(s.profile)
+        from . import perception
+        frames = [(n, c.frame()) for n, c in s.cameras.items() if n == "head"]
+        j = perception.judge(s.backends.vision, box, frames, s.store, None)
+        print("judgement:", json.dumps(j.value if j.ok else {"status": j.status.value, "note": j.note}, indent=1, default=str))
+        print("keyframes taught:", s.keyframes.names())
+    finally:
+        s.disconnect()
 
 
 def _teach_one(s, kf):
@@ -202,9 +208,9 @@ def cmd_once(a):
     _log()
     from farm.viewer.app import serve_in_thread
     s = _system(a)
-    serve_in_thread(s, s.profile.viewer_port)
-    print(f"viewer: http://localhost:{s.profile.viewer_port}")
     try:
+        serve_in_thread(s, s.profile.viewer_port)
+        print(f"viewer: http://localhost:{s.profile.viewer_port}")
         out = _close_one(s, a.record)
     finally:
         s.disconnect()
@@ -216,9 +222,9 @@ def cmd_run(a):
     from farm.status import Status
     from farm.viewer.app import serve_in_thread
     s = _system(a)
-    serve_in_thread(s, s.profile.viewer_port)
-    print(f"viewer: http://localhost:{s.profile.viewer_port}")
     try:
+        serve_in_thread(s, s.profile.viewer_port)
+        print(f"viewer: http://localhost:{s.profile.viewer_port}")
         while True:
             out = _close_one(s, a.record)
             if out.result == "STOPPED":
