@@ -29,16 +29,20 @@ class FakeBus:
 
 def test_plan_raises_limit_and_clears_only_the_temperature_bit():
     assert sp.plan({"Max_Temperature_Limit": 70, "Unloading_Condition": 44, "LED_Alarm_Condition": 47}) == \
-        {"Max_Temperature_Limit": 100, "Unloading_Condition": 40, "LED_Alarm_Condition": 43}
-    already = {"Max_Temperature_Limit": 100, "Unloading_Condition": 40, "LED_Alarm_Condition": 43}
+        {"Max_Temperature_Limit": 200, "Unloading_Condition": 40, "LED_Alarm_Condition": 43}
+    already = {"Max_Temperature_Limit": 200, "Unloading_Condition": 40, "LED_Alarm_Condition": 43}
     assert sp.plan(already) == already and sp.done(already)
-    assert not sp.done({"Max_Temperature_Limit": 100, "Unloading_Condition": 44, "LED_Alarm_Condition": 43})
+    assert not sp.done({"Max_Temperature_Limit": 200, "Unloading_Condition": 44, "LED_Alarm_Condition": 43})
+    assert sp.plan(already, 100)["Max_Temperature_Limit"] == 100 and not sp.done(already, 100)
+    for bad in (0, 256, 100.0, "200"):
+        with pytest.raises(ValueError):
+            sp.plan(already, bad)
 
 
 def test_apply_unlocks_writes_relocks_and_reads_back():
     bus = FakeBus(["left_arm_gripper"])
     after = sp.apply(bus, "left_arm_gripper")
-    assert after == {"Max_Temperature_Limit": 100, "Unloading_Condition": 40, "LED_Alarm_Condition": 43}
+    assert after == {"Max_Temperature_Limit": 200, "Unloading_Condition": 40, "LED_Alarm_Condition": 43}
     regs = [w[1] for w in bus.writes]
     assert regs[:2] == ["Torque_Enable", "Lock"] and regs[-1] == "Lock"
     assert bus.writes[1][2] == 0 and bus.writes[-1][2] == 1
@@ -51,12 +55,12 @@ def test_apply_relocks_and_fails_loudly_when_the_servo_ignores_the_write():
         sp.apply(bus, "m")
     assert bus.writes[-1] == ("m", "Lock", 1)
 
-    class Stubborn(FakeBus):
+    class Clamping(FakeBus):
         def write(self, reg, motor, value, normalize=True, num_retry=0):
-            if reg != "Max_Temperature_Limit":
-                super().write(reg, motor, value, normalize, num_retry)
-    with pytest.raises(RuntimeError, match="reads back"):
-        sp.apply(Stubborn(["m"]), "m")
+            super().write(reg, motor, min(value, 100) if reg == "Max_Temperature_Limit" else value, normalize, num_retry)
+    with pytest.raises(RuntimeError, match="reads back.*try --limit 100"):
+        sp.apply(Clamping(["m"]), "m")
+    assert sp.apply(Clamping(["m"]), "m", 100)["Max_Temperature_Limit"] == 100
 
 
 def test_run_dry_reads_only_and_write_changes_every_motor(capsys):
@@ -70,7 +74,7 @@ def test_run_dry_reads_only_and_write_changes_every_motor(capsys):
 
     res = sp.run([b1, b2], write=True, only=["left_arm_gripper"], out=lines.append)
     assert res["ok"] and list(res["motors"]) == ["left_arm_gripper"]
-    assert b1.regs["left_arm_gripper"]["Max_Temperature_Limit"] == 100 and b1.regs["head_motor_1"]["Max_Temperature_Limit"] == 70
+    assert b1.regs["left_arm_gripper"]["Max_Temperature_Limit"] == 200 and b1.regs["head_motor_1"]["Max_Temperature_Limit"] == 70
 
     res = sp.run([b1, b2], write=True, out=lines.append)
     assert res["ok"] and all(sp.done(bus.regs[m]) for bus in (b1, b2) for m in bus.motors)
@@ -97,9 +101,9 @@ def test_readonly_cli_does_not_disable_torque_and_closes_partial_connection(monk
             if self.fail:raise RuntimeError("silent second bus")
         def disconnect(self, **kwargs):calls.append(("disconnect",kwargs))
     robot=SimpleNamespace(bus1=Bus(),bus2=Bus(True))
-    monkeypatch.setattr(farm.config,"load_profile",lambda _:SimpleNamespace(simulated=False,robot=SimpleNamespace(kind="xlerobot")))
+    monkeypatch.setattr(farm.config,"load_profile",lambda _:SimpleNamespace(simulated=False,robot=SimpleNamespace(kind="xlerobot",port1="/dev/a",port2="/dev/b")))
     monkeypatch.setattr(farm.adapters.robot_lerobot,"LeRobotXLeRobot",lambda _:SimpleNamespace(robot=robot))
     import pytest
     with pytest.raises(RuntimeError,match="silent second bus"):
-        cli.cmd_servo_protection(SimpleNamespace(profile="unused",write=False,only=None))
+        cli.cmd_servo_protection(SimpleNamespace(profile="unused",write=False,only=None,limit=200,yes=False))
     assert calls==[("connect",{"handshake":False}),("connect",{"handshake":False}),("disconnect",{"disable_torque":False})]

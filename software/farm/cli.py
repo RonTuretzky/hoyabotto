@@ -7,7 +7,7 @@
   farm calibrate --head             hands-on, two joints: calibrate only the head
   farm calibration-report           read the saved calibration; flag wrapped, short or mismatched joint ranges (no motion)
   farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one
-  farm servo-protection -p paper-tray-v0 [--write] [--only head|left|right]   read, and with --write permanently turn off, each servo's own temperature cutoff (EEPROM; no motion)
+  farm servo-protection -p paper-tray-v0 [--write] [--limit 200] [--yes] [--only head|left|right]   read, and with --write permanently turn off, each servo's own temperature cutoff (EEPROM; no motion; ports auto-detected if the profile has none)
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
   farm teach-all  -p ...            learn every keyframe the profile needs, in order
@@ -29,6 +29,8 @@
   --record on run/once/sim writes the robot's own runs to data/dataset (LeRobotDataset)
 """
 from __future__ import annotations
+
+from dataclasses import replace
 
 import argparse
 import json
@@ -187,23 +189,32 @@ def cmd_servo_protection(a):
     p = load_profile(a.profile)
     if p.robot.kind == "sim" or p.simulated:
         sys.exit("servo-protection writes real servo EEPROM; there is nothing to do on the simulator")
-    from .adapters.robot_lerobot import LeRobotXLeRobot
-    r = LeRobotXLeRobot(p.robot).robot
+    from .adapters.robot_lerobot import LeRobotXLeRobot, find_serial_ports
+    cfg = p.robot
+    if not cfg.port1 or not cfg.port2:
+        from .tools.bus_probe import probe_ports
+        cands = [d["device"] for d in find_serial_ports() if "usbmodem" in (d["device"] or "") or "ttyACM" in (d["device"] or "")]
+        found = {r.get("guess"): r["port"] for r in probe_ports(cands) if "ids" in r}
+        if "bus1 (left arm + head)" not in found or "bus2 (right arm + wheels)" not in found:
+            sys.exit(f"could not find both motor boards on {cands or 'no USB serial ports'}: {found}; fill in port1/port2 in the profile or plug both boards in")
+        cfg = replace(cfg, port1=found["bus1 (left arm + head)"], port2=found["bus2 (right arm + wheels)"])
+        print(f"boards: bus1 {cfg.port1}, bus2 {cfg.port2}")
+    r = LeRobotXLeRobot(cfg).robot
     only = None
     if a.only == "head":
         only = list(HEAD_JOINTS)
     elif a.only:
         only = [arm_joint(a.only, j) for j in ARM_JOINTS]
-    if a.write:
-        print("This writes the servos' permanent memory: temperature limit 100 C and no unload or alarm on temperature.")
+    if a.write and not a.yes:
+        print(f"This writes the servos' permanent memory: temperature limit {a.limit} C and no unload or alarm on temperature.")
         print("Torque is switched off on each servo while it is written, so support the arms or leave them folded at rest.")
         input("Press ENTER to write, Ctrl-C to stop … ")
     connected = []
     try:
         for bus in (r.bus1, r.bus2):
-            bus.connect(handshake=bool(a.write))
+            bus.connect(handshake=bool(a.write))      # a read-only pass must not change anything, not even torque
             connected.append(bus)
-        res = servo_protection.run([r.bus1, r.bus2], write=a.write, only=only)
+        res = servo_protection.run([r.bus1, r.bus2], write=a.write, only=only, limit=a.limit)
     finally:
         for bus in connected:
             bus.disconnect(disable_torque=bool(a.write))
@@ -595,7 +606,7 @@ def main(argv=None):
         ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, [("--auto", {"action": "store_true"}), ("--arm", {"choices": ["left", "right"], "default": ""}), ("--motor", {"default": ""}), ("--unfold-only", {"action": "store_true"}), ("--velocity", {"type": int, "default": 0}), ("--head", {"action": "store_true"})]), ("check", cmd_check, []),
         ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
-        ("servo-protection", cmd_servo_protection, [("--write", {"action": "store_true"}), ("--only", {"choices": ["head", "left", "right"]})]),
+        ("servo-protection", cmd_servo_protection, [("--write", {"action": "store_true"}), ("--limit", {"type": int, "default": 200}), ("--yes", {"action": "store_true"}), ("--only", {"choices": ["head", "left", "right"]})]),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
         ("mcp", cmd_mcp, []),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),

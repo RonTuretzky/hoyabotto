@@ -3,7 +3,8 @@
 The firmware compares its temperature sensor with Max_Temperature_Limit (register 13,
 default 70 C) and, when the temperature bit of Unloading_Condition (register 19) is set,
 drops torque and raises a fault flag. LED_Alarm_Condition (register 20) uses the same bit
-layout for the LED. This tool raises the limit to the register's top value (100 C) and
+layout for the LED. This tool raises the limit (default 200 C; the register is one byte and
+Feetech documents 0..100, so the read-back decides whether the servo keeps a higher value) and
 clears the temperature bit in both masks, so the servo neither unloads nor flags on heat.
 
 EEPROM writes are permanent and need torque off and Lock cleared; every value is read back.
@@ -15,30 +16,32 @@ from __future__ import annotations
 from typing import Any, Callable
 
 TEMPERATURE_BIT = 1 << 2
-MAX_TEMPERATURE_LIMIT = 100          # the register's range is 0..100 C
+DEFAULT_LIMIT_C = 200                # one byte; Feetech documents 0..100, the servo may keep more
 REGISTERS = ("Max_Temperature_Limit", "Unloading_Condition", "LED_Alarm_Condition")
 
 
-def plan(current: dict[str, int]) -> dict[str, int]:
+def plan(current: dict[str, int], limit: int = DEFAULT_LIMIT_C) -> dict[str, int]:
     """What the three registers should hold, given what they hold now."""
+    if type(limit) is not int or not 1 <= limit <= 255:
+        raise ValueError("limit must be a whole number of degrees from 1 to 255 (one EEPROM byte)")
     return {
-        "Max_Temperature_Limit": MAX_TEMPERATURE_LIMIT,
+        "Max_Temperature_Limit": limit,
         "Unloading_Condition": int(current["Unloading_Condition"]) & ~TEMPERATURE_BIT,
         "LED_Alarm_Condition": int(current["LED_Alarm_Condition"]) & ~TEMPERATURE_BIT,
     }
 
 
-def done(values: dict[str, int]) -> bool:
-    return plan(values) == {k: int(values[k]) for k in REGISTERS}
+def done(values: dict[str, int], limit: int = DEFAULT_LIMIT_C) -> bool:
+    return plan(values, limit) == {k: int(values[k]) for k in REGISTERS}
 
 
 def read(bus, motor: str) -> dict[str, int]:
     return {r: int(bus.read(r, motor, normalize=False, num_retry=2)) for r in REGISTERS}
 
 
-def apply(bus, motor: str) -> dict[str, int]:
+def apply(bus, motor: str, limit: int = DEFAULT_LIMIT_C) -> dict[str, int]:
     """Write the planned values for one motor and return what the servo reads back."""
-    target = plan(read(bus, motor))
+    target = plan(read(bus, motor), limit)
     bus.write("Torque_Enable", motor, 0, num_retry=2)
     bus.write("Lock", motor, 0, num_retry=2)
     try:
@@ -48,12 +51,13 @@ def apply(bus, motor: str) -> dict[str, int]:
         bus.write("Lock", motor, 1, num_retry=2)
     after = read(bus, motor)
     if after != target:
-        raise RuntimeError(f"{motor}: wrote {target}, servo reads back {after}")
+        hint = " (the servo did not keep that limit; try --limit 100)" if after["Max_Temperature_Limit"] != target["Max_Temperature_Limit"] else ""
+        raise RuntimeError(f"{motor}: wrote {target}, servo reads back {after}{hint}")
     return after
 
 
 def run(buses: list[Any], write: bool = False, only: list[str] | None = None,
-        out: Callable[[str], None] = print) -> dict[str, Any]:
+        out: Callable[[str], None] = print, limit: int = DEFAULT_LIMIT_C) -> dict[str, Any]:
     """Read (and with write=True, change) every motor on the given connected buses.
     Returns {ok, written, motors: {name: {before, target, after}}}."""
     motors: dict[str, dict[str, Any]] = {}
@@ -70,13 +74,13 @@ def run(buses: list[Any], write: bool = False, only: list[str] | None = None,
                 out(f"{name:<24}read failed: {e}")
                 ok = False
                 continue
-            target = plan(before)
+            target = plan(before, limit)
             entry: dict[str, Any] = {"before": before, "target": target, "after": None}
             for r in REGISTERS:
                 out(f"{name:<24}{r:<22}{before[r]:>5}{target[r]:>8}")
             if write and before != target:
                 try:
-                    entry["after"] = apply(bus, name)
+                    entry["after"] = apply(bus, name, limit)
                     out(f"{name:<24}written and read back")
                 except Exception as e:  # noqa: BLE001
                     entry["error"] = str(e)
