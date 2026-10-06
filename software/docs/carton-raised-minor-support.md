@@ -68,6 +68,30 @@ Finite static searches also tested 75° short flaps with the right claw,
 sampled bare-claw poses passed the collision check. This is not a proof of
 global infeasibility, particularly with unmodeled physical finger attachments.
 
+## Separate 45-degree layout trial
+
+Rotating the carton to 45° while keeping its nearest bottom corner 10 mm
+inside the same table edge did not change the robot/table spacing. The
+initial outside carton markers were occluded. A proposed floor marker at
+the carton centre was also obscured by the upright near flap; moving that
+declared marker 80 mm toward the far short wall made registration possible.
+This marker/layout proposal is not the original 30° comparison.
+
+The paddle folded the first short flap, but the original left-hand retreat
+ended only 3.39 mm from the other upper arm, inside the planner's 6 mm
+clearance margin. A different retreat, 60 mm left, 50 mm backward and 60 mm
+upward in the world frame, passed that check. Both shorts were then held at
+92.77° / 93.27°, with 5.42 mm maximum carton movement. Both major flaps
+remained open. This is another partial hold, not complete closure or release.
+
+The corresponding claw approach missed by 29.73 mm. Moving its proposed
+contact closer to the corner made IK reachable but left finger/panel
+intersections above the existing 1 mm bound. A static grid found 39 reachable
+contact candidates and no collision-qualified candidate. Searches for a
+crossbar pose using the existing 60 mm / −71° paddle grip also found no
+pose-qualified sample at 65° or 75° in the 30° layout, or at 75° in this
+45° layout. None of these finite searches proves global impossibility.
+
 ## Reproduction and remaining work
 
 `tools/diagnose_partial_minor_bridge.py` runs the prepared support test using
