@@ -80,6 +80,7 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 |---|---|
 | `farm calibration-report` | Reads the saved calibration and flags a wrapped reading, a short sweep, or arms that disagree. No motion. |
 | `farm robot-test [--move --ask]` | Motors only: reads every joint; with `--move` nudges each one and asks whether the named part moved. |
+| `farm servo-protection [--write]` | Reads each servo's own EEPROM temperature protection (limit, unload mask, alarm mask); with `--write` sets the limit to 100 °C and clears the temperature bit in both masks, permanently. No motion. |
 | `farm policy-server --checkpoint DIR` | Parked. On a second machine: serves a checkpoint over HTTP; `farm policy-test --server URL` uses it. See `docs/gpu-server.md`. |
 | `farm calibrate --auto --arm left` (then `right`), `farm calibrate --head` | Automatic calibration: each arm finds its own limits (LeRobot PR #3282, vendored in `farm/vendor/autocal`); the head is a two-joint hands-on step. **Never run on this robot.** Staged modes: `--motor gripper`, `--unfold-only`. Procedure in the `farm-bringup` skill. |
 | `farm r2a [--checkpoint DIR]` | R2a planter-assembly readiness: parts hashes, station transform, grip thresholds, dataset/checkpoint schema. Files only. Contract in `farm/assembly/`, plan in `docs/r2a-assembly.md`. Execution disabled. |

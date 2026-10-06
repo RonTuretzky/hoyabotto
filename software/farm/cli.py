@@ -7,6 +7,7 @@
   farm calibrate --head             hands-on, two joints: calibrate only the head
   farm calibration-report           read the saved calibration; flag wrapped, short or mismatched joint ranges (no motion)
   farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one
+  farm servo-protection -p paper-tray-v0 [--write] [--only head|left|right]   read, and with --write permanently turn off, each servo's own temperature cutoff (EEPROM; no motion)
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
   farm teach-all  -p ...            learn every keyframe the profile needs, in order
@@ -176,6 +177,33 @@ def _teach_one(s, name, arm, goal):
     out = servo.run(arm, goal, save_as=name, allow_gripper=(arm != "head"))
     print(f"{name}: {'OK' if out.ok else 'FAILED'} in {out.steps} steps, ${out.cost_usd:.3f}: {out.reason}")
     return out.ok
+
+
+def cmd_servo_protection(a):
+    """Read every servo's EEPROM temperature protection; with --write, turn it off for good. Nothing moves."""
+    from .adapters.base import ARM_JOINTS, HEAD_JOINTS, arm_joint
+    from .config import load_profile
+    from .tools import servo_protection
+    p = load_profile(a.profile)
+    if p.robot.kind == "sim" or p.simulated:
+        sys.exit("servo-protection writes real servo EEPROM; there is nothing to do on the simulator")
+    from .adapters.robot_lerobot import LeRobotXLeRobot
+    r = LeRobotXLeRobot(p.robot).robot
+    only = None
+    if a.only == "head":
+        only = list(HEAD_JOINTS)
+    elif a.only:
+        only = [arm_joint(a.only, j) for j in ARM_JOINTS]
+    if a.write:
+        print("This writes the servos' permanent memory: temperature limit 100 C and no unload or alarm on temperature.")
+        print("Torque is switched off on each servo while it is written, so support the arms or leave them folded at rest.")
+        input("Press ENTER to write, Ctrl-C to stop … ")
+    r.bus1.connect(); r.bus2.connect()
+    try:
+        res = servo_protection.run([r.bus1, r.bus2], write=a.write, only=only)
+    finally:
+        r.bus1.disconnect(); r.bus2.disconnect()
+    sys.exit(0 if res["ok"] else 1)
 
 
 def cmd_teach(a):
@@ -563,6 +591,7 @@ def main(argv=None):
         ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, [("--auto", {"action": "store_true"}), ("--arm", {"choices": ["left", "right"], "default": ""}), ("--motor", {"default": ""}), ("--unfold-only", {"action": "store_true"}), ("--velocity", {"type": int, "default": 0}), ("--head", {"action": "store_true"})]), ("check", cmd_check, []),
         ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
+        ("servo-protection", cmd_servo_protection, [("--write", {"action": "store_true"}), ("--only", {"choices": ["head", "left", "right"]})]),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
         ("mcp", cmd_mcp, []),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),

@@ -159,10 +159,16 @@
 - At the owner's direction the software no longer reads or acts on servo temperature anywhere: the `farm` safety
   rules, `farm robot-test`, `farm mcp`, the simulator, and the carton motor owner and its clients.
   `farm soak` and the profile key `servo_temp_max_c` are gone.
-- Load, step, travel, watchdog, lease and STOP checks are unchanged, and a nonzero servo `Status` byte still stops
-  the carton owner.
-- A robot-Mac working copy of the carton owner outside this repository (`work/`) keeps its old checks until the
-  packaged scripts in `software/scripts/carton_robot/` replace it.
+- Load, step, travel, watchdog, lease and STOP checks are unchanged. A nonzero servo `Status` byte still stops
+  the carton owner, and that byte is where the servo's own firmware would report overheating.
+- 2026-10-06: the servo-side protection is next. `farm servo-protection -p paper-tray-v0` reads every servo's
+  EEPROM temperature limit (default 70 °C) and unload/alarm masks; `--write` sets the limit to 100 °C (the
+  register's top value) and clears the temperature bit in both masks, so the firmware neither unloads nor flags
+  on heat. Not yet run on the robot: this Mac has no motor boards. Run it from the robot Mac with the arms at
+  rest and record the before/after table here.
+- The 2026-10-05 session-archive copies of the motor owner and claw script, which enforced 55 °C, were deleted
+  on 2026-10-06. A robot-Mac working copy of the carton owner outside this repository (`work/`) keeps its old
+  checks until the packaged scripts in `software/scripts/carton_robot/` replace it.
 
 ## OAK-D Lite test — 2026-10-05
 

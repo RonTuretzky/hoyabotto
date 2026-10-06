@@ -10,7 +10,7 @@
 - Existing main OAK list/capture/preview behavior, plus the session's immutable aligned RGB/depth streaming support.
 - Saved motor calibration and README from `codex/robot-calibration-snapshot`.
 - `ROBOT_HANDOFF_2026-10-05.md`, the last progress report, reference guide/templates and concise numerical/camera evidence.
-- Exact session camera/viewer/phone sources and the old motor owner/isolated claw utility under `software/docs/session-archive-2026-10-05/`. These are historical snapshots with deployment caveats, not installed entry points or additional active owners.
+- Exact session camera/viewer/phone sources under `software/docs/session-archive-2026-10-05/`. These are historical snapshots with deployment caveats, not installed entry points or additional active owners.
 
 Main's existing planter/R3.2/R3.3 work is preserved. Unused experimental `owner_trajectory`, `trajectory_binding`, `trajectory_transport` adapters and their tests are excluded. Runtime credentials, certificate/private keys, authorization configs, recordings, raw motor logs, model downloads, binaries and environments are excluded.
 
