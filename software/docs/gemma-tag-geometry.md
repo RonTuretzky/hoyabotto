@@ -21,7 +21,9 @@ does not supply the missing independent calibration poses. A corrected right-arm
 capture was rejected because tag 2 was no longer detected at the lower image
 boundary. Fresh right-elbow readback was 3155 ticks against the recorded
 1002..3092 range; the provenance/recovery audit is separate from hand-eye fitting.
-The right-arm geometry configuration is also absent. These are concrete starting
+A later fresh frame detected tag 2 with its black square fully visible, about
+8 px from the bottom; the earlier clipping claim was too strong. The right-arm
+geometry configuration is also absent. These are concrete starting
 conditions to resolve, not reasons to require manual demonstration of every pose.
 
 During the initial capture, the owner was latched after an idle coherent servo read returned `-7`
@@ -153,11 +155,12 @@ geometric calibration. Reuse the following existing implementations:
    independent validation poses. Start with small observable movements and
    expand only within the established workspace; a pan-only sweep is insufficient.
 3. The original `Experiment` transport uses a command/status-file owner and its
-   observer uses seeded camera views. They are **not yet adapters for the current
-   authenticated Gemma owner and single OAK tag observation**. Implement that
-   bridge through the existing sole owner, preserving session identity,
-   freshness, measured settling, travel bounds and STOP handling. Do not start
-   the old serial owner or run the old CLI against the current hardware setup.
+   observer uses seeded camera views. The new
+   [Gemma adapters](gemma-automatic-calibration.md) connect that algorithm to the
+   current authenticated owner and OAK tags, preserving session identity,
+   freshness, measured settling, travel bounds and STOP handling. The automatic
+   collector feeds the existing registration fitter. Do not start the old
+   serial owner or run the old CLI against the current hardware setup.
 
 For this installation, first restore full tag-2 visibility, finish the right
 elbow range audit, and bind the right-arm candidate kinematics. Then collect

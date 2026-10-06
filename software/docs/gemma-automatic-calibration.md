@@ -1,0 +1,129 @@
+# Automatic calibration through Gemma's existing robot connection
+
+The integration uses the existing authenticated `Robot` client, `TagRobot`,
+`Experiment.calibrate`, stationary encoder/tag sampler and OpenCV hand-eye
+fitter. It creates no camera stream or serial owner. It changes no calibration
+registers, controller limits or STOP state.
+
+## What is available
+
+- `robot_calibration_status`: read-only owner readiness, tags 1/2, tag-2 mounting
+  and image-border clearance, current arm geometry, and proposed registration grid.
+- `robot_calibrate_tags(mode="local_model")`: hold the selected arm's five
+  positioning joints, probe the configured joints in both directions, return
+  after each probe, validate with independent smaller movements, and release.
+  This produces a local pixel-motion model, not robot-frame coordinates.
+- `robot_calibrate_tags(mode="registration")`: automatically collect eight
+  training and three held-out poses, return to the starting joint positions,
+  assemble candidate FK through the existing LeRobot model, fit camera/base and
+  tag/gripper transforms, and release. A rejected fit returns no transforms.
+  An accepted fit still has `motion_ready:false`; it is not installed or used
+  for grasping by these tools.
+
+Both execution modes are explicit tool calls for the current user-requested
+calibration. Merely constructing the adapter, opening the chat, reading status,
+or restarting the local chat cannot start or resume a calibration.
+
+The default registration grid uses exactly two configured positioning axes,
+96 ticks to either side of the observed start and 16-tick observed transitions.
+Its planned total joint travel including return is 1248 ticks, under the
+existing 1500-tick budget. It is a local grid, not a collision-checked trajectory.
+The operator must supervise a cleared workspace. All grid endpoints must fit
+inside the owner's commandable ranges before any motor is enabled. The fitter
+also requires nonparallel rotational excitation, at least 25 mm positional
+span, and independent validation poses. An unsuitable pair/view can therefore
+fail; the code does not expand its limits or continue after that failure.
+
+## Install on the existing Gemma Mac
+
+First install the existing tag adapter and metric dependencies as described in
+[the geometry guide](gemma-tag-geometry.md). Do not change the working DepthAI
+camera environment. Registration mode also requires the existing LeRobot/Placo
+FK dependencies and verified model assets; it checks those before enabling.
+
+Create `.private/tag-calibration.json` next to the pilot's `robot.json`:
+
+```json
+{
+  "schema": 1,
+  "arm": "right",
+  "camera": "oak",
+  "joints": ["shoulder_pan", "wrist_flex"],
+  "model_directory": "/absolute/path/to/verified-so101-model"
+}
+```
+
+The two joints above are an example for the confirmed right gripper. Their
+use requires a usable starting pose, observable tag motion, and workspace
+clearance. Tag 2's geometry file must also confirm `right` and
+`fixed_gripper_housing`. Local configuration, not model arguments, selects
+arm, joints, camera, model directory and any stricter experiment limits.
+
+```sh
+cd /path/to/xlerobot-farm/software
+PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/install_gemma_calibration.py \
+  --pilot /path/to/gemma/pilot
+
+# Read-only: no enable, move, STOP or owner restart.
+PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py status \
+  --pilot-root /path/to/gemma/pilot
+```
+
+The installer adds two source hooks to the already tag-enabled chat and
+preserves a content-addressed backup. It does not restart anything. Reload the
+**idle local chat** using its existing launcher to expose the two tools;
+preserve history and leave old goals inactive. No camera or remote-owner
+restart is needed. The CLI works without reloading the running chat.
+
+When the operator is supervising and the status/current scene permit the
+requested run, the equivalent explicit CLI actions are:
+
+```sh
+PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py local_model \
+  --pilot-root /path/to/gemma/pilot --execute
+PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py registration \
+  --pilot-root /path/to/gemma/pilot --execute
+```
+
+## Evidence and interruption
+
+Each run gets a new `tag-calibration-runs/` directory in the pilot, containing
+initial observation, per-frame annotated images and encoder brackets, command
+trace and either `result.json` or `failure.json`. Registration also saves
+`plan.json`, eleven pose records and the assembled dataset. Earlier evidence
+is never overwritten. `calibration_commands_sent` counts movement requests;
+`commanded_path_ticks` counts requested travel, not measured motor writes.
+The fitter's zero-write count refers only to the mathematical solve.
+
+The adapter checks fresh all-motor readbacks, current-owner identity, controller
+phase, unchanged ranges, requested/completed command identity, measured endpoint
+error, uncommanded drift, camera stream/sequence/time and fixed table-tag corners.
+It holds only the selected arm's five positioning motors; it never enables the
+jaw, head, other arm or wheels. Those other encoders must remain stationary.
+
+Successful motor responses must confirm completion from the bound owner;
+acceptance alone is insufficient. Enable/move leaves the owner `holding` and
+release leaves it `idle`. Normal completion releases the held motors and verifies
+fresh all-sixteen torque-zero readback. Failure after an enable attempt requests
+independent STOP and records its response. A failed preflight sends no STOP to
+another client's owner. There is no automatic retry, reset, restart or blind
+return movement following a missing tag or refusal.
+
+The installed wrapper and CLI share a local motion lock. Independent STOP and
+read tools bypass it. Owner command/write counters also detect outside activity,
+but this is not an atomic lease over arbitrary clients on another computer.
+Keep those clients idle during calibration; observed outside activity aborts the
+run. Owner supervision and all existing hardware enforcement remain authoritative.
+
+## Verification boundary
+
+Tests use an API-level simulated owner and analytic camera/encoder data. They
+exercise the existing probing algorithm, automatic sample collection, actual
+OpenCV fit, release and fault handling. This is not a dynamics/collision simulation
+or proof that physical motor movement, hand-eye calibration or grasping works.
+
+The live read-only check on 2026-10-06 detected table tag 1 and gripper tag 2.
+Tag 2's black square was fully visible with approximately 8 px bottom clearance;
+the earlier claim that it was clipped was too strong. Detection can change
+between frames. The same check reported the right elbow outside its saved range.
+No physical calibration movement was executed by this integration work.

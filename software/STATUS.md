@@ -1,5 +1,30 @@
 # Where the build stands
 
+## Automatic Gemma tag calibration integration — 2026-10-06
+
+- Connected the existing `Experiment.calibrate` to authenticated Gemma motor
+  commands and same-frame OAK tag observations. Automatic registration mode
+  collects eight fitting and three held-out poses for the existing LeRobot FK
+  assembly/OpenCV fitter. Normal completion verifies release; faults stop and
+  retain evidence without retrying or resetting the owner.
+- Installed and reloaded the idle local Gemma chat. Its live 23-tool catalog
+  includes `robot_calibration_status` and `robot_calibrate_tags`. Actual Gemma
+  inference used the read-only status tool and correctly reported the right
+  elbow's saved-range blocker. No physical movement was requested by this work.
+- Fresh frames detected tags 1 and 2; tag 2's black square was fully visible,
+  about 8 px from the bottom edge. The previous clipping claim was too strong.
+  Detection can vary between frames; missing tag 3 does not prevent hand-eye
+  collection when tags 1/2 are observable.
+- 628 repository tests passed, 8 skipped; 26 existing pilot tests passed. The
+  30 new integration tests cover measured completion, held-out fitting, STOP,
+  session changes, wrong-arm binding, stale/changed camera data and no-motion
+  acknowledgements. These use a simulated API, not physical/collision testing.
+- Physical registration remains unvalidated. The right elbow is outside its
+  saved range and the right-arm candidate geometry configuration is absent.
+  Other motion clients must remain idle for the supervised calibration run.
+- [Setup and execution guide](docs/gemma-automatic-calibration.md),
+  [verification evidence](docs/evidence/gemma-automatic-calibration.json).
+
 ## Right-arm AprilTag binding correction — 2026-10-06
 
 - The user confirmed tag 2 on the right fixed gripper housing. The earlier
@@ -17,9 +42,9 @@
   range discrepancy; no motor commands were issued by the binding correction.
 - The existing carton controller already implements automatic joint probing
   and independent visual-model checks. Its command-file transport and seeded
-  camera observer still need adapters for Gemma's current authenticated owner
-  and OAK tags. The hand-eye sampler/fitter exists; automatic physical pose
-  collection through that current interface is not yet implemented or validated.
+  camera observer needed adapters for Gemma's current authenticated owner
+  and OAK tags at this checkpoint. The integration above now supplies them;
+  physical pose collection remains unvalidated.
   See the [automatic workflow](docs/gemma-tag-geometry.md#automatic-move-and-observe-workflow).
 
 ## Metric AprilTags and registration utilities — 2026-10-06
