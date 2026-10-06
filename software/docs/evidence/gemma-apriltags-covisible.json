@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "checked_at_utc": "2026-10-06T01:40:35.645308+00:00",
+  "physical_tags_observed": true,
+  "same_view_tool_target_verified": true,
+  "consecutive_samples": [
+    {
+      "oak": {
+        "status": "OBSERVED",
+        "frame": {
+          "camera_id": "oak-1944301091DA1C2E00",
+          "seq": 39116,
+          "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+          "sha256": "d3d11c085a47a51770f56160a28b5fa82536e485fdf60619f0243e51dac05f0e",
+          "captured_at": 1791250774.18664,
+          "received_at": null,
+          "timestamp_basis": "capture",
+          "age_s_on_observer_clock": 0.4446291923522949,
+          "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+          "capture_age_within_limit": true,
+          "clock_synchronization_verified": false,
+          "new_since_last_call": true
+        },
+        "detected_ids": [
+          1,
+          2,
+          3
+        ],
+        "missing_ids": [],
+        "relative": {
+          "from_tag": 2,
+          "to_tag": 3,
+          "units": "pixels",
+          "dx": 78.59530620272602,
+          "dy": -89.86147365653426,
+          "axes": "+x=image right, +y=image down",
+          "contact_offset_calibrated": false
+        }
+      },
+      "phone": {
+        "status": "NO_VALID_TAGS",
+        "frame": {
+          "camera_id": "phone_overview",
+          "seq": 7213,
+          "stream_id": null,
+          "sha256": "8f6e60d0d9b7ac6ad38d4dc3242c358bf7bba77ee967fdf2e62a5d3c1cf5241a",
+          "captured_at": null,
+          "received_at": 1791250774.2761998,
+          "timestamp_basis": "receipt_only_capture_delay_unknown",
+          "age_s_on_observer_clock": 0.3550710678100586,
+          "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+          "capture_age_within_limit": false,
+          "clock_synchronization_verified": false,
+          "new_since_last_call": true
+        },
+        "detected_ids": [],
+        "missing_ids": [
+          1,
+          2,
+          3
+        ],
+        "relative": null
+      }
+    },
+    {
+      "oak": {
+        "status": "OBSERVED",
+        "frame": {
+          "camera_id": "oak-1944301091DA1C2E00",
+          "seq": 39128,
+          "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+          "sha256": "612f0fd61f2aa11f3a3f928cf94a2a90981ee0ff1625bff269083f8c96eb0bc1",
+          "captured_at": 1791250774.9865391,
+          "received_at": null,
+          "timestamp_basis": "capture",
+          "age_s_on_observer_clock": 0.28954005241394043,
+          "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+          "capture_age_within_limit": true,
+          "clock_synchronization_verified": false,
+          "new_since_last_call": true
+        },
+        "detected_ids": [
+          1,
+          2,
+          3
+        ],
+        "missing_ids": [],
+        "relative": {
+          "from_tag": 2,
+          "to_tag": 3,
+          "units": "pixels",
+          "dx": 78.59668252981862,
+          "dy": -89.8538055120726,
+          "axes": "+x=image right, +y=image down",
+          "contact_offset_calibrated": false
+        }
+      },
+      "phone": {
+        "status": "NO_VALID_TAGS",
+        "frame": {
+          "camera_id": "phone_overview",
+          "seq": 7216,
+          "stream_id": null,
+          "sha256": "65826b24d30d300b2a7b4e362784c696abd5c8bd9f2c2b9bfb526ca8bc192e92",
+          "captured_at": null,
+          "received_at": 1791250775.0290308,
+          "timestamp_basis": "receipt_only_capture_delay_unknown",
+          "age_s_on_observer_clock": 0.24705004692077637,
+          "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+          "capture_age_within_limit": false,
+          "clock_synchronization_verified": false,
+          "new_since_last_call": true
+        },
+        "detected_ids": [],
+        "missing_ids": [
+          1,
+          2,
+          3
+        ],
+        "relative": null
+      }
+    },
+    {
+      "oak": {
+        "status": "OBSERVED",
+        "frame": {
+          "camera_id": "oak-1944301091DA1C2E00",
+          "seq": 39138,
+          "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+          "sha256": "5e95f3b94448af36cab6942d20d0e32f3368b9514049f11867666e5269eff900",
+          "captured_at": 1791250775.653124,
+          "received_at": null,
+          "timestamp_basis": "capture",
+          "age_s_on_observer_clock": 0.4324629306793213,
+          "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+          "capture_age_within_limit": true,
+          "clock_synchronization_verified": false,
+          "new_since_last_call": true
+        },
+        "detected_ids": [
+          1,
+          2,
+          3
+        ],
+        "missing_ids": [],
+        "relative": {
+          "from_tag": 2,
+          "to_tag": 3,
+          "units": "pixels",
+          "dx": 78.5661234515897,
+          "dy": -89.8717894684622,
+          "axes": "+x=image right, +y=image down",
+          "contact_offset_calibrated": false
+        }
+      },
+      "phone": {
+        "status": "NO_VALID_TAGS",
+        "frame": {
+          "camera_id": "phone_overview",
+          "seq": 7218,
+          "stream_id": null,
+          "sha256": "59a8c440ce7f7a5e1653771efaca37b146948441f1cd20d35d3783ec6f6a3e5d",
+          "captured_at": null,
+          "received_at": 1791250775.519157,
+          "timestamp_basis": "receipt_only_capture_delay_unknown",
+          "age_s_on_observer_clock": 0.5664310455322266,
+          "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+          "capture_age_within_limit": false,
+          "clock_synchronization_verified": false,
+          "new_since_last_call": true
+        },
+        "detected_ids": [],
+        "missing_ids": [
+          1,
+          2,
+          3
+        ],
+        "relative": null
+      }
+    }
+  ],
+  "gemma_inference": {
+    "model": "google/gemma-4-e4b",
+    "duration_s": 15.43366813659668,
+    "tools_called": [
+      "robot_get_tags"
+    ],
+    "answers": [
+      "**Oak Camera:** Detected IDs 1, 2, and 3. No missing IDs. Gripper-to-paddle displacement is available (Tag 2 to Tag 3).\n**Phone Camera:** No tags detected. IDs 1, 2, and 3 are missing. Gripper-to-paddle displacement is not available."
+    ],
+    "errors": [],
+    "motor_tools_exposed": false
+  },
+  "motor_writes": 0,
+  "physical_motion_tested": false,
+  "grasp_verified": false,
+  "limitation": "2D tag-centre displacement only. Camera-to-arm and tag-to-contact transforms are not established; this does not prove grasp alignment."
+}

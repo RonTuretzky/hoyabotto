@@ -5,16 +5,19 @@
 - The Gemma chat exposes `robot_get_tags` through the shared detector and its
   existing authenticated `robot_get_cameras` transport. Detection runs on the
   Gemma Mac; no additional camera stream or motor owner was opened.
-- Live physical detections: OAK IDs 1 (table) and 3 (paddle), phone ID 2 (gripper).
-  Neither view currently contains both gripper and paddle; relative alignment
-  is explicitly unavailable. Phone timing remains receipt-only.
+- After the user repositioned the tags, OAK detected IDs 1 (table), 2 (gripper)
+  and 3 (paddle) together in three advancing frames. The tag-3 centre was about
+  78.6 px right and 89.9 px above tag 2. The earlier same-view visibility gap is
+  resolved for this stationary setup; tag-based 2D displacement is available.
+  The phone view contained no valid tags in this check and remains receipt-only.
 - Real Gemma inference invoked the tool and accurately reported missing views
   and tags. The live chat advertised 19 tools after installation, retaining
   existing direct-control tools and STOP. This check issued no motor writes.
 - The integration provides 2D measurements and annotated images. No metric
   pose, camera-to-arm calibration, grasp or physical motion was validated.
   See [setup](docs/gemma-apriltags.md) and
-  [evidence](docs/evidence/gemma-apriltags.json).
+  [initial evidence](docs/evidence/gemma-apriltags.json) and
+  [same-view follow-up](docs/evidence/gemma-apriltags-covisible.json).
 
 ## Servo temperature sensing removed — 2026-10-05
 
