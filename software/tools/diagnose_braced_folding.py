@@ -17,6 +17,7 @@ from carton.folding_station import FoldingStation
 from carton.folding_material import CartonMaterial
 from carton.folding_paths import JointPathPlanner,execute_path
 from carton.folding_diagonal import DiagonalFoldingController,contact_point
+from carton.folding_grasp import GraspIKMixin
 from tools.simulate_bimanual_folding import PixelPort
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--out',required=True)
@@ -36,25 +37,6 @@ if a.release_left_minor and not a.fold_second_short:p.error('--release-left-mino
 if a.paddle_contact=='tip' and a.tool!='paddle':p.error('--paddle-contact tip requires --tool paddle')
 if a.press_near_after_short and a.fold_second_short:p.error('Choose a major press or a second short fold')
 out=Path(a.out);out.mkdir(parents=True,exist_ok=False)
-class GraspIKMixin:
- """Prioritize preserving the pinched face normal without relaxing IK limits.
-
- A weak orientation objective allowed the box to turn instead of the wrist.
- This diagnostic deliberately stops when that grasp-preserving pose cannot
- be reached by the five-axis arm. Motor forces and travel stay unchanged.
- """
- def ik(self,side,target,orientation=None):
-  if isinstance(orientation,dict) and 'local_axis' in orientation and side=='left':
-   from scipy.optimize import least_squares
-   ix=self.arm_indices[side][:5];ranges=self.model.jnt_range[[self.model.joint(side+'_'+j).id for j in JOINTS[:5]]]
-   for indices in self.arm_indices.values():self.kin.qpos[indices]=self.data.qpos[indices]
-   def normal_objective(q):
-    self.kin.qpos[ix]=q;mujoco.mj_kinematics(self.model,self.kin);rot=self.kin.body(side+'_gripper_link').xmat.reshape(3,3)
-    return np.r_[self.kin.site(self.control_sites[side]).xpos-target,(rot@orientation['local_axis']-orientation['direction'])*.2]
-   sol=least_squares(normal_objective,np.clip(self.seeds[side],ranges[:,0]+1e-6,ranges[:,1]-1e-6),bounds=(ranges[:,0],ranges[:,1]),max_nfev=200,ftol=1e-10,xtol=1e-10,gtol=1e-10)
-   self.seeds[side]=sol.x.copy();return sol.x,float(np.linalg.norm(normal_objective(sol.x)[:3]))
-  return super().ik(side,target,orientation)
-
 class PinchSimulation(GraspIKMixin,FoldingSimulation):
  pass
 

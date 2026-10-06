@@ -45,7 +45,16 @@ class JointPathPlanner:
             adr=self.model.joint('paddle_free').qposadr[0]
             self.data.qpos[adr:adr+3]=grip.xpos+rotation@offset
             mujoco.mju_mat2Quat(self.data.qpos[adr+3:adr+7],(rotation@relative_rotation).ravel())
-        mujoco.mj_fwdPosition(self.model,self.data)
+        # This is a geometric planning copy. Building the constraint solver
+        # for deeply colliding candidates can exhaust its stack before the
+        # candidate is rejected. Compute the same geometry/contact stages,
+        # without constructing contact-force constraints or changing physics.
+        mujoco.mj_kinematics(self.model,self.data)
+        mujoco.mj_comPos(self.model,self.data)
+        mujoco.mj_flex(self.model,self.data)
+        mujoco.mj_collision(self.model,self.data)
+        if any(w.number for w in self.data.warning):
+            raise ValueError('MuJoCo warning during planning collision evaluation')
         self.checks+=1
         for c in self.data.contact:
             a,b=self.model.geom(c.geom1).name,self.model.geom(c.geom2).name

@@ -121,3 +121,47 @@ def test_old_interpenetrating_initial_pose_is_rejected_and_restored(scene_factor
     np.testing.assert_array_equal(d.qpos,before)
     with pytest.raises(ValueError,match='all four'):
         initialize_flaps(m,d,{})
+
+
+def test_hinge_tag_registration_matches_compiled_marker_mounts(scene_factory):
+    import numpy as np
+    from scipy.spatial.transform import Rotation
+    from carton.folding_hinge_tags import carton_pose_from_short_flaps
+    mj,make=scene_factory;m=make(CartonMaterial());d=mj.MjData(m)
+    adr=m.joint('carton_free').qposadr[0]
+    d.qpos[adr:adr+3]=[.08,-.02,.03]
+    rotation=Rotation.from_euler('xyz',[.12,-.18,.6]).as_matrix()
+    mj.mju_mat2Quat(d.qpos[adr+3:adr+7],rotation.ravel())
+    d.qpos[m.joint('short_left_hinge').qposadr[0]]=-.4
+    d.qpos[m.joint('short_right_hinge').qposadr[0]]=1.2
+    mj.mj_kinematics(m,d)
+    tags={}
+    for tag,name in ((11,'short_left_tag'),(12,'short_right_tag')):
+        pose=np.eye(4)
+        pose[:3,:3]=d.body(name).xmat.reshape(3,3)@np.diag([-1,1,-1])
+        pose[:3,3]=d.site(name+'_center').xpos
+        tags[tag]=pose
+    pose,_=carton_pose_from_short_flaps(tags)
+    np.testing.assert_allclose(pose[:3,3],d.body('carton').xpos,atol=1e-12)
+    np.testing.assert_allclose(pose[:3,:3],d.body('carton').xmat.reshape(3,3),atol=1e-12)
+
+
+def test_carton_motion_distinguishes_sliding_from_vertical_settling(scene_factory):
+    import numpy as np
+    from carton.folding_sim import FoldingSimulation
+    mj,make=scene_factory;m=make(CartonMaterial());d=mj.MjData(m)
+    mj.mj_kinematics(m,d)
+    sim=object.__new__(FoldingSimulation);sim.model=m;sim.data=d
+    sim.station=FoldingStation(.06,.15,.05)
+    sim.box_origin=d.body('carton').xpos.copy()
+    sim.box_rotation=d.body('carton').xmat.reshape(3,3).copy()
+    sim.motion_stats={'max_translation_mm':0.,'max_rotation_degrees':0.,
+                      'minimum_bottom_corner_table_clearance_mm':float('inf')}
+    adr=m.joint('carton_free').qposadr[0]
+    d.qpos[adr:adr+3]+=np.array([.003,.004,-.012])
+    mj.mj_kinematics(m,d)
+    measured=sim.measure_carton_motion()
+    assert measured['translation_mm']==pytest.approx(13)
+    assert measured['horizontal_translation_mm']==pytest.approx(5)
+    assert measured['vertical_translation_mm']==pytest.approx(-12)
+    assert sim.motion_stats['max_horizontal_translation_mm']==pytest.approx(5)

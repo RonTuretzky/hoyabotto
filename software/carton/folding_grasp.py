@@ -2,6 +2,36 @@
 import numpy as np
 
 
+class GraspIKMixin:
+    """Preserve the left jaw-face normal under the ordinary 8 mm IK gate.
+
+    Shared by offline pinch diagnostics. It does not change actuator forces,
+    original joint limits, the carton state, or the passive contact model.
+    """
+    def ik(self, side, target, orientation=None):
+        if isinstance(orientation, dict) and 'local_axis' in orientation and side == 'left':
+            import mujoco
+            from scipy.optimize import least_squares
+            from carton.folding_sim import JOINTS
+            ix = self.arm_indices[side][:5]
+            ranges = self.model.jnt_range[[self.model.joint(side+'_'+j).id for j in JOINTS[:5]]]
+            for indices in self.arm_indices.values():
+                self.kin.qpos[indices] = self.data.qpos[indices]
+            def objective(q):
+                self.kin.qpos[ix] = q
+                mujoco.mj_kinematics(self.model, self.kin)
+                rotation = self.kin.body(side+'_gripper_link').xmat.reshape(3, 3)
+                return np.r_[self.kin.site(self.control_sites[side]).xpos-target,
+                             (rotation@orientation['local_axis']-orientation['direction'])*.2]
+            solution = least_squares(objective,
+                np.clip(self.seeds[side], ranges[:, 0]+1e-6, ranges[:, 1]-1e-6),
+                bounds=(ranges[:, 0], ranges[:, 1]), max_nfev=200,
+                ftol=1e-10, xtol=1e-10, gtol=1e-10)
+            self.seeds[side] = solution.x.copy()
+            return solution.x, float(np.linalg.norm(objective(solution.x)[:3]))
+        return super().ik(side, target, orientation)
+
+
 def opposing_faces(fixed, moving):
     """Require loaded contacts on opposite broad faces, not two edge touches."""
     return any(abs(f['normal_dot']) >= .8 and abs(m['normal_dot']) >= .8

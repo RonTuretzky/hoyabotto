@@ -9,19 +9,23 @@ from carton.folding_diagonal import contact_point
 from carton.folding_paths import JointPathPlanner,execute_path
 
 
-def fold_second_short(sim,controller,*,capture=False,clearance=.006):
-    """Release the left near-flap brace, keeping the right minor held.
+def fold_second_short(sim,controller,*,capture=False,clearance=.006,
+                      retreat_box=(0,-.04,.025),brace_label='near flap'):
+    """Release the declared left brace, keeping the right minor held.
 
     Joint-path obstacle snapshots are simulator diagnostics. Contact-point
     commands use fresh rendered RGB-D registration; there is no hardware port.
     """
     port=controller.port;c=controller
-    c.sense('Before releasing near flap')
-    port.set_grippers({'left':.6},.5,'Release left near-flap pinch')
+    retreat=np.asarray(retreat_box,dtype=float)
+    if retreat.shape!=(3,) or not np.isfinite(retreat).all() or np.linalg.norm(retreat)>.15:
+        raise ValueError('Declare a finite retreat within 150 mm')
+    c.sense('Before releasing '+brace_label)
+    port.set_grippers({'left':.6},.5,'Release left '+brace_label+' pinch')
     actual=sim.data.site('left_tip').xpos.copy()
     direction=sim.data.body('left_gripper_link').xmat.reshape(3,3)[:,2].copy()
-    port.move_arms({'left':actual+c.box[:3,:3]@np.array([0,-.04,.025])},.8,
-                   'Withdraw left fingers clear of near flap',{'direction':direction.tolist()})
+    port.move_arms({'left':actual+c.box[:3,:3]@retreat},.8,
+                   'Withdraw left fingers clear of '+brace_label,{'direction':direction.tolist()})
     reading=c.sense('Locate left short flap while right holds the other short flap')
     measured=reading['angles'].get('short_left')
     if measured is None:raise ValueError('Fresh left short-flap observation required')
@@ -34,7 +38,10 @@ def fold_second_short(sim,controller,*,capture=False,clearance=.006):
             q,error=sim.ik('left',c.box[:3,:3]@outside+c.box[:3,3],
                            {'direction':(c.box[:3,:3]@orientation['direction']).tolist()})
             if error>.008:raise ValueError(f'Left short approach IK misses {error*1000:.2f} mm')
-            planner=JointPathPlanner(sim,'left',clearance=clearance)
+            # This is the intended pressing surface, including the initial
+            # withdrawal from it. Retain the runtime 1 mm penetration bound.
+            planner=JointPathPlanner(sim,'left',clearance=clearance,
+                                     allowed_flaps=('short_left_cardboard',))
             path=planner.plan(q)
             execute_path(sim,'left',path,'Reach outside left short flap',capture=capture)
             for u in np.linspace(.1,1,10):
@@ -49,12 +56,15 @@ def fold_second_short(sim,controller,*,capture=False,clearance=.006):
             'visual_angles':reading['angles'],'held_only':True,'full_task_complete':False}
 
 
-def release_left_minor(sim,controller):
+def release_left_minor(sim,controller,*,seconds=2.):
     """Negative control: withdraw one hand, then actually observe spring-back."""
     port=controller.port
+    if not math.isfinite(seconds) or seconds<=0:
+        raise ValueError('Positive finite passive observation duration required')
     tip=sim.data.site('left_tip').xpos.copy()
     port.move_arms({'left':tip+[0,0,.065]},.5,'Release left minor to test spring-back','down')
-    port.move_arms({},2.,'Observe released flap for two seconds',None)
+    port.move_arms({},seconds,f'Observe released flap for {seconds:g} seconds',None)
     reading=controller.sense('Measure released minor; do not assume retention')
     return {'angles':sim.truth_angles(),'motion':dict(sim.motion_stats),
-            'visual_angles':reading['angles'],'full_task_complete':False}
+            'visual_angles':reading['angles'],'passive_observation_seconds':seconds,
+            'full_task_complete':False}

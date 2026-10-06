@@ -42,6 +42,22 @@ def test_path_edge_checks_intermediate_tool_collision(tool_scene):
     assert not planner.edge(np.zeros(5),end)
 
 
+def test_geometric_planner_contacts_match_full_position_pipeline(tool_scene):
+    mj,sim=tool_scene
+    planner=JointPathPlanner(sim,'right',clearance=.006)
+    before=sim.data.qpos.copy()
+    for angle in np.linspace(0,np.pi,13):
+        planner.valid(np.array([angle,0,0,0,0]))
+        full=mj.MjData(planner.model)
+        full.qpos[:]=planner.data.qpos
+        mj.mj_fwdPosition(planner.model,full)
+        def contacts(data):
+            return np.array([[c.geom1,c.geom2,c.dist,*c.pos,*c.frame]
+                             for c in data.contact]).reshape(-1,15)
+        np.testing.assert_allclose(contacts(planner.data),contacts(full),rtol=0,atol=1e-12)
+    np.testing.assert_array_equal(sim.data.qpos,before)
+
+
 def test_planning_clearance_rejects_near_miss_without_inflating_physics(tool_scene):
     mj,sim=tool_scene
     # Put the obstacle 4 mm beyond the held tool's contact surface.

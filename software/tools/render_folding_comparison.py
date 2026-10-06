@@ -22,9 +22,12 @@ def font(size):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--comparison',required=True);p.add_argument('--case',required=True)
+    p.add_argument('--claws',type=Path,help='Existing complete recorded claw attempt')
+    p.add_argument('--paddle',type=Path,help='Existing complete recorded paddle attempt')
     a=p.parse_args();root=Path(a.comparison);items=[]
+    root.mkdir(parents=True,exist_ok=True)
     for tool in ('claws','paddle'):
-        folder=root/(a.case+'-'+tool)
+        folder=getattr(a,tool) or root/(a.case+'-'+tool)
         # Presentation-only sky; no physical geometry or recorded state changes.
         xml=E.parse(folder/'scene.xml');asset=xml.getroot().find('asset')
         E.SubElement(asset,'texture',type='skybox',builtin='gradient',rgb1='.66 .73 .81',rgb2='.94 .95 .96',width='256',height='1536')
@@ -35,6 +38,12 @@ def main():
         camera=mujoco.MjvCamera();camera.lookat[:]=[0,.22,-.15];camera.distance=2.3;camera.azimuth=130;camera.elevation=-25
         items.append(dict(model=m,data=d,renderer=mujoco.Renderer(m,360,640),camera=camera,
             states=states,times=[s['time'] for s in states],result=result,tool=tool))
+    def material_for(item):
+        result=item['result']
+        return result.get('material') or result.get('assumptions',{}).get('material') or result['physics']['material']
+    material=material_for(items[0])
+    if material!=material_for(items[1]):
+        raise ValueError('This comparison layout requires matching material assumptions')
     end=max(i['times'][-1] for i in items)
     timeline=sorted(set([round(t,7) for t in np.arange(0,end,.2)]+[i['times'][-1] for i in items]))
     option=mujoco.MjvOption();option.geomgroup[3]=0
@@ -56,24 +65,28 @@ def main():
             r.update_scene(d,camera='front',scene_option=option)
             im.paste(Image.fromarray(r.render().copy()).resize((400,225),Image.Resampling.LANCZOS),(x,427))
             reached=t>=item['times'][-1]-1e-6
-            status=('PASSED' if result['success'] else 'STOPPED') if reached else 'RUNNING'
+            terminal='PASSED' if result['success'] else ('STOPPED' if result.get('error') else 'INCOMPLETE')
+            status=terminal if reached else 'RUNNING'
             draw.text((x+413,438),status,font=heading,fill='#111')
             draw.text((x+413,469),f"t = {min(t,item['times'][-1]):.2f} s",font=body,fill='#111')
             if reached:
                 message=('Closed; released; retained for 5 s.' if result['success'] else result['controller'].get('error','Closure failed'))
+                if result.get('release_test'):
+                    angle=result['release_test']['angles']['short_left']
+                    seconds=result['release_test'].get('passive_observation_seconds',2.)
+                    message=f'Left flap reopened to {angle:.1f} degrees after {seconds:g} seconds released. Full closure incomplete.'
                 if message.startswith('IK left target'):
                     miss=re.search(r'misses by ([\d.]+) mm',message)
                     if miss:message=f'Left hand cannot reach next grasp pose ({miss[1]} mm position error).'
             else:message=st['label']
             for line_no,line in enumerate(textwrap.wrap(message,width=24)):
                 draw.text((x+413,500+line_no*20),line,font=small,fill='#111')
-            label=st['label'] if not reached else ('Final verified closure' if result['success'] else 'Final stopped state held on screen')
+            label=st['label'] if not reached else ('Final verified closure' if result['success'] else 'Last recorded physical state held on screen')
             for n,line in enumerate(textwrap.wrap(label,width=76)):
                 draw.text((x+12,661+n*20),line,font=small,fill='#111')
             if reached:
                 draw.text((x+12,704),f"Max box motion (3D): {result['physics']['carton_motion']['max_translation_mm']:.1f} mm",font=small,fill='#111')
         draw.line((639,36,639,728),fill='#555',width=2)
-        material=items[0]['result']['assumptions']['material']
         draw.text((14,740),f"UNMEASURED: contents {material['contents_mass_kg']*1000:.0f} g; friction {material['table_friction']}; crease {material['hinge_stiffness']} Nm/rad. Unbolted box. No hardware. Pickup not tested.",font=small,fill='#111')
         frames.append(im)
     durations=[max(10,round((b-a)*1000/10)*10) for a,b in zip(timeline,timeline[1:])]+[2500]
@@ -98,7 +111,7 @@ def main():
             draw=ImageDraw.Draw(single)
             draw.text((12,8),'OFFLINE PHYSICS | FULL RECORDED ATTEMPT',font=body,fill='#111')
             draw.text((12,742),f"Free carton; contents {material['contents_mass_kg']*1000:.0f} g; resisting hinges. Unmeasured.",font=small,fill='#111')
-            draw.text((12,766),'Final physical state held for 2.5 seconds; STOPPED means this attempt failed.',font=small,fill='#111')
+            draw.text((12,766),'Final display pause: 2.5 s. INCOMPLETE / STOPPED is not closure success.',font=small,fill='#111')
             separate.append(single)
         individual_durations=[durations[i] for i in indexes[:-1]]+[2500]
         individual_path=root/(a.case+'-'+item['tool']+'-full.gif')

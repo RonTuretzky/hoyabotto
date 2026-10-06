@@ -30,7 +30,11 @@ def box_marker_poses():
 def carton_pose_from_tags(tags,quality=None):
     """Use a fresh declared marker; reject disagreement instead of averaging it away."""
     mounts=box_marker_poses();visible=sorted(set(tags)&set(mounts))
-    if not visible:raise ValueError('Fresh carton marker and aligned depth required')
+    if not visible:
+        if {11,12}.issubset(tags):
+            from carton.folding_hinge_tags import carton_pose_from_short_flaps
+            return carton_pose_from_short_flaps(tags)
+        raise ValueError('Fresh carton marker and aligned depth required')
     estimates={tag_id:tags[tag_id]@np.linalg.inv(mounts[tag_id]) for tag_id in visible}
     selected=max(visible,key=lambda tag_id:(quality or {}).get(tag_id,{}).get('valid_depth_pixels',0))
     pose=estimates[selected];translation=0.;angle=0.

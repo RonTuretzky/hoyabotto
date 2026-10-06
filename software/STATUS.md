@@ -4,6 +4,19 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Square-carton proposal and observed spring-back — 2026-10-06
+
+The new [square-carton audit](docs/carton-square-minor-progress.md) keeps the
+empty free box, resistant hinges, original limits and robot/table distance.
+With fresh hinge-tag recovery, claws fold both short flaps while the box moves
+only 0.033 mm horizontally. Releasing the left hand reopens its flap from
+91.19 to 57.87 degrees after five seconds. The paddle reaches 62.68 degrees
+and stops at the unchanged IK bound. This is a separate setup proposal, with
+new floor-tag mounts and rendered 1280 x 720 sensing; none is physically
+calibrated. All 105 focused folding tests pass. Both complete four-flap
+sequences, tape application and arms-clear retention remain incomplete.
+No hardware was accessed.
+
 ## Major-flap transfer and tape component — 2026-10-06
 
 The new near-major press attempts fail with the same empty free carton and
