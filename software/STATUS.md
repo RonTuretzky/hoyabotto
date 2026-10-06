@@ -6,33 +6,33 @@ The read-only CLI now skips calibration handshake writes and disconnects without
 
 ## Two-hand carton folding simulation — 2026-10-06
 
-**Photo-review correction:** the passing layout below does not match the real
-robot/table placement. Its bases were 248.5 mm over the tabletop, 260 mm above
-it, and only 40 mm behind the carton rim. The saved side photo shows the cart
-behind the table; the latest October 6 packet has no positioned folding carton.
-The [station audit](docs/carton-folding-station-audit.md) separates base-to-edge
-distance and carton inset. Hypothetical 150 mm base-to-edge plus 50 mm inset
-layouts miss the far-flap target by 31–52 mm with this controller, depending on
-base height; 250 mm plus 50 mm exceeds a conservative chain-length bound.
-These distances are **not photo measurements**. No current physical reach or
-fold has been validated. Commands now require explicit layout dimensions or
-`--reference-layout`; the old favorable setup is no longer the implicit default.
+The [corrected rear-cart simulation](docs/carton-diagonal-folding.md) closes all
+four flaps with both arm bases **150 mm behind the table edge** and **60 mm above
+the tabletop**. A fixed three-tray cart has collision geometry and 35 mm front
+clearance. The box is rotated 30 degrees and translated so its nearest bottom
+corner stays 10 mm onto the table. These dimensions are assumed, not measured
+from the photos. Stock SO101 fingertip geometry is used; the white attachments
+visible in the photos are still unmodeled.
 
-The [rendered RGB-D / AprilTag folding simulation](docs/carton-bimanual-rgbd-simulation.md)
-now folds all four measured-carton flaps with both actual SO101 grippers.
-Five operating cases passed at 640×360; six failure controls were rejected;
-strong springback remains a documented failure. Closure requires every flap
-within 5° of horizontal continuously for two seconds, paired finger contact
-evidence, content support and collision checks. The final paired hold gives
-nominal angles 91.843°, 91.843°, 90.290°, 90.324°. Relevant tests: 93 passed.
+Both real arm models contact two flaps each. All four passive flaps stay within
+5 degrees of horizontal for every 2 ms step of a two-second hold. Final angles:
+91.843, 91.843, 90.315 and 90.302 degrees. Forbidden robot penetration: 0 mm.
+Nominal and +/-5 mm sideways box trials pass. Six negative controls reject a
+success claim. A heavier depth-noise/dropout trial fails; reliability is not
+established. The filled-box model uses contents to support the short flaps;
+empty-carton closure, taping and hands-free retention are not demonstrated.
 
-This is a geometric visual controller, not a trained Molmo box policy. The
-successful station uses bases 260 mm above the table and a 40 mm setback;
-cart-body collisions, real cardboard, physical calibration and deployment are
-unverified. Tags 4 and 10–14 are additional assumed markers. No robot commands
-were issued, no live calibration installed and the other Molmo chat was not
-changed. Hinge/content contact is explicit; no flap actuators or near-flat
-joint stops manufacture closure. See the [evidence](docs/evidence/bimanual-folding-rgbd-simulation.json).
+The strategy uses observed tags/depth, not a learned Molmo policy. Table tags
+1 and 20 jointly register a stationary camera; fresh anchor geometry and carton
+tag 10 are required during folding. A [supplemental ID 20 A4 sheet](docs/assets/bimanual-table-anchor-20-a4.pdf)
+is included. Run `tools/simulate_bimanual_folding.py --strategy diagonal` with
+the explicit dimensions in the guide. No hardware calls or calibration changes
+were made. [Independent results and known failures](docs/evidence/bimanual-folding-rear-cart.json).
+
+The original success put bases over the tabletop. It remains explicitly
+historical under `--reference-layout` and is not evidence for the photographed
+station. The [station audit](docs/carton-folding-station-audit.md) retains that
+correction and the straight-box reach failures.
 
 ## Servo protection readback — 6 October 2026
 

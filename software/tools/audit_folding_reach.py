@@ -1,4 +1,4 @@
-"""Offline reach sensitivity, using the folding controller's contact geometry.
+"""Offline reach sensitivity of the historical controller's contact geometry.
 
 These are selected hypothetical layouts, not measurements or a confidence
 interval fitted to photos. No simulated camera observations or physical motion.
@@ -20,6 +20,7 @@ from PIL import Image
 from carton.folding_controller import short_flap_points, long_flap_point
 from carton.folding_sim import FoldingSimulation
 from carton.folding_station import FoldingStation
+from carton.folding_cart import table_overlap
 
 
 def probes():
@@ -62,6 +63,15 @@ def main():
             layouts.append((f'height-{height:.2f}_gap-{gap:.2f}_inset-0.05',FoldingStation(height,gap,.05)))
     rows=[]
     for name,station in layouts:
+        overlaps=[] if station.reference_layout else table_overlap(station)
+        if overlaps:
+            rows.append({'case':name,'station':station.report(),
+                         'invalid_geometry':'Fixed cart intersects the tabletop',
+                         'static_table_overlaps':overlaps,'probes':[],
+                         'all_sampled_contacts_within_ik_tolerance':False,
+                         'any_contact_outside_chain_bound':None})
+            print(json.dumps({'case':name,'invalid_geometry':'cart/table overlap'}),flush=True)
+            continue
         sim=FoldingSimulation(Path(args.simulation_root),out/name,station=station,width=960,height=540,stiffness=.008)
         points=[]
         for label,side,point,orientation in probes():

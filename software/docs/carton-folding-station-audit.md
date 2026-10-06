@@ -1,5 +1,7 @@
 # Photo review: the simulated station was too favorable
 
+**Follow-up:** a [30-degree diagonal contact strategy](carton-diagonal-folding.md) now passes at a 150 mm base-to-edge gap and 60 mm base height, with the entire box on the table. The reach failures below apply to the earlier straight-box trajectory. The 50 mm gap cases also intersect the newly added cart geometry and must not be treated as feasible stations. Physical registration remains unverified.
+
 The successful two-hand fold does **not** validate the photographed station.
 The old simulation put the arm bases above the tabletop, very close to the
 carton. That placement was not obtained from the actual photos. The user's

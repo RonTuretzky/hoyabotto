@@ -11,7 +11,7 @@ from farm.perception.tag_geometry import square_points
 from farm.status import Reading, Status
 from carton.geometry import Box
 
-SIZES={1:.060,2:.040,4:.040,10:.045,11:.035,12:.035,13:.035,14:.035}
+SIZES={1:.060,2:.040,4:.040,10:.045,11:.035,12:.035,13:.035,14:.035,20:.060}
 
 
 def depth_tag_pose(corners,depth,k,size):
@@ -48,8 +48,15 @@ def depth_tag_pose(corners,depth,k,size):
 
 
 class RGBDTagObserver:
-    def __init__(self,world_from_anchor):
+    def __init__(self,world_from_anchor,*,additional_anchors=None,stationary_camera=False):
         self.world_from_anchor=np.asarray(world_from_anchor)
+        self.anchors={1:self.world_from_anchor,**(additional_anchors or {})}
+        for tag_id,pose in self.anchors.items():
+            pose=np.asarray(pose,dtype=float)
+            if tag_id not in SIZES or pose.shape!=(4,4) or not np.isfinite(pose).all():raise ValueError('Calibrated finite anchor poses and known sizes required')
+            if not np.allclose(pose[3],[0,0,0,1]) or not np.allclose(pose[:3,:3].T@pose[:3,:3],np.eye(3),atol=1e-6) or np.linalg.det(pose[:3,:3])<.999:raise ValueError('Anchor pose must be a rigid proper transform')
+            self.anchors[tag_id]=pose
+        self.stationary_camera=stationary_camera
         self.world_from_camera=None
         self.sequence=-1
         self.history=[]
@@ -65,11 +72,29 @@ class RGBDTagObserver:
             if i not in SIZES:continue
             try:poses[i],quality[i]=depth_tag_pose(t['corners'],depth,k,SIZES[i])
             except ValueError as exc:rejected[i]=str(exc)
-        if 1 not in poses:raise ValueError('Fresh table tag and aligned depth registration not observed')
-        self.world_from_camera=self.world_from_anchor@np.linalg.inv(poses[1])
+        visible_anchors=sorted(set(poses)&set(self.anchors))
+        if not visible_anchors:raise ValueError('Fresh table tag and aligned depth registration not observed')
+        if self.world_from_camera is None and self.stationary_camera and set(visible_anchors)!=set(self.anchors):
+            raise ValueError('All declared table anchors required for initial stationary-camera calibration')
+        cam_points=[];world_points=[]
+        for tag_id in visible_anchors:
+            obj=square_points(SIZES[tag_id])
+            cam_points.extend(obj@poses[tag_id][:3,:3].T+poses[tag_id][:3,3])
+            world_points.extend(obj@self.anchors[tag_id][:3,:3].T+self.anchors[tag_id][:3,3])
+        cam_points=np.asarray(cam_points);world_points=np.asarray(world_points)
+        if not self.stationary_camera or self.world_from_camera is None:
+            c,w=cam_points.mean(axis=0),world_points.mean(axis=0)
+            u,_,vt=np.linalg.svd((cam_points-c).T@(world_points-w))
+            rotation=vt.T@np.diag([1,1,np.linalg.det(vt.T@u.T)])@u.T
+            candidate=np.eye(4);candidate[:3,:3]=rotation;candidate[:3,3]=w-rotation@c
+        else:candidate=self.world_from_camera
+        residual=float(np.sqrt(np.mean(np.sum((cam_points@candidate[:3,:3].T+candidate[:3,3]-world_points)**2,axis=1))))
+        if residual>.006:raise ValueError('Fresh anchors disagree with stationary camera or surveyed geometry by over 6 mm')
+        self.world_from_camera=candidate
         self.sequence=seq
         tags={i:self.world_from_camera@p for i,p in poses.items()}
-        self.history.append({'seq':seq,'detected':sorted(tags),'rejected':rejected,'quality':quality})
+        self.history.append({'seq':seq,'detected':sorted(tags),'rejected':rejected,'quality':quality,
+                             'anchor_ids':visible_anchors,'anchor_fit_rms_mm':residual*1000,'stationary_camera':self.stationary_camera})
         return tags
 
 
@@ -89,7 +114,10 @@ def depth_flap_angles(rgb,depth,k,world_from_camera,world_from_box,priors=None):
     pts=np.einsum("ij,kj->ik",cam,box_from_camera[:3,:3])+box_from_camera[:3,3]
     b=Box()
     specs={'short_left':(0,-b.length/2,1,1,.07,b.height),'short_right':(0,b.length/2,-1,1,.07,b.height),
-           'long_far':(1,b.width/2,-1,0,-.08,b.height+.0035),'long_near':(1,-b.width/2,1,0,.08,b.height+.0035)}
+           # The centre strip lies between the folded short flaps. Sampling
+           # above a short flap can confuse its surface with an occluded long
+           # panel and can put the only depth patch beneath a working hand.
+           'long_far':(1,b.width/2,-1,0,0.,b.height+.0035),'long_near':(1,-b.width/2,1,0,0.,b.height+.0035)}
     out={}
     for name,(axis,hinge,inward,along,center,height) in specs.items():
         horizontal=inward*(pts[:,axis]-hinge);vertical=pts[:,2]-height

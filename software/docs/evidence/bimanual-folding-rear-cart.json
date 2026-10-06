@@ -1,0 +1,387 @@
+{
+  "simulation_only": true,
+  "physical_validation": false,
+  "success": true,
+  "configuration": {
+    "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+    "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/cart-correction/diagonal-final",
+    "width": 960,
+    "height": 540,
+    "strategy": "diagonal",
+    "reference_layout": false,
+    "base_height": 0.06,
+    "base_to_table_edge": 0.15,
+    "box_from_table_edge": 0.01,
+    "base_spacing": 0.3,
+    "table_tag_x": -0.5,
+    "table_tag_y": 0.55,
+    "backup_table_tag_x": 0.45,
+    "backup_table_tag_y": 0.7,
+    "stiffness": 0.008,
+    "seed": 1,
+    "noise": 0.0008,
+    "dropout": 0.25,
+    "dx": 0,
+    "dy": 0.07579259463549806,
+    "yaw": 30.0,
+    "fault": null,
+    "no_video": false
+  },
+  "station": {
+    "base_height": 0.06,
+    "base_to_table_edge": 0.15,
+    "box_from_table_edge": 0.01,
+    "base_spacing": 0.3,
+    "reference_layout": false,
+    "table_marker_xy": [
+      -0.5,
+      0.55
+    ],
+    "backup_table_marker_xy": [
+      0.45,
+      0.7
+    ],
+    "base_setback_from_near_rim_m": 0.16,
+    "table_edge_y_m": -0.1515,
+    "base_y_m": -0.3015,
+    "table_tag_position_m": [
+      -0.5,
+      0.55,
+      0.0013
+    ],
+    "physical_registration_verified": false,
+    "scope": "explicit hypothetical dimensions; not measured from photos"
+  },
+  "initial_carton_footprint": {
+    "corners_xy_m": [
+      [
+        -0.09336181401715116,
+        -0.1415
+      ],
+      [
+        -0.23486181401715112,
+        0.10358518927099614
+      ],
+      [
+        0.23486181401715112,
+        0.04799999999999997
+      ],
+      [
+        0.09336181401715116,
+        0.2930851892709961
+      ]
+    ],
+    "minimum_table_edge_clearance_m": 0.010000000000000009,
+    "fully_on_table": true
+  },
+  "assumptions": {
+    "base_height_above_table_m": 0.06,
+    "base_setback_from_near_rim_m": 0.16,
+    "base_spacing_m": 0.3,
+    "contents_top_above_table_m": 0.102,
+    "hinge_range_degrees": [
+      -97.4,
+      174.8
+    ],
+    "closure_tolerance_degrees_from_horizontal": 5.0,
+    "hinge_stiffness_Nm_per_rad": 0.008,
+    "hinge_friction_Nm": 0.004,
+    "flap_mass_kg": 0.023,
+    "depth_noise_std_m": 0.0008,
+    "depth_dropout_fraction": 0.25,
+    "registration": "Surveyed table tag 1 and optional ID 20; calibrated robot base locations. With two anchors the camera is fixed after initial registration and fresh anchor geometry is checked every observation. Carton pose obtained from fresh detected tag 10 and depth.",
+    "additional_markers": "ID 4 left housing; ID 10 carton wall; IDs 11-14 flap outside faces; optional ID 20 second table anchor (60 mm); exact simulated sizes and rigid mounts.",
+    "gripper_geometry": "Stock rigid SO101 fingertips. White compliant attachments visible in the photos have not been identified or modeled.",
+    "cart_geometry": "Fixed three-tray cart approximation; static table overlap refused; arm/cart contacts checked",
+    "cardboard_model": "Rigid panels with passive frictional spring hinges. Material properties assumed, not measured."
+  },
+  "code_sha256": {
+    "tools/simulate_bimanual_folding.py": "1826dcc2da069d65284ae78e887c5a292cc7563ab7d81cbfdb4a84fca1ea7215",
+    "carton/folding_sim.py": "4a2116181cdde71361cc54f59487799694d1bc797ec94672e9219ec2b3dd3df0",
+    "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+    "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+    "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+    "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd"
+  },
+  "controller_source": {
+    "class": "DiagonalFoldingController",
+    "path": "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_diagonal.py",
+    "sha256": "c0b2d8afea2f9b9daa4f61bb760bb92b649a6788c89fd03cd87bfa76c17a2406"
+  },
+  "source_arm_sha256": "0827dbdfe75891205ad699d5d04d3f978aa7ddfe90bba064caf103f141b21a30",
+  "actuated_joint_names": [
+    "left_shoulder_pan",
+    "left_shoulder_lift",
+    "left_elbow_flex",
+    "left_wrist_flex",
+    "left_wrist_roll",
+    "left_gripper",
+    "right_shoulder_pan",
+    "right_shoulder_lift",
+    "right_elbow_flex",
+    "right_wrist_flex",
+    "right_wrist_roll",
+    "right_gripper"
+  ],
+  "independent_evaluation": {
+    "final_flap_degrees": {
+      "short_left": 91.84314886296504,
+      "short_right": 91.84314886289052,
+      "long_far": 90.31539279695878,
+      "long_near": 90.30154145497725
+    },
+    "all_four_closed": true,
+    "continuous_two_second_hold_passed": true,
+    "short_flaps_supported_by_contents": true,
+    "initial_carton_position_error_mm": 2.354017060498648,
+    "carton_translation_during_run_mm": 0.24777743502630303,
+    "both_hands_contacted_flaps": true,
+    "finger_contacts": {
+      "left": [
+        "long_far_cardboard",
+        "short_left_cardboard"
+      ],
+      "right": [
+        "long_near_cardboard",
+        "short_right_cardboard"
+      ]
+    },
+    "assigned_flaps": {
+      "left": [
+        "short_left",
+        "long_far"
+      ],
+      "right": [
+        "short_right",
+        "long_near"
+      ]
+    }
+  },
+  "hold": {
+    "label": "Verify two-second closure",
+    "duration_s": 2.0,
+    "requested_duration_s": 2.0,
+    "stopped_early": false,
+    "flap_angle_extrema_degrees": {
+      "short_left": [
+        91.84314024619368,
+        91.84314886296504
+      ],
+      "short_right": [
+        91.84314024610669,
+        91.84314886289052
+      ],
+      "long_far": [
+        90.31201708898881,
+        90.31539279695878
+      ],
+      "long_near": [
+        90.30153712327295,
+        90.30409341966244
+      ]
+    },
+    "time": 27.699999999995526,
+    "ik_error_m": {},
+    "flap_degrees": {
+      "short_left": 91.84314886296504,
+      "short_right": 91.84314886289052,
+      "long_far": 90.31539279695878,
+      "long_near": 90.30154145497725
+    },
+    "contact_pairs": [
+      [
+        "long_far_cardboard",
+        "left_wrist_roll_follower_so101_v1_part_3"
+      ],
+      [
+        "long_near_cardboard",
+        "right_wrist_roll_follower_so101_v1_part_3"
+      ]
+    ],
+    "bad_penetration_mm": 0.0,
+    "max_target_tracking_error_m": 0.0,
+    "tip_m": {
+      "left": [
+        -0.16277964096940847,
+        0.009648314717758207,
+        0.12143520729762158
+      ],
+      "right": [
+        0.012010739657565047,
+        0.05610661847711397,
+        0.12262162823258191
+      ]
+    },
+    "forbidden_contact_pairs": []
+  },
+  "collision": {
+    "max_bad_penetration_mm": 0.0,
+    "carton_contact_simulated": true,
+    "cart": {
+      "model": "three-tray fixed cart approximation",
+      "source": "local molmoact2-mac-sim/build_scene.py tray/post/mount dimensions",
+      "dimensions_measured": false,
+      "collision_enabled": true,
+      "width_m": 0.5,
+      "depth_m": 0.36,
+      "front_edge_ahead_of_base_line_m": 0.115,
+      "front_edge_to_table_edge_m": 0.03499999999999999,
+      "static_table_overlaps": []
+    }
+  },
+  "validation_cases": [
+    {
+      "case": "missing-tags",
+      "expected": false,
+      "success": false,
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "angles": {
+        "short_left": 5.93031340698808,
+        "short_right": 5.9303134069880885,
+        "long_far": -4.160932737414203,
+        "long_near": -4.160932737497711
+      },
+      "both_hands": false,
+      "hold": false,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "missing-depth",
+      "expected": false,
+      "success": false,
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "angles": {
+        "short_left": 5.93031340698808,
+        "short_right": 5.9303134069880885,
+        "long_far": -4.160932737414203,
+        "long_near": -4.160932737497711
+      },
+      "both_hands": false,
+      "hold": false,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "disabled-right",
+      "expected": false,
+      "success": false,
+      "error": "short_right has no visual closure confirmation: {'degrees': 11.068826090548793, 'pixel_support': 1852, 'median_deviation_deg': 0.38700326382684214, 'method': 'aligned_depth_cardboard_plane'}",
+      "angles": {
+        "short_left": 91.84233731557748,
+        "short_right": 9.525823238819074,
+        "long_far": -6.772305793079862,
+        "long_near": -6.736940673657892
+      },
+      "both_hands": false,
+      "hold": false,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "no-actions",
+      "expected": false,
+      "success": false,
+      "error": null,
+      "angles": {
+        "short_left": 19.93882650615023,
+        "short_right": 19.938826506150686,
+        "long_far": -14.381830275813948,
+        "long_near": -14.381830266700645
+      },
+      "both_hands": false,
+      "hold": false,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "bad-gripper",
+      "expected": false,
+      "success": false,
+      "error": "Gripper tag disagrees with calibrated encoder FK by over 12 mm",
+      "angles": {
+        "short_left": 5.93031340698808,
+        "short_right": 5.9303134069880885,
+        "long_far": -4.160932737414203,
+        "long_near": -4.160932737497711
+      },
+      "both_hands": false,
+      "hold": false,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "stuck-far",
+      "expected": false,
+      "success": false,
+      "error": "Actual fingertips missed target by over 35 mm",
+      "angles": {
+        "short_left": 4.7341703652015745,
+        "short_right": 5.7604803550962504,
+        "long_far": 1.1204237510727832,
+        "long_near": -6.064003956884572
+      },
+      "both_hands": false,
+      "hold": false,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "sensor-stress",
+      "expected": null,
+      "success": false,
+      "error": "short_left has no visual closure confirmation: {'degrees': -37.47864677567989, 'pixel_support': 1426, 'median_deviation_deg': 0.33162247314841053, 'method': 'aligned_depth_cardboard_plane'}",
+      "angles": {
+        "short_left": -38.57146690068154,
+        "short_right": 90.69202879286344,
+        "long_far": -10.77674406396549,
+        "long_near": -30.32216144666995
+      },
+      "both_hands": false,
+      "hold": false,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "box-x-plus5",
+      "expected": null,
+      "success": true,
+      "error": null,
+      "angles": {
+        "short_left": 91.84315190162567,
+        "short_right": 91.84315190155176,
+        "long_far": 90.31545028706996,
+        "long_near": 90.30185401111389
+      },
+      "both_hands": true,
+      "hold": true,
+      "collision_mm": 0.0
+    },
+    {
+      "case": "box-x-minus5",
+      "expected": null,
+      "success": true,
+      "error": null,
+      "angles": {
+        "short_left": 91.84316912306348,
+        "short_right": 91.84316912298883,
+        "long_far": 90.31753202317358,
+        "long_near": 90.30177923221075
+      },
+      "both_hands": true,
+      "hold": true,
+      "collision_mm": 0.0
+    }
+  ],
+  "local_artifacts": {
+    "run": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/cart-correction/diagonal-final",
+    "gif": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/cart-correction/corrected-station-final/corrected-station-success.gif",
+    "source_snapshot": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/cart-correction/diagonal-final/source-snapshot"
+  },
+  "gif_sha256": "ea18cc98196a154eea697444ad08d119845d88040eb090fc793d9a62653b6812",
+  "limitations": [
+    "Dimensions assumed, not registered to photos.",
+    "Filled carton contents support folded short flaps.",
+    "Stock rigid SO101 fingertips; white physical attachments not modeled.",
+    "Heavier noise/dropout trial failed; this is not a robust physical controller.",
+    "No learned MolmoAct2 policy, taping, or hands-free retention claim."
+  ],
+  "verification": {
+    "focused_tests_passed": 81,
+    "final_qpos_matches_experimental_run": true,
+    "gif_frames_decoded": 224
+  }
+}

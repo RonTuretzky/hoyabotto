@@ -18,6 +18,7 @@ from PIL import Image, ImageDraw
 from carton.servo.tag_kit import marker_grid
 from carton.geometry import Box
 from carton.folding_station import FoldingStation
+from carton.folding_cart import cart_boxes,table_overlap,report as cart_report
 
 JOINTS = ('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper')
 FLAPS = ('short_left','short_right','long_far','long_near')
@@ -44,6 +45,10 @@ def marker(parent,name,tag_id,size,pos,xyaxes=None):
 
 
 def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, offset=(0,0), yaw=0.):
+    if not station.carton_footprint(offset,yaw)['fully_on_table']:
+        raise ValueError('Initial carton bottom extends beyond the tabletop')
+    if not station.reference_layout and table_overlap(station):
+        raise ValueError('Fixed cart intersects the tabletop; base-to-edge distance is not cart-front clearance')
     root=E.parse(source/'scene-assets/arm-import.xml').getroot()
     root.set('model','dual_SO101_passive_carton')
     E.SubElement(root,'option',timestep='.002',integrator='implicitfast',cone='elliptic',iterations='80')
@@ -56,6 +61,20 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
     for mesh,spec in manifest.items():
         for i,file in enumerate(spec['files']):E.SubElement(asset,'mesh',name=mesh+'_part_'+str(i),file=file)
     contact=E.SubElement(root,'contact');act=E.SubElement(root,'actuator')
+    if not station.reference_layout:
+        for part in cart_boxes(station):
+            E.SubElement(world,'geom',name=part.name,type='box',pos=words(part.center),size=words(part.half_size),
+                         rgba='.075 .08 .085 1',friction='.6 .003 .0001',solref='.004 1')
+        # The fixed cart includes collision geometry; these wheels and the
+        # neck are also explicit obstacles, not moving robot actuators.
+        for x in (-.23,.23):
+            for y in (-.225,.095):
+                E.SubElement(world,'geom',name=f'cart_wheel_{x}_{y}',type='sphere',
+                             pos=words([x,station.base_y+y,station.base_height-.76]),size='.04',rgba='.04 .04 .04 1')
+        E.SubElement(world,'geom',name='cart_neck',type='box',
+                     pos=words([0,station.base_y-.10,station.base_height+.18]),size='.025 .025 .22',rgba='.10 .10 .11 1')
+        E.SubElement(world,'geom',name='cart_camera_head',type='box',
+                     pos=words([0,station.base_y-.10,station.base_height+.43]),size='.045 .035 .025',rgba='.08 .08 .08 1')
     for side,x in [('left',-station.base_spacing/2),('right',station.base_spacing/2)]:
         b=copy.deepcopy(arm)
         for elem in b.iter():
@@ -84,6 +103,8 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
     E.SubElement(world,'light',pos='0 -.2 1.4',dir='0 0 -1',directional='true')
     E.SubElement(world,'geom',name='table',type='box',pos=words([0,station.table_edge_y+.55,-.016]),size='.55 .55 .016',rgba='.70 .66 .58 1',friction='.7 .003 .0001',solref='.004 1')
     marker(world,'table_tag',1,.060,np.asarray(station.table_tag_position)-[0,0,.0003])
+    if station.backup_table_marker_xy is not None:
+        marker(world,'table_tag_backup',20,.060,[*station.backup_table_marker_xy,.001])
     box=E.SubElement(world,'body',name='carton',pos=words([*offset,.001]),euler=words([0,0,yaw]))
     E.SubElement(box,'freejoint',name='carton_free')
     common=dict(type='box',rgba='.68 .45 .24 1',friction='.65 .002 .0001',solref='.004 1',solimp='.95 .99 .001')
@@ -107,7 +128,8 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
         n=np.cross(axes[:3],axes[3:])
         tag_point=[0,.07,.090] if name.startswith('short') else ([-.08,0,.090] if name=='long_far' else [.08,0,.090])
         marker(f,name+'_tag',TAG_IDS[name],.035,np.array(tag_point)+n*.0018,axes)
-    for name,pos,look in [('overhead',[0,.00,.85],[0,0,.06]),('front',[.0,-.55,.85],[0,-.04,.08]),('side',[.85,-.3,.5],[0,station.base_y/2,.08])]:
+    front=([.0,-.55,.85],[0,-.04,.08]) if station.reference_layout else ([0,station.base_y-.08,station.base_height+.45],[0,-.015,.10])
+    for name,pos,look in [('overhead',[0,.00,.85],[0,0,.06]),('front',*front),('side',[.85,-.3,.5],[0,station.base_y/2,.08]),('overview',[1.1,station.base_y-.95,.6],[0,station.base_y,-.14])]:
         back=np.array(pos)-look;back/=np.linalg.norm(back)
         right=np.cross([0,1,0] if name=='overhead' else [0,0,1],back);right/=np.linalg.norm(right)
         up=np.cross(back,right)
@@ -125,11 +147,15 @@ class FoldingSimulation:
         self.data=mujoco.MjData(self.model);self.kin=mujoco.MjData(self.model)
         self.arm_indices={s:[self.model.jnt_qposadr[self.model.joint(s+'_'+n).id] for n in JOINTS] for s in ('left','right')}
         self.seeds={s:np.radians([0,50,-30,-20,0]) for s in self.arm_indices}
-        self.frames=[];self.events=[];self.stats={'max_bad_penetration_mm':0.,'carton_contact_simulated':True}
+        self.frames=[];self.frame_states=[];self.events=[];self.stats={'max_bad_penetration_mm':0.,'carton_contact_simulated':True,
+            'cart':None if self.station.reference_layout else cart_report(self.station)}
         self.renderer=None;self.option=mujoco.MjvOption();self.option.geomgroup[3]=0
         for name in FLAPS:self.data.qpos[self.model.jnt_qposadr[self.model.joint(name+'_hinge').id]]=.10
         for s,sign in [('left',-1),('right',1)]:
-            q,err=self.ik(s,[sign*(self.station.base_spacing/2+.08),self.station.base_y+.1015,self.station.base_height+.04],orientation=None)
+            initial=([sign*(self.station.base_spacing/2+.08),self.station.base_y+.1015,self.station.base_height+.04]
+                     if self.station.reference_layout else
+                     [sign*(self.station.base_spacing/2+.05),self.station.base_y+.22,self.station.base_height+.28])
+            q,err=self.ik(s,initial,orientation=None)
             if err>.008:raise ValueError('Initial arm-relative pose is unreachable')
             ix=self.arm_indices[s];self.data.qpos[ix[:5]]=q;self.data.qpos[ix[5]]=-.17
             self.data.ctrl[[self.model.actuator(s+'_'+n).id for n in JOINTS]]=np.r_[q,-.17]
@@ -141,7 +167,9 @@ class FoldingSimulation:
         for arm_indices in self.arm_indices.values():
             self.kin.qpos[arm_indices]=self.data.qpos[arm_indices]
         def fun(q):
-            self.kin.qpos[ix]=q;mujoco.mj_forward(self.model,self.kin)
+            # IK needs rigid transforms only. Contact dynamics are evaluated
+            # by mj_step on the separate simulation data during each motion.
+            self.kin.qpos[ix]=q;mujoco.mj_kinematics(self.model,self.kin)
             e=self.kin.site_xpos[site]-target
             if orientation is not None:
                 axis_index=2 if isinstance(orientation,(str,dict)) else 0
@@ -164,14 +192,20 @@ class FoldingSimulation:
         self.seeds[side]=sol.x.copy()
         return sol.x,float(np.linalg.norm(fun(sol.x)[:3]))
 
-    def move(self,targets,seconds=.5,label='',orientation=None,capture=True):
+    def move(self,targets,seconds=.5,label='',orientation=None,capture=True,grippers=None):
         ctrl=self.data.ctrl.copy();errors={}
+        for side,opening in (grippers or {}).items():
+            actuator=self.model.actuator(side+'_gripper').id
+            lo,hi=self.model.actuator_ctrlrange[actuator]
+            if not np.isfinite(opening) or not lo<=opening<=hi:raise ValueError('Gripper target outside model limits')
+            ctrl[actuator]=opening
         for side,point in targets.items():
-            q,e=self.ik(side,np.asarray(point),orientation);errors[side]=e
+            arm_orientation=orientation.get(side) if isinstance(orientation,dict) and side in orientation else orientation
+            q,e=self.ik(side,np.asarray(point),arm_orientation);errors[side]=e
             if e>.008:raise ValueError(f'IK {side} target {point} misses by {e*1000:.1f} mm')
             ctrl[[self.model.actuator(side+'_'+j).id for j in JOINTS[:5]]]=q
         start=self.data.ctrl.copy();n=max(1,round(seconds/self.model.opt.timestep))
-        contact_names=set();bad=0.
+        contact_names=set();bad_pairs=set();bad=0.
         extrema={f:[float('inf'),float('-inf')] for f in FLAPS}
         for i in range(n):
             t=min(1,(i+1)/(n*.8));self.data.ctrl[:]=start+(ctrl-start)*(t*t*(3-2*t))
@@ -181,23 +215,30 @@ class FoldingSimulation:
                 if 'cardboard' in a or 'cardboard' in b:
                     if a.startswith(('left_','right_')) or b.startswith(('left_','right_')):contact_names.add((a,b))
                 arms=(a.startswith(('left_','right_')),b.startswith(('left_','right_')))
-                # Arm/table, arm/rigid carton, and opposite-arm penetration.
-                forbidden=(all(arms)) or (any(arms) and ('table' in (a,b) or any(v.startswith('wall_') or v=='contents' for v in (a,b)))) or (a.startswith('left_') and b.startswith('right_')) or (a.startswith('right_') and b.startswith('left_'))
-                if forbidden:bad=max(bad,-c.dist*1000)
-            if i%10==0 or i==n-1:
-                for flap,value in self.truth_angles().items():
-                    extrema[flap][0]=min(extrema[flap][0],value);extrema[flap][1]=max(extrema[flap][1],value)
+                # Arm/table, arm/cart, arm/rigid carton, and arm/arm penetration.
+                forbidden=(all(arms)) or (any(arms) and ('table' in (a,b) or any(v.startswith(('wall_','cart_')) or v=='contents' for v in (a,b))))
+                if forbidden:
+                    bad=max(bad,-c.dist*1000)
+                    if c.dist<-.001:bad_pairs.add((a,b))
+            for flap,value in self.truth_angles().items():
+                extrema[flap][0]=min(extrema[flap][0],value);extrema[flap][1]=max(extrema[flap][1],value)
             if capture and i%100==0:self.capture(label)
+            if bad>1.:
+                # End this offline motion at the first forbidden contact,
+                # rather than driving through the remainder of the segment.
+                if capture:self.capture('STOP: forbidden robot contact')
+                break
         self.stats['max_bad_penetration_mm']=max(self.stats['max_bad_penetration_mm'],bad)
-        event={'label':label,'duration_s':seconds,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.data.site(a+'_tip').xpos-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.data.site(s+'_tip').xpos.tolist() for s in self.arm_indices}}
+        event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.data.site(a+'_tip').xpos-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.data.site(s+'_tip').xpos.tolist() for s in self.arm_indices}}
         self.events.append(event)
+        event['forbidden_contact_pairs']=sorted(bad_pairs)
         return event
 
     def arm_tag_fk(self,side):
         # Uses robot encoders, fixed base registration and declared CAD mount.
         # No carton qpos or scene-object truth enters this kinematic prediction.
         for indices in self.arm_indices.values():self.kin.qpos[indices]=self.data.qpos[indices]
-        mujoco.mj_forward(self.model,self.kin)
+        mujoco.mj_kinematics(self.model,self.kin)
         pose=np.eye(4)
         pose[:3,:3]=self.kin.body(side+'_tag').xmat.reshape(3,3)@np.diag([-1,1,-1])
         pose[:3,3]=self.kin.site(side+'_tag_center').xpos
@@ -214,6 +255,7 @@ class FoldingSimulation:
         return self.renderer.render().copy()
 
     def capture(self,label):
+        self.frame_states.append({'time':float(self.data.time),'label':label,'qpos':self.data.qpos.tolist()})
         im=Image.fromarray(self.render());draw=ImageDraw.Draw(im)
         draw.rectangle((0,0,self.width,44),fill='white');draw.text((10,6),'SIMULATION | ASSUMED STATION | NO PHYSICAL REGISTRATION',fill='black');draw.text((10,25),label,fill='black')
         draw.rectangle((8,49,82,66),fill='white');draw.text((12,51),'LEFT ARM',fill='black')
@@ -223,6 +265,7 @@ class FoldingSimulation:
     def save(self,name='trial'):
         report={'simulation_only':True,'hardware_commands':0,'actuated_carton_joints':0,'engine':mujoco.__version__,'events':self.events,'stats':self.stats,'final_angles':self.truth_angles()}
         (self.out/(name+'.json')).write_text(json.dumps(report,indent=2))
+        (self.out/(name+'-frames.json')).write_text(json.dumps(self.frame_states))
         if self.frames:
             self.frames[0].save(self.out/(name+'-before.png'));self.frames[-1].save(self.out/(name+'-after.png'))
             self.frames[0].save(self.out/(name+'.gif'),save_all=True,append_images=self.frames[1:],duration=100,loop=0)
