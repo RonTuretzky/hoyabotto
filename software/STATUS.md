@@ -1,5 +1,28 @@
 # Where the build stands
 
+## Bare-gripper bimanual carton exploration — 2026-10-06
+
+- Began the requested two-hand folding approach, initially scoped to closing
+  the existing carton's four top flaps. Added an offline reach screen reusing
+  `Box/Stance` and a strict left-six/right-six action-data boundary. The active
+  `remote robot control` chat's Molmo paddle experiment was inspected, not edited.
+- Verified actual checkpoint normalizers: local Molmo SO101 is 6-D, Molmo YAM
+  is 14-D; our two SO101 arms require 12 channels. ABC publishes a specific
+  `folding_paper_box` 14-D YAM checkpoint; its public metadata was inspected,
+  but neither its 8.063 GB weights nor gated demonstrations were downloaded.
+- Fresh `box_closing3` metadata confirms the existing 50-episode, 12-channel
+  bimanual SO100 data as an embodiment-near baseline. Joint units and station
+  transfer remain unverified; matching dimensions do not authorize execution.
+- At the saved 60 mm shoulder setback, bare-gripper far-flap contact misses
+  the existing reach allowance by 29 mm. A 20 mm assumed setback passes only
+  the spherical reach screen; both arms, bracing, orientations and collisions
+  still need a contact simulation and measured station registration.
+- 22 focused bimanual/carton tests passed. No new learned box policy, dual-arm
+  contact simulation or physical folding result is claimed. No motor commands
+  or model training were issued by this exploration.
+- [Research, reuse decisions and experiment plan](docs/carton-bimanual-molmoact2.md),
+  [source and feasibility evidence](docs/evidence/carton-bimanual-exploration.json).
+
 ## Calibrated tags consumed by Gemma and simulated grasp — 2026-10-06
 
 - Added `robot_get_registered_tags` to the installed local Gemma chat (24 tools).

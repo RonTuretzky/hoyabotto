@@ -1,0 +1,302 @@
+{
+  "schema": 1,
+  "date": "2026-10-06",
+  "scope": "Offline exploration of two bare-gripper closing of existing carton top flaps",
+  "related_chat": {
+    "title": "remote robot control",
+    "thread_id": "01a105c4-399a-73f1-938e-a5794babb5fb",
+    "work_directory": "/Users/wk/Documents/ChatGPT/Hackatuson/output/molmoact2-mac-sim",
+    "modified": false
+  },
+  "molmo_so101": {
+    "revision": "152569fe57914d97be91055800035f54e250d009",
+    "contract": {
+      "norm_tag": "so100_so101_molmoact2",
+      "state_dim": 6,
+      "action_dim": 6,
+      "camera_keys": [],
+      "control_mode": "absolute joint pose",
+      "dimension_matches_dual_so101": false,
+      "direct_deployment_verified": false,
+      "reason": "Robot embodiment differs; do not duplicate, truncate or mirror output channels"
+    }
+  },
+  "molmo_yam": {
+    "revision": "8dcbed66f2380e4393189c303ea72488eb9e63c2",
+    "contract": {
+      "norm_tag": "yam_dual_molmoact2",
+      "state_dim": 14,
+      "action_dim": 14,
+      "camera_keys": [
+        "observation.images.top",
+        "observation.images.left",
+        "observation.images.right"
+      ],
+      "control_mode": "absolute joint pose",
+      "dimension_matches_dual_so101": false,
+      "direct_deployment_verified": false,
+      "reason": "Robot embodiment differs; do not duplicate, truncate or mirror output channels"
+    }
+  },
+  "abc": {
+    "repository": "https://github.com/amazon-far/abc",
+    "revision": "d0832d12651d1b260a652861a14648dc5f3660c7",
+    "checkpoint_metadata": {
+      "format": "abc_checkpoint_metadata/v1",
+      "name": "folding_paper_box.pt",
+      "uri": "https://abc-data.timehorizons.org/checkpoints/dagger/folding_paper_box.pt",
+      "bytes": 8063015966,
+      "sha256": "5baf84adcbb423506fe68fa365abab439d95025634c9cf52bc7c1fb8395a0f15",
+      "step": 75000,
+      "run": "dF08",
+      "task": "fold the paper box",
+      "license": "Apache-2.0",
+      "license_notes": [
+        "Vision backbone derived from DINOv3; its licence restrictions apply to these weights as well as to the code that loads them - see the Licenses section of the repository README."
+      ],
+      "arch": {
+        "model_size": "dit_xL",
+        "hidden_size": 1536,
+        "depth": 32,
+        "num_heads": 24,
+        "vision_backbone": "dinov3",
+        "vision_model_name": "ViT-B/16",
+        "task_encoder": "clip",
+        "chunk_length": 30,
+        "action_dim": 14,
+        "params": 2015695908,
+        "dtype": "float32",
+        "tensors": 703
+      },
+      "max_action_prefix": 4,
+      "training_mixture": "pp_collapsed14_box_805555_plus_w0524_e133_w0526_ctx1s_iw_64_4x4_3p333x6_xdof_norm",
+      "deploy": {
+        "prompt": "fold_the_paper_box",
+        "diffusion_steps": 5,
+        "rtc": true,
+        "rtc_prefix_length": 4,
+        "rtc_inference_lead_steps": 4,
+        "execute_chunk_dim": 20,
+        "init_q": [
+          -0.010221,
+          1.562507,
+          0.396568,
+          0.875347,
+          -0.077486,
+          -0.039846,
+          0.998206,
+          0.010027,
+          1.526663,
+          0.338067,
+          1.017695,
+          0.044539,
+          0.045304,
+          0.986479
+        ]
+      },
+      "notes": [
+        "Real-robot ABC-DiT policy finetuned with DAgger on a bimanual YAM station. The deploy flags are the ones its DAgger rollouts ran with (deploy/deploy_policy.py). Collected without the standard station cage, so expect camera-placement sensitivity on other setups.",
+        "Trained with task names as prompts (underscores as spaces); open-loop action error on its training episodes is the same under either spelling.",
+        "Model weights only - no optimizer state. Valid for train.py --load-pretrained, not for --resume-from."
+      ]
+    },
+    "checkpoint_weights_downloaded": false,
+    "policy_tested": false,
+    "task_data_http_status": 401,
+    "box_folding_sim_environment_verified": false
+  },
+  "existing_box_data": {
+    "repository": "https://huggingface.co/datasets/yoshikokulala/box_closing3",
+    "revision": "3adb5231b9105de1d7d45e3e291e9a4db7f66db4",
+    "robot_type": "bi_so100_follower",
+    "episodes": 50,
+    "action_feature": {
+      "dtype": "float32",
+      "names": [
+        "left_shoulder_pan.pos",
+        "left_shoulder_lift.pos",
+        "left_elbow_flex.pos",
+        "left_wrist_flex.pos",
+        "left_wrist_roll.pos",
+        "left_gripper.pos",
+        "right_shoulder_pan.pos",
+        "right_shoulder_lift.pos",
+        "right_elbow_flex.pos",
+        "right_wrist_flex.pos",
+        "right_wrist_roll.pos",
+        "right_gripper.pos"
+      ],
+      "shape": [
+        12
+      ]
+    },
+    "state_feature": {
+      "dtype": "float32",
+      "names": [
+        "left_shoulder_pan.pos",
+        "left_shoulder_lift.pos",
+        "left_elbow_flex.pos",
+        "left_wrist_flex.pos",
+        "left_wrist_roll.pos",
+        "left_gripper.pos",
+        "right_shoulder_pan.pos",
+        "right_shoulder_lift.pos",
+        "right_elbow_flex.pos",
+        "right_wrist_flex.pos",
+        "right_wrist_roll.pos",
+        "right_gripper.pos"
+      ],
+      "shape": [
+        12
+      ]
+    },
+    "camera_keys": [
+      "observation.images.front",
+      "observation.images.top"
+    ],
+    "physical_transfer_verified": false
+  },
+  "saved_profile_reach_screen": {
+    "status": "OFFLINE_REACH_SCREEN",
+    "scope": "close_existing_carton_top_flaps",
+    "box": {
+      "length": 0.379,
+      "width": 0.283,
+      "height": 0.108,
+      "flap": 0.14,
+      "mass_kg": 0.96
+    },
+    "stance": {
+      "setback": 0.06,
+      "spacing": 0.3,
+      "height": 0.0,
+      "tool": 0.1,
+      "paddle": 0,
+      "margin": 0.03
+    },
+    "uses_paddle": false,
+    "usable_bare_gripper_reach_m": 0.32089999999999996,
+    "phases": [
+      {
+        "phase": "short_left",
+        "folding_arm": "left",
+        "supporting_role": "right braces the box without obstructing the left flap",
+        "worst_contact_m": [
+          -0.1895,
+          0.0,
+          0.07
+        ],
+        "maximum_shoulder_distance_m": 0.21693893149916635,
+        "reach_margin_m": 0.10396106850083361,
+        "within_spherical_reach": true
+      },
+      {
+        "phase": "short_right",
+        "folding_arm": "right",
+        "supporting_role": "left holds the first short flap down",
+        "worst_contact_m": [
+          0.1895,
+          0.0,
+          0.07
+        ],
+        "maximum_shoulder_distance_m": 0.21693893149916635,
+        "reach_margin_m": 0.10396106850083361,
+        "within_spherical_reach": true
+      },
+      {
+        "phase": "long_far",
+        "folding_arm": "right",
+        "supporting_role": "left retains the short flaps while the far flap covers them",
+        "worst_contact_m": [
+          0.15,
+          0.1415,
+          0.07
+        ],
+        "maximum_shoulder_distance_m": 0.3500699930013996,
+        "reach_margin_m": -0.029169993001399663,
+        "within_spherical_reach": false
+      },
+      {
+        "phase": "long_near",
+        "folding_arm": "left",
+        "supporting_role": "right holds the far flap down while the near flap closes",
+        "worst_contact_m": [
+          -0.15,
+          -0.07149999999999998,
+          4.286263797015737e-18
+        ],
+        "maximum_shoulder_distance_m": 0.13,
+        "reach_margin_m": 0.19089999999999996,
+        "within_spherical_reach": true
+      }
+    ],
+    "all_folding_contacts_within_spherical_reach": false,
+    "motor_writes": 0,
+    "collision_checked": false,
+    "contact_simulated": false,
+    "learned_policy_evaluated": false,
+    "motion_ready": false,
+    "success_definition": "All four flaps closed under coordinated hold; release retention is a separate test. No tape in this experiment.",
+    "remaining": [
+      "Validate both arm-base transforms, fingertip offsets and camera views",
+      "Check bracing contacts and both arms together with URDF IK and collision geometry",
+      "Model flap springback/contact and test held-out box poses",
+      "Evaluate a genuinely 12-action learned policy; geometry alone is not policy success"
+    ],
+    "source_profile": "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/profiles/carton-v0.yaml",
+    "setback_comparison": [
+      {
+        "setback_m": 0,
+        "worst_reach_margin_m": 0.029371270712473307
+      },
+      {
+        "setback_m": 0.02,
+        "worst_reach_margin_m": 0.00991929320293844
+      },
+      {
+        "setback_m": 0.03,
+        "worst_reach_margin_m": 0.00016802466857163134
+      },
+      {
+        "setback_m": 0.04,
+        "worst_reach_margin_m": -0.009598108920459647
+      },
+      {
+        "setback_m": 0.06,
+        "worst_reach_margin_m": -0.029169993001399663
+      }
+    ],
+    "checkpoint_contract": {
+      "norm_tag": "so100_so101_molmoact2",
+      "state_dim": 6,
+      "action_dim": 6,
+      "camera_keys": [],
+      "control_mode": "absolute joint pose",
+      "dimension_matches_dual_so101": false,
+      "direct_deployment_verified": false,
+      "reason": "Robot embodiment differs; do not duplicate, truncate or mirror output channels"
+    }
+  },
+  "physical_motor_writes": 0,
+  "box_contact_simulated": false,
+  "learned_box_policy_evaluated": false,
+  "sources": {
+    "abc_task_results": "https://abc-robot-dataset.github.io/",
+    "abc_deployment": "https://github.com/amazon-far/abc/blob/d0832d12651d1b260a652861a14648dc5f3660c7/deploy/README.md",
+    "abc_dataset": "https://huggingface.co/datasets/XDOF/ABC-130k",
+    "molmo": "https://github.com/allenai/molmoact2"
+  },
+  "inspected_files_sha256": {
+    "abc-prepare.py": "1e681c9040cfbcc1842e3f56668b74533ad4bc24b5898894b37c69f61549cdb7",
+    "abc-deploy.md": "eddb70b64ca1b81b0502bd1627c528f340728ef77d5965ee647bdea4495bf6fd",
+    "abc-sim.md": "ee6d36c5277b1db996c9d4af47af81f7a1953cddd2a5ae86a71a0659e4f94cb3",
+    "yam-norm.json": "6357a264ac820c5b775c884bd303ed13ffa18a36def28409312c842139879f4b",
+    "so101-norm_stats.json": "e43052e9f0de0eeeb8b48ac82daf358f45a4188d1428e6e44ed687e90f6c93fb",
+    "box_info.json": "f25a3e473717a8eee719077ea52337cdb20939c7329ef2607dc5c1024880963f"
+  },
+  "tests": {
+    "command": "python -m pytest -q tests/test_carton_bimanual.py tests/test_carton.py",
+    "passed": 22,
+    "seconds": 32.9
+  }
+}
