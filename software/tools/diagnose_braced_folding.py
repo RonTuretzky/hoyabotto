@@ -27,12 +27,14 @@ p.add_argument('--paddle-contact',choices=['face','tip'],default='face',help='Ti
 p.add_argument('--solver',choices=['legacy','friction'],default='friction')
 p.add_argument('--fold-second-short',action='store_true',help='Test both minor flaps instead of the failed near-flap pivot')
 p.add_argument('--release-left-minor',action='store_true',help='After the two-minor hold, measure spring-back on release')
+p.add_argument('--press-near-after-short',action='store_true',help='Try a near-major press while the right hand holds one short flap')
 p.set_defaults(along=-.08,radius=.125,axis_sign=1,pre_height=.035,end_angle=-30,
                clearance=-.002,camera='station',continue_short=True,
                freeze_hold=True,close_near=True,close_mode='pivot')
 a=p.parse_args()
 if a.release_left_minor and not a.fold_second_short:p.error('--release-left-minor requires --fold-second-short')
 if a.paddle_contact=='tip' and a.tool!='paddle':p.error('--paddle-contact tip requires --tool paddle')
+if a.press_near_after_short and a.fold_second_short:p.error('Choose a major press or a second short fold')
 out=Path(a.out);out.mkdir(parents=True,exist_ok=False)
 class GraspIKMixin:
  """Prioritize preserving the pinched face normal without relaxing IK limits.
@@ -126,7 +128,11 @@ try:
    r['stage_only']='Two short flaps and optional release test'
    r['two_shorts_completed']=fold_second_short(s,c,capture=a.video)
    if a.release_left_minor:r['released_left_minor']=release_left_minor(s,c)
-  if a.close_near and not a.fold_second_short:
+  if a.press_near_after_short:
+   from carton.folding_cascade import press_near_over_short
+   r['stage_only']='One short fold followed by a near-major press'
+   r['near_press_completed']=press_near_over_short(s,c,capture=a.video)
+  if a.close_near and not a.fold_second_short and not a.press_near_after_short:
    close_reading=c.sense('Register current near-flap hinge for grasp-preserving close')
    near=close_reading['angles'].get('long_near')
    if near is None:raise ValueError('Fresh near-flap observation required before closing transition')

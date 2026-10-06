@@ -94,6 +94,25 @@ pose-qualified sample at 65° or 75° in the 30° layout, or at 75° in this
 
 ## Reproduction and remaining work
 
+A further attempt keeps the right short held while the left releases its
+near-flap pinch, withdraws, and presses the near major. It is selected with
+`--press-near-after-short` in `tools/diagnose_braced_folding.py`. The first
+bare-claw approach missed the 6 mm planning clearance by 0.44 mm. Moving its
+approach farther out and upward cleared planning but the carton moved 63.94 mm
+and rotated 19.70°; execution stopped at 1.227 mm panel penetration. The near
+major was still −25.87°, so this was not a successful major fold.
+
+The paddle attempt moved the free carton 78.14 mm and rotated it 19.12° before
+fresh carton registration was lost. The near major was still about −5°.
+This provides direct evidence that retaining one minor with downward pressure
+is insufficient to anchor the carton during this particular major-flap push.
+No clamp, friction increase or motor-limit change was introduced. These
+finite failures do not rule out a different reachable contact strategy.
+
+An isolated [passive tape component](carton-tape-material-audit.md) now tests
+finite holding and peeling. It remains separate from robot folding, with
+unmeasured material values and unconverged peel timing.
+
 `tools/diagnose_partial_minor_bridge.py` runs the prepared support test using
 the ordinary simulation runtime, collision checks and independent tool-slip
 measurement. It records `prepared_pose_only: true`, `full_task_complete: false`

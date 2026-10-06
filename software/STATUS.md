@@ -4,6 +4,22 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Major-flap transfer and tape component — 2026-10-06
+
+The new near-major press attempts fail with the same empty free carton and
+resistant hinges: claws move the carton 63.94 mm before a penetration stop;
+the paddle trial moves it 78.14 mm before losing fresh registration. Neither
+has a completed major fold. The [support audit](docs/carton-raised-minor-support.md)
+records those failures without weakening friction, resistance or motor limits.
+
+An isolated [passive tape component](docs/carton-tape-material-audit.md) passes
+small-load and finite-overload controls without a weld or hidden actuator.
+Full-strip peel trials complete with Newton/implicitfast at smaller timesteps,
+but their release timing is not converged. It is not integrated into robot
+folding and cannot certify physical retention. All 97 folding tests pass.
+Both complete carton sequences, tape placement and five-second arms-clear
+retention remain unfinished. No hardware was accessed.
+
 ## Prepared minor support — 2026-10-06
 
 The [raised-minor audit](docs/carton-raised-minor-support.md) adds an isolated
