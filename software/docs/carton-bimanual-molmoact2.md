@@ -1,6 +1,6 @@
 # Two-arm carton folding, without the paddle
 
-Exploration started 2026-10-06. **Update:** the [tag/depth contact simulator](carton-bimanual-rgbd-simulation.md) now passes the documented two-hand folding cases; this page records the initial research and compatibility checks. Initial scope is **closing the four top flaps of
+Exploration started 2026-10-06. **Update:** the earlier tag/depth folding passes are unvalidated after an initial-panel intersection was found; the [corrected bracing audit](carton-braced-folding-audit.md) records incomplete attempts; this page records the initial research and compatibility checks. Initial scope is **closing the four top flaps of
 the already-formed carton**, using both grippers. Erecting a flat blank is a
 different contact task. Tape, lifting the box and conveyor handling are outside
 this first experiment. The existing paddle workflow remains available.

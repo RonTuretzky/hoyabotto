@@ -19,6 +19,8 @@ from carton.servo.tag_kit import marker_grid
 from carton.geometry import Box
 from carton.folding_station import FoldingStation
 from carton.folding_material import CartonMaterial
+from carton.folding_solver import FoldingSolver,solver_report
+from carton.folding_markers import BOX_MARKERS,BOX_TAG_SIZE
 from carton.folding_cart import cart_boxes,table_overlap,report as cart_report
 
 JOINTS = ('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper')
@@ -26,6 +28,33 @@ FLAPS = ('short_left','short_right','long_far','long_near')
 TAG_IDS = dict(zip(FLAPS, (11,12,13,14)))
 _box=Box()
 L,W,H,F = _box.length,_box.width,_box.height,_box.flap
+
+
+def initialize_flaps(model,data,angles=None):
+    """Start from separated panels, never overlapping rigid cardboard.
+
+    With all four panels leaning inward, the old 0.1 rad initialization
+    interpenetrated adjacent panels by 11 mm. Short panels lean inward and
+    long panels outward here; these are initial poses, not new spring rests.
+    """
+    angles=(dict(short_left=.1,short_right=.1,long_far=-.1,long_near=-.1)
+            if angles is None else angles)
+    if set(angles)!=set(FLAPS):raise ValueError('Declare all four initial flap angles')
+    for flap,value in angles.items():
+        joint=model.joint(flap+'_hinge')
+        if not np.isfinite(value) or not joint.range[0]<=value<=joint.range[1]:
+            raise ValueError('Initial flap angle outside physical model range')
+    before=data.qpos.copy()
+    for flap,value in angles.items():data.qpos[model.joint(flap+'_hinge').qposadr[0]]=value
+    mujoco.mj_fwdPosition(model,data)
+    bad=[(model.geom(c.geom1).name,model.geom(c.geom2).name,-c.dist*1000)
+         for c in data.contact if c.dist<-.0001
+         and model.geom(c.geom1).name.endswith('_cardboard')
+         and model.geom(c.geom2).name.endswith('_cardboard')]
+    if bad:
+        data.qpos[:]=before;mujoco.mj_fwdPosition(model,data)
+        raise ValueError(f'Initial flap panels intersect: {bad}')
+    return {name:math.degrees(value) for name,value in angles.items()}
 
 def words(a):
     return ' '.join(f'{float(v):.10g}' for v in a)
@@ -45,7 +74,7 @@ def marker(parent,name,tag_id,size,pos,xyaxes=None):
     return b
 
 
-def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0., paddle=None):
+def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0., paddle=None, solver=None):
     material=material or CartonMaterial(hinge_stiffness=stiffness)
     if not station.carton_footprint(offset,yaw)['fully_on_table']:
         raise ValueError('Initial carton bottom extends beyond the tabletop')
@@ -53,7 +82,7 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
         raise ValueError('Fixed cart intersects the tabletop; base-to-edge distance is not cart-front clearance')
     root=E.parse(source/'scene-assets/arm-import.xml').getroot()
     root.set('model','dual_SO101_passive_carton')
-    E.SubElement(root,'option',timestep='.002',integrator='implicitfast',cone='elliptic',iterations='80')
+    E.SubElement(root,'option',**(solver or FoldingSolver()).xml_attributes())
     vis=E.SubElement(root,'visual')
     E.SubElement(vis,'global',offwidth='1280',offheight='960')
     E.SubElement(vis,'headlight',ambient='.6 .6 .6',diffuse='.7 .7 .7')
@@ -117,7 +146,8 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
         E.SubElement(box,'geom',name='contents',pos=words([0,0,.002+half]),size=words([L/2-.012,W/2-.012,half]),mass=str(material.contents_mass_kg),**{**common,'rgba':'.5 .52 .50 1'})
     for name,pos,size in [('wall_left',[-L/2,0,H/2],[.0015,W/2,H/2]),('wall_right',[L/2,0,H/2],[.0015,W/2,H/2]),('wall_far',[0,W/2,H/2],[L/2,.0015,H/2]),('wall_near',[0,-W/2,H/2],[L/2,.0015,H/2])]:
         E.SubElement(box,'geom',name=name,pos=words(pos),size=words(size),mass=str(.025*scale),**common)
-    marker(box,'box_tag',10,.045,[0,-W/2-.0018,H/2],[1,0,0,0,0,1])
+    for tag_id,(name,position,axes) in BOX_MARKERS.items():
+        marker(box,name,tag_id,BOX_TAG_SIZE,position,axes)
     specs=[('short_left',[-L/2,0,H],[0,1,0],[.0015,W/2-.004,F/2],[0,-1,0,0,0,1]),
            ('short_right',[L/2,0,H],[0,-1,0],[.0015,W/2-.004,F/2],[0,1,0,0,0,1]),
            ('long_far',[0,W/2,H+.0035],[1,0,0],[L/2-.004,.0015,F/2],[-1,0,0,0,0,1]),
@@ -142,7 +172,9 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
         E.SubElement(contact,'pair',geom1='table',geom2=name,condim='3',solref='.004 1',solimp='.925 .97 .001',
                      friction=words([material.table_friction,material.table_friction,.003,.0001,.0001]))
     front=([.0,-.55,.85],[0,-.04,.08]) if station.reference_layout else ([0,station.base_y-.08,station.base_height+.45],[0,-.015,.10])
-    for name,pos,look in [('overhead',[0,.00,.85],[0,0,.06]),('front',*front),('side',[.85,-.3,.5],[0,station.base_y/2,.08]),('overview',[1.1,station.base_y-.95,.6],[0,station.base_y,-.14])]:
+    # Optional, explicitly selected external RGB-D station camera. It does
+    # not change the robot/cart placement and is not a physical calibration.
+    for name,pos,look in [('overhead',[0,.00,.85],[0,0,.06]),('front',*front),('station',[-.4,-.45,.85],[0,.075,.13]),('side',[.85,-.3,.5],[0,station.base_y/2,.08]),('overview',[1.1,station.base_y-.95,.6],[0,station.base_y,-.14])]:
         back=np.array(pos)-look;back/=np.linalg.norm(back)
         right=np.cross([0,1,0] if name=='overhead' else [0,0,1],back);right/=np.linalg.norm(right)
         up=np.cross(back,right)
@@ -156,7 +188,7 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
 
 
 class FoldingSimulation:
-    def __init__(self,source,out,width=960,height=720,initial_right_roll=None,**kwargs):
+    def __init__(self,source,out,width=960,height=720,initial_right_roll=None,initial_flaps=None,initial_arm_targets=None,**kwargs):
         self.width,self.height=width,height
         self.station=kwargs['station']
         self.material=kwargs.get('material') or CartonMaterial(hinge_stiffness=kwargs.get('stiffness',.018))
@@ -168,11 +200,15 @@ class FoldingSimulation:
         self.frames=[];self.frame_states=[];self.events=[];self.stats={'max_bad_penetration_mm':0.,'carton_contact_simulated':True,
             'cart':None if self.station.reference_layout else cart_report(self.station)}
         self.renderer=None;self.option=mujoco.MjvOption();self.option.geomgroup[3]=0
-        for name in FLAPS:self.data.qpos[self.model.jnt_qposadr[self.model.joint(name+'_hinge').id]]=.10
+        self.initial_flaps_degrees=initialize_flaps(self.model,self.data,initial_flaps)
         for s,sign in [('left',-1),('right',1)]:
             initial=([sign*(self.station.base_spacing/2+.08),self.station.base_y+.1015,self.station.base_height+.04]
                      if self.station.reference_layout else
                      [sign*(self.station.base_spacing/2+.05),self.station.base_y+.22,self.station.base_height+.28])
+            if initial_arm_targets and s in initial_arm_targets:
+                initial=np.asarray(initial_arm_targets[s],dtype=float)
+                if initial.shape!=(3,) or not np.isfinite(initial).all():
+                    raise ValueError('Finite three-dimensional initial arm target required')
             q,err=self.ik(s,initial,orientation=None)
             if err>.008:raise ValueError('Initial arm-relative pose is unreachable')
             if s=='right' and initial_right_roll is not None:
@@ -334,7 +370,7 @@ class FoldingSimulation:
         self.frames.append(im)
 
     def save(self,name='trial'):
-        report={'simulation_only':True,'hardware_commands':0,'actuated_carton_joints':0,'engine':mujoco.__version__,'events':self.events,'stats':self.stats,'carton_motion':self.motion_stats,'material':self.material.report(),'final_angles':self.truth_angles()}
+        report={'simulation_only':True,'hardware_commands':0,'actuated_carton_joints':0,'engine':mujoco.__version__,'solver':solver_report(self.model),'initial_flaps_degrees':self.initial_flaps_degrees,'events':self.events,'stats':self.stats,'carton_motion':self.motion_stats,'material':self.material.report(),'final_angles':self.truth_angles()}
         (self.out/(name+'.json')).write_text(json.dumps(report,indent=2))
         (self.out/(name+'-frames.json')).write_text(json.dumps(self.frame_states))
         if self.frames:

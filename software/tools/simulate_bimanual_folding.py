@@ -15,6 +15,8 @@ from carton.folding_controller import FoldingController
 from carton.folding_diagonal import DiagonalFoldingController
 from carton.folding_station import FoldingStation
 from carton.folding_material import CartonMaterial
+from carton.folding_solver import FoldingSolver
+from carton.folding_markers import carton_pose_from_tags
 
 
 def station_from_args(args):
@@ -32,26 +34,24 @@ def station_from_args(args):
     return FoldingStation(*dimensions, base_spacing=args.base_spacing,table_marker_xy=None if marker[0] is None else marker,backup_table_marker_xy=None if backup[0] is None else backup)
 
 class PixelPort:
-    def __init__(self,sim,*,seed=0,noise=.0008,dropout=.25,fault=None,record=True):
+    def __init__(self,sim,*,seed=0,noise=.0008,dropout=.25,fault=None,record=True,camera='front'):
         self.sim=sim;self.rng=np.random.default_rng(seed);self.noise=noise;self.dropout=dropout;self.fault=fault
+        self.camera=camera
         anchor=np.eye(4);anchor[:3,:3]=np.diag([-1,1,-1]);anchor[:3,3]=sim.station.table_tag_position
         additional={}
         if sim.station.backup_table_marker_xy is not None:
             second=anchor.copy();second[:3,3]=[*sim.station.backup_table_marker_xy,.0013];additional[20]=second
         self.observer=RGBDTagObserver(anchor,additional_anchors=additional,stationary_camera=bool(additional));self.seq=0;self.readings=[];self.record=record
-        self.box_from_tag=np.eye(4)
-        self.box_from_tag[:3,:3]=[[-1,0,0],[0,0,1],[0,1,0]]
-        self.box_from_tag[:3,3]=[0,-W/2-.0021,H/2]
         self.box=None;self.angle_priors={}
         self.arm_tag_checks=[]
 
     def observe(self,label):
-        rgb=self.sim.render('front');depth=self.sim.render('front',True)
+        rgb=self.sim.render(self.camera);depth=self.sim.render(self.camera,True)
         depth+=self.rng.normal(0,self.noise,depth.shape)
         depth[self.rng.random(depth.shape)<self.dropout]=0
         if self.fault=='missing_depth':depth[:]=0
         if self.fault=='missing_tags':rgb[:]=0
-        h,w=depth.shape;f=h/(2*math.tan(math.radians(48)/2))
+        h,w=depth.shape;f=h/(2*math.tan(math.radians(float(self.sim.model.camera(self.camera).fovy[0]))/2))
         k=np.array([[f,0,w/2],[0,f,h/2],[0,0,1]])
         self.seq+=1;t=float(self.sim.data.time)
         tags=self.observer.observe(rgb,depth,k,seq=self.seq,timestamp=t,depth_timestamp=t)
@@ -63,8 +63,7 @@ class PixelPort:
                 error=float(np.linalg.norm(tags[tag_id][:3,3]-expected))
                 self.arm_tag_checks.append({'seq':self.seq,'arm':side,'tag_id':tag_id,'encoder_fk_error_mm':error*1000})
                 if error>.012:raise ValueError('Gripper tag disagrees with calibrated encoder FK by over 12 mm')
-        if 10 not in tags:raise ValueError('Fresh carton ID 10 and aligned depth required')
-        self.box=tags[10]@np.linalg.inv(self.box_from_tag)
+        self.box,box_registration=carton_pose_from_tags(tags,self.observer.history[-1]['quality'])
         angles=depth_flap_angles(rgb,depth,k,self.observer.world_from_camera,self.box,self.angle_priors)
         outward={'short_left':np.array([-1,0,0]),'short_right':np.array([1,0,0]),'long_far':np.array([0,1,0]),'long_near':np.array([0,-1,0])}
         for flap,tid in TAG_IDS.items():
@@ -76,7 +75,7 @@ class PixelPort:
                     if row and abs(row['degrees']-angle)>12:row=None # Overlapping cardboard can confuse an unlabelled depth patch; the decoded tag supplies identity.
                     angles[flap]={'degrees':angle,'method':'apriltag_aligned_depth_plane','depth_check_degrees':row['degrees'] if row else None}
         self.angle_priors.update({f:r['degrees'] for f,r in angles.items()})
-        reading={'world_from_box':self.box.tolist(),'tags':sorted(tags),'angles':angles,'seq':self.seq,'label':label}
+        reading={'world_from_box':self.box.tolist(),'box_registration':box_registration,'camera':self.camera,'tags':sorted(tags),'angles':angles,'seq':self.seq,'label':label}
         self.readings.append(reading)
         if self.record:self.sim.capture(label)
         return reading
@@ -128,8 +127,9 @@ def run(args,controller_class=None):
         raise ValueError('Invalid finite simulation geometry, camera size or sensor noise')
     out=Path(args.out).resolve()
     if out.exists():raise ValueError('Output already exists; preserve previous experiments')
-    sim=sim_class(Path(args.simulation_root),out,station=station,material=material,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw),initial_right_roll=getattr(args,'initial_right_roll',None),**tool_options)
-    port=PixelPort(sim,seed=args.seed,noise=args.noise,dropout=args.dropout,fault=args.fault,record=not args.no_video)
+    solver=FoldingSolver.friction() if getattr(args,'solver','legacy')=='friction' else FoldingSolver()
+    sim=sim_class(Path(args.simulation_root),out,station=station,material=material,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw),initial_right_roll=getattr(args,'initial_right_roll',None),solver=solver,**tool_options)
+    port=PixelPort(sim,seed=args.seed,noise=args.noise,dropout=args.dropout,fault=args.fault,record=not args.no_video,camera=getattr(args,'camera','front'))
     if args.fault=='stuck_far_flap':
         j=sim.model.joint('long_far_hinge').id
         sim.model.jnt_stiffness[j]=50.;sim.model.qpos_spring[sim.model.jnt_qposadr[j]]=.10
@@ -206,8 +206,8 @@ def run(args,controller_class=None):
             'assumptions':{'base_height_above_table_m':station.base_height,'base_setback_from_near_rim_m':station.setback,'base_spacing_m':station.base_spacing,
                            'material':material.report(),'contents_top_above_table_m':material.contents_top_m if material.contents_mass_kg>0 else None,'hinge_range_degrees':[-97.4,174.8],'closure_tolerance_degrees_from_horizontal':5.,
                            'hinge_stiffness_Nm_per_rad':list(material.stiffnesses),'hinge_friction_Nm':material.hinge_friction,'flap_mass_kg':.023*material.cardboard_mass_kg/.272,'depth_noise_std_m':args.noise,'depth_dropout_fraction':args.dropout,
-                           'registration':'Surveyed table tag 1 and optional ID 20; calibrated robot base locations. With two anchors the camera is fixed after initial registration and fresh anchor geometry is checked every observation. Carton pose obtained from fresh detected tag 10 and depth.',
-                           'additional_markers':'ID 4 left housing; ID 10 carton wall; IDs 11-14 flap outside faces; optional ID 20 second table anchor (60 mm); exact simulated sizes and rigid mounts.',
+                           'registration':'Surveyed table tag 1 and optional ID 20; calibrated robot base locations. With two anchors the camera is fixed after initial registration and fresh anchor geometry is checked every observation. Carton pose obtained from fresh detected ID 10, 21 or 22 and aligned depth; inconsistent markers refused.',
+                           'additional_markers':'ID 4 left housing; IDs 10, 21, 22 carton walls (45 mm); IDs 11-14 flap outside faces; optional ID 20 second table anchor (60 mm); exact simulated sizes and rigid mounts. Physical mounts are unverified.',
                            'gripper_geometry':'Stock rigid SO101 fingertips'+('; actual paddle CAD in right jaws' if tool=='paddle' else '')+'. White compliant attachments visible in the photos have not been identified or modeled.',
                            'cart_geometry':'Historical fixed arm bases with no cart' if station.reference_layout else 'Fixed three-tray cart approximation; static table overlap refused; arm/cart contacts checked',
                            'cardboard_model':'Rigid panels with passive frictional spring hinges. Material properties assumed, not measured.'},
@@ -229,6 +229,8 @@ def main():
     p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360)
     p.add_argument('--strategy',choices=['original','diagonal'],default='original')
     p.add_argument('--tool',choices=['claws','paddle'],default='claws',help='Paddle is a free body initially placed in the right jaws; no pickup claim')
+    p.add_argument('--solver',choices=['legacy','friction'],default='legacy',help='Declared solver sensitivity experiment; physical friction and torque limits are unchanged')
+    p.add_argument('--camera',choices=['front','station'],default='front',help='Station is a proposed external camera mount, not physical calibration')
     p.add_argument('--paddle-mass',type=float,default=.03)
     p.add_argument('--paddle-friction',type=float,default=.8)
     p.add_argument('--paddle-attachment',choices=['friction','rigid-diagnostic'],default='friction')

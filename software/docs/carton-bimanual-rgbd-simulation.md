@@ -1,5 +1,11 @@
 # Two-hand carton folding with AprilTags and depth
 
+**Initial-state correction:** an audit found adjacent flap panels intersecting
+by about 11 mm in the all-inward start used by the earlier folding runs.
+The historical passes below are unvalidated and must not be cited as folding
+success. The corrected empty, resistant, freely moving carton still has no
+complete success; see the [current audit](carton-braced-folding-audit.md).
+
 **Material update:** the [free-box and springback audit](carton-free-box-springback.md) now tests empty/load/friction/crease variations and hands-off retention. The passes below used the loaded, weak-crease assumptions and do not demonstrate closure of a loose resistant carton.
 
 **New corrected simulation:** the [rear-cart diagonal trial](carton-diagonal-folding.md) closes all four flaps with both bases 150 mm behind the table edge. It includes cart collisions and a fully supported rotated box. It is still hypothetical, uses a filled carton and stock fingertips, and fails the heavier-noise trial. The results below describe the superseded favorable layout.

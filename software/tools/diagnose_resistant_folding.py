@@ -1,9 +1,9 @@
 """Partial near-first folding diagnostic; never claims whole-carton success.
 
 Uses an empty, freely moving carton with resistant hinges and the original
-rear-cart station/actuator limits. Short flaps start upright in this declared
-diagnostic. The ordinary benchmark starts them 5.73 degrees inward, so this
-is not a replacement for that harder starting condition. No hardware adapter.
+rear-cart station/actuator limits. Short flaps start upright and long flaps
+5.73 degrees inward in this declared diagnostic. These poses are checked for
+panel intersections before dynamics. No hardware adapter.
 
 Transit planning uses a simulator obstacle snapshot; carton tracking and flap
 measurements use rendered tags and aligned depth. The independent evaluator
@@ -25,9 +25,7 @@ from tools.simulate_bimanual_folding import PixelPort
 def main():
     p=argparse.ArgumentParser();p.add_argument('--out',required=True);p.add_argument('--simulation-root',required=True);p.add_argument('--video',action='store_true');p.add_argument('--short-along',type=float,default=-.08);p.add_argument('--short-radius',type=float,default=.10);p.add_argument('--clearance',type=float,default=.012);p.add_argument('--normal',choices=['face','up','tilt'],default='face');p.add_argument('--end-angle',type=float,default=90);p.add_argument('--track-hold',action='store_true');p.add_argument('--tool',choices=['claws','paddle'],default='claws')
     a=p.parse_args();out=Path(a.out);out.mkdir(parents=True,exist_ok=False)
-    s=(PaddleFoldingSimulation if a.tool=='paddle' else FoldingSimulation)(Path(a.simulation_root),out,station=FoldingStation(.06,.15,.01,table_marker_xy=(-.5,.55),backup_table_marker_xy=(.45,.70)),material=CartonMaterial(),width=960,height=540,offset=(0,.0757925946355),yaw=math.pi/6,initial_right_roll=1.5)
-    for name in ('short_left','short_right'):s.data.qpos[s.model.joint(name+'_hinge').qposadr[0]]=0
-    mujoco.mj_forward(s.model,s.data)
+    s=(PaddleFoldingSimulation if a.tool=='paddle' else FoldingSimulation)(Path(a.simulation_root),out,station=FoldingStation(.06,.15,.01,table_marker_xy=(-.5,.55),backup_table_marker_xy=(.45,.70)),material=CartonMaterial(),width=960,height=540,offset=(0,.0757925946355),yaw=math.pi/6,initial_right_roll=1.5,initial_flaps=dict(short_left=0.,short_right=0.,long_far=.1,long_near=.1))
     port=PixelPort(s,record=a.video);c=DiagonalFoldingController(port,rear_cart=True)
     r={'short_initial_angle_degrees':0,'stage_only':'near then short; empty resistant free carton','task_complete':False,'stages':[]}
     held={};held_ori={}

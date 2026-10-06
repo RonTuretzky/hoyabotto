@@ -1,5 +1,11 @@
 # Unbolted carton and resistant flaps
 
+**Initial-state correction:** an audit found adjacent flap panels intersecting
+by about 11 mm in the all-inward start used by the earlier folding runs.
+The historical passes below are unvalidated and must not be cited as folding
+success. The corrected empty, resistant, freely moving carton still has no
+complete success; see the [current audit](carton-braced-folding-audit.md).
+
 The updated simulation exposes two limits of the earlier successful GIF:
 the empty box moves during the two-claw contact sequence, and sufficiently
 resistant creases reopen after support is removed. No new general folding

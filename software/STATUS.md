@@ -4,7 +4,34 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
-## Paddle versus claws comparison — 2026-10-06
+## Corrected carton physics and bracing — 2026-10-06
+
+The [new audit](docs/carton-braced-folding-audit.md) supersedes the folding
+success claims below. An all-inward starting pose interpenetrated neighboring
+flap panels by about 11 mm. The initializer now rejects that pose. The default
+starts separated panels without changing spring rests, friction or resistance.
+Historical recorded passes must not be treated as validated folding results.
+
+The matched corrected trials use an empty 272 g free carton and resistant
+hinges. Neither completes all folds or hands-off retention. Bare claws brace
+the box and fold one short flap, then stop at an unreachable grasp transition
+(45.764 s; maximum box movement 12.19 mm). The right-hand paddle slips during
+contact (32.366 s; box movement 26.45 mm). Full attempt GIFs include both failures.
+
+A declared solver sensitivity check distinguishes soft-contact creep from
+physical grip failure: the NoSlip preset holds the stationary paddle for 30 s
+at both 2 ms and 1 ms timesteps; zero friction still fails immediately. Both
+folding variants use the same preset. Regression tests confirm that the box
+still slides and the flaps spring open, with unchanged physical coefficients
+and motor limits. 65 focused tests pass. Parameters remain unmeasured.
+
+The proposed external camera and 45 mm carton side tags 21/22 improve rendered
+tracking; neither is verified on the real station. This remains an offline
+RGB-D experiment with independent simulator contact checks and obstacle
+snapshots. No hardware was accessed or calibration changed. Regrasp planning,
+all remaining folds, explicit retention and tape application remain unfinished.
+
+## Historical paddle versus claws comparison — 2026-10-06
 
 [Four matched offline cases](docs/carton-paddle-comparison.md) compare bare
 claws with a left claw and an actual-CAD free-body paddle in the right jaws.
@@ -21,7 +48,7 @@ tool mass and station dimensions remain assumptions. Full-duration paired
 GIFs include whole-robot and close views, with explicit failure timestamps.
 102 focused tests pass. No hardware was accessed or safety limits relaxed.
 
-## Unbolted carton and springback update — 2026-10-06
+## Historical unbolted carton and springback update — 2026-10-06
 
 The [new free-box and material tests](docs/carton-free-box-springback.md) expose
 limits of the previous passing GIF. The box was already a free body, but the
@@ -40,7 +67,7 @@ are still used, and no brace-and-paddle controller has been validated. RGB plus
 aligned depth remains required for the folding controller; the material-only
 probe does not use perception. 94 focused tests pass. No hardware was accessed.
 
-## Two-hand carton folding simulation — 2026-10-06
+## Historical two-hand carton folding simulation — 2026-10-06
 
 The [corrected rear-cart simulation](docs/carton-diagonal-folding.md) closes all
 four flaps with both arm bases **150 mm behind the table edge** and **60 mm above

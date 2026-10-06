@@ -1,11 +1,17 @@
 # Empty resistant carton: controller work remains incomplete
 
+Latest work is recorded in the [bracing and physics audit](carton-braced-folding-audit.md).
+The ordinary all-inward initialization discussed below was subsequently found
+to intersect neighboring flap panels and has been replaced. The upright-short
+diagnostic below is distinct and now passes its initial poses explicitly to
+the validator, so its report matches its actual initial state.
+
 Neither bare claws nor the held paddle has completed folding the empty,
 resistant, freely moving carton. No robot hardware was accessed.
 
-The earlier successful claw GIF used 960 g of contents, table friction 0.7
-and hinge stiffness 0.008 Nm/rad. It is not evidence for the empty-carton
-challenge. The matched empty resistant benchmark uses a 272 g carton,
+The earlier claw GIF reported success with 960 g of contents, table friction 0.7
+and hinge stiffness 0.008 Nm/rad. Its intersecting initial panels invalidate
+that success claim independently of the material mismatch. The empty resistant benchmark uses a 272 g carton,
 friction 0.35, stiffness 0.018 Nm/rad, hinge friction 0.004 Nm and damping
 0.008 Nms/rad. These values remain unmeasured assumptions. The carton has a
 six-DOF free joint with no weld, guide or clamp. Both original controllers

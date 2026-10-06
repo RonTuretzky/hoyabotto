@@ -1,9 +1,16 @@
 # Paddle versus bare claws: matched offline comparison
 
-**The current two-claw controller performs better in these tests. Neither
-method closes the empty, resistant carton.** The paddle is not demonstrated
-to improve complete folding, and this first tool-aware controller is not an
-optimized paddle planner. No physical robot or camera was accessed.
+**Historical results below are superseded.** An initialization audit found
+approximately 11 mm of adjacent-panel intersection when all four flaps started
+0.1 radians inward. Those runs, including the loaded weak-crease "pass", are
+not valid folding evidence. The initializer now rejects that state. See the
+[corrected bracing and physics audit](carton-braced-folding-audit.md) for current
+results. The commands below now use the corrected initializer and will not
+reproduce the historical numbers without the historical source revision.
+
+The table records the original outputs for debugging; it is not valid evidence
+comparing the physical tools. Neither method demonstrated empty-carton closure.
+No physical robot or camera was accessed.
 
 ![Whole robot and folding close views](assets/carton-paddle-comparison.png)
 

@@ -1,5 +1,11 @@
 # Four-flap folding with the cart behind the table
 
+**Initial-state correction:** an audit found adjacent flap panels intersecting
+by about 11 mm in the all-inward start used by the earlier folding runs.
+The historical passes below are unvalidated and must not be cited as folding
+success. The corrected empty, resistant, freely moving carton still has no
+complete success; see the [current audit](carton-braced-folding-audit.md).
+
 **Material update:** the [free-box and springback audit](carton-free-box-springback.md) now tests empty/load/friction/crease variations and hands-off retention. The passes below used the loaded, weak-crease assumptions and do not demonstrate closure of a loose resistant carton.
 
 The corrected **offline simulation** passes with both arm mounts behind the

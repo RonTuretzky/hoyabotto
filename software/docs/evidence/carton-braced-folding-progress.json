@@ -1,0 +1,792 @@
+{
+  "simulation_only": true,
+  "physical_validation": false,
+  "task_complete": false,
+  "matched_trials": [
+    {
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/pinch-folding/review-final/braced-claws",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": true,
+        "tool": "claws",
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_sha256": {
+        "tools/diagnose_braced_folding.py": "8c6b0b522359d0bc6462604f02caf49c54cb802724f52c01f1f2f9eefe79531f",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_grasp.py": "94e2ca05ae9be92c1e45b550ec942638ad8cdca6f94007e11226c683f7c322fb",
+        "carton/folding_markers.py": "7f529d27ef47a392ded9b3240668889a9d67354e9f4a99335eeb449cc004b26b",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_paths.py": "51d098fe15c2fbb6a11e6ee2456f4f0b70a5adc0a2d847218af713b02705819b",
+        "carton/folding_sim.py": "54d1a0d5ebcdd4668e62cc3a09f495e2e6a7b5aa1c68c0b874573a9ec5c28ef2",
+        "carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_vision.py": "902e17704e49b6e40b7066700d699f89992e5116ce544938276dc90d60ad6cf4",
+        "tools/simulate_bimanual_folding.py": "221440bb6f88bf7a7d823df32bfcc47ec541dce4630518d015fec3ffd9dc8fb3"
+      },
+      "success": false,
+      "error": "IK left target [ 0.0247219  -0.12691332  0.21991896] misses by 8.4 mm",
+      "time": 45.764000000009965,
+      "angles": {
+        "short_left": 5.35362818424945,
+        "short_right": 91.75509364901339,
+        "long_far": -7.154016513076147,
+        "long_near": -33.80524638713579
+      },
+      "motion": {
+        "max_translation_mm": 12.186066273589626,
+        "max_rotation_degrees": 1.2273765205849478,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "physics": {
+        "initial_flaps_degrees": {
+          "short_left": 5.729577951308233,
+          "short_right": 5.729577951308233,
+          "long_far": -5.729577951308233,
+          "long_near": -5.729577951308233
+        },
+        "solver": {
+          "timestep": 0.002,
+          "impratio": 10.0,
+          "tolerance": 1e-10,
+          "iterations": 80,
+          "noslip_iterations": 3,
+          "noslip_tolerance": 1e-06,
+          "solver": "mjSOL_NEWTON",
+          "cone": "mjCONE_ELLIPTIC",
+          "integrator": "mjINT_IMPLICITFAST"
+        },
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "stats": {
+          "max_bad_penetration_mm": 0.0,
+          "carton_contact_simulated": true,
+          "cart": {
+            "model": "three-tray fixed cart approximation",
+            "source": "local molmoact2-mac-sim/build_scene.py tray/post/mount dimensions",
+            "dimensions_measured": false,
+            "collision_enabled": true,
+            "width_m": 0.5,
+            "depth_m": 0.36,
+            "front_edge_ahead_of_base_line_m": 0.115,
+            "front_edge_to_table_edge_m": 0.03499999999999999,
+            "static_table_overlaps": []
+          }
+        },
+        "actuated_carton_joints": 0,
+        "hardware_commands": 0
+      }
+    },
+    {
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/pinch-folding/review-final/braced-paddle",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": true,
+        "tool": "paddle",
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_sha256": {
+        "tools/diagnose_braced_folding.py": "8c6b0b522359d0bc6462604f02caf49c54cb802724f52c01f1f2f9eefe79531f",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_grasp.py": "94e2ca05ae9be92c1e45b550ec942638ad8cdca6f94007e11226c683f7c322fb",
+        "carton/folding_markers.py": "7f529d27ef47a392ded9b3240668889a9d67354e9f4a99335eeb449cc004b26b",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_paths.py": "51d098fe15c2fbb6a11e6ee2456f4f0b70a5adc0a2d847218af713b02705819b",
+        "carton/folding_sim.py": "54d1a0d5ebcdd4668e62cc3a09f495e2e6a7b5aa1c68c0b874573a9ec5c28ef2",
+        "carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_vision.py": "902e17704e49b6e40b7066700d699f89992e5116ce544938276dc90d60ad6cf4",
+        "tools/simulate_bimanual_folding.py": "221440bb6f88bf7a7d823df32bfcc47ec541dce4630518d015fec3ffd9dc8fb3"
+      },
+      "success": false,
+      "error": "Paddle grip slipped: blade offset 15.0 mm, rotation 8.1 deg",
+      "time": 32.36599999999359,
+      "angles": {
+        "short_left": 9.192755669182224,
+        "short_right": -0.08171437477642392,
+        "long_far": -5.386260621581241,
+        "long_near": -22.307271279543123
+      },
+      "motion": {
+        "max_translation_mm": 26.446175891920067,
+        "max_rotation_degrees": 8.405624486816533,
+        "minimum_bottom_corner_table_clearance_mm": -0.5798675257005503
+      },
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.305211621464199,
+          "short_right": 6.144025332084074,
+          "long_far": -7.171399694675738,
+          "long_near": -27.912889467409936
+        },
+        "motion": {
+          "max_translation_mm": 5.0010923384729296,
+          "max_rotation_degrees": 0.16405904801804289,
+          "minimum_bottom_corner_table_clearance_mm": 5.878054381205228
+        }
+      },
+      "physics": {
+        "initial_flaps_degrees": {
+          "short_left": 5.729577951308233,
+          "short_right": 5.729577951308233,
+          "long_far": -5.729577951308233,
+          "long_near": -5.729577951308233
+        },
+        "solver": {
+          "timestep": 0.002,
+          "impratio": 10.0,
+          "tolerance": 1e-10,
+          "iterations": 80,
+          "noslip_iterations": 3,
+          "noslip_tolerance": 1e-06,
+          "solver": "mjSOL_NEWTON",
+          "cone": "mjCONE_ELLIPTIC",
+          "integrator": "mjINT_IMPLICITFAST"
+        },
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "stats": {
+          "max_bad_penetration_mm": 0.0,
+          "carton_contact_simulated": true,
+          "cart": {
+            "model": "three-tray fixed cart approximation",
+            "source": "local molmoact2-mac-sim/build_scene.py tray/post/mount dimensions",
+            "dimensions_measured": false,
+            "collision_enabled": true,
+            "width_m": 0.5,
+            "depth_m": 0.36,
+            "front_edge_ahead_of_base_line_m": 0.115,
+            "front_edge_to_table_edge_m": 0.03499999999999999,
+            "static_table_overlaps": []
+          }
+        },
+        "actuated_carton_joints": 0,
+        "hardware_commands": 0
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.021072993477613,
+        "max_rotation_degrees": 8.112201493339736,
+        "final": {
+          "time": 32.36599999999359,
+          "blade_offset_mm": 15.021072993477613,
+          "rotation_degrees": 8.112201493339736
+        }
+      }
+    }
+  ],
+  "solver_controls": [
+    {
+      "case": "legacy",
+      "static_hold_passed": false,
+      "requested_seconds": 30,
+      "time": 0.44200000000000034,
+      "stop": "Paddle grip slipped: blade offset 15.0 mm, rotation 8.6 deg",
+      "solver": {
+        "timestep": 0.002,
+        "impratio": 1.0,
+        "tolerance": 1e-10,
+        "iterations": 80,
+        "noslip_iterations": 0,
+        "noslip_tolerance": 1e-06,
+        "solver": "mjSOL_NEWTON",
+        "cone": "mjCONE_ELLIPTIC",
+        "integrator": "mjINT_IMPLICITFAST"
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.010646285582936,
+        "max_rotation_degrees": 8.578545860857423,
+        "final": {
+          "time": 0.44200000000000034,
+          "blade_offset_mm": 15.010646285582936,
+          "rotation_degrees": 8.578545860857423
+        }
+      }
+    },
+    {
+      "case": "impratio10",
+      "static_hold_passed": false,
+      "requested_seconds": 30,
+      "time": 4.3179999999997465,
+      "stop": "Paddle grip slipped: blade offset 15.0 mm, rotation 8.6 deg",
+      "solver": {
+        "timestep": 0.002,
+        "impratio": 10.0,
+        "tolerance": 1e-10,
+        "iterations": 80,
+        "noslip_iterations": 0,
+        "noslip_tolerance": 1e-06,
+        "solver": "mjSOL_NEWTON",
+        "cone": "mjCONE_ELLIPTIC",
+        "integrator": "mjINT_IMPLICITFAST"
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.003603468714175,
+        "max_rotation_degrees": 8.59691981946542,
+        "final": {
+          "time": 4.3179999999997465,
+          "blade_offset_mm": 15.003603468714175,
+          "rotation_degrees": 8.59691981946542
+        }
+      }
+    },
+    {
+      "case": "impratio50",
+      "static_hold_passed": false,
+      "requested_seconds": 30,
+      "time": 21.52199999999895,
+      "stop": "Paddle grip slipped: blade offset 15.0 mm, rotation 8.6 deg",
+      "solver": {
+        "timestep": 0.002,
+        "impratio": 50.0,
+        "tolerance": 1e-10,
+        "iterations": 80,
+        "noslip_iterations": 0,
+        "noslip_tolerance": 1e-06,
+        "solver": "mjSOL_NEWTON",
+        "cone": "mjCONE_ELLIPTIC",
+        "integrator": "mjINT_IMPLICITFAST"
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.000039731625332,
+        "max_rotation_degrees": 8.597433878814208,
+        "final": {
+          "time": 21.52199999999895,
+          "blade_offset_mm": 15.000039731625332,
+          "rotation_degrees": 8.597433878814208
+        }
+      }
+    },
+    {
+      "case": "noslip3",
+      "static_hold_passed": true,
+      "requested_seconds": 30,
+      "time": 29.99999999999425,
+      "stop": null,
+      "solver": {
+        "timestep": 0.002,
+        "impratio": 10.0,
+        "tolerance": 1e-10,
+        "iterations": 80,
+        "noslip_iterations": 3,
+        "noslip_tolerance": 1e-06,
+        "solver": "mjSOL_NEWTON",
+        "cone": "mjCONE_ELLIPTIC",
+        "integrator": "mjINT_IMPLICITFAST"
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 6.84461075337095,
+        "max_rotation_degrees": 4.302645592214083,
+        "final": {
+          "time": 29.99999999999425,
+          "blade_offset_mm": 6.812999341559222,
+          "rotation_degrees": 4.275270962106828
+        }
+      }
+    },
+    {
+      "case": "noslip3-half-step",
+      "static_hold_passed": true,
+      "requested_seconds": 30,
+      "time": 30.00000000001368,
+      "stop": null,
+      "solver": {
+        "timestep": 0.001,
+        "impratio": 10.0,
+        "tolerance": 1e-10,
+        "iterations": 80,
+        "noslip_iterations": 3,
+        "noslip_tolerance": 1e-06,
+        "solver": "mjSOL_NEWTON",
+        "cone": "mjCONE_ELLIPTIC",
+        "integrator": "mjINT_IMPLICITFAST"
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 6.845410752805042,
+        "max_rotation_degrees": 4.303340291005063,
+        "final": {
+          "time": 30.00000000001368,
+          "blade_offset_mm": 6.8130101676890105,
+          "rotation_degrees": 4.275324183782853
+        }
+      }
+    },
+    {
+      "case": "zero-friction",
+      "static_hold_passed": false,
+      "requested_seconds": 30,
+      "time": 0.056000000000000036,
+      "stop": "Paddle grip slipped: blade offset 15.6 mm, rotation 7.2 deg",
+      "solver": {
+        "timestep": 0.002,
+        "impratio": 10.0,
+        "tolerance": 1e-10,
+        "iterations": 80,
+        "noslip_iterations": 3,
+        "noslip_tolerance": 1e-06,
+        "solver": "mjSOL_NEWTON",
+        "cone": "mjCONE_ELLIPTIC",
+        "integrator": "mjINT_IMPLICITFAST"
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.0,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.588189005826495,
+        "max_rotation_degrees": 7.228729120891293,
+        "final": {
+          "time": 0.056000000000000036,
+          "blade_offset_mm": 15.588189005826495,
+          "rotation_degrees": 7.228729120891293
+        }
+      }
+    }
+  ],
+  "rendered_markers": {
+    "rendered_validation_only": true,
+    "physical_validation": false,
+    "results": [
+      {
+        "case": 0,
+        "translation_error_mm": 2.4705345387952393,
+        "rotation_error_degrees": 0.38196961494754406,
+        "registration": {
+          "visible_ids": [
+            21
+          ],
+          "selected_id": 21,
+          "max_translation_disagreement_mm": 0.0,
+          "max_rotation_disagreement_degrees": 3.818191820832846e-06
+        },
+        "tags": [
+          1,
+          2,
+          4,
+          11,
+          20,
+          21
+        ],
+        "depth_noise_m": 0.0008,
+        "depth_dropout": 0.25
+      },
+      {
+        "case": 1,
+        "translation_error_mm": 2.9065964364735177,
+        "rotation_error_degrees": 0.25883517411556767,
+        "registration": {
+          "visible_ids": [
+            21
+          ],
+          "selected_id": 21,
+          "max_translation_disagreement_mm": 0.0,
+          "max_rotation_disagreement_degrees": 3.818191820832846e-06
+        },
+        "tags": [
+          1,
+          2,
+          4,
+          11,
+          20,
+          21
+        ],
+        "depth_noise_m": 0.0008,
+        "depth_dropout": 0.25
+      },
+      {
+        "case": 2,
+        "translation_error_mm": 1.5019662152751767,
+        "rotation_error_degrees": 0.4900151161957903,
+        "registration": {
+          "visible_ids": [
+            10,
+            21
+          ],
+          "selected_id": 21,
+          "max_translation_disagreement_mm": 5.355478011417777,
+          "max_rotation_disagreement_degrees": 0.7908932194502251
+        },
+        "tags": [
+          1,
+          2,
+          4,
+          10,
+          11,
+          20,
+          21
+        ],
+        "depth_noise_m": 0.0008,
+        "depth_dropout": 0.25
+      }
+    ]
+  },
+  "local_artifacts": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/pinch-folding/review-final",
+  "gif_exports": [
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/pinch-folding/review-final/braced-full-comparison.gif",
+      "simulation_end_seconds": 45.764000000009965,
+      "playback_seconds": 48.26,
+      "frames": 231,
+      "size": [
+        1280,
+        764
+      ],
+      "complete_recorded_timeline": true,
+      "stopped_runs_held_with_labels": true,
+      "source_frames": {
+        "claws": 302,
+        "paddle": 206
+      }
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/pinch-folding/review-final/braced-claws-full.gif",
+      "simulation_end_seconds": 45.764000000009965,
+      "playback_seconds": 48.26,
+      "frames": 231,
+      "size": [
+        640,
+        790
+      ],
+      "complete_recorded_timeline": true
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/pinch-folding/review-final/braced-paddle-full.gif",
+      "simulation_end_seconds": 32.36599999999359,
+      "playback_seconds": 34.87,
+      "frames": 163,
+      "size": [
+        640,
+        790
+      ],
+      "complete_recorded_timeline": true
+    }
+  ],
+  "focused_tests_passed": 65
+}

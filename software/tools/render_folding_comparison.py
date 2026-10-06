@@ -3,6 +3,7 @@ import argparse
 from bisect import bisect_right
 import json
 import math
+import re
 from pathlib import Path
 import textwrap
 import xml.etree.ElementTree as E
@@ -35,12 +36,12 @@ def main():
         items.append(dict(model=m,data=d,renderer=mujoco.Renderer(m,360,640),camera=camera,
             states=states,times=[s['time'] for s in states],result=result,tool=tool))
     end=max(i['times'][-1] for i in items)
-    timeline=sorted(set([round(t,7) for t in np.arange(0,end,.2)]+[end]))
+    timeline=sorted(set([round(t,7) for t in np.arange(0,end,.2)]+[i['times'][-1] for i in items]))
     option=mujoco.MjvOption();option.geomgroup[3]=0
     frames=[];heading=font(22);body=font(17);small=font(15)
     for t in timeline:
         im=Image.new('RGB',(1280,764),'#f1f2f3');draw=ImageDraw.Draw(im)
-        title=(f"PARTIAL DIAGNOSTIC | Short flaps initially {items[0]['result']['assumptions']['short_initial_angle_degrees']:g} degrees | No full closure"
+        title=(f"PARTIAL DIAGNOSTIC | Short flaps initially {items[0]['result']['assumptions']['short_initial_angle_degrees']:.1f} degrees | No full closure"
                if items[0]['result'].get('stage_only') else
                a.case.upper().replace('-',' ')+' | OFFLINE SIMULATION | 1x time | whole robot + close view')
         draw.text((14,8),title,font=heading,fill='#111')
@@ -60,6 +61,9 @@ def main():
             draw.text((x+413,469),f"t = {min(t,item['times'][-1]):.2f} s",font=body,fill='#111')
             if reached:
                 message=('Closed; released; retained for 5 s.' if result['success'] else result['controller'].get('error','Closure failed'))
+                if message.startswith('IK left target'):
+                    miss=re.search(r'misses by ([\d.]+) mm',message)
+                    if miss:message=f'Left hand cannot reach next grasp pose ({miss[1]} mm position error).'
             else:message=st['label']
             for line_no,line in enumerate(textwrap.wrap(message,width=24)):
                 draw.text((x+413,500+line_no*20),line,font=small,fill='#111')
@@ -82,6 +86,32 @@ def main():
                   frames=check.n_frames,size=check.size,complete_recorded_timeline=True,
                   stopped_runs_held_with_labels=True,source_frames={i['tool']:len(i['states']) for i in items})
     target.with_suffix('.json').write_text(json.dumps(metadata,indent=2))
+    # Also supply two separately labeled GIFs covering each complete attempt.
+    # Crop only presentation frames; never synthesize physics or add a success.
+    for col,item in enumerate(items):
+        separate=[]
+        indexes=[i for i,t in enumerate(timeline) if t<=item['times'][-1]+1e-7]
+        for index in indexes:
+            frame=frames[index]
+            single=Image.new('RGB',(640,790),'#f1f2f3')
+            single.paste(frame.crop((col*640,36,(col+1)*640,728)),(0,48))
+            draw=ImageDraw.Draw(single)
+            draw.text((12,8),'OFFLINE PHYSICS | FULL RECORDED ATTEMPT',font=body,fill='#111')
+            draw.text((12,742),f"Free carton; contents {material['contents_mass_kg']*1000:.0f} g; resisting hinges. Unmeasured.",font=small,fill='#111')
+            draw.text((12,766),'Final physical state held for 2.5 seconds; STOPPED means this attempt failed.',font=small,fill='#111')
+            separate.append(single)
+        individual_durations=[durations[i] for i in indexes[:-1]]+[2500]
+        individual_path=root/(a.case+'-'+item['tool']+'-full.gif')
+        separate[0].save(individual_path,save_all=True,append_images=separate[1:],
+            duration=individual_durations,loop=0,optimize=True)
+        with Image.open(individual_path) as check:
+            total=0
+            for i in range(check.n_frames):
+                check.seek(i);check.load();total+=check.info.get('duration',0)
+            individual_path.with_suffix('.json').write_text(json.dumps(dict(
+                path=str(individual_path),simulation_end_seconds=item['times'][-1],
+                playback_seconds=total/1000,frames=check.n_frames,size=check.size,
+                complete_recorded_timeline=True),indent=2))
     for item in items:item['renderer'].close()
     print(json.dumps(metadata),flush=True)
 

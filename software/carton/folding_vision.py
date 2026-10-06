@@ -10,8 +10,10 @@ from farm.perception.tags import detect_tags
 from farm.perception.tag_geometry import square_points
 from farm.status import Reading, Status
 from carton.geometry import Box
+from carton.folding_markers import BOX_MARKERS,BOX_TAG_SIZE
 
-SIZES={1:.060,2:.040,4:.040,10:.045,11:.035,12:.035,13:.035,14:.035,20:.060}
+SIZES={1:.060,2:.040,4:.040,11:.035,12:.035,13:.035,14:.035,20:.060,
+       **{tag_id:BOX_TAG_SIZE for tag_id in BOX_MARKERS}}
 
 
 def depth_tag_pose(corners,depth,k,size):
