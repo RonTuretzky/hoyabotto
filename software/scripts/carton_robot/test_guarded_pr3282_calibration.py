@@ -9,13 +9,13 @@ class Tests(unittest.TestCase):
     def __init__(self,**kw):
      self.motors={n:types.SimpleNamespace(id=i+1) for i,n in enumerate('abcdef')};self.port_handler=object()
      def coherent(*args):
-      data=[0]*15;data[7]=132 if problem=='hot' else 38;data[9]=4 if problem=='fault' else 0;return data,0,0
+      data=[0]*15;data[9]=4 if problem=='fault' else 0;return data,0,0
      self.packet_handler=types.SimpleNamespace(txPacket=lambda *a:0,rxPacket=lambda *a:([255,255,1,2,0,0],0),txRxPacket=lambda *a:([],0,0),readTxRx=coherent)
     def connect(self):pass
     def disconnect(self):pass
     def read(self,r,n,**kw):
      if problem=='transport' and r=='Present_Position':raise IOError('corrupt')
-     return {'Torque_Enable':0,'Present_Temperature':90 if problem=='hot' else 38,'Status':4 if problem=='fault' else 0,'Max_Temperature_Limit':70,'Unloading_Condition':44}.get(r,100)
+     return {'Torque_Enable':0,'Status':4 if problem=='fault' else 0}.get(r,100)
     def write(self,r,n,v,**kw):writes.append((r,n,v))
     def sync_write(self,*args,**kw):pass
     def _compute_mid_and_range_from_limits(self,*args,**kw):return (6,4088,1207,3247,3261,-841)
@@ -28,7 +28,6 @@ class Tests(unittest.TestCase):
     b=w._connect_and_clear(port)
     if problem=='badrange':b._compute_mid_and_range_from_limits('elbow_flex',3261,3247,reference_pos=2952)
     if problem=='transport':b.read('Present_Position','a')
-    if problem=='protected':b.write('Max_Temperature_Limit','a',100)
     b.write('Goal_Position','a',200)
     kw['result_sink'].update({n:{} for n in w.MOTOR_NAMES});b.disconnect();return 0
    w.run_full_calibration=workflow
@@ -54,14 +53,14 @@ class Tests(unittest.TestCase):
   with self.assertRaises(g.ExpectedCalibrationOverload):bus.packet_handler.rxPacket(None)
   with self.assertRaises(g.ExpectedCalibrationOverload):bus.packet_handler.txRxPacket(None,[])
  def test_coherent_offsets_and_overload(self):
-  data=[0]*15;data[7]=39;data[9]=32;data[6]=121
+  data=[0]*15;data[9]=32;data[6]=121
   bus=types.SimpleNamespace(motors={'a':types.SimpleNamespace(id=3)},port_handler=None,packet_handler=types.SimpleNamespace(readTxRx=lambda *a:(data,0,32)))
-  row=g.coherent_health(bus,'a');self.assertEqual(row['temperature'],39);self.assertEqual(row['status'],32);self.assertEqual(row['evidence']['length'],15)
+  row=g.coherent_health(bus,'a');self.assertNotIn('temperature',row);self.assertEqual(row['status'],32);self.assertEqual(row['evidence']['length'],15)
  def test_coherent_corrupt_bytes_abort(self):
   bus=types.SimpleNamespace(motors={'a':types.SimpleNamespace(id=3)},port_handler=None,packet_handler=types.SimpleNamespace(readTxRx=lambda *a:([256]*15,0,0)))
   with self.assertRaises(g.CalibrationAbort):g.coherent_health(bus,'a')
- def test_hot_snapshot_frozen(self):
-  rc,w,l,e=self.run_case('hot');snapshot=e['health-fault-frozen.json'];self.assertEqual(snapshot['rows']['a']['temperature'],132);self.assertEqual(snapshot['rows']['a']['evidence']['payload'][7],132);self.assertFalse(any(r=='Goal_Position' for r,n,v in w))
+ def test_fault_snapshot_frozen(self):
+  rc,w,l,e=self.run_case('fault');snapshot=e['health-fault-frozen.json'];self.assertEqual(snapshot['rows']['a']['status'],4);self.assertFalse(any(r=='Goal_Position' for r,n,v in w))
  def test_range_guard_blocks_workflow_before_eeprom(self):
   rc,w,l,e=self.run_case('badrange');self.assertEqual(rc,1);self.assertFalse(any(r in ['Goal_Position','Homing_Offset','Min_Position_Limit','Max_Position_Limit'] for r,n,v in w));self.assertTrue(all(e['release.json'].values()))
  def test_false_near_full_elbow_range_rejected(self):
@@ -77,7 +76,7 @@ class Tests(unittest.TestCase):
  def wait_trace(self,trace,timeout=2,**kwargs):
   now=[0.0];writes=[]
   def read(*args):
-   pos,vel,moving,status=trace(now[0]);data=[0]*15;data[0]=pos&255;data[1]=pos>>8;data[2]=vel&255;data[3]=vel>>8;data[7]=38;data[9]=status;data[10]=moving;return data,0,0
+   pos,vel,moving,status=trace(now[0]);data=[0]*15;data[0]=pos&255;data[1]=pos>>8;data[2]=vel&255;data[3]=vel>>8;data[9]=status;data[10]=moving;return data,0,0
   bus=types.SimpleNamespace(motors={'a':types.SimpleNamespace(id=1)},port_handler=None,packet_handler=types.SimpleNamespace(readTxRx=read),write=lambda *a:writes.append((now[0],a)))
   result=g.wait_guarded_limits(bus,['a'],2,timeout,0.05,clock=lambda:now[0],sleep=lambda dt:now.__setitem__(0,now[0]+dt),**kwargs)
   return result,now[0],writes
@@ -102,13 +101,13 @@ class Tests(unittest.TestCase):
  def test_endpoint_resampled_after_zero_velocity_drift(self):
   now=[0.0];positions=iter([1564,1510,1499,1499,1499,1499]);last=[1499]
   def read(*a):
-   pos=next(positions,last[0]);last[0]=pos;data=[0]*15;data[0]=pos&255;data[1]=pos>>8;data[7]=38;return data,0,0
+   pos=next(positions,last[0]);last[0]=pos;data=[0]*15;data[0]=pos&255;data[1]=pos>>8;return data,0,0
   bus=types.SimpleNamespace(motors={'a':types.SimpleNamespace(id=1)},port_handler=None,packet_handler=types.SimpleNamespace(readTxRx=read))
   actual=g.settle_limit_position(bus,'a',clock=lambda:now[0],sleep=lambda d:now.__setitem__(0,now[0]+d));self.assertEqual(actual,1499);self.assertGreaterEqual(len(bus.last_settled_limit['samples']),6)
  def test_endpoint_unsettled_aborts(self):
   now=[0.0]
   def read(*a):
-   pos=100+int(now[0]*100);data=[0]*15;data[0]=pos&255;data[1]=pos>>8;data[2]=100;data[7]=38;return data,0,0
+   pos=100+int(now[0]*100);data=[0]*15;data[0]=pos&255;data[1]=pos>>8;data[2]=100;return data,0,0
   bus=types.SimpleNamespace(motors={'a':types.SimpleNamespace(id=1)},port_handler=None,packet_handler=types.SimpleNamespace(readTxRx=read))
   with self.assertRaises(g.CalibrationAbort):g.settle_limit_position(bus,'a',clock=lambda:now[0],sleep=lambda d:now.__setitem__(0,now[0]+d))
  def test_slow_leg_runs_beyond_20_then_stops_before_45(self):
@@ -123,12 +122,8 @@ class Tests(unittest.TestCase):
   rc,w,l,e=self.run_case();self.assertEqual(rc,0);self.assertEqual(l,g.PORTS);self.assertTrue(all(e['release.json'].values()));self.assertIn('registers-before.json',e)
  def test_transport_aborts(self):
   rc,w,l,e=self.run_case('transport');self.assertEqual(rc,1);self.assertFalse(any(r=='Goal_Position' for r,n,v in w));self.assertFalse(e['failure.json']['calibration_valid'])
- def test_hot_aborts_before_goal(self):
-  rc,w,l,e=self.run_case('hot');self.assertEqual(rc,1);self.assertFalse(any(r=='Goal_Position' for r,n,v in w))
  def test_other_fault_aborts(self):self.assertEqual(self.run_case('fault')[0],1)
- def test_protection_write_blocked(self):
-  rc,w,l,e=self.run_case('protected');self.assertEqual(rc,1);self.assertFalse(any(r=='Max_Temperature_Limit' for r,n,v in w))
- def test_stall_bit_allowed(self):g.validate_health({str(i):{'temperature':55,'status':32} for i in range(6)})
+ def test_stall_bit_allowed(self):g.validate_health({str(i):{'status':32} for i in range(6)})
 def json_load(root):
  import json
  return {p.name:json.loads(p.read_text()) for p in root.glob('*.json')}

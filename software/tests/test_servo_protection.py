@@ -58,9 +58,44 @@ def test_apply_relocks_and_fails_loudly_when_the_servo_ignores_the_write():
     class Clamping(FakeBus):
         def write(self, reg, motor, value, normalize=True, num_retry=0):
             super().write(reg, motor, min(value, 100) if reg == "Max_Temperature_Limit" else value, normalize, num_retry)
-    with pytest.raises(RuntimeError, match="reads back.*try --limit 100"):
-        sp.apply(Clamping(["m"]), "m")
-    assert sp.apply(Clamping(["m"]), "m", 100)["Max_Temperature_Limit"] == 100
+    clamping = Clamping(["m"])
+    assert sp.apply(clamping, "m")["Max_Temperature_Limit"] == 100          # fell back to 100, still relocked
+    assert clamping.writes[-1] == ("m", "Lock", 1) and sp.done(clamping.regs["m"])
+    with pytest.raises(RuntimeError, match="reads back"):
+        sp.apply(Clamping(["m"]), "m", fallback=None)                       # no fallback: a clamped limit is a failure
+
+    class Refusing(FakeBus):
+        def write(self, reg, motor, value, normalize=True, num_retry=0):
+            if reg != "Max_Temperature_Limit":
+                super().write(reg, motor, value, normalize, num_retry)
+    refusing = Refusing(["m"])
+    with pytest.raises(RuntimeError, match="reads back"):
+        sp.apply(refusing, "m")                                             # fallback tried, still not kept
+    assert refusing.writes[-1] == ("m", "Lock", 1)
+
+
+def test_run_counts_a_fallback_servo_as_done(capsys):
+    class Clamping(FakeBus):
+        def write(self, reg, motor, value, normalize=True, num_retry=0):
+            super().write(reg, motor, min(value, 100) if reg == "Max_Temperature_Limit" else value, normalize, num_retry)
+    bus = Clamping(["a"])
+    lines = []
+    res = sp.run([bus], write=True, out=lines.append)
+    assert res["ok"] and res["motors"]["a"]["after"]["Max_Temperature_Limit"] == 100
+    assert any("servo kept 100 C, not 200" in l for l in lines) and "ALL DONE" in lines[-1]
+    res = sp.run([bus], write=False, out=lines.append)
+    assert res["ok"] and res["motors"]["a"]["after"] is not None and "ALL DONE" in lines[-1]
+
+
+def test_run_tells_the_truth_when_every_read_fails():
+    class Dead(FakeBus):
+        def read(self, reg, motor, normalize=False, num_retry=0):
+            raise RuntimeError("no reply")
+    lines = []
+    res = sp.run([Dead(["a", "b"])], write=False, out=lines.append)
+    assert not res["ok"] and "2 motor(s) could not be read" in lines[-1]
+    assert not any("still have temperature protection" in l for l in lines)
+
 
 
 def test_run_dry_reads_only_and_write_changes_every_motor(capsys):

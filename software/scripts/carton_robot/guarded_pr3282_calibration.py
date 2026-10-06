@@ -3,11 +3,7 @@ import argparse, json, pathlib, shutil, sys, time
 SOFTWARE = pathlib.Path(__file__).resolve().parents[2]
 PORTS = ['/dev/cu.usbmodem5B790186401', '/dev/cu.usbmodem5B790182091']
 CAL = pathlib.Path('/Users/teachera/.cache/huggingface/lerobot/calibration/robots/xlerobot_2wheels/farm_xlerobot.json')
-try:
-    from .gemma_control_limits import SOFTWARE_TEMPERATURE_LIMIT_C
-except ImportError:
-    from gemma_control_limits import SOFTWARE_TEMPERATURE_LIMIT_C
-TEMPERATURE_CUTOFF = SOFTWARE_TEMPERATURE_LIMIT_C
+# Servo temperature is deliberately not read or checked anywhere here (owner's decision, 2026-10-05).
 class CalibrationAbort(BaseException):
     """Not catchable by vendor COMM_ERR recovery/suppression."""
 
@@ -54,8 +50,6 @@ def validate_health(rows):
     if len(rows) != 6:
         raise CalibrationAbort('Incomplete arm health snapshot')
     for name, r in rows.items():
-        if not isinstance(r['temperature'], (int, float)) or not 0 <= r['temperature'] <= TEMPERATURE_CUTOFF:
-            raise CalibrationAbort(f'{name} temperature {r["temperature"]} exceeds valid 0..{TEMPERATURE_CUTOFF}C')
         # Overload BIT5 is an intentional mechanical-stop signal; other faults abort.
         if int(r['status']) & ~0x20:
             raise CalibrationAbort(f'{name} non-calibration hardware fault {r["status"]}')
@@ -70,7 +64,7 @@ def coherent_health(bus,name):
     if comm!=0 or error & ~32 or len(data)!=15 or any(type(v) is not int or not 0<=v<=255 for v in data):
         bus.health_fault_snapshot=evidence
         raise CalibrationAbort(f'Invalid coherent health reply: {evidence}')
-    row={'temperature':data[7],'status':data[9]|error,'evidence':evidence}
+    row={'status':data[9]|error,'evidence':evidence}
     return row
 
 def poll_health(bus,names):
@@ -78,8 +72,8 @@ def poll_health(bus,names):
     try:
         for name in names:
             rows[name]=coherent_health(bus,name)
-            if not 0<=rows[name]['temperature']<=TEMPERATURE_CUTOFF or rows[name]['status'] & ~32:
-                raise CalibrationAbort(f'{name} health invalid temperature={rows[name]["temperature"]} status={rows[name]["status"]}')
+            if rows[name]['status'] & ~32:
+                raise CalibrationAbort(f'{name} health invalid status={rows[name]["status"]}')
         validate_health(rows)
     except BaseException:
         if not hasattr(bus,'health_fault_snapshot'):
@@ -109,7 +103,7 @@ def settle_limit_position(bus,name,*,clock=time.monotonic,sleep=time.sleep,timeo
     while clock()-started<timeout_s:
         if hasattr(bus,'_health'):bus._health()
         row=coherent_health(bus,name);data=row['evidence']['payload']
-        if not 0<=row['temperature']<=TEMPERATURE_CUTOFF or row['status'] & ~32:
+        if row['status'] & ~32:
             bus.health_fault_snapshot={'rows':{name:row}}
             raise CalibrationAbort(f'{name} invalid endpoint health: {row}')
         pos=data[0]|data[1]<<8;v=data[2]|data[3]<<8;velocity=-(v&32767) if v&32768 else v
@@ -131,13 +125,13 @@ def wait_guarded_limits(bus,motors,confirm_samples,timeout_s,interval_s,*,veloci
         if hasattr(bus,'_health'):bus._health()
         for n in list(pending):
             row=coherent_health(bus,n);data=row['evidence']['payload']
-            if not 0<=row['temperature']<=TEMPERATURE_CUTOFF or row['status'] & ~32:
+            if row['status'] & ~32:
                 bus.health_fault_snapshot={'rows':{n:row}}
                 raise CalibrationAbort(f'{n} health fault during limit seeking: {row}')
             pos=data[0]|data[1]<<8;raw_vel=data[2]|data[3]<<8
             vel=-(raw_vel & 32767) if raw_vel & 32768 else raw_vel
             if n in getattr(bus,'_direction_samples',{}):bus._direction_samples[n].append(pos)
-            trace['samples'][n].append({'time':clock(),'position':pos,'velocity':vel,'moving':data[10],'temperature':row['temperature'],'status':row['status']})
+            trace['samples'][n].append({'time':clock(),'position':pos,'velocity':vel,'moving':data[10],'status':row['status']})
             if n in previous:travel[n]+=abs(((pos-previous[n]+2048)%4096)-2048)
             if n not in progress_position or abs(((pos-progress_position[n]+2048)%4096)-2048)>=3:
                 progress_position[n]=pos;last_progress[n]=clock()
@@ -167,7 +161,7 @@ def main():
     a=p.parse_args()
     if not 1<=a.leg_timeout_s<=45:p.error('--leg-timeout-s must be1..45')
     if not a.execute:
-        print(json.dumps({'plan_only':True,'arm':a.arm,'port':PORTS[0 if a.arm=='left' else 1],'velocity':100,'leg_timeout_s':a.leg_timeout_s,'software_temperature_cutoff':TEMPERATURE_CUTOFF,'backup_dir':str(a.backup_dir),'requires_clearance_confirmation':True}));return 0
+        print(json.dumps({'plan_only':True,'arm':a.arm,'port':PORTS[0 if a.arm=='left' else 1],'velocity':100,'leg_timeout_s':a.leg_timeout_s,'backup_dir':str(a.backup_dir),'requires_clearance_confirmation':True}));return 0
     if not a.clearance_confirmed:
         p.error('--execute requires --clearance-confirmed')
     a.backup_dir.mkdir(parents=True, exist_ok=False)
@@ -179,7 +173,7 @@ def main():
     from farm.tools.calibration_report import NOMINAL
     names=list(w.MOTOR_NAMES); raw_bus=w.FeetechMotorsBus
     buses=[]
-    registers=['Torque_Enable','Operating_Mode','Homing_Offset','Min_Position_Limit','Max_Position_Limit','Max_Temperature_Limit','Unloading_Condition','Torque_Limit','Max_Torque_Limit','Acceleration','P_Coefficient','I_Coefficient','D_Coefficient','Return_Delay_Time','Lock']
+    registers=['Torque_Enable','Operating_Mode','Homing_Offset','Min_Position_Limit','Max_Position_Limit','Torque_Limit','Max_Torque_Limit','Acceleration','P_Coefficient','I_Coefficient','D_Coefficient','Return_Delay_Time','Lock']
     class GuardedBus(raw_bus):
         _last_health=0
         _closing=False
@@ -230,8 +224,6 @@ def main():
             except ExpectedCalibrationOverload:raise
             except Exception as e:raise CalibrationAbort(f'Communication read abort {args}: {e}') from e
         def write(self,reg,*args,**kwargs):
-            if reg in ['Max_Temperature_Limit','Unloading_Condition']:
-                raise CalibrationAbort(f'Protected register write: {reg}')
             try:
                 self._health()
                 return super().write(reg,*args,**kwargs)
@@ -251,9 +243,6 @@ def main():
         (a.backup_dir/'registers-before.json').write_text(json.dumps(before,indent=2))
         for n,r in before.items():
             if r['Torque_Enable'] != 0:raise CalibrationAbort(f'{n} unexpectedly powered')
-            if not 1 <= r['Max_Temperature_Limit'] <= 100 or not 0 <= r['Unloading_Condition'] <= 255:
-                raise CalibrationAbort(f'{n} invalid firmware protection readback')
-        b._original_protection={n:{r:before[n][r] for r in ['Max_Temperature_Limit','Unloading_Condition']} for n in names}
         b._health(); b._guard_enabled=True; return b
     print(CHECKLIST.format(arm=a.arm),flush=True)
     if input('Type yes after clearing the entire arm sweep: ').strip().lower() != 'yes':return 2
@@ -277,7 +266,6 @@ def main():
                 (a.backup_dir/'health-fault-frozen.json').write_text(json.dumps(b.health_fault_snapshot,indent=2))
         # Use raw writes for release even if health checks/transport already failed.
         release={}
-        protection={}
         packets={}
         for b in buses:
             packets[str(b.port if hasattr(b,'port') else 'arm')]=getattr(b,'calibration_reply_evidence',[])
@@ -286,19 +274,13 @@ def main():
                     raw_bus.write(b,'Goal_Velocity',n,0);raw_bus.write(b,'Torque_Enable',n,0)
                     release[n]=raw_bus.read(b,'Torque_Enable',n,normalize=False)==0
                 except BaseException as e:release[n]={'confirmed':False,'error':str(e)}
-            for n in names:
-                try:
-                    actual={r:raw_bus.read(b,r,n,normalize=False) for r in ['Max_Temperature_Limit','Unloading_Condition']}
-                    protection[n]={'actual':actual,'unchanged':actual==b._original_protection[n]}
-                except BaseException as e:protection[n]={'unchanged':False,'error':str(e)}
             try:
                 b._closing=True
                 b.disconnect()
             except BaseException:pass
         (a.backup_dir/'release.json').write_text(json.dumps(release,indent=2))
         (a.backup_dir/'raw-replies.json').write_text(json.dumps(packets,indent=2))
-        (a.backup_dir/'protection-after.json').write_text(json.dumps(protection,indent=2))
         lock.close()
-        if any(value is not True for value in release.values()) or any(not row['unchanged'] for row in protection.values()):
+        if any(value is not True for value in release.values()):
             return 1
 if __name__=='__main__':sys.exit(main())

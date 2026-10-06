@@ -13,7 +13,7 @@ only against a fake bus; nothing has been written to a real servo yet. This sess
 
   | Register | Factory default | After `--write` |
   |---|---|---|
-  | `Max_Temperature_Limit` (13) | 70 °C | 200 °C (`--limit`; one byte, Feetech documents 0..100) |
+  | `Max_Temperature_Limit` (13) | 70 °C | 200 °C (`--limit`; one byte, Feetech documents 0..100; falls back to 100 if the servo will not keep 200) |
   | `Unloading_Condition` (19) | 44 = temperature + current + overload | 40: temperature bit cleared |
   | `LED_Alarm_Condition` (20) | 47 | 43: temperature bit cleared |
 
@@ -68,9 +68,8 @@ read-back matches. A mismatch prints `WRITE FAILED` for that servo and the comma
 the rest, exiting 1 at the end. `--only head|left|right` restricts it if you want to do one group
 first.
 
-If a servo reads back 100 instead of 200, its firmware clamps the limit to the documented range: run the
-command again with `--limit 100` (that still means never, for a motor that works) and record it. If one
-servo fails otherwise, run the same command again once (it skips servos that are already done). If it
+If a servo will not keep 200, the tool writes 100 instead and prints "servo kept 100 C, not 200"; that still
+means never, for a motor that works, so record it and carry on. If one servo fails otherwise, run the same command again once (it skips servos that are already done). If it
 fails twice on the same servo, stop and record the exact line; do not try to write registers by hand.
 
 ### 3. Verify

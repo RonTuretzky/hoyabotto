@@ -17,6 +17,7 @@ from typing import Any, Callable
 
 TEMPERATURE_BIT = 1 << 2
 DEFAULT_LIMIT_C = 200                # one byte; Feetech documents 0..100, the servo may keep more
+FALLBACK_LIMIT_C = 100               # used when a servo will not keep the requested limit
 REGISTERS = ("Max_Temperature_Limit", "Unloading_Condition", "LED_Alarm_Condition")
 
 
@@ -32,27 +33,33 @@ def plan(current: dict[str, int], limit: int = DEFAULT_LIMIT_C) -> dict[str, int
 
 
 def done(values: dict[str, int], limit: int = DEFAULT_LIMIT_C) -> bool:
-    return plan(values, limit) == {k: int(values[k]) for k in REGISTERS}
+    """True once the masks are cleared and the limit is at `limit` or the fallback."""
+    have = {k: int(values[k]) for k in REGISTERS}
+    return have == plan(values, limit) or (FALLBACK_LIMIT_C != limit and have == plan(values, FALLBACK_LIMIT_C))
 
 
 def read(bus, motor: str) -> dict[str, int]:
     return {r: int(bus.read(r, motor, normalize=False, num_retry=2)) for r in REGISTERS}
 
 
-def apply(bus, motor: str, limit: int = DEFAULT_LIMIT_C) -> dict[str, int]:
-    """Write the planned values for one motor and return what the servo reads back."""
+def apply(bus, motor: str, limit: int = DEFAULT_LIMIT_C, fallback: int | None = FALLBACK_LIMIT_C) -> dict[str, int]:
+    """Write the planned values for one motor and return what the servo reads back.
+    If the servo will not keep `limit` (the firmware may clamp to its documented 0..100), retry once with `fallback`."""
     target = plan(read(bus, motor), limit)
     bus.write("Torque_Enable", motor, 0, num_retry=2)
     bus.write("Lock", motor, 0, num_retry=2)
     try:
         for r in REGISTERS:
             bus.write(r, motor, target[r], normalize=False, num_retry=2)
+        after = read(bus, motor)
+        if after["Max_Temperature_Limit"] != limit and fallback is not None and fallback != limit:
+            bus.write("Max_Temperature_Limit", motor, fallback, normalize=False, num_retry=2)
+            target["Max_Temperature_Limit"] = fallback
+            after = read(bus, motor)
     finally:
         bus.write("Lock", motor, 1, num_retry=2)
-    after = read(bus, motor)
     if after != target:
-        hint = " (the servo did not keep that limit; try --limit 100)" if after["Max_Temperature_Limit"] != target["Max_Temperature_Limit"] else ""
-        raise RuntimeError(f"{motor}: wrote {target}, servo reads back {after}{hint}")
+        raise RuntimeError(f"{motor}: wrote {target}, servo reads back {after}")
     return after
 
 
@@ -75,13 +82,16 @@ def run(buses: list[Any], write: bool = False, only: list[str] | None = None,
                 ok = False
                 continue
             target = plan(before, limit)
+            if done(before, limit):
+                target = dict(before)
             entry: dict[str, Any] = {"before": before, "target": target, "after": None}
             for r in REGISTERS:
                 out(f"{name:<24}{r:<22}{before[r]:>5}{target[r]:>8}")
             if write and before != target:
                 try:
                     entry["after"] = apply(bus, name, limit)
-                    out(f"{name:<24}written and read back")
+                    kept = entry["after"]["Max_Temperature_Limit"]
+                    out(f"{name:<24}written and read back" + (f" (servo kept {kept} C, not {limit})" if kept != limit else ""))
                 except Exception as e:  # noqa: BLE001
                     entry["error"] = str(e)
                     out(f"{name:<24}WRITE FAILED: {e}")
@@ -90,9 +100,14 @@ def run(buses: list[Any], write: bool = False, only: list[str] | None = None,
                 entry["after"] = before
                 out(f"{name:<24}already done")
             motors[name] = entry
-    pending = [n for n, m in motors.items() if m.get("after") is None]
+    failed = [n for n, m in motors.items() if "error" in m]
+    pending = [n for n, m in motors.items() if m.get("after") is None and "error" not in m]
+    if not motors:
+        out("\nno motors were read: nothing is registered on these buses")
+    elif failed:
+        out(f"\n{len(failed)} motor(s) could not be read or written: {', '.join(failed)}")
     if pending and not write:
         out(f"\n{len(pending)} motor(s) still have temperature protection; run again with --write to change them.")
-    elif not pending and ok:
+    elif not pending and ok and motors:
         out("\nALL DONE: no servo on these buses unloads or flags on temperature.")
     return {"ok": ok, "written": bool(write), "motors": motors}
