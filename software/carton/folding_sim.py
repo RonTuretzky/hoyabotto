@@ -253,7 +253,8 @@ class FoldingSimulation:
                 axis=(rotation@np.asarray(orientation['local_axis']) if isinstance(orientation,dict) and 'local_axis' in orientation else rotation[:,axis_index])
                 e=np.r_[e,(axis-np.asarray(desired))*.04,q[4]*.005]
                 if isinstance(orientation,dict) and 'tangent' in orientation:
-                    xaxis=self.kin.body(side+'_gripper_link').xmat.reshape(3,3)[:,0]
+                    xaxis=(rotation@np.asarray(orientation['local_tangent'])
+                           if 'local_tangent' in orientation else rotation[:,0])
                     e=np.r_[e,(xaxis-np.asarray(orientation['tangent']))*.03]
             return e
         def solve(seed):
@@ -330,7 +331,9 @@ class FoldingSimulation:
                 axes=({'direction':[0,0,1]} if isinstance(ori,str) else ori if isinstance(ori,dict) else {'tangent':ori})
                 rotation=self.data.body(side+'_gripper_link').xmat.reshape(3,3)
                 event['orientation_error_degrees'][side]={key:math.degrees(math.acos(float(np.clip(
-                    (rotation@np.asarray(axes['local_axis']) if key=='direction' and 'local_axis' in axes else rotation[:,2 if key=='direction' else 0])@np.asarray(vector)/np.linalg.norm(vector),-1,1))))
+                    (rotation@np.asarray(axes['local_axis']) if key=='direction' and 'local_axis' in axes
+                     else rotation@np.asarray(axes['local_tangent']) if key=='tangent' and 'local_tangent' in axes
+                     else rotation[:,2 if key=='direction' else 0])@np.asarray(vector)/np.linalg.norm(vector),-1,1))))
                     for key,vector in axes.items() if key in ('direction','tangent')}
         return event
 

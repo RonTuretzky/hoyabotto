@@ -42,6 +42,27 @@ def test_path_edge_checks_intermediate_tool_collision(tool_scene):
     assert not planner.edge(np.zeros(5),end)
 
 
+def test_planning_clearance_rejects_near_miss_without_inflating_physics(tool_scene):
+    mj,sim=tool_scene
+    # Put the obstacle 4 mm beyond the held tool's contact surface.
+    sim.model.geom_pos[sim.model.geom('table').id]=[.30,.049,.40]
+    mj.mj_forward(sim.model,sim.data)
+    before=sim.model.geom_margin.copy();positions=sim.data.qpos.copy()
+    assert JointPathPlanner(sim,'right').valid(np.zeros(5))
+    cautious=JointPathPlanner(sim,'right',clearance=.006)
+    assert not cautious.valid(np.zeros(5))
+    assert set(cautious.last_collision[:2])=={'table','right_paddle_contact_5'}
+    np.testing.assert_array_equal(sim.model.geom_margin,before)
+    np.testing.assert_array_equal(sim.data.qpos,positions)
+
+
+@pytest.mark.parametrize('clearance',[-.001,.021,np.nan,np.inf])
+def test_invalid_clearance_rejected(tool_scene,clearance):
+    _,sim=tool_scene
+    with pytest.raises(ValueError,match='clearance'):
+        JointPathPlanner(sim,'right',clearance=clearance)
+
+
 @pytest.mark.parametrize('q',[[np.nan,0,0,0,0],[4,0,0,0,0],[0,0]])
 def test_invalid_joint_candidates_rejected(tool_scene,q):
     _,sim=tool_scene;assert not JointPathPlanner(sim,'right').valid(q)

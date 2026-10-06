@@ -17,6 +17,7 @@ from carton.folding_station import FoldingStation
 from carton.folding_material import CartonMaterial
 from carton.folding_solver import FoldingSolver
 from carton.folding_markers import carton_pose_from_tags
+from carton.folding_tool_tags import paddle_pose_from_tags
 
 
 def station_from_args(args):
@@ -76,6 +77,7 @@ class PixelPort:
                     angles[flap]={'degrees':angle,'method':'apriltag_aligned_depth_plane','depth_check_degrees':row['degrees'] if row else None}
         self.angle_priors.update({f:r['degrees'] for f,r in angles.items()})
         reading={'world_from_box':self.box.tolist(),'box_registration':box_registration,'camera':self.camera,'tags':sorted(tags),'angles':angles,'seq':self.seq,'label':label}
+        reading['paddle']=paddle_pose_from_tags(tags,self.observer.history[-1]['quality'])
         self.readings.append(reading)
         if self.record:self.sim.capture(label)
         return reading

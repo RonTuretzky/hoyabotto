@@ -4,6 +4,28 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Resistant carton hand transfers — 2026-10-06
+
+The [new transfer audit](docs/carton-minor-transfer-audit.md) reproduces both
+short flaps held by the bare claws: 92.44° left and 91.92° right, with maximum
+free-box movement 12.81 mm. Releasing the left hand makes that flap reopen to
+58.40° after withdrawal and a two-second wait. The camera independently sees
+the spring-back. This is a partial stage, not a full folding success.
+
+The matched paddle attempt still stops at 15 mm tool slip before completing
+the first short flap. Its gripper contacts the near flap before the blade
+contacts cardboard. Alternate approaches have not fixed that failure. Trials
+transferring a claw to the near major flap exposed interference from the other
+forearm and large box motion; no major-flap transfer is validated.
+
+Both complete attempt GIFs include failures. The free carton, empty load,
+resistant hinges, original motors and all physical coefficients are unchanged.
+The new 6 mm path clearance affects a copied planning model only. Proposed
+paddle tags now provide fresh offline RGB-D tool poses without changing the
+grip-slip reference. Physical tags/mounts remain unverified. 80 focused tests
+pass. All four folds, final release/retention and explicit tape application
+remain unfinished; no hardware was accessed.
+
 ## Corrected carton physics and bracing — 2026-10-06
 
 The [new audit](docs/carton-braced-folding-audit.md) supersedes the folding

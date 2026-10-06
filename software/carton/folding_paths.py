@@ -5,6 +5,7 @@ experiments; this is not a calibrated real-world obstacle model. Flaps remain
 dynamic during execution, and the normal runtime collision gates still apply.
 """
 import time
+import copy
 import mujoco
 import numpy as np
 
@@ -12,8 +13,12 @@ from carton.folding_sim import JOINTS
 
 
 class JointPathPlanner:
-    def __init__(self,sim,side,*,allowed_flaps=(),seed=1):
-        self.sim=sim;self.side=side;self.model=sim.model
+    def __init__(self,sim,side,*,allowed_flaps=(),seed=1,clearance=0.):
+        if not np.isfinite(clearance) or not 0<=clearance<=.02:
+            raise ValueError('Planning clearance must be between 0 and 20 mm')
+        self.clearance=float(clearance)
+        self.sim=sim;self.side=side;self.model=copy.copy(sim.model) if clearance else sim.model
+        if clearance:self.model.geom_margin[:]=np.maximum(self.model.geom_margin,clearance)
         self.data=mujoco.MjData(self.model);self.data.qpos[:]=sim.data.qpos
         self.ix=sim.arm_indices[side][:5]
         self.limits=self.model.jnt_range[[self.model.joint(side+'_'+j).id for j in JOINTS[:5]]]
@@ -45,7 +50,7 @@ class JointPathPlanner:
         for c in self.data.contact:
             a,b=self.model.geom(c.geom1).name,self.model.geom(c.geom2).name
             if not (a.startswith(self.side+'_') or b.startswith(self.side+'_')):continue
-            if c.dist>=-.0001:continue
+            if c.dist>=self.clearance-.0001:continue
             other=b if a.startswith(self.side+'_') else a
             arm=a if a.startswith(self.side+'_') else b
             if other in self.allowed and any(n in arm for n in ('moving_jaw','wrist_roll_follower','right_paddle_contact')):continue

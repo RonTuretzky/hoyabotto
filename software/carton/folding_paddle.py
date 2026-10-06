@@ -14,7 +14,8 @@ import xml.etree.ElementTree as E
 import mujoco
 import numpy as np
 
-from carton.folding_sim import FoldingSimulation, words
+from carton.folding_sim import FoldingSimulation, words,marker
+from carton.folding_tool_tags import PADDLE_TAGS,PADDLE_TAG_SIZE
 from carton.folding_diagonal import DiagonalFoldingController
 
 HANDLE = np.array([.030, 0., .003])
@@ -37,6 +38,7 @@ class PaddleSpec:
     mass: float = .030
     friction: float = .8
     attachment: str = 'friction'
+    grasp_x_m: float = .030
 
     def __post_init__(self):
         if not math.isfinite(self.mass) or self.mass <= 0:
@@ -45,6 +47,16 @@ class PaddleSpec:
             raise ValueError('Finite nonnegative paddle friction required')
         if self.attachment not in ('friction','rigid-diagnostic'):
             raise ValueError('Unknown paddle attachment')
+        if not math.isfinite(self.grasp_x_m) or not .010<=self.grasp_x_m<=.190:
+            raise ValueError('Paddle grasp must lie within the declared CAD')
+
+    @property
+    def grip_origin(self):
+        return GRIP_ORIGIN+GRIP_ROTATION@np.array([.030-self.grasp_x_m,0,0])
+
+    @property
+    def tool_point(self):
+        return self.grip_origin+GRIP_ROTATION@BLADE
 
     def report(self):
         return dict(mass_kg=self.mass, sliding_friction=self.friction,
@@ -53,7 +65,8 @@ class PaddleSpec:
                     mounting=('Free body initially placed in right jaws; no weld; pickup not tested' if self.attachment=='friction'
                               else 'IDEAL RIGID ATTACHMENT DIAGNOSTIC: no slip possible, not a validated grip'),
                     grip_from_paddle_rotation=GRIP_ROTATION.tolist(),
-                    grip_from_paddle_origin_m=GRIP_ORIGIN.tolist())
+                    grasp_from_handle_base_mm=self.grasp_x_m*1000,
+                    grip_from_paddle_origin_m=self.grip_origin.tolist())
 
 
 def add_paddle(root, spec):
@@ -64,7 +77,7 @@ def add_paddle(root, spec):
         body=E.SubElement(world,'body',name='paddle',pos='0 0 2')
         E.SubElement(body,'freejoint',name='paddle_free')
     else:
-        body=E.SubElement(grip,'body',name='paddle',pos=words(GRIP_ORIGIN),
+        body=E.SubElement(grip,'body',name='paddle',pos=words(spec.grip_origin),
                           xyaxes=words(np.r_[GRIP_ROTATION[:,0],GRIP_ROTATION[:,1]]))
     E.SubElement(body,'geom',name='right_paddle_visual',type='mesh',mesh='paddle_visual',
                  rgba='.94 .94 .88 1',contype='0',conaffinity='0',group='2',mass='0')
@@ -78,7 +91,11 @@ def add_paddle(root, spec):
                      friction=words([spec.friction,.005,.0001]),condim='4',group='3',
                      solref='.004 1',solimp='.95 .99 .001')
     E.SubElement(body,'site',name='paddle_blade_actual',pos=words(BLADE),size='.002',rgba='0 0 0 0')
-    E.SubElement(grip,'site',name='right_paddle_target',pos=words(TOOL_POINT),size='.002',rgba='0 0 0 0')
+    E.SubElement(grip,'site',name='right_paddle_target',pos=words(spec.tool_point),size='.002',rgba='0 0 0 0')
+    # Separate calibrated TCP; the original slip-reference site stays fixed.
+    E.SubElement(grip,'site',name='right_paddle_observed_target',pos=words(spec.tool_point),size='.002',rgba='0 0 0 0')
+    for tag_id,(name,position,axes) in PADDLE_TAGS.items():
+        marker(body,name,tag_id,PADDLE_TAG_SIZE,position,axes)
     # Explicit friction on tool/jaw contacts makes the zero-friction negative
     # control meaningful despite MuJoCo's default max-coefficient mixing.
     for jaw in list(grip.iter('geom')) if spec.attachment=='friction' else []:
@@ -98,7 +115,7 @@ class PaddleFoldingSimulation(FoldingSimulation):
         if self.paddle_spec.attachment=='friction':
             grip=self.data.body('right_gripper_link');r=grip.xmat.reshape(3,3)
             adr=self.model.joint('paddle_free').qposadr[0]
-            self.data.qpos[adr:adr+3]=grip.xpos+r@GRIP_ORIGIN
+            self.data.qpos[adr:adr+3]=grip.xpos+r@self.paddle_spec.grip_origin
             quaternion=np.zeros(4);mujoco.mju_mat2Quat(quaternion,(r@GRIP_ROTATION).ravel())
             self.data.qpos[adr+3:adr+7]=quaternion
         # Reuse the settled jaw position from the preceding independent grasp
