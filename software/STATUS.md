@@ -21,13 +21,20 @@
 - Repository tests: 583 passed, 8 skipped. Existing pilot tests: 26 passed;
   browser-session recovery checks passed. The local chat was restarted idle
   with saved history and inactive prior goals; its 21-tool catalog includes
-  metric observations. No camera process or remote owner was restarted.
-- Physical pickup remains blocked: the remote owner is latched after an idle
+  metric observations. This local adapter installation restarted neither the
+  camera process nor the remote owner.
+- Physical pickup remains unvalidated: the initial remote owner latched after an idle
   `COMM_RX_CORRUPT` read. Source and saved-row timestamps point to right gripper
   ID 6 but do not prove USB contention or a particular packet failure. Added
   bounded transaction/reply diagnostics to the existing telemetry helper, with
-  unchanged failure handling and no retries. This diagnostic update is not
-  loaded into the running remote owner.
+  unchanged failure handling and no retries. These hunks were then staged in
+  the actual remote helpers; 23 remote hardware-independent tests passed.
+- A subsequent direct user request in the Gemma chat initiated controller
+  recovery. That chat replaced the released owner to load diagnostics. The
+  follow-up readback showed idle, motion-ready and all 16 motors released.
+  Its communication stability check is ongoing; this is not a verified servo
+  fault fix or a completed physical grasp. The initial stopped-state evidence
+  and later recovery snapshot are kept separately in the evidence file.
 - [Guide and next steps](docs/gemma-tag-geometry.md),
   [measured evidence](docs/evidence/gemma-tag-geometry.json).
 

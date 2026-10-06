@@ -16,16 +16,20 @@ Camera-to-arm registration, jaw contact offset, workspace clearance and a
 physical paddle grasp remain unvalidated. Repeating the same stationary pose
 does not supply the missing independent calibration poses.
 
-The owner is latched after an idle coherent servo read returned `-7`
+During the initial capture, the owner was latched after an idle coherent servo read returned `-7`
 (`COMM_RX_CORRUPT`). Fault-row timestamps and source order point to the right
 gripper ID 6 reading address 56, length 15. That identity is inferred, because
 the original error omitted the transaction. It does not establish USB
 contention. Partial-packet timeout, checksum failure and strict length rejection
 all produce this code. The current repository helper now preserves the exact
 motor/port/ID, request, return code and bounded reply-validation events in its
-exception; it adds no retry or relaxed validation. Loading this helper in the
-remote owner is a separate deployment step. Do not clear a controller refusal
-or resume an old goal to collect calibration data.
+exception; it adds no retry or relaxed validation. The diagnostic hunks were
+subsequently staged in the actual remote helpers and passed 23 local tests there.
+Following a separate direct user request, the Gemma chat replaced the released
+owner to load diagnostics; a follow-up readback showed idle and all 16 motors
+released, with stability testing ongoing. This does not establish that the
+communication fault is fixed. Do not resume an old goal to collect calibration
+data; refresh the current owner state and use the recovery chat's evidence.
 
 ## Install into the existing Gemma pilot
 
