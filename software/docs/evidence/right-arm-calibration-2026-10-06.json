@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-06",
+  "arm": "right",
+  "source_commit": "1c8e185e3694def2469d7d312c78dab217e336da",
+  "velocity_limit": 300,
+  "timeout_s": 20,
+  "power_source": "wall12V supply",
+  "upstream_completed": true,
+  "hardware_matches_all6": true,
+  "all_right_position_mode": true,
+  "all16_status0_torque0_verified": true,
+  "installed_locally": true,
+  "accepted_by_owner": true,
+  "acceptance_basis": "Owner explicitly chose to assume this calibration is better. Wider pan remains an assumption, not independent full-travel validation.",
+  "independent_full_range_validated": false,
+  "pan_travel_deg": 240.46875,
+  "prior_right_pan_deg": 206.015625,
+  "saved_left_pan_deg": 191.25,
+  "non_right_file_entries_preserved": true,
+  "calibration": {
+    "wrist_roll": {
+      "id": 5,
+      "drive_mode": 0,
+      "homing_offset": 790,
+      "range_min": 121,
+      "range_max": 3973
+    },
+    "gripper": {
+      "id": 6,
+      "drive_mode": 0,
+      "homing_offset": 329,
+      "range_min": 1270,
+      "range_max": 2824
+    },
+    "wrist_flex": {
+      "id": 4,
+      "drive_mode": 0,
+      "homing_offset": -770,
+      "range_min": 929,
+      "range_max": 3165
+    },
+    "elbow_flex": {
+      "id": 3,
+      "drive_mode": 0,
+      "homing_offset": 634,
+      "range_min": 932,
+      "range_max": 3162
+    },
+    "shoulder_lift": {
+      "id": 2,
+      "drive_mode": 0,
+      "homing_offset": 785,
+      "range_min": 826,
+      "range_max": 3268
+    },
+    "shoulder_pan": {
+      "id": 1,
+      "drive_mode": 0,
+      "homing_offset": -57,
+      "range_min": 679,
+      "range_max": 3415
+    }
+  }
+}

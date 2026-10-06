@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-06",
+  "arm": "left",
+  "purpose": "compact resting pose",
+  "motor_moved": "elbow_flex",
+  "start_position": 1964,
+  "final_position": 2970,
+  "limits": [
+    942,
+    3152
+  ],
+  "target_increment_ticks": 40,
+  "speed": 100,
+  "acceleration": 5,
+  "temporary_torque_limit": 800,
+  "original_torque_limit_restored": 1000,
+  "all16_released_status0_verified": true,
+  "no_calibration_registers_changed": true,
+  "left_calibration_still_mixed": true,
+  "head_wheels_not_moved": true
+}
