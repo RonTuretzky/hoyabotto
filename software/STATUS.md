@@ -4,6 +4,23 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Paddle versus claws comparison — 2026-10-06
+
+[Four matched offline cases](docs/carton-paddle-comparison.md) compare bare
+claws with a left claw and an actual-CAD free-body paddle in the right jaws.
+Bare claws complete the loaded weak-crease reference, including withdrawal
+and five seconds without hand contact. The paddle variant slips in that case;
+neither method closes the empty resistant box. An ideal rigid tool attachment
+also fails and is labeled as a separate diagnostic. No general tool winner or
+physical validation is claimed. The paddle planner still has face-angle/reach
+limitations, and neither strategy implements deliberate box bracing.
+
+Existing paddle grasp work supplied a verified simulated initial grip pose;
+the comparison does not simulate pickup at this station. Material, friction,
+tool mass and station dimensions remain assumptions. Full-duration paired
+GIFs include whole-robot and close views, with explicit failure timestamps.
+102 focused tests pass. No hardware was accessed or safety limits relaxed.
+
 ## Unbolted carton and springback update — 2026-10-06
 
 The [new free-box and material tests](docs/carton-free-box-springback.md) expose

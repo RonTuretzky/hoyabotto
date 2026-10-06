@@ -90,6 +90,10 @@ class PixelPort:
         return {'joint_positions':{s:self.sim.data.qpos[ix].tolist() for s,ix in self.sim.arm_indices.items()}}
 
     def set_grippers(self,openings,seconds,label):
+        if hasattr(self.sim,'paddle_spec'):
+            # Retain the paddle when releasing carton contact. Tool release
+            # would require a separate supported placement, outside this test.
+            openings={s:v for s,v in openings.items() if s!='right'}
         if self.fault=='right_arm_disabled':openings={s:v for s,v in openings.items() if s!='right'}
         event=self.sim.move({},seconds,label,None,capture=self.record,grippers=openings)
         if event['bad_penetration_mm']>1:raise ValueError('Robot collision exceeded 1 mm during gripper command')
@@ -111,13 +115,20 @@ def run(args,controller_class=None):
         if strategy not in ('original','diagonal'):raise ValueError('Unknown folding strategy')
         if strategy=='diagonal' and station.reference_layout:raise ValueError('Diagonal strategy requires an explicit rear-cart station')
         controller_class=DiagonalFoldingController if strategy=='diagonal' else FoldingController
+    tool=getattr(args,'tool','claws')
+    sim_class=FoldingSimulation;tool_options={}
+    if tool=='paddle':
+        from carton.folding_paddle import PaddleSpec,PaddleFoldingSimulation,PaddleFoldingController
+        if getattr(args,'strategy',None)!='diagonal':raise ValueError('Paddle experiment uses diagonal strategy')
+        sim_class=PaddleFoldingSimulation;controller_class=PaddleFoldingController
+        tool_options['paddle']=PaddleSpec(getattr(args,'paddle_mass',.03),getattr(args,'paddle_friction',.8),getattr(args,'paddle_attachment','friction'))
     if (not all(np.isfinite(getattr(args,n)) for n in ('stiffness','noise','dropout','dx','dy','yaw'))
             or args.noise<0 or args.stiffness<0 or not 0<=args.dropout<=1
             or not 64<=args.width<=1280 or not 64<=args.height<=960):
         raise ValueError('Invalid finite simulation geometry, camera size or sensor noise')
     out=Path(args.out).resolve()
     if out.exists():raise ValueError('Output already exists; preserve previous experiments')
-    sim=FoldingSimulation(Path(args.simulation_root),out,station=station,material=material,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw))
+    sim=sim_class(Path(args.simulation_root),out,station=station,material=material,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw),initial_right_roll=getattr(args,'initial_right_roll',None),**tool_options)
     port=PixelPort(sim,seed=args.seed,noise=args.noise,dropout=args.dropout,fault=args.fault,record=not args.no_video)
     if args.fault=='stuck_far_flap':
         j=sim.model.joint('long_far_hinge').id
@@ -145,7 +156,7 @@ def run(args,controller_class=None):
     final=sim.truth_angles()
     all_closed=all(85<=v<=95 for v in final.values())
     pairs=[p for event in sim.events for p in event['contact_pairs']]
-    finger_contact={side:sorted({a if 'cardboard' in a else b for a,b in pairs if any(side+'_'+part in a or side+'_'+part in b for part in ('moving_jaw','wrist_roll_follower'))}) for side in ('left','right')}
+    finger_contact={side:sorted({a if 'cardboard' in a else b for a,b in pairs if any(side+'_'+part in a or side+'_'+part in b for part in ('moving_jaw','wrist_roll_follower','paddle_contact'))}) for side in ('left','right')}
     both_worked=all({flap+'_cardboard' for flap in assignments[side]}.issubset(finger_contact[side]) for side in ('left','right'))
     final_contacts=[{'geoms':[sim.model.geom(c.geom1).name,sim.model.geom(c.geom2).name],'penetration_mm':max(0.,float(-c.dist*1000))} for c in sim.data.contact]
     supported=all(any(set(c['geoms'])=={'contents',f+'_cardboard'} for c in final_contacts) for f in ('short_left','short_right'))
@@ -161,7 +172,7 @@ def run(args,controller_class=None):
         try:
             port.set_grippers({'left':.35,'right':.35},.4,'Release finger pinch after held closure')
             # Encoder-derived robot tip poses, not hidden carton coordinates.
-            raised={side:(sim.data.site(side+'_tip').xpos+[0,0,.080]).tolist() for side in ('left','right')}
+            raised={side:(sim.data.site(sim.control_sites[side]).xpos+[0,0,.080]).tolist() for side in ('left','right')}
             port.move_arms(raised,.8,'Lift hands off the folded flaps','down')
             port.move_arms({'left':[-.24,-.10,.29],'right':[.24,-.10,.29]},1.,'Withdraw both hands from the carton','down')
             event=sim.move({},release_seconds,'Observe unassisted flap springback',capture=not args.no_video)
@@ -197,11 +208,11 @@ def run(args,controller_class=None):
                            'hinge_stiffness_Nm_per_rad':list(material.stiffnesses),'hinge_friction_Nm':material.hinge_friction,'flap_mass_kg':.023*material.cardboard_mass_kg/.272,'depth_noise_std_m':args.noise,'depth_dropout_fraction':args.dropout,
                            'registration':'Surveyed table tag 1 and optional ID 20; calibrated robot base locations. With two anchors the camera is fixed after initial registration and fresh anchor geometry is checked every observation. Carton pose obtained from fresh detected tag 10 and depth.',
                            'additional_markers':'ID 4 left housing; ID 10 carton wall; IDs 11-14 flap outside faces; optional ID 20 second table anchor (60 mm); exact simulated sizes and rigid mounts.',
-                           'gripper_geometry':'Stock rigid SO101 fingertips. White compliant attachments visible in the photos have not been identified or modeled.',
+                           'gripper_geometry':'Stock rigid SO101 fingertips'+('; actual paddle CAD in right jaws' if tool=='paddle' else '')+'. White compliant attachments visible in the photos have not been identified or modeled.',
                            'cart_geometry':'Historical fixed arm bases with no cart' if station.reference_layout else 'Fixed three-tray cart approximation; static table overlap refused; arm/cart contacts checked',
                            'cardboard_model':'Rigid panels with passive frictional spring hinges. Material properties assumed, not measured.'},
             'actuated_joint_names':[sim.model.joint(int(j)).name for j in sim.model.actuator_trnid[:,0]],
-            'code_sha256':{str(p.relative_to(Path(__file__).resolve().parents[1])):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__).resolve(),*[Path(__file__).resolve().parents[1]/'carton'/n for n in ['folding_sim.py','folding_vision.py','folding_controller.py','folding_station.py','folding_cart.py','folding_material.py']]]},
+            'code_sha256':{str(p.relative_to(Path(__file__).resolve().parents[1])):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__).resolve(),*[Path(__file__).resolve().parents[1]/'carton'/n for n in ['folding_sim.py','folding_vision.py','folding_controller.py','folding_diagonal.py','folding_paddle.py','folding_station.py','folding_cart.py','folding_material.py']]]},
             'source_arm_sha256':hashlib.sha256((Path(args.simulation_root)/'scene-assets/arm-import.xml').read_bytes()).hexdigest()}
     controller_source=Path(inspect.getfile(controller_class))
     report['controller_source']={'class':controller_class.__name__,'path':str(controller_source),'sha256':hashlib.sha256(controller_source.read_bytes()).hexdigest()}
@@ -217,6 +228,11 @@ def main():
     p.add_argument('--simulation-root',required=True);p.add_argument('--out',required=True)
     p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360)
     p.add_argument('--strategy',choices=['original','diagonal'],default='original')
+    p.add_argument('--tool',choices=['claws','paddle'],default='claws',help='Paddle is a free body initially placed in the right jaws; no pickup claim')
+    p.add_argument('--paddle-mass',type=float,default=.03)
+    p.add_argument('--paddle-friction',type=float,default=.8)
+    p.add_argument('--paddle-attachment',choices=['friction','rigid-diagnostic'],default='friction')
+    p.add_argument('--initial-right-roll',type=float,help='Optional starting wrist roll in radians, applied before dynamics within original limits')
     p.add_argument('--reference-layout',action='store_true',help='Explicitly replay the old favorable station, which does not match the photos')
     p.add_argument('--base-height',type=float,help='Arm base_link origin height above tabletop, metres')
     p.add_argument('--base-to-table-edge',type=float,help='Horizontal distance from base_link origin line to near table edge, metres')

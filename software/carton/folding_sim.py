@@ -45,7 +45,7 @@ def marker(parent,name,tag_id,size,pos,xyaxes=None):
     return b
 
 
-def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0.):
+def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0., paddle=None):
     material=material or CartonMaterial(hinge_stiffness=stiffness)
     if not station.carton_footprint(offset,yaw)['fully_on_table']:
         raise ValueError('Initial carton bottom extends beyond the tabletop')
@@ -147,19 +147,23 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
         right=np.cross([0,1,0] if name=='overhead' else [0,0,1],back);right/=np.linalg.norm(right)
         up=np.cross(back,right)
         E.SubElement(world,'camera',name=name,pos=words(pos),xyaxes=words(np.r_[right,up]),fovy='48')
+    if paddle is not None:
+        from carton.folding_paddle import add_paddle
+        add_paddle(root, paddle)
     out.mkdir(parents=True,exist_ok=True)
     E.indent(root);E.ElementTree(root).write(out/'scene.xml',encoding='unicode')
     return mujoco.MjModel.from_xml_path(str(out/'scene.xml'))
 
 
 class FoldingSimulation:
-    def __init__(self,source,out,width=960,height=720,**kwargs):
+    def __init__(self,source,out,width=960,height=720,initial_right_roll=None,**kwargs):
         self.width,self.height=width,height
         self.station=kwargs['station']
         self.material=kwargs.get('material') or CartonMaterial(hinge_stiffness=kwargs.get('stiffness',.018))
         self.out=Path(out);self.model=build_scene(Path(source),self.out,**kwargs)
         self.data=mujoco.MjData(self.model);self.kin=mujoco.MjData(self.model)
         self.arm_indices={s:[self.model.jnt_qposadr[self.model.joint(s+'_'+n).id] for n in JOINTS] for s in ('left','right')}
+        self.control_sites={s:s+'_tip' for s in self.arm_indices}
         self.seeds={s:np.radians([0,50,-30,-20,0]) for s in self.arm_indices}
         self.frames=[];self.frame_states=[];self.events=[];self.stats={'max_bad_penetration_mm':0.,'carton_contact_simulated':True,
             'cart':None if self.station.reference_layout else cart_report(self.station)}
@@ -171,6 +175,11 @@ class FoldingSimulation:
                      [sign*(self.station.base_spacing/2+.05),self.station.base_y+.22,self.station.base_height+.28])
             q,err=self.ik(s,initial,orientation=None)
             if err>.008:raise ValueError('Initial arm-relative pose is unreachable')
+            if s=='right' and initial_right_roll is not None:
+                lo,hi=self.model.joint('right_wrist_roll').range
+                if not np.isfinite(initial_right_roll) or not lo<=initial_right_roll<=hi:
+                    raise ValueError('Initial wrist roll must remain inside model limits')
+                q[4]=initial_right_roll;self.seeds[s]=q.copy()
             ix=self.arm_indices[s];self.data.qpos[ix[:5]]=q;self.data.qpos[ix[5]]=-.17
             self.data.ctrl[[self.model.actuator(s+'_'+n).id for n in JOINTS]]=np.r_[q,-.17]
         mujoco.mj_forward(self.model,self.data)
@@ -192,7 +201,7 @@ class FoldingSimulation:
         return {'translation_mm':distance,'rotation_degrees':angle,'minimum_bottom_corner_table_clearance_mm':clearance}
 
     def ik(self,side,target,orientation=None):
-        ix=self.arm_indices[side][:5];site=self.model.site(side+'_tip').id
+        ix=self.arm_indices[side][:5];site=self.model.site(self.control_sites[side]).id
         ranges=self.model.jnt_range[[self.model.joint(side+'_'+j).id for j in JOINTS[:5]]]
         for arm_indices in self.arm_indices.values():
             self.kin.qpos[arm_indices]=self.data.qpos[arm_indices]
@@ -204,7 +213,8 @@ class FoldingSimulation:
             if orientation is not None:
                 axis_index=2 if isinstance(orientation,(str,dict)) else 0
                 desired=orientation['direction'] if isinstance(orientation,dict) else ([0,0,1] if axis_index==2 else orientation)
-                axis=self.kin.body(side+'_gripper_link').xmat.reshape(3,3)[:,axis_index]
+                rotation=self.kin.body(side+'_gripper_link').xmat.reshape(3,3)
+                axis=(rotation@np.asarray(orientation['local_axis']) if isinstance(orientation,dict) and 'local_axis' in orientation else rotation[:,axis_index])
                 e=np.r_[e,(axis-np.asarray(desired))*.04,q[4]*.005]
                 if isinstance(orientation,dict) and 'tangent' in orientation:
                     xaxis=self.kin.body(side+'_gripper_link').xmat.reshape(3,3)[:,0]
@@ -245,26 +255,44 @@ class FoldingSimulation:
                 a,b=self.model.geom(c.geom1).name,self.model.geom(c.geom2).name
                 if 'cardboard' in a or 'cardboard' in b:
                     if a.startswith(('left_','right_')) or b.startswith(('left_','right_')):contact_names.add((a,b))
-                arms=(a.startswith(('left_','right_')),b.startswith(('left_','right_')))
                 # Arm/table, arm/cart, arm/rigid carton, and arm/arm penetration.
-                forbidden=(all(arms)) or (any(arms) and ('table' in (a,b) or any(v.startswith(('wall_','cart_')) or v=='contents' for v in (a,b))))
+                forbidden=self.forbidden_contact(a,b)
                 if forbidden:
                     bad=max(bad,-c.dist*1000)
                     if c.dist<-.001:bad_pairs.add((a,b))
             for flap,value in self.truth_angles().items():
                 extrema[flap][0]=min(extrema[flap][0],value);extrema[flap][1]=max(extrema[flap][1],value)
+            step_error=self.step_diagnostic()
             if capture and i%100==0:self.capture(label)
-            if bad>1.:
+            if bad>1. or step_error:
                 # End this offline motion at the first forbidden contact,
                 # rather than driving through the remainder of the segment.
-                if capture:self.capture('STOP: forbidden robot contact')
+                if capture:self.capture('STOP: '+(step_error or 'forbidden robot contact'))
                 break
         self.stats['max_bad_penetration_mm']=max(self.stats['max_bad_penetration_mm'],bad)
-        event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.data.site(a+'_tip').xpos-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.data.site(s+'_tip').xpos.tolist() for s in self.arm_indices}}
+        event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.data.site(self.control_sites[a]).xpos-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.data.site(self.control_sites[s]).xpos.tolist() for s in self.arm_indices},'step_error':step_error}
         self.events.append(event)
         event['forbidden_contact_pairs']=sorted(bad_pairs)
         event['carton_motion']=motion
+        event['targets_m']={s:np.asarray(p).tolist() for s,p in targets.items()}
+        event['orientation_error_degrees']={}
+        if orientation is not None:
+            for side in targets:
+                ori=orientation.get(side) if isinstance(orientation,dict) and side in orientation else orientation
+                if ori is None:continue
+                axes=({'direction':[0,0,1]} if isinstance(ori,str) else ori if isinstance(ori,dict) else {'tangent':ori})
+                rotation=self.data.body(side+'_gripper_link').xmat.reshape(3,3)
+                event['orientation_error_degrees'][side]={key:math.degrees(math.acos(float(np.clip(
+                    (rotation@np.asarray(axes['local_axis']) if key=='direction' and 'local_axis' in axes else rotation[:,2 if key=='direction' else 0])@np.asarray(vector)/np.linalg.norm(vector),-1,1))))
+                    for key,vector in axes.items() if key in ('direction','tangent')}
         return event
+
+    def forbidden_contact(self,a,b):
+        arms=(a.startswith(('left_','right_')),b.startswith(('left_','right_')))
+        return all(arms) or (any(arms) and ('table' in (a,b) or any(v.startswith(('wall_','cart_')) or v=='contents' for v in (a,b))))
+
+    def step_diagnostic(self):
+        return None
 
     def arm_tag_fk(self,side):
         # Uses robot encoders, fixed base registration and declared CAD mount.

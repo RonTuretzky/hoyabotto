@@ -31,6 +31,9 @@ class DiagonalFoldingController(FoldingController):
     flap_assignments = {'left': ('short_left', 'long_far'),
                         'right': ('short_right', 'long_near')}
 
+    def contact(self,side,theta,axis,sign,along,radius,tilt,clearance):
+        return contact_point(theta,axis,sign,along,radius,tilt,clearance)
+
     def run(self):
         self.sense('Register diagonal carton from RGB-D')
         for i, theta in enumerate(np.linspace(0, math.pi / 2, 25)):
@@ -40,7 +43,7 @@ class DiagonalFoldingController(FoldingController):
                 if side == 'right':
                     # Begin at the edge, then slide onto the panel as it closes.
                     radius = .14 - .04 * float(np.clip((theta - math.pi / 4) / (math.pi / 4), 0, 1))
-                points[side], orientations[side] = contact_point(theta, 0, sign, along, radius, tilt, .010)
+                points[side], orientations[side] = self.contact(side,theta, 0, sign, along, radius, tilt, .010)
             if i == 0:
                 self.move({s: p + [0, 0, .020] for s, p in points.items()},
                           1., 'Approach short-flap edges', orientations)
@@ -66,7 +69,7 @@ class DiagonalFoldingController(FoldingController):
             for i, theta in enumerate(np.linspace(start, math.pi / 2, 25)):
                 radius = (.14 - .025 * float(np.clip((theta - math.pi / 3) / (math.pi / 6), 0, 1))
                           if sign == 1 else .095)
-                point, orientation = contact_point(theta, 1, sign, along, radius, tilt, .012)
+                point, orientation = self.contact(side,theta, 1, sign, along, radius, tilt, .012)
                 if i == 0:
                     if sign == -1:
                         # A vertical descent through a leaning panel pushes it

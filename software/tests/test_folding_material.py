@@ -29,8 +29,8 @@ def scene_factory(tmp_path):
         f'<body name="base_link"><geom type="sphere" size=".01"/>'
         f'<body name="gripper_link" pos="0 0 .1">{joints}<geom type="sphere" size=".01"/></body>'
         '</body></worldbody></mujoco>')
-    def make(material):
-        return build_scene(source,tmp_path/'scene',station=FoldingStation(.06,.15,.05),material=material)
+    def make(material,**kwargs):
+        return build_scene(source,tmp_path/'scene',station=FoldingStation(.06,.15,.05),material=material,**kwargs)
     return mujoco,make
 
 

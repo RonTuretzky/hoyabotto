@@ -1,0 +1,2006 @@
+{
+  "simulation_only": true,
+  "physical_validation": false,
+  "parameters_measured": false,
+  "matched_material_cases": 4,
+  "scope": "Same station, material, RGB-D noise, flap order and contact locations. Tool-aware blade orientation and TCP; no optimized bracing or retention strategy.",
+  "grip_source": "Existing paddle_sim.py independently replayed close/lift/hold; both jaw contacts and 64.37 mm clearance; settled pose reused before dynamics only",
+  "diagnostics_not_primary_comparison": [
+    "rigid-diagnostic",
+    "zero-friction",
+    "high-friction",
+    "light-paddle"
+  ],
+  "trials": [
+    {
+      "case": "empty-resistant-claws",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Robot collision exceeded 1 mm",
+      "simulation_seconds": 1.5780000000000012,
+      "final_flap_degrees": {
+        "short_left": 84.75264732546432,
+        "short_right": -0.4459079772709534,
+        "long_far": -5.043458343270412,
+        "long_near": -45.61444677894491
+      },
+      "carton_motion": {
+        "max_translation_mm": 227.4391877199321,
+        "max_rotation_degrees": 63.226513604228614,
+        "minimum_bottom_corner_table_clearance_mm": -34.351297037042954
+      },
+      "paddle": null,
+      "max_forbidden_penetration_mm": 1.398292660206918,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "claws"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "long_near_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 38.53722259410446
+          },
+          "right": {
+            "direction": 39.00789999967608
+          }
+        },
+        {
+          "left": {
+            "direction": 23.012532025351202
+          },
+          "right": {
+            "direction": 37.84823673263587
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "empty-resistant-paddle",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "simulation_seconds": 1.6200000000000012,
+      "final_flap_degrees": {
+        "short_left": 55.15075075536556,
+        "short_right": 35.81513472027289,
+        "long_far": -5.185665382277795,
+        "long_near": -6.6150104030958445
+      },
+      "carton_motion": {
+        "max_translation_mm": 270.79915449934526,
+        "max_rotation_degrees": 79.66501441714246,
+        "minimum_bottom_corner_table_clearance_mm": -34.1680220612999
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 13.743077385087556,
+        "max_rotation_degrees": 7.908816784793723,
+        "final": {
+          "time": 1.6200000000000012,
+          "blade_offset_mm": 10.387705927231913,
+          "rotation_degrees": 5.181074460168693
+        }
+      },
+      "max_forbidden_penetration_mm": 0.15234655279856346,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 31.920403757882585
+          },
+          "right": {
+            "direction": 25.880949599279436
+          }
+        },
+        {
+          "left": {
+            "direction": 20.483386093146972
+          },
+          "right": {
+            "direction": 23.29872309494558
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "empty-weak-claws",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "IK left target [-0.10326386021238994, -0.15163983419162774, 0.20408847199203986] misses by 9.6 mm",
+      "simulation_seconds": 1.6200000000000012,
+      "final_flap_degrees": {
+        "short_left": 22.10232712511273,
+        "short_right": 7.4843427256252735,
+        "long_far": -5.380259777327507,
+        "long_near": -6.260280334525694
+      },
+      "carton_motion": {
+        "max_translation_mm": 36.387770420263266,
+        "max_rotation_degrees": 8.293197966086986,
+        "minimum_bottom_corner_table_clearance_mm": -34.17354415933993
+      },
+      "paddle": null,
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.008,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "claws"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "long_near_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 27.984796993285183
+          },
+          "right": {
+            "direction": 38.993308595080165
+          }
+        },
+        {
+          "left": {
+            "direction": 20.48430091842956
+          },
+          "right": {
+            "direction": 37.93324554229632
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "empty-weak-paddle",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "IK left target [-0.10444924774030787, -0.15084013047760814, 0.20379553856875068] misses by 9.5 mm",
+      "simulation_seconds": 1.6200000000000012,
+      "final_flap_degrees": {
+        "short_left": 19.3564613107604,
+        "short_right": 48.48963917838832,
+        "long_far": -4.118979229310894,
+        "long_near": -5.879331088938975
+      },
+      "carton_motion": {
+        "max_translation_mm": 36.46867127576909,
+        "max_rotation_degrees": 5.999131635411671,
+        "minimum_bottom_corner_table_clearance_mm": -33.9160067354074
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 13.85525023994157,
+        "max_rotation_degrees": 7.974465210988926,
+        "final": {
+          "time": 1.6200000000000012,
+          "blade_offset_mm": 9.23219420615301,
+          "rotation_degrees": 4.6000780248183055
+        }
+      },
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.008,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 27.984044722142226
+          },
+          "right": {
+            "direction": 25.880956411203815
+          }
+        },
+        {
+          "left": {
+            "direction": 20.48340059784939
+          },
+          "right": {
+            "direction": 23.29887921798468
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "loaded-resistant-claws",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "IK left target [-0.0933268314149, -0.15225425991176356, 0.20279534622003956] misses by 8.6 mm",
+      "simulation_seconds": 1.6200000000000012,
+      "final_flap_degrees": {
+        "short_left": 16.218680287122243,
+        "short_right": 7.614481731012713,
+        "long_far": -2.3915712052558895,
+        "long_near": -5.204127085829706
+      },
+      "carton_motion": {
+        "max_translation_mm": 33.79933683375078,
+        "max_rotation_degrees": 7.461245694430872,
+        "minimum_bottom_corner_table_clearance_mm": -34.039751802815125
+      },
+      "paddle": null,
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.96,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "claws"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 27.98471917811266
+          },
+          "right": {
+            "direction": 38.993397189130526
+          }
+        },
+        {
+          "left": {
+            "direction": 20.48422200591208
+          },
+          "right": {
+            "direction": 38.0006410641412
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "loaded-resistant-paddle",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Actual fingertips missed target by over 35 mm",
+      "simulation_seconds": 1.400000000000001,
+      "final_flap_degrees": {
+        "short_left": 4.328724966916584,
+        "short_right": 35.41229781809585,
+        "long_far": -3.3674127782396592,
+        "long_near": -5.059624670333835
+      },
+      "carton_motion": {
+        "max_translation_mm": 33.86362148084332,
+        "max_rotation_degrees": 7.4740894639221915,
+        "minimum_bottom_corner_table_clearance_mm": -34.07708600878709
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 13.743077344492395,
+        "max_rotation_degrees": 7.908816755737699,
+        "final": {
+          "time": 1.400000000000001,
+          "blade_offset_mm": 7.414600530849739,
+          "rotation_degrees": 4.794119554610381
+        }
+      },
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.96,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "long_near_cardboard",
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 40.9984717531532
+          },
+          "right": {
+            "direction": 25.900132302246124
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "loaded-weak-claws",
+      "success": true,
+      "held_closure_passed": true,
+      "error": null,
+      "simulation_seconds": 34.89999999999669,
+      "final_flap_degrees": {
+        "short_left": 91.84233891650554,
+        "short_right": 91.84233891376832,
+        "long_far": 90.25707831486216,
+        "long_near": 90.2570783148631
+      },
+      "carton_motion": {
+        "max_translation_mm": 1.1136133483640118,
+        "max_rotation_degrees": 0.06137316320824512,
+        "minimum_bottom_corner_table_clearance_mm": 9.74124246306593
+      },
+      "paddle": null,
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.96,
+        "table_friction": 0.7,
+        "stiffness": 0.008,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "claws"
+      },
+      "release_performed": true,
+      "release_passed": true,
+      "contacted_flaps": {
+        "left": [
+          "long_far_cardboard",
+          "short_left_cardboard"
+        ],
+        "right": [
+          "long_near_cardboard",
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 27.984715522003103
+          },
+          "right": {
+            "direction": 38.993397189130526
+          }
+        },
+        {
+          "left": {
+            "direction": 20.484222007441165
+          },
+          "right": {
+            "direction": 38.128372374347315
+          }
+        },
+        {
+          "left": {
+            "direction": 20.480327074642215
+          },
+          "right": {
+            "direction": 37.905269915284435
+          }
+        },
+        {
+          "left": {
+            "direction": 20.02809283425492
+          },
+          "right": {
+            "direction": 37.94345172089725
+          }
+        },
+        {
+          "left": {
+            "direction": 19.487035498995358
+          },
+          "right": {
+            "direction": 38.03984698036692
+          }
+        },
+        {
+          "left": {
+            "direction": 18.86930202689509
+          },
+          "right": {
+            "direction": 38.05282741621173
+          }
+        },
+        {
+          "left": {
+            "direction": 18.180125798626477
+          },
+          "right": {
+            "direction": 37.97215584093107
+          }
+        },
+        {
+          "left": {
+            "direction": 17.440814653323077
+          },
+          "right": {
+            "direction": 37.76585195147859
+          }
+        },
+        {
+          "left": {
+            "direction": 16.651943273338983
+          },
+          "right": {
+            "direction": 37.41897906940034
+          }
+        },
+        {
+          "left": {
+            "direction": 15.820149228790967
+          },
+          "right": {
+            "direction": 36.921552506433194
+          }
+        },
+        {
+          "left": {
+            "direction": 15.042142233879474
+          },
+          "right": {
+            "direction": 36.293228315075595
+          }
+        },
+        {
+          "left": {
+            "direction": 14.139568669405365
+          },
+          "right": {
+            "direction": 35.45362284903789
+          }
+        },
+        {
+          "left": {
+            "direction": 13.208273740252867
+          },
+          "right": {
+            "direction": 34.42620155831795
+          }
+        },
+        {
+          "left": {
+            "direction": 12.251431805939529
+          },
+          "right": {
+            "direction": 33.19449959430698
+          }
+        },
+        {
+          "left": {
+            "direction": 11.16160844579417
+          },
+          "right": {
+            "direction": 31.54621306034073
+          }
+        },
+        {
+          "left": {
+            "direction": 10.157558773541847
+          },
+          "right": {
+            "direction": 29.610422612529856
+          }
+        },
+        {
+          "left": {
+            "direction": 9.134237536201523
+          },
+          "right": {
+            "direction": 27.483714686640365
+          }
+        },
+        {
+          "left": {
+            "direction": 8.092824520673416
+          },
+          "right": {
+            "direction": 25.184187772277095
+          }
+        },
+        {
+          "left": {
+            "direction": 7.002174310850786
+          },
+          "right": {
+            "direction": 22.85906092716362
+          }
+        },
+        {
+          "left": {
+            "direction": 5.928564575991317
+          },
+          "right": {
+            "direction": 20.30334179761634
+          }
+        },
+        {
+          "left": {
+            "direction": 4.838315891837482
+          },
+          "right": {
+            "direction": 17.700919333058472
+          }
+        },
+        {
+          "left": {
+            "direction": 3.7314189025203226
+          },
+          "right": {
+            "direction": 15.14681081558338
+          }
+        },
+        {
+          "left": {
+            "direction": 2.54644427039136
+          },
+          "right": {
+            "direction": 12.681848162517392
+          }
+        },
+        {
+          "left": {
+            "direction": 1.4072844844996584
+          },
+          "right": {
+            "direction": 10.812811685843254
+          }
+        },
+        {
+          "left": {
+            "direction": 0.2637223888319543
+          },
+          "right": {
+            "direction": 10.598566184040308
+          }
+        },
+        {
+          "left": {
+            "direction": 0.20191884478096161
+          },
+          "right": {
+            "direction": 12.776363673824804
+          }
+        },
+        {
+          "left": {
+            "direction": 12.240883397940506
+          },
+          "right": {
+            "direction": 20.303248979353143
+          }
+        },
+        {
+          "left": {
+            "direction": 46.112251144252234
+          },
+          "right": {
+            "direction": 46.11230243349078
+          }
+        },
+        {
+          "right": {
+            "direction": 13.381026829029645
+          }
+        },
+        {
+          "right": {
+            "direction": 16.586155063194358
+          }
+        },
+        {
+          "right": {
+            "direction": 9.526263334226037
+          }
+        },
+        {
+          "right": {
+            "direction": 8.031541377882036
+          }
+        },
+        {
+          "right": {
+            "direction": 7.909558476973358
+          }
+        },
+        {
+          "right": {
+            "direction": 7.449982417134623
+          }
+        },
+        {
+          "right": {
+            "direction": 6.997632031044109
+          }
+        },
+        {
+          "right": {
+            "direction": 6.555381419579759
+          }
+        },
+        {
+          "right": {
+            "direction": 6.10773393900334
+          }
+        },
+        {
+          "right": {
+            "direction": 5.690848444602217
+          }
+        },
+        {
+          "right": {
+            "direction": 5.28822284879969
+          }
+        },
+        {
+          "right": {
+            "direction": 4.900112386704428
+          }
+        },
+        {
+          "right": {
+            "direction": 4.289883729391168
+          }
+        },
+        {
+          "right": {
+            "direction": 3.935367663010291
+          }
+        },
+        {
+          "right": {
+            "direction": 3.59420249136684
+          }
+        },
+        {
+          "right": {
+            "direction": 3.368557645662433
+          }
+        },
+        {
+          "right": {
+            "direction": 4.321391270099702
+          }
+        },
+        {
+          "right": {
+            "direction": 5.7744223281561355
+          }
+        },
+        {
+          "right": {
+            "direction": 7.5337644564713155
+          }
+        },
+        {
+          "right": {
+            "direction": 9.426531088170382
+          }
+        },
+        {
+          "right": {
+            "direction": 11.638146753876686
+          }
+        },
+        {
+          "right": {
+            "direction": 13.608112817808887
+          }
+        },
+        {
+          "right": {
+            "direction": 15.554389467886088
+          }
+        },
+        {
+          "right": {
+            "direction": 17.385574186704208
+          }
+        },
+        {
+          "right": {
+            "direction": 18.85159539058606
+          }
+        },
+        {
+          "right": {
+            "direction": 20.436545284544028
+          }
+        },
+        {
+          "right": {
+            "direction": 21.882775852273028
+          }
+        },
+        {
+          "right": {
+            "direction": 23.44252300532787
+          }
+        },
+        {
+          "left": {
+            "direction": 22.65784504523507
+          }
+        },
+        {
+          "left": {
+            "direction": 21.97376443227179
+          }
+        },
+        {
+          "left": {
+            "direction": 19.723731511655163
+          }
+        },
+        {
+          "left": {
+            "direction": 18.303400081697145
+          }
+        },
+        {
+          "left": {
+            "direction": 17.59638844269708
+          }
+        },
+        {
+          "left": {
+            "direction": 17.49110583692288
+          }
+        },
+        {
+          "left": {
+            "direction": 17.89755018108975
+          }
+        },
+        {
+          "left": {
+            "direction": 18.257110452084444
+          }
+        },
+        {
+          "left": {
+            "direction": 18.611308053838883
+          }
+        },
+        {
+          "left": {
+            "direction": 18.9629308216038
+          }
+        },
+        {
+          "left": {
+            "direction": 19.261960961928878
+          }
+        },
+        {
+          "left": {
+            "direction": 19.560984614033437
+          }
+        },
+        {
+          "left": {
+            "direction": 19.810253627094642
+          }
+        },
+        {
+          "left": {
+            "direction": 19.830199281341326
+          }
+        },
+        {
+          "left": {
+            "direction": 19.934239720696592
+          }
+        },
+        {
+          "left": {
+            "direction": 19.874814679013856
+          }
+        },
+        {
+          "left": {
+            "direction": 19.643074054133145
+          }
+        },
+        {
+          "left": {
+            "direction": 19.187143151340724
+          }
+        },
+        {
+          "left": {
+            "direction": 18.745748646964493
+          }
+        },
+        {
+          "left": {
+            "direction": 17.471040132661116
+          }
+        },
+        {
+          "left": {
+            "direction": 15.739449176387847
+          }
+        },
+        {
+          "left": {
+            "direction": 13.523456767722172
+          }
+        },
+        {
+          "left": {
+            "direction": 10.47458291755547
+          }
+        },
+        {
+          "left": {
+            "direction": 7.281861362998014
+          }
+        },
+        {
+          "left": {
+            "direction": 4.523818498823649
+          }
+        },
+        {
+          "left": {
+            "direction": 8.599879340053874
+          }
+        },
+        {
+          "left": {
+            "direction": 7.917515701907919
+          },
+          "right": {
+            "direction": 31.917706075794577
+          }
+        },
+        {
+          "left": {
+            "direction": 24.220773920209062
+          },
+          "right": {
+            "direction": 41.415106470821485
+          }
+        },
+        {
+          "left": {
+            "direction": 46.11225155120609
+          },
+          "right": {
+            "direction": 46.112297067377426
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "loaded-weak-paddle",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Paddle grip slipped: blade offset 15.2 mm, rotation 8.1 deg",
+      "simulation_seconds": 1.7100000000000013,
+      "final_flap_degrees": {
+        "short_left": 15.271998300331802,
+        "short_right": 41.03800876360608,
+        "long_far": -4.489321948205664,
+        "long_near": -4.247444889622401
+      },
+      "carton_motion": {
+        "max_translation_mm": 1.1136133483640118,
+        "max_rotation_degrees": 0.009314220351110496,
+        "minimum_bottom_corner_table_clearance_mm": 9.996347707822844
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.153519264541837,
+        "max_rotation_degrees": 8.077599881713935,
+        "final": {
+          "time": 1.7100000000000013,
+          "blade_offset_mm": 15.153519264541837,
+          "rotation_degrees": 8.077599881713935
+        }
+      },
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.96,
+        "table_friction": 0.7,
+        "stiffness": 0.008,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "long_near_cardboard",
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 27.983972304177115
+          },
+          "right": {
+            "direction": 25.88088929339674
+          }
+        },
+        {
+          "left": {
+            "direction": 20.483327400337753
+          },
+          "right": {
+            "direction": 23.333044424420763
+          }
+        },
+        {
+          "left": {
+            "direction": 20.484467180875438
+          },
+          "right": {
+            "direction": 20.21498743720206
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "empty-resistant-rigid-diagnostic",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "simulation_seconds": 1.6200000000000012,
+      "final_flap_degrees": {
+        "short_left": 58.45258455829165,
+        "short_right": 29.744267245818413,
+        "long_far": -4.3313025289051845,
+        "long_near": -7.477902726116416
+      },
+      "carton_motion": {
+        "max_translation_mm": 262.49939924375366,
+        "max_rotation_degrees": 79.52205805378391,
+        "minimum_bottom_corner_table_clearance_mm": -34.24546808916881
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "IDEAL RIGID ATTACHMENT DIAGNOSTIC: no slip possible, not a validated grip",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 5.429887930325462e-08,
+        "max_rotation_degrees": 2.4148365394514667e-06,
+        "final": {
+          "time": 1.6200000000000012,
+          "blade_offset_mm": 5.429879213585526e-08,
+          "rotation_degrees": 0.0
+        }
+      },
+      "max_forbidden_penetration_mm": 0.6211541812535246,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle",
+        "paddle_attachment": "rigid-diagnostic"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 34.164569056668014
+          },
+          "right": {
+            "direction": 25.881895380079946
+          }
+        },
+        {
+          "left": {
+            "direction": 20.48424498010285
+          },
+          "right": {
+            "direction": 23.301921878934266
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "loaded-weak-rigid-diagnostic",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Actual fingertips missed target by over 35 mm",
+      "simulation_seconds": 2.939999999999898,
+      "final_flap_degrees": {
+        "short_left": 30.87184631099313,
+        "short_right": 48.90205932372995,
+        "long_far": -6.854024676719958,
+        "long_near": -15.780277400870919
+      },
+      "carton_motion": {
+        "max_translation_mm": 21.008610053290134,
+        "max_rotation_degrees": 3.4238682525081163,
+        "minimum_bottom_corner_table_clearance_mm": 6.658777482880351
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "IDEAL RIGID ATTACHMENT DIAGNOSTIC: no slip possible, not a validated grip",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 5.429887930325462e-08,
+        "max_rotation_degrees": 2.4148365394514667e-06,
+        "final": {
+          "time": 2.939999999999898,
+          "blade_offset_mm": 5.429882391442354e-08,
+          "rotation_degrees": 0.0
+        }
+      },
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.96,
+        "table_friction": 0.7,
+        "stiffness": 0.008,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle",
+        "paddle_attachment": "rigid-diagnostic"
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "long_near_cardboard",
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 27.98471552200306
+          },
+          "right": {
+            "direction": 26.70213566269617
+          }
+        },
+        {
+          "left": {
+            "direction": 20.484222007441165
+          },
+          "right": {
+            "direction": 25.80580791618088
+          }
+        },
+        {
+          "left": {
+            "direction": 20.365632076334762
+          },
+          "right": {
+            "direction": 22.794167970950767
+          }
+        },
+        {
+          "left": {
+            "direction": 19.912954146979736
+          },
+          "right": {
+            "direction": 19.709121960406357
+          }
+        },
+        {
+          "left": {
+            "direction": 19.370059279930338
+          },
+          "right": {
+            "direction": 15.535978119898038
+          }
+        },
+        {
+          "left": {
+            "direction": 18.75282260737298
+          },
+          "right": {
+            "direction": 11.92940839628834
+          }
+        },
+        {
+          "left": {
+            "direction": 18.395310579242732
+          },
+          "right": {
+            "direction": 7.484226060751064
+          }
+        },
+        {
+          "left": {
+            "direction": 17.580240620312104
+          },
+          "right": {
+            "direction": 7.800341886433496
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "grip-zero-friction",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Paddle grip slipped: blade offset 15.2 mm, rotation 8.1 deg",
+      "simulation_seconds": 0.06000000000000004,
+      "final_flap_degrees": {
+        "short_left": 5.803480986092449,
+        "short_right": 6.173366108265817,
+        "long_far": -3.962341643329663,
+        "long_near": -3.9623714064617834
+      },
+      "carton_motion": {
+        "max_translation_mm": 1.1662471687097973,
+        "max_rotation_degrees": 0.0004849554559042,
+        "minimum_bottom_corner_table_clearance_mm": 9.999248180213804
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.0,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.203936297721787,
+        "max_rotation_degrees": 8.22547740898043,
+        "final": {
+          "time": 0.06000000000000004,
+          "blade_offset_mm": 15.203936297721787,
+          "rotation_degrees": 8.104715867730828
+        }
+      },
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle",
+        "paddle_friction": 0.0
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [],
+        "right": [
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "grip-high-friction",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Paddle grip slipped: blade offset 15.1 mm, rotation 7.7 deg",
+      "simulation_seconds": 1.308000000000001,
+      "final_flap_degrees": {
+        "short_left": 35.441747365888844,
+        "short_right": 32.92108189096905,
+        "long_far": -0.7100248287686648,
+        "long_near": -7.745210730731048
+      },
+      "carton_motion": {
+        "max_translation_mm": 88.25206578591937,
+        "max_rotation_degrees": 26.555158908276972,
+        "minimum_bottom_corner_table_clearance_mm": -34.3022962844895
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 1.2,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 15.104475453566533,
+        "max_rotation_degrees": 8.176171866727032,
+        "final": {
+          "time": 1.308000000000001,
+          "blade_offset_mm": 15.104475453566533,
+          "rotation_degrees": 7.74555028813372
+        }
+      },
+      "max_forbidden_penetration_mm": 0.0,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle",
+        "paddle_friction": 1.2
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 41.02221343381542
+          },
+          "right": {
+            "direction": 25.881500475744822
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    },
+    {
+      "case": "grip-light-paddle",
+      "success": false,
+      "held_closure_passed": false,
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "simulation_seconds": 1.6200000000000012,
+      "final_flap_degrees": {
+        "short_left": 65.42853960392569,
+        "short_right": 29.89792963870454,
+        "long_far": -3.6084207392072507,
+        "long_near": -8.210540963610361
+      },
+      "carton_motion": {
+        "max_translation_mm": 257.47893457191833,
+        "max_rotation_degrees": 77.79062202250314,
+        "minimum_bottom_corner_table_clearance_mm": -34.51737130470531
+      },
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.015,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.07778209439541345,
+              0.03747661935596237,
+              0.9962657520928391
+            ],
+            [
+              0.9434231050288606,
+              0.32585740493515675,
+              0.06139866893205429
+            ],
+            [
+              -0.3223395580582157,
+              0.9446758463359656,
+              -0.060702180028897525
+            ]
+          ],
+          "grip_from_paddle_origin_m": [
+            -0.0051046313316657965,
+            -0.02879271694312159,
+            -0.0865115664670298
+          ]
+        },
+        "max_blade_offset_mm": 13.483978906805074,
+        "max_rotation_degrees": 7.612251418251253,
+        "final": {
+          "time": 1.6200000000000012,
+          "blade_offset_mm": 12.643123714113283,
+          "rotation_degrees": 6.449351474331063
+        }
+      },
+      "max_forbidden_penetration_mm": 0.43803889664883167,
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "initial_right_roll": 1.5,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "seed": 1,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "noise": 0.0008,
+        "dropout": 0.25,
+        "release_seconds": 5.0,
+        "tool": "paddle",
+        "paddle_mass": 0.015
+      },
+      "release_performed": false,
+      "release_passed": false,
+      "contacted_flaps": {
+        "left": [
+          "short_left_cardboard"
+        ],
+        "right": [
+          "short_right_cardboard"
+        ]
+      },
+      "orientation_errors": [
+        {
+          "left": {
+            "direction": 36.139015808333966
+          },
+          "right": {
+            "direction": 25.892864352925198
+          }
+        },
+        {
+          "left": {
+            "direction": 20.483563689508983
+          },
+          "right": {
+            "direction": 23.31123796287442
+          }
+        }
+      ],
+      "source_sha256": {
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2",
+        "carton/folding_sim.py": "3ca7567e62b2fc90f0d2832bc55324d5abdf96f7a61e89552b39b1d6600fced6",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+      }
+    }
+  ]
+}
