@@ -66,6 +66,10 @@ def assemble_dataset(captures, model_directory):
     reference_ranges = None
     for capture in captures:
         sample = dict(capture["sample"])
+        mount = sample.get("gripper_tag_mount") or {}
+        if (mount.get("arm") != sample.get("arm") or mount.get("body") != "fixed_gripper_housing"
+                or not mount.get("source")):
+            raise ValueError("Capture lacks the confirmed matching arm and fixed tag mount")
         status = capture["arm_geometry_status"].get("result", {})
         cfg = status.get("configuration", {}).get("config") or {}
         if cfg.get("mapping") != "feetech_degrees_v1" or cfg.get("arm") != sample["arm"]:
@@ -88,7 +92,7 @@ def assemble_dataset(captures, model_directory):
                    "robot_model_sha256": hashlib.sha256(urdf.read_bytes()).hexdigest(),
                    "motor_calibration_sha256": cfg.get("calibration_sha256"),
                    "encoder_mapping_source": "installed LeRobot MotorsBus._normalize DEGREES; candidate pending physical fit",
-                   "gripper_tag_id": sample["gripper_tag_id"]}
+                   "gripper_tag_id": sample["gripper_tag_id"], "gripper_tag_mount": mount}
         if result["binding"] is not None and result["binding"] != binding:
             raise ValueError("Capture bindings differ; do not combine calibration sessions")
         result["binding"] = binding
@@ -110,12 +114,18 @@ def fit_registration(dataset):
                 "robot_model_sha256", "motor_calibration_sha256", "encoder_mapping_source", "gripper_tag_id")
     if any(not binding.get(k) for k in required) or binding["arm"] not in ("left", "right"):
         raise ValueError("Bind the dataset to one arm, camera, tag, model, mapping and calibration")
+    mount = binding.get("gripper_tag_mount") or {}
+    if mount.get("arm") != binding["arm"] or mount.get("body") != "fixed_gripper_housing" or not mount.get("source"):
+        raise ValueError("Registration requires confirmed arm and fixed gripper-tag mounting")
     samples = dataset.get("samples", [])
     if len(samples) < 11:
         raise ValueError("Need at least eight fitting poses and three held-out validation poses")
     seen, train, validation = set(), [], []
     head_reference, anchor_reference, corners_reference = None, None, None
     for sample in samples:
+        if (sample.get("arm") != binding["arm"] or sample.get("gripper_tag_id") != binding["gripper_tag_id"]
+                or sample.get("gripper_tag_mount") != mount):
+            raise ValueError("Sample arm, tag or mounting differs from the dataset binding")
         identity = sample.get("frame", {})
         key = (identity.get("stream_id"), identity.get("seq"), identity.get("sha256"))
         if (identity.get("camera_id") != binding["camera_id"] or key[0] != binding["stream_id"]

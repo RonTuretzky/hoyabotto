@@ -22,13 +22,15 @@ def dataset():
     binding = dict(arm='left', camera_id='test', stream_id='one', camera_calibration_sha256='K',
                    tag_geometry_sha256='sizes', robot_model_sha256='model', motor_calibration_sha256='motors',
                    encoder_mapping_source='synthetic known mapping', gripper_tag_id=2)
+    binding['gripper_tag_mount'] = dict(arm='left', body='fixed_gripper_housing', source='test fixture')
     samples = []
     for i in range(15):
         gripper = pose(rng.uniform(-.7, .7, 3), rng.uniform([.15, -.1, .1], [.4, .15, .4]))
         observed = np.linalg.inv(camera) @ gripper @ tag
-        samples.append(dict(frame=dict(camera_id='test', stream_id='one', seq=i,
+        samples.append(dict(arm='left', gripper_tag_id=2, frame=dict(camera_id='test', stream_id='one', seq=i,
             sha256=hashlib.sha256(str(i).encode()).hexdigest()),
             camera_calibration_sha256='K', tag_geometry_sha256='sizes', head_ticks=[2000, 2400],
+            gripper_tag_mount=copy.deepcopy(binding['gripper_tag_mount']),
             anchor_center_camera_mm=[40, 20, 600], stationary_bracket_verified=True, orientation_ambiguous=False,
             anchor_corners_px=[[100,100],[150,100],[150,150],[100,150]],
             base_from_gripper=gripper.tolist(), camera_from_tag=observed.tolist(), split='train' if i<11 else 'validation'))
@@ -62,6 +64,11 @@ def test_held_out_bad_pose_rejects_transform_instead_of_fitting_it_away():
     lambda d: d['samples'][5].update(stationary_bracket_verified=False),
     lambda d: d['samples'][6].update(camera_calibration_sha256='different'),
     lambda d: d['samples'][6].update(tag_geometry_sha256='different'),
+    lambda d: d['samples'][6]['gripper_tag_mount'].update(arm='right'),
+    lambda d: d['samples'][6].update(arm='right'),
+    lambda d: d['samples'][6].update(gripper_tag_id=3),
+    lambda d: d['binding'].pop('gripper_tag_mount'),
+    lambda d: d['binding']['gripper_tag_mount'].update(body='moving_jaw'),
     lambda d: d['samples'][6].update(anchor_corners_px=[[110,100],[160,100],[160,150],[110,150]]),
     lambda d: d.update(samples=d['samples'][:8]),
 ])

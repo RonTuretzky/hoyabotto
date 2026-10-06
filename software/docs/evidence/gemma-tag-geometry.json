@@ -789,5 +789,12 @@
     "remote_owner_replaced_by_other_chat": true,
     "stability_check_in_progress": true,
     "physical_grasp_validated": false
+  },
+  "registration_data_invalidation": {
+    "recorded_at": "2026-10-06T03:24:30.643234+00:00",
+    "reason": "Earlier captures paired right-mounted tag 2 with left-arm encoder readings and candidate FK. Do not relabel those rows.",
+    "accepted_independent_right_arm_poses": 0,
+    "camera_only_observations_invalidated": false,
+    "correction_evidence": "gemma-right-arm-binding.json"
   }
 }

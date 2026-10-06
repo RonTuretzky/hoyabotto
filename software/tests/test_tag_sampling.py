@@ -19,6 +19,7 @@ def bracket():
                        'calibration_sha256': 'K', 'geometry_config_sha256': 'sizes',
                        'tags': [dict(tag_id=1, center_camera_mm=[0, 0, 600]),
                                 dict(tag_id=2, center_camera_mm=[0, 0, 300],
+                                     mount=dict(arm='left', body='fixed_gripper_housing', source='test fixture'),
                                      orientation_ambiguous=False, camera_from_tag=np.eye(4).tolist(),
                                      reprojection_rms_px=.1)]}}
     return state(100), state(102), observation
@@ -45,6 +46,9 @@ def test_stationary_bracket_has_provenance_but_no_invented_robot_pose():
     lambda b,a,o: o['frame'].update(captured_at=103),
     lambda b,a,o: o['pose_3d']['tags'][1].update(orientation_ambiguous=True),
     lambda b,a,o: o['pose_3d']['tags'].pop(0),
+    lambda b,a,o: o['pose_3d']['tags'][1].pop('mount'),
+    lambda b,a,o: o['pose_3d']['tags'][1]['mount'].update(arm='right'),
+    lambda b,a,o: o['pose_3d']['tags'][1]['mount'].update(body='moving_jaw'),
 ])
 def test_untrustworthy_brackets_cannot_become_registration_samples(mutation):
     before, after, observation = bracket()
@@ -59,3 +63,19 @@ def test_long_bracket_rejected_even_if_endpoints_look_stationary():
         row['captured_at'] = 104
     with pytest.raises(ValueError, match='three seconds'):
         stationary_sample(before, after, observation, 'left')
+
+
+def test_right_housing_marker_requires_right_encoders_even_when_both_arms_are_stationary():
+    before, after, observation = bracket()
+    mount = dict(arm='right', body='fixed_gripper_housing', source='user confirmed')
+    observation['pose_3d']['tags'][1]['mount'] = mount
+    for payload in (before, after):
+        rows = payload['result']['motors']
+        rows.extend([dict(row, name=row['name'].replace('left_arm_', 'right_arm_'),
+                          Present_Position=2100) for row in rows if row['name'].startswith('left_arm_')])
+    with pytest.raises(ValueError, match='selected arm'):
+        stationary_sample(before, after, observation, 'left')
+    sample = stationary_sample(before, after, observation, 'right')
+    assert sample['gripper_tag_mount'] == mount
+    assert sample['joint_ticks']['right_arm_elbow_flex'] == 2100
+    assert not any(n.startswith('left_arm_') for n in sample['joint_ticks'])

@@ -8,13 +8,21 @@ resets STOP, installs a robot transform or claims a completed grasp.
 
 ## Current physical result
 
-On 2026-10-06 the OAK view contained IDs 1/2/3. A stationary frame was bracketed
-by fresh unchanged left-arm and head encoder reads and saved as a calibration
-sample. The source dimensions are user-confirmed print-kit sizes, 60/40/40 mm;
+The user confirmed on 2026-10-06 that tag 2 is attached to the **right arm's
+fixed gripper housing**. Earlier captures paired it with left-arm encoders.
+Those captures and their assembled FK datasets are invalid for registration;
+there are currently **zero accepted independent right-arm calibration poses**.
+The earlier camera-only observations of IDs 1/2/3 remain valid as observations.
+The source dimensions are user-confirmed print-kit sizes, 60/40/40 mm;
 no independent ruler measurement has been supplied. The live camera is 640×360.
 Camera-to-arm registration, jaw contact offset, workspace clearance and a
 physical paddle grasp remain unvalidated. Repeating the same stationary pose
-does not supply the missing independent calibration poses.
+does not supply the missing independent calibration poses. A corrected right-arm
+capture was rejected because tag 2 was no longer detected at the lower image
+boundary. Fresh right-elbow readback was 3155 ticks against the recorded
+1002..3092 range; the provenance/recovery audit is separate from hand-eye fitting.
+The right-arm geometry configuration is also absent. These are concrete starting
+conditions to resolve, not reasons to require manual demonstration of every pose.
 
 During the initial capture, the owner was latched after an idle coherent servo read returned `-7`
 (`COMM_RX_CORRUPT`). Fault-row timestamps and source order point to the right
@@ -54,7 +62,15 @@ Create `.private/apriltag-geometry.json` beside the pilot's existing `robot.json
   "camera_ids": ["the-camera-id-from-robot_get_cameras"],
   "tags": {
     "1": {"black_square_mm": 60, "source": "Record how this physical width was established"},
-    "2": {"black_square_mm": 40, "source": "Record how this physical width was established"},
+    "2": {
+      "black_square_mm": 40,
+      "source": "Record how this physical width was established",
+      "mount": {
+        "arm": "right",
+        "body": "fixed_gripper_housing",
+        "source": "User confirmed right fixed gripper housing on 2026-10-06"
+      }
+    },
     "3": {"black_square_mm": 40, "source": "Record how this physical width was established"}
   }
 }
@@ -65,6 +81,12 @@ Measure the black outer square, excluding the white border. Width error scales
 the recovered distance. Configuration is local; model tool arguments cannot
 change it. Restart the idle local chat with its existing launcher. The remote
 camera and hardware owner need no restart for this adapter update.
+
+The explicit mount is mandatory for registration samples. It is included in
+the configuration fingerprint and carried into each sample and dataset. A
+left-arm capture of this right-mounted marker, a moving-jaw marker or an old
+sample without mount provenance is rejected. Do not relabel old left-arm
+samples as right-arm samples: their actual encoder readings are different.
 
 `robot_get_tags` remains the same tool. Each `pose_3d` includes camera optical
 axes (+x right, +y down, +z forward), centres in mm, a rigid transform in metres
@@ -89,7 +111,7 @@ cd /path/to/xlerobot-farm/software
 PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/commission_tag_geometry.py capture \
   --pilot-root /path/to/gemma/pilot \
   --geometry /path/to/gemma/pilot/.private/apriltag-geometry.json \
-  --camera oak --arm left --split train --out /path/to/new-capture-01
+  --camera oak --arm right --split train --out /path/to/new-capture-01
 
 PYTHONPATH=. /path/to/kinematics/.venv/bin/python tools/commission_tag_geometry.py assemble \
   --captures /path/to/new-capture-01 /path/to/new-capture-02 \
@@ -101,7 +123,7 @@ PYTHONPATH=. /path/to/geometry/.venv/bin/python tools/commission_tag_geometry.py
 
 `observe` saves observations without attempting an encoder bracket. `capture`
 reads fresh encoders, one camera observation, fresh encoders again and the
-existing arm-geometry status. It requires unchanged joint/head positions within
+existing arm-geometry status. `--arm` has no default. It requires unchanged joint/head positions within
 three ticks, stationary fault-free telemetry, a capture timestamp between the
 encoder reads within three seconds, tags 1/2 and unambiguous gripper-tag pose.
 Both Macs' clocks must agree. Endpoint checks assume no other actuator writer.
@@ -112,6 +134,50 @@ chosen held-out poses with `--split validation`. Rotate around at least two axes
 a pan sweep alone cannot identify both transforms. This tool does not move the
 arm to obtain those poses. Only resume pose collection through the sole owner
 after its fault has been diagnosed and its existing readiness checks pass.
+
+## Automatic move-and-observe workflow
+
+The pose list should be collected by the robot once the starting scene and
+controller are usable. No teleoperation training dataset is required for this
+geometric calibration. Reuse the following existing implementations:
+
+1. `carton/servo/controller.py:Experiment.calibrate` already takes stationary
+   observations, probes selected joints in both directions, checks actual
+   encoder response, returns to the measured starting pose and validates a
+   local image-motion model with separate half-size movements. This model is
+   useful for centering and local alignment; it does not establish 3D registration.
+2. `stationary_sample`, `assemble_dataset` and `fit_registration` already collect
+   synchronized encoder/tag evidence and solve both the camera-to-base and
+   tag-to-gripper transforms. Collect diverse orientations about at least two
+   axes plus position changes, retaining at least eight fitting and three
+   independent validation poses. Start with small observable movements and
+   expand only within the established workspace; a pan-only sweep is insufficient.
+3. The original `Experiment` transport uses a command/status-file owner and its
+   observer uses seeded camera views. They are **not yet adapters for the current
+   authenticated Gemma owner and single OAK tag observation**. Implement that
+   bridge through the existing sole owner, preserving session identity,
+   freshness, measured settling, travel bounds and STOP handling. Do not start
+   the old serial owner or run the old CLI against the current hardware setup.
+
+For this installation, first restore full tag-2 visibility, finish the right
+elbow range audit, and bind the right-arm candidate kinematics. Then collect
+the motion samples automatically and evaluate the existing independent-fit
+thresholds. A camera adjustment before collection is fine; it invalidates
+previous camera registration and must remain fixed during collection.
+
+This is an established method: [easy_handeye](https://github.com/IFL-CAMP/easy_handeye)
+combines a robot model, tracking and MoveIt-driven sample movements to estimate
+hand-eye transforms. Its ROS/MoveIt driver is not a drop-in replacement for our
+owner. Our fitter reuses OpenCV's solver instead of introducing a second robot
+control stack.
+
+The fitted tag-to-gripper transform removes the need to measure tag 2's exact
+mount offset. It does **not** identify the physical jaw contact point or which
+part of the paddle is graspable. Use the actual gripper/paddle CAD for initial
+contact geometry, then verify the physical fit under observation. An ideal CAD
+site or rendered tag mount is a candidate, not a measured hardware offset.
+If contact features are occluded, a specific physical check may still be needed;
+that is separate from manually teaching all calibration poses.
 
 Assembly reuses the verified SO-101 assets, upstream LeRobot FK and upstream
 Feetech DEGREES normalization. Range midpoints are only a mapping candidate,

@@ -29,7 +29,7 @@ def main():
         p.add_argument("--pilot-root", type=Path, required=True)
         p.add_argument("--geometry", type=Path, required=True)
         p.add_argument("--camera", default="oak")
-        p.add_argument("--arm", choices=["left", "right"], default="left")
+        p.add_argument("--arm", choices=["left", "right"], required=command == "capture")
         p.add_argument("--out", type=Path, required=True)
         if command == "capture":
             p.add_argument("--split", choices=["train", "validation"], required=True)

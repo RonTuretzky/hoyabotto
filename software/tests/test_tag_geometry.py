@@ -98,6 +98,28 @@ def test_configured_geometry_is_live_camera_relative_and_not_robot_target():
     assert metric['gripper_to_paddle_mm']['tag_center_distance_mm'] > 0
 
 
+def test_confirmed_mount_reaches_metric_observations_and_config_fingerprint():
+    cfg = config()
+    mount = dict(arm='right', body='fixed_gripper_housing', source='user confirmation')
+    old = TagObserver(clock=lambda: 1000.1, geometry=cfg).observe(calibrated_payload(), ['oak'])
+    cfg['tags']['2']['mount'] = mount
+    new = TagObserver(clock=lambda: 1000.1, geometry=cfg).observe(calibrated_payload(), ['oak'])
+    old_pose = old['result']['observations']['oak']['pose_3d']
+    new_pose = new['result']['observations']['oak']['pose_3d']
+    assert new_pose['geometry_config_sha256'] != old_pose['geometry_config_sha256']
+    assert next(t for t in new_pose['tags'] if t['tag_id'] == 2)['mount'] == mount
+
+
+@pytest.mark.parametrize('mount', [False, 'right', {},
+    dict(arm='right', body='unknown', source='user'),
+    dict(arm='right', body='fixed_gripper_housing', source=' ')])
+def test_incomplete_mount_configuration_is_rejected(mount):
+    cfg = config()
+    cfg['tags']['2']['mount'] = mount
+    with pytest.raises(ValueError, match='gripper mount'):
+        TagGeometry(cfg)
+
+
 def test_stale_image_removes_metric_geometry_too():
     p = calibrated_payload()
     p['result']['cameras']['oak']['rgb_captured_at'] = 900

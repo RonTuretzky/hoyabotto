@@ -127,6 +127,12 @@ class TagGeometry:
                     or not math.isfinite(size) or not 5 <= size <= 300
                     or not isinstance(spec.get("source"), str) or not spec["source"].strip()):
                 raise ValueError("Each tag needs an ID, 5–300mm black-square width and explicit source")
+            if spec.get("mount") is not None:
+                mount = spec["mount"]
+                if (not isinstance(mount, dict) or mount.get("arm") not in ("left", "right")
+                        or mount.get("body") not in ("fixed_gripper_housing", "moving_jaw")
+                        or not isinstance(mount.get("source"), str) or not mount["source"].strip()):
+                    raise ValueError("A gripper mount needs an explicit arm, body and confirmation source")
         if not isinstance(config.get("camera_ids"), list) or not config["camera_ids"] or any(
                 not isinstance(c, str) or not c for c in config["camera_ids"]):
             raise ValueError("Bind metric geometry to explicit camera identities")
@@ -152,7 +158,7 @@ class TagGeometry:
                 if tag["status"] != "DETECTED" or spec is None:
                     continue
                 entry = {"tag_id": tag["tag_id"], "black_square_mm": spec["black_square_mm"],
-                         "size_source": spec["source"]}
+                         "size_source": spec["source"], "mount": spec.get("mount")}
                 try:
                     entry.update(estimate_square(tag["corners_px"], spec["black_square_mm"], k, distortion))
                     accepted[tag["tag_id"]] = entry

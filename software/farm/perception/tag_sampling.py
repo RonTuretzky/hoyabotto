@@ -42,6 +42,10 @@ def stationary_sample(before, after, observation, arm):
     tags = {t["tag_id"]: t for t in geometry.get("tags", []) if t.get("center_camera_mm") is not None}
     if geometry.get("status") != "CAMERA_RELATIVE_ESTIMATE" or 1 not in tags or 2 not in tags:
         raise ValueError("Need metric table and gripper tags in the same frame")
+    mount = tags[2].get("mount") or {}
+    if (mount.get("arm") != arm or mount.get("body") != "fixed_gripper_housing"
+            or not mount.get("source")):
+        raise ValueError("Tag 2 must be explicitly confirmed on the selected arm's fixed gripper housing")
     if tags[2].get("orientation_ambiguous") or tags[2].get("camera_from_tag") is None:
         raise ValueError("Gripper tag orientation is ambiguous; choose a more informative view")
     ticks = {n: (first[n]["Present_Position"]+last[n]["Present_Position"])/2 for n in names}
@@ -55,6 +59,7 @@ def stationary_sample(before, after, observation, arm):
             "camera_calibration_sha256": geometry["calibration_sha256"],
             "tag_geometry_sha256": geometry["geometry_config_sha256"],
             "camera_from_tag": tags[2]["camera_from_tag"], "gripper_tag_id": 2,
+            "gripper_tag_mount": dict(mount),
             "anchor_center_camera_mm": tags[1]["center_camera_mm"],
             "anchor_corners_px": corners.tolist(),
             "head_ticks": [ticks[n] for n in HEAD_JOINTS], "joint_ticks": ticks,

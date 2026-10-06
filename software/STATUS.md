@@ -1,5 +1,27 @@
 # Where the build stands
 
+## Right-arm AprilTag binding correction — 2026-10-06
+
+- The user confirmed tag 2 on the right fixed gripper housing. The earlier
+  left-encoder captures and their candidate FK are invalid for registration.
+  Camera-only metric observations remain evidence of detection, not robot
+  registration. There are zero accepted independent right-arm poses.
+- Capture now requires an explicit arm and confirmed matching fixed mount.
+  Dataset assembly and fitting preserve and check this binding; old unbound
+  samples and mixed arm/tag identities are rejected.
+- Targeted geometry, capture, registration and Gemma adapter tests: 88 passed.
+  [Correction and fresh read-only evidence](docs/evidence/gemma-right-arm-binding.json).
+- A corrected read-only capture could not detect tag 2 at the lower image edge.
+  Right elbow readback was 3155 against recorded 1002..3092, and right-arm
+  geometry configuration was absent. The owner repair chat is auditing this
+  range discrepancy; no motor commands were issued by the binding correction.
+- The existing carton controller already implements automatic joint probing
+  and independent visual-model checks. Its command-file transport and seeded
+  camera observer still need adapters for Gemma's current authenticated owner
+  and OAK tags. The hand-eye sampler/fitter exists; automatic physical pose
+  collection through that current interface is not yet implemented or validated.
+  See the [automatic workflow](docs/gemma-tag-geometry.md#automatic-move-and-observe-workflow).
+
 ## Metric AprilTags and registration utilities — 2026-10-06
 
 - The live Gemma chat now reads camera-relative tag centres in millimetres,
@@ -9,8 +31,8 @@
   a grasp. A prior stale-frame probe was rejected. No motor commands were issued.
 - Added stationary camera/encoder sampling, candidate FK through existing
   LeRobot/Placo and fixed-camera OpenCV hand-eye fitting with independent
-  validation poses. Captured one physical pose and assembled its candidate FK;
-  fitting correctly refuses this insufficient dataset. No robot-frame transform
+  validation poses. The initially captured pose and candidate FK were later
+  invalidated by the right-arm mounting confirmation above. No robot-frame transform
   was invented or activated. Printed sizes remain user-confirmed 60/40/40 mm,
   without a separate ruler measurement.
 - Metric rendered-camera tests retained both failures: worst error 6.72 mm at
