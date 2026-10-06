@@ -4,6 +4,18 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Prepared minor support — 2026-10-06
+
+The [raised-minor audit](docs/carton-raised-minor-support.md) adds an isolated
+three-second test in which a passive paddle supports both short flaps around
+75°, with 0.243 mm blade slip and 0.0064 mm box movement. This starts from an
+explicitly prepared pose: it does not establish a folding approach or handoff.
+A full approach reached the short flap but the forearm pushed the near flap,
+the unbolted carton slid and the bracing grasp failed. Bare-claw bridge searches
+have not found a clear candidate. Neither method has completed all four folds,
+taping or arms-clear retention. Material and physical station values remain
+unmeasured. No robot or camera hardware was used.
+
 ## Carton contact validation — 2026-10-06
 
 The [contact audit](docs/carton-contact-clearance-audit.md) adds rejection of

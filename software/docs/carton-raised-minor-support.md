@@ -1,0 +1,94 @@
+# Raised minor-flap support — 6 October 2026
+
+**Neither variant has completed the carton.** A new paddle pose can support
+both short flaps partway folded in an isolated prepared-state test. The
+robot has not reached that state through a successful folding approach.
+The bare-claw searches have not produced an equivalent clear pose.
+
+## What the prepared test establishes
+
+The right hand grips the paddle at 122.77 mm from its handle base, with an
+initial grip rotation of 22.55°. The paddle spans the two raised minor edges.
+The left hand is parked. Both short flaps are explicitly initialized at 75°;
+the near major is initialized at −37.66°. These initializations are reported
+as preparation, not robot actions or observed folding success.
+
+The same empty 272 g carton, six-degree-of-freedom carton joint, 0.35 table
+friction, 0.018 Nm/rad hinge springs, 0.004 Nm hinge friction and original
+robot limits apply. The tool is passive, held only by jaw contact. There
+are twelve robot actuators and no equality constraints, contents or tape.
+
+After three seconds:
+
+| Quantity | Result |
+|---|---:|
+| Left/right short angles | 74.48° / 76.03° |
+| Maximum box translation | 0.0064 mm |
+| Maximum tool blade offset | 0.243 mm |
+| Maximum tool rotation in grip | 4.30° |
+| Maximum robot/flap penetration | 0.171 mm |
+| Paddle normal force on left short, samples after 0.3 s | 0.041–0.137 N |
+| Paddle normal force on right short, samples after 0.3 s | 0.070–0.140 N |
+
+Angles and penetration are checked at every 2 ms physics step; the listed
+contact forces are sampled every 0.1 s. These are simulated measurements,
+not calibrated physical measurements. This is a support mechanism test,
+not a fold, handoff, pickup, tape or hands-off-retention pass.
+
+## What failed during the approach
+
+The new grip covers the old tool tag at 135 mm. Moving the two declared
+simulated tool tags to 180 mm restored fresh camera registration. That is
+an explicitly proposed marker mounting change, not a hardware change.
+
+Keeping the paddle horizontal throughout the approach exceeded the IK
+gate: 16.98 mm error for the central approach and 18.26 mm for a closer
+front-edge approach. Rotating the paddle into the crossbar orientation
+made the early targets reachable. Adding 10 mm of initial outward
+clearance cleared the planning margin at the first waypoint.
+
+During that approach, however, the right forearm contacts the near flap
+from about a 26° commanded short-flap angle. The near flap is simultaneously
+held by the left claw. The box then slides and the brace is lost. With
+explicit opposing-face verification, the trial stops at 37.598 s with
+43.44 mm maximum box movement; the right short is only 34.90° folded.
+An earlier version without that brace check continued to 78.24 mm box
+movement before its joint-tracking stop. It is not a successful handoff.
+
+Moving the brace nearer the left corner still failed, this time at the
+20° tool-rotation slip gate with 65.90 mm box movement. Trying to open the
+near flap farther outward first lost the pinch around −36°, before the
+right short was folded. These failures are contact/clearance problems;
+increasing friction or weakening the crease would conceal them.
+A separate attempt to preserve only the jaw face normal during opening
+lost the pinch sooner, around −20°, and also did not reach a short fold.
+
+Finite static searches also tested 75° short flaps with the right claw,
+65° short flaps, the left claw, and unequal short-flap angles. None of the
+sampled bare-claw poses passed the collision check. This is not a proof of
+global infeasibility, particularly with unmodeled physical finger attachments.
+
+## Reproduction and remaining work
+
+`tools/diagnose_partial_minor_bridge.py` runs the prepared support test using
+the ordinary simulation runtime, collision checks and independent tool-slip
+measurement. It records `prepared_pose_only: true`, `full_task_complete: false`
+and `folding_approach_executed: false` separately from the support result.
+
+From `software`, after generating the earlier two-short-flap run:
+
+```sh
+PYTHONPATH=. .venv/bin/python tools/diagnose_partial_minor_bridge.py \
+  --simulation-root /path/to/gemma-xlerobot \
+  --prepared-run /path/to/tip-paddle \
+  --candidates docs/evidence/carton-raised-minor-support.json \
+  --out /path/to/new-prepared-support-run
+```
+
+The evidence file retains the chosen static candidate, result paths and
+hashes. The original complete partial-run GIFs still show both short folds
+and their release failure; see the [end-contact audit](carton-paddle-end-contact-audit.md).
+The new short support GIF must not replace either complete sequence as proof
+of folding. Both major folds, a dynamic handoff, explicit tape application
+and five seconds of verified arms-clear retention remain unfinished.
+No hardware commands were issued.
