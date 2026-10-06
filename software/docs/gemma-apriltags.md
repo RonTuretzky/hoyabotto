@@ -109,3 +109,6 @@ timing and argument rejection before upstream calls. Run the existing pilot's
 Deployment evidence is in `docs/evidence/gemma-apriltags.json`, separate from
 physical motion or grasp validation. For print dimensions and placement see
 [the tag guide](carton-apriltags.md).
+
+For the rendered-camera motion test, negative controls and actual Gemma tool
+use in MuJoCo, see [simulator validation](gemma-apriltag-simulation.md).

@@ -1,5 +1,24 @@
 # Where the build stands
 
+## Gemma AprilTag simulation — 2026-10-06
+
+- Passed the production `TagRobot`/`TagObserver` on MuJoCo-rendered RGB using
+  the existing SO-101 meshes/joints and paddle CAD. All three tags were detected
+  in 46/46 nominal frames across 24 degrees of measured shoulder-pan travel.
+  Maximum tag-centre error was 0.274 px; maximum gripper-to-paddle displacement
+  error was 0.455 px against independently projected simulator positions.
+- Occlusion, duplicate IDs, undersized tags, stale frames and hash mismatches
+  were rejected; tags were reacquired after faults cleared. Simulated STOP
+  prevented a subsequent movement request.
+- Local Gemma called observe, simulated +12-degree pan, observe and STOP,
+  correctly reporting the changed pixel displacement. No hardware tools were
+  exposed, and no physical camera or robot was contacted.
+- The camera pose and tag mounts are illustrative, and rendered lighting is
+  idealized. This validates tracking/data flow and model tool use, not a
+  calibrated physical grasp or autonomous carton folding. Reproducer and
+  limitations: [simulation guide](docs/gemma-apriltag-simulation.md).
+  Results: [simulation evidence](docs/evidence/gemma-apriltag-simulation.json).
+
 ## Gemma AprilTag observations — 2026-10-06
 
 - The Gemma chat exposes `robot_get_tags` through the shared detector and its
