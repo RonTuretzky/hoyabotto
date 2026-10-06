@@ -1,5 +1,9 @@
 # Resistant free-carton hand transfers — 6 October 2026
 
+Later result: [paddle end contact](carton-paddle-end-contact-audit.md) now also
+folds both short flaps with a different initial grip. Neither variant completes
+the carton. The paddle failure below refers to the original face-contact grip.
+
 Neither tool variant completes the carton task. The bare claws now fold and
 hold **both short flaps**. Withdrawing the left hand makes its flap reopen.
 The paddle still fails before completing the first short flap. These are

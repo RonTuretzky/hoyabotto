@@ -4,6 +4,26 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Paddle end-contact progress — 2026-10-06
+
+The [new matched audit](docs/carton-paddle-end-contact-audit.md) reproduces both
+short flaps held by a left claw and a free paddle in the right jaws. An explicit
+60 mm grip position and −71° initial grip rotation allow blade-end contact.
+Maximum box translation is 4.96 mm, versus 12.81 mm in the bare-claw run.
+The same empty free carton, resistant hinges, table position, forces and limits
+apply. No weld, clamp, guide or tape was added; grip pickup is untested.
+
+Both full GIFs include the release test: the left flap springs back to about
+58° in both. Neither completes all four folds or hands-off retention. Planning
+a jaw to hold the minor while the other folds the major has not produced a
+validated dynamic hand transfer. Full closure and tape application remain open.
+
+Fresh rendered paddle tags now register its blade-end TCP without moving the
+original slip reference. Tracking verification measures the actual free tool,
+not just its virtual gripper target. All 88 folding tests pass. Material values,
+external camera and physical tag mounts remain unmeasured assumptions. No
+hardware was accessed. This updates the old paddle result immediately below.
+
 ## Resistant carton hand transfers — 2026-10-06
 
 The [new transfer audit](docs/carton-minor-transfer-audit.md) reproduces both

@@ -39,6 +39,7 @@ class PaddleSpec:
     friction: float = .8
     attachment: str = 'friction'
     grasp_x_m: float = .030
+    grasp_yaw_degrees: float = 0.
 
     def __post_init__(self):
         if not math.isfinite(self.mass) or self.mass <= 0:
@@ -49,14 +50,27 @@ class PaddleSpec:
             raise ValueError('Unknown paddle attachment')
         if not math.isfinite(self.grasp_x_m) or not .010<=self.grasp_x_m<=.190:
             raise ValueError('Paddle grasp must lie within the declared CAD')
+        if not math.isfinite(self.grasp_yaw_degrees):
+            raise ValueError('Finite paddle grasp yaw required')
+
+    @property
+    def grip_rotation(self):
+        angle=math.radians(self.grasp_yaw_degrees)
+        c,s=math.cos(angle),math.sin(angle)
+        return GRIP_ROTATION@np.array([[c,-s,0],[s,c,0],[0,0,1]])
 
     @property
     def grip_origin(self):
-        return GRIP_ORIGIN+GRIP_ROTATION@np.array([.030-self.grasp_x_m,0,0])
+        if self.grasp_yaw_degrees==0:
+            return GRIP_ORIGIN+GRIP_ROTATION@np.array([.030-self.grasp_x_m,0,0])
+        # Rotate the initial placement in the jaw plane about the grip point.
+        # This is not an actuator or a tool-pose reset during a run.
+        center=GRIP_ORIGIN+GRIP_ROTATION@HANDLE
+        return center-self.grip_rotation@np.array([self.grasp_x_m,0,.003])
 
     @property
     def tool_point(self):
-        return self.grip_origin+GRIP_ROTATION@BLADE
+        return self.grip_origin+self.grip_rotation@BLADE
 
     def report(self):
         return dict(mass_kg=self.mass, sliding_friction=self.friction,
@@ -64,8 +78,9 @@ class PaddleSpec:
                     mesh_sha256=hashlib.sha256(PADDLE_CAD.read_bytes()).hexdigest(),
                     mounting=('Free body initially placed in right jaws; no weld; pickup not tested' if self.attachment=='friction'
                               else 'IDEAL RIGID ATTACHMENT DIAGNOSTIC: no slip possible, not a validated grip'),
-                    grip_from_paddle_rotation=GRIP_ROTATION.tolist(),
+                    grip_from_paddle_rotation=self.grip_rotation.tolist(),
                     grasp_from_handle_base_mm=self.grasp_x_m*1000,
+                    initial_grasp_yaw_degrees=self.grasp_yaw_degrees,
                     grip_from_paddle_origin_m=self.grip_origin.tolist())
 
 
@@ -78,7 +93,7 @@ def add_paddle(root, spec):
         E.SubElement(body,'freejoint',name='paddle_free')
     else:
         body=E.SubElement(grip,'body',name='paddle',pos=words(spec.grip_origin),
-                          xyaxes=words(np.r_[GRIP_ROTATION[:,0],GRIP_ROTATION[:,1]]))
+                          xyaxes=words(np.r_[spec.grip_rotation[:,0],spec.grip_rotation[:,1]]))
     E.SubElement(body,'geom',name='right_paddle_visual',type='mesh',mesh='paddle_visual',
                  rgba='.94 .94 .88 1',contype='0',conaffinity='0',group='2',mass='0')
     # Exact rectangular CAD regions including the two thin grip grooves.
@@ -91,6 +106,7 @@ def add_paddle(root, spec):
                      friction=words([spec.friction,.005,.0001]),condim='4',group='3',
                      solref='.004 1',solimp='.95 .99 .001')
     E.SubElement(body,'site',name='paddle_blade_actual',pos=words(BLADE),size='.002',rgba='0 0 0 0')
+    E.SubElement(body,'site',name='paddle_control_actual',pos=words(BLADE),size='.002',rgba='0 0 0 0')
     E.SubElement(grip,'site',name='right_paddle_target',pos=words(spec.tool_point),size='.002',rgba='0 0 0 0')
     # Separate calibrated TCP; the original slip-reference site stays fixed.
     E.SubElement(grip,'site',name='right_paddle_observed_target',pos=words(spec.tool_point),size='.002',rgba='0 0 0 0')
@@ -116,7 +132,7 @@ class PaddleFoldingSimulation(FoldingSimulation):
             grip=self.data.body('right_gripper_link');r=grip.xmat.reshape(3,3)
             adr=self.model.joint('paddle_free').qposadr[0]
             self.data.qpos[adr:adr+3]=grip.xpos+r@self.paddle_spec.grip_origin
-            quaternion=np.zeros(4);mujoco.mju_mat2Quat(quaternion,(r@GRIP_ROTATION).ravel())
+            quaternion=np.zeros(4);mujoco.mju_mat2Quat(quaternion,(r@self.paddle_spec.grip_rotation).ravel())
             self.data.qpos[adr+3:adr+7]=quaternion
         # Reuse the settled jaw position from the preceding independent grasp
         # test. Grip torque remains limited by the existing 0.5 Nm actuator.
@@ -124,6 +140,36 @@ class PaddleFoldingSimulation(FoldingSimulation):
         mujoco.mj_forward(self.model,self.data)
         self.control_sites['right']='right_paddle_target'
         self.monitor_tool=True
+
+    def register_observed_tcp(self,observation,point,*,observation_sequence,current_sequence):
+        """Register a CAD point from a fresh RGB-D tool pose and encoder FK.
+
+        Only measurement sites change. The passive tool, joint state and
+        original slip reference remain untouched. Sequence identity prevents
+        reusing a previously captured pose after another camera observation.
+        """
+        from farm.kinematics.lerobot import transform
+        if observation is None or observation_sequence!=current_sequence:
+            raise ValueError('Fresh paddle marker observation required for TCP registration')
+        tool=transform(observation['world_from_paddle'])
+        point=np.asarray(point,dtype=float)
+        if (point.shape!=(3,) or not np.isfinite(point).all() or
+                not 0<=point[0]<=.210 or abs(point[1])>.020 or not 0<=point[2]<=.006):
+            raise ValueError('TCP must lie within the declared paddle CAD')
+        grip=self.data.body('right_gripper_link');rotation=grip.xmat.reshape(3,3)
+        relative_rotation=rotation.T@tool[:3,:3]
+        origin=rotation.T@(tool[:3,3]-grip.xpos)
+        self.model.site('right_paddle_observed_target').pos[:]=origin+relative_rotation@point
+        self.model.site('paddle_control_actual').pos[:]=point
+        self.control_sites['right']='right_paddle_observed_target'
+        mujoco.mj_forward(self.model,self.data)
+        return dict(origin=origin.tolist(),rotation=relative_rotation.tolist(),
+                    cad_point_m=point.tolist(),observation_sequence=observation_sequence,
+                    source=observation)
+
+    def actual_control_position(self,side):
+        if side=='right':return self.data.site('paddle_control_actual').xpos
+        return super().actual_control_position(side)
 
     def forbidden_contact(self,a,b):
         if a.startswith('right_paddle_') or b.startswith('right_paddle_'):
@@ -137,7 +183,7 @@ class PaddleFoldingSimulation(FoldingSimulation):
     def step_diagnostic(self):
         if not self.monitor_tool:return None
         grip=self.data.body('right_gripper_link');r=grip.xmat.reshape(3,3)
-        actual=self.data.body('paddle');rotation=(r@GRIP_ROTATION).T@actual.xmat.reshape(3,3)
+        actual=self.data.body('paddle');rotation=(r@self.paddle_spec.grip_rotation).T@actual.xmat.reshape(3,3)
         angle=math.degrees(math.acos(float(np.clip((np.trace(rotation)-1)/2,-1,1))))
         error=float(np.linalg.norm(self.data.site('paddle_blade_actual').xpos-self.data.site('right_paddle_target').xpos)*1000)
         self.tool_samples.append(dict(time=float(self.data.time),blade_offset_mm=error,rotation_degrees=angle))

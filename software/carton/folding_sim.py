@@ -315,7 +315,7 @@ class FoldingSimulation:
                 if capture:self.capture('STOP: '+(step_error or 'forbidden robot contact'))
                 break
         self.stats['max_bad_penetration_mm']=max(self.stats['max_bad_penetration_mm'],bad)
-        event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.data.site(self.control_sites[a]).xpos-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.data.site(self.control_sites[s]).xpos.tolist() for s in self.arm_indices},'step_error':step_error}
+        event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.actual_control_position(a)-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.actual_control_position(s).tolist() for s in self.arm_indices},'step_error':step_error}
         self.events.append(event)
         event['forbidden_contact_pairs']=sorted(bad_pairs)
         event['carton_motion']=motion
@@ -343,6 +343,10 @@ class FoldingSimulation:
 
     def step_diagnostic(self):
         return None
+
+    def actual_control_position(self,side):
+        """Independent physical TCP used for motion-result verification."""
+        return self.data.site(self.control_sites[side]).xpos
 
     def arm_tag_fk(self,side):
         # Uses robot encoders, fixed base registration and declared CAD mount.

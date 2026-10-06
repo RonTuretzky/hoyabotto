@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np,mujoco
 from carton.folding_sim import FoldingSimulation,JOINTS
 from carton.folding_solver import FoldingSolver
-from carton.folding_paddle import PaddleFoldingSimulation,GRIP_ROTATION
+from carton.folding_paddle import PaddleFoldingSimulation,GRIP_ROTATION,PaddleSpec
 from scipy.optimize import least_squares
 from carton.folding_station import FoldingStation
 from carton.folding_material import CartonMaterial
@@ -23,6 +23,7 @@ p.add_argument('--out',required=True)
 p.add_argument('--simulation-root',required=True)
 p.add_argument('--video',action='store_true')
 p.add_argument('--tool',choices=['claws','paddle'],default='claws')
+p.add_argument('--paddle-contact',choices=['face','tip'],default='face',help='Tip uses an explicitly rotated initial grip and fresh observed blade-end TCP')
 p.add_argument('--solver',choices=['legacy','friction'],default='friction')
 p.add_argument('--fold-second-short',action='store_true',help='Test both minor flaps instead of the failed near-flap pivot')
 p.add_argument('--release-left-minor',action='store_true',help='After the two-minor hold, measure spring-back on release')
@@ -31,6 +32,7 @@ p.set_defaults(along=-.08,radius=.125,axis_sign=1,pre_height=.035,end_angle=-30,
                freeze_hold=True,close_near=True,close_mode='pivot')
 a=p.parse_args()
 if a.release_left_minor and not a.fold_second_short:p.error('--release-left-minor requires --fold-second-short')
+if a.paddle_contact=='tip' and a.tool!='paddle':p.error('--paddle-contact tip requires --tool paddle')
 out=Path(a.out);out.mkdir(parents=True,exist_ok=False)
 class GraspIKMixin:
  """Prioritize preserving the pinched face normal without relaxing IK limits.
@@ -57,7 +59,9 @@ class PinchSimulation(GraspIKMixin,FoldingSimulation):
 class PinchPaddleSimulation(GraspIKMixin,PaddleFoldingSimulation):
  pass
 
-s=(PinchPaddleSimulation if a.tool=='paddle' else PinchSimulation)(Path(a.simulation_root),out,station=FoldingStation(.06,.15,.01,table_marker_xy=(-.5,.55),backup_table_marker_xy=(.45,.70)),material=CartonMaterial(),width=960,height=540,offset=(0,.0757925946355),yaw=math.pi/6,initial_right_roll=1.5,solver=FoldingSolver.friction() if a.solver=='friction' else FoldingSolver())
+tip_contact=a.tool=='paddle' and a.paddle_contact=='tip'
+paddle_options={'paddle':PaddleSpec(grasp_x_m=.060,grasp_yaw_degrees=-71)} if tip_contact else {}
+s=(PinchPaddleSimulation if a.tool=='paddle' else PinchSimulation)(Path(a.simulation_root),out,station=FoldingStation(.06,.15,.01,table_marker_xy=(-.5,.55),backup_table_marker_xy=(.45,.70)),material=CartonMaterial(),width=960,height=540,offset=(0,.0757925946355),yaw=math.pi/6,initial_right_roll=1.5,solver=FoldingSolver.friction() if a.solver=='friction' else FoldingSolver(),**paddle_options)
 port=PixelPort(s,record=a.video,camera=a.camera);c=DiagonalFoldingController(port,rear_cart=True);r={'simulation_only':True,'stage_only':'Pinch and fold near flap','task_complete':False,'camera':a.camera,'grasp_checks':[]}
 def pose(theta):
  point,_=contact_point(theta,1,-1,a.along,a.radius,0,a.clearance)
@@ -88,7 +92,10 @@ try:
  port.move_arms({},2.,'Hold near flap in pinch',None)
  r['opening_completed']={'angles':s.truth_angles(),'motion':dict(s.motion_stats)}
  if a.continue_short:
-  c.sense('Locate right short flap while left braces box')
+  reading=c.sense('Locate right short flap while left braces box')
+  if tip_contact:
+   r['tool_registration']=s.register_observed_tcp(reading.get('paddle'),[.208,0,.003],
+     observation_sequence=reading['seq'],current_sequence=port.readings[-1]['seq'])
   hold_point,hold_ori=pose(math.radians(a.end_angle))
   held_world=grasp_frame[:3,:3]@hold_point+grasp_frame[:3,3];held_ori_world={k:grasp_frame[:3,:3]@v for k,v in hold_ori.items()}
   for i,theta in enumerate(np.linspace(0,math.pi/2,41)):
@@ -96,7 +103,11 @@ try:
     hold_point=c.box[:3,:3].T@(held_world-c.box[:3,3]);hold_ori={k:(c.box[:3,:3].T@v).tolist() for k,v in held_ori_world.items()}
    radius=.14-.04*max(0,(theta-math.pi/4)/(math.pi/4))
    point,ori=contact_point(theta,0,1,-.11,radius,1.5,.012)
-   if a.tool=='paddle':
+   if tip_contact:
+    # The blade end makes contact while the wrist remains above the rim.
+    # The smooth lateral transfer finishes over the minor, still held only.
+    point,ori=contact_point(theta,0,1,-.11+.14*math.sin(theta)**2,radius,1.5,.020)
+   elif a.tool=='paddle':
     point,_=contact_point(theta,0,1,-.11,radius,1.5,.0045)
     ori={'direction':[math.cos(theta),0,math.sin(theta)],'local_axis':GRIP_ROTATION[:,2].tolist()}
    if i==0:
