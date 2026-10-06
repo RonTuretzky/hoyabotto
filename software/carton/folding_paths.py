@@ -53,7 +53,11 @@ class JointPathPlanner:
             if c.dist>=self.clearance-.0001:continue
             other=b if a.startswith(self.side+'_') else a
             arm=a if a.startswith(self.side+'_') else b
-            if other in self.allowed and any(n in arm for n in ('moving_jaw','wrist_roll_follower','right_paddle_contact')):continue
+            if other in self.allowed and any(n in arm for n in ('moving_jaw','wrist_roll_follower','right_paddle_contact')):
+                # A named contact is not permission to pass through the panel.
+                # Keep the same 1 mm penetration bound as the runtime gate.
+                if c.dist>=-.001:continue
+                self.last_collision=(a,b,float(c.dist));return False
             # A held paddle is a separate free body, and its intentional jaw
             # contacts are distinguished from environmental collisions.
             if a.startswith('right_paddle_') or b.startswith('right_paddle_'):
@@ -110,6 +114,7 @@ def execute_path(sim,side,path,label,*,capture=True):
         duration=max(.35,float(np.max(np.abs(b-a)))/.55)
         event=sim.move({},duration,f'{label} waypoint {i+1}/{len(path)-1}',
                        capture=capture,joint_targets={side:b})
+        if event.get('step_error'):raise ValueError(event['step_error'])
         if event['bad_penetration_mm']>1:raise ValueError('Collision during planned path execution')
         if event['max_joint_tracking_error_radians']>.08:
             raise ValueError('Planned joint path tracking error exceeded 0.08 rad')

@@ -79,3 +79,63 @@ def test_joint_executor_rejects_out_of_range_before_actuation():
     np.testing.assert_array_equal(sim.data.qpos,before)
     with pytest.raises(ValueError,match='joint or Cartesian'):
         sim.move({'left':[0,0,0]},joint_targets={'left':[0,0,0,0,0]})
+
+
+def _contact_probe(z):
+    """Real signed-distance contacts without depending on downloaded arm meshes."""
+    import mujoco
+    from types import SimpleNamespace
+    from carton.folding_sim import JOINTS,FoldingSimulation
+    joints=''.join(f'<joint name="left_{name}" axis="0 1 0" range="-2 2" armature=".01"/>' for name in JOINTS)
+    model=mujoco.MjModel.from_xml_string(f'''<mujoco><compiler angle="radian"/>
+      <worldbody><geom name="short_left_cardboard" type="box" size=".1 .1 .0015"/>
+      <body name="left_gripper_link" pos="0 0 {z}">{joints}
+        <geom name="left_moving_jaw_probe" type="sphere" size=".01" mass=".1"/>
+      </body></worldbody></mujoco>''')
+    data=mujoco.MjData(model);mujoco.mj_forward(model,data)
+    sim=SimpleNamespace(model=model,data=data,arm_indices={'left':[model.joint('left_'+j).qposadr[0] for j in JOINTS]})
+    sim.forbidden_contact=lambda a,b:FoldingSimulation.forbidden_contact(sim,a,b)
+    return sim
+
+
+def test_allowed_flap_contact_cannot_hide_deep_penetration():
+    from carton.folding_paths import JointPathPlanner
+    sim=_contact_probe(.008)
+    planner=JointPathPlanner(sim,'left',allowed_flaps=('short_left_cardboard',),clearance=.006)
+    assert not planner.valid(np.zeros(5))
+    assert planner.last_collision[2]<-.003
+
+
+def test_allowed_shallow_contact_retains_original_penetration_bound():
+    from carton.folding_paths import JointPathPlanner
+    sim=_contact_probe(.011)
+    planner=JointPathPlanner(sim,'left',allowed_flaps=('short_left_cardboard',),clearance=.006)
+    assert planner.valid(np.zeros(5))
+    assert not JointPathPlanner(sim,'left',clearance=.006).valid(np.zeros(5))
+
+
+def test_initialization_rejects_contact_that_is_permitted_later():
+    from carton.folding_sim import FoldingSimulation
+    sim=_contact_probe(.011)
+    # Later fingertip/flap contact is intentional; an initial overlap is not.
+    assert not sim.forbidden_contact('left_moving_jaw_probe','short_left_cardboard')
+    with pytest.raises(ValueError,match='Initial robot pose'):
+        FoldingSimulation.validate_initial_robot_clearance(sim)
+    sim=_contact_probe(.013)
+    FoldingSimulation.validate_initial_robot_clearance(sim)
+
+
+def test_dynamic_contact_stops_at_first_excessive_flap_penetration():
+    from carton.folding_sim import FoldingSimulation,FLAPS
+    sim=_contact_probe(.003)
+    sim.events=[];sim.stats={'max_bad_penetration_mm':0.}
+    sim.truth_angles=lambda:dict.fromkeys(FLAPS,0.)
+    sim.measure_carton_motion=lambda:{}
+    sim.step_diagnostic=lambda:None
+    sim.actual_control_position=lambda side:sim.data.geom('left_moving_jaw_probe').xpos
+    event=FoldingSimulation.move(sim,{},.1,capture=False)
+    assert event['stopped_early']
+    assert event['duration_s']==pytest.approx(sim.model.opt.timestep)
+    assert event['max_robot_flap_penetration_mm']>8
+    assert event['bad_penetration_mm']==0  # This was an intended contact, still bounded.
+    assert event['step_error']=='Robot/flap penetration exceeded 1 mm'

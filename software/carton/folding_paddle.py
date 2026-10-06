@@ -138,6 +138,7 @@ class PaddleFoldingSimulation(FoldingSimulation):
         # test. Grip torque remains limited by the existing 0.5 Nm actuator.
         self.data.qpos[self.arm_indices['right'][5]]=-.12127145799576845
         mujoco.mj_forward(self.model,self.data)
+        self.validate_initial_robot_clearance()
         self.control_sites['right']='right_paddle_target'
         self.monitor_tool=True
 

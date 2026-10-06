@@ -219,9 +219,27 @@ class FoldingSimulation:
             ix=self.arm_indices[s];self.data.qpos[ix[:5]]=q;self.data.qpos[ix[5]]=-.17
             self.data.ctrl[[self.model.actuator(s+'_'+n).id for n in JOINTS]]=np.r_[q,-.17]
         mujoco.mj_forward(self.model,self.data)
+        self.validate_initial_robot_clearance()
         self.box_origin=self.data.body('carton').xpos.copy()
         self.box_rotation=self.data.body('carton').xmat.reshape(3,3).copy()
         self.motion_stats={'max_translation_mm':0.,'max_rotation_degrees':0.,'minimum_bottom_corner_table_clearance_mm':float('inf')}
+
+    def validate_initial_robot_clearance(self):
+        """Reject a start already inside an obstacle or an untouched flap.
+
+        Robot/flap contact is intentional later in a fold. At initialization,
+        however, it can push the free carton before the first planned action
+        and disguise an invalid starting pose as ordinary settling.
+        """
+        bad=[]
+        for contact in self.data.contact:
+            if contact.dist>=-.0001:continue
+            a,b=self.model.geom(contact.geom1).name,self.model.geom(contact.geom2).name
+            initial_flap_contact=(a.endswith('_cardboard') or b.endswith('_cardboard')) and (
+                a.startswith(('left_','right_')) or b.startswith(('left_','right_')))
+            if initial_flap_contact or self.forbidden_contact(a,b):
+                bad.append((a,b,float(-contact.dist*1000)))
+        if bad:raise ValueError(f'Initial robot pose intersects scene geometry: {bad[:8]}')
 
     def measure_carton_motion(self):
         """Independent evaluation only; never supplied to the visual controller."""
@@ -290,7 +308,7 @@ class FoldingSimulation:
             if e>.008:raise ValueError(f'IK {side} target {point} misses by {e*1000:.1f} mm')
             ctrl[[self.model.actuator(side+'_'+j).id for j in JOINTS[:5]]]=q
         start=self.data.ctrl.copy();n=max(1,round(seconds/self.model.opt.timestep))
-        contact_names=set();bad_pairs=set();bad=0.
+        contact_names=set();bad_pairs=set();bad=0.;flap_penetration=0.
         extrema={f:[float('inf'),float('-inf')] for f in FLAPS}
         for i in range(n):
             t=min(1,(i+1)/(n*.8));self.data.ctrl[:]=start+(ctrl-start)*(t*t*(3-2*t))
@@ -299,7 +317,9 @@ class FoldingSimulation:
             for c in self.data.contact:
                 a,b=self.model.geom(c.geom1).name,self.model.geom(c.geom2).name
                 if 'cardboard' in a or 'cardboard' in b:
-                    if a.startswith(('left_','right_')) or b.startswith(('left_','right_')):contact_names.add((a,b))
+                    if a.startswith(('left_','right_')) or b.startswith(('left_','right_')):
+                        contact_names.add((a,b))
+                        flap_penetration=max(flap_penetration,-c.dist*1000)
                 # Arm/table, arm/cart, arm/rigid carton, and arm/arm penetration.
                 forbidden=self.forbidden_contact(a,b)
                 if forbidden:
@@ -307,7 +327,8 @@ class FoldingSimulation:
                     if c.dist<-.001:bad_pairs.add((a,b))
             for flap,value in self.truth_angles().items():
                 extrema[flap][0]=min(extrema[flap][0],value);extrema[flap][1]=max(extrema[flap][1],value)
-            step_error=self.step_diagnostic()
+            step_error=('Robot/flap penetration exceeded 1 mm' if flap_penetration>1.
+                        else self.step_diagnostic())
             if capture and i%100==0:self.capture(label)
             if bad>1. or step_error:
                 # End this offline motion at the first forbidden contact,
@@ -315,8 +336,10 @@ class FoldingSimulation:
                 if capture:self.capture('STOP: '+(step_error or 'forbidden robot contact'))
                 break
         self.stats['max_bad_penetration_mm']=max(self.stats['max_bad_penetration_mm'],bad)
+        self.stats['max_robot_flap_penetration_mm']=max(self.stats.get('max_robot_flap_penetration_mm',0.),flap_penetration)
         event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.actual_control_position(a)-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.actual_control_position(s).tolist() for s in self.arm_indices},'step_error':step_error}
         self.events.append(event)
+        event['max_robot_flap_penetration_mm']=flap_penetration
         event['forbidden_contact_pairs']=sorted(bad_pairs)
         event['carton_motion']=motion
         if joint_targets:

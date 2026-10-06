@@ -4,6 +4,21 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Carton contact validation — 2026-10-06
+
+The [contact audit](docs/carton-contact-clearance-audit.md) adds rejection of
+invalid initial arm/flap overlaps and limits planned and executed intended
+contacts to 1 mm penetration. Full original-layout replays pass these checks
+at every 2 ms step: peaks are 0.369 mm for claws and 0.125 mm for the paddle.
+Their scene XML and recorded states exactly match the preceding full GIFs.
+All 92 folding tests pass; physical coefficients and motor limits are unchanged.
+
+Neither variant completes the carton. Bridge-pose searches and a separate
+lower-table proposal have not produced a clear hand-transfer path. A rotated
+carton trial reached a grip but then lost its brace and slid over 10 cm. The
+successful stage remains two short flaps held; release produces spring-back.
+Full closure, taping and hands-off retention remain open. No hardware was used.
+
 ## Paddle end-contact progress — 2026-10-06
 
 The [new matched audit](docs/carton-paddle-end-contact-audit.md) reproduces both

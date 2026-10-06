@@ -85,6 +85,7 @@ class PixelPort:
     def move_arms(self,targets,seconds,label,orientation):
         if self.fault=='right_arm_disabled':targets={k:v for k,v in targets.items() if k!='right'}
         event=self.sim.move(targets,seconds,label,orientation,capture=self.record)
+        if event.get('step_error'):raise ValueError(event['step_error'])
         if event['bad_penetration_mm']>1:raise ValueError('Robot collision exceeded 1 mm')
         # Deliberate contact can cause small compliance; large misses require recovery.
         if event['max_target_tracking_error_m']>.035:raise ValueError('Actual fingertips missed target by over 35 mm')
@@ -97,6 +98,7 @@ class PixelPort:
             openings={s:v for s,v in openings.items() if s!='right'}
         if self.fault=='right_arm_disabled':openings={s:v for s,v in openings.items() if s!='right'}
         event=self.sim.move({},seconds,label,None,capture=self.record,grippers=openings)
+        if event.get('step_error'):raise ValueError(event['step_error'])
         if event['bad_penetration_mm']>1:raise ValueError('Robot collision exceeded 1 mm during gripper command')
         return {'joint_positions':{s:self.sim.data.qpos[ix].tolist() for s,ix in self.sim.arm_indices.items()}}
 
