@@ -232,8 +232,16 @@ class FoldingSimulation:
         self.seeds[side]=sol.x.copy()
         return sol.x,float(np.linalg.norm(fun(sol.x)[:3]))
 
-    def move(self,targets,seconds=.5,label='',orientation=None,capture=True,grippers=None):
+    def move(self,targets,seconds=.5,label='',orientation=None,capture=True,grippers=None,joint_targets=None):
         ctrl=self.data.ctrl.copy();errors={}
+        for side,values in (joint_targets or {}).items():
+            if side in targets:raise ValueError('Choose joint or Cartesian targets for each arm')
+            values=np.asarray(values,dtype=float)
+            limits=self.model.jnt_range[[self.model.joint(side+'_'+j).id for j in JOINTS[:5]]]
+            if values.shape!=(5,) or not np.isfinite(values).all() or np.any(values<limits[:,0]) or np.any(values>limits[:,1]):
+                raise ValueError('Joint path target outside original model limits')
+            ctrl[[self.model.actuator(side+'_'+j).id for j in JOINTS[:5]]]=values
+            self.seeds[side]=values.copy()
         for side,opening in (grippers or {}).items():
             actuator=self.model.actuator(side+'_gripper').id
             lo,hi=self.model.actuator_ctrlrange[actuator]
@@ -274,6 +282,9 @@ class FoldingSimulation:
         self.events.append(event)
         event['forbidden_contact_pairs']=sorted(bad_pairs)
         event['carton_motion']=motion
+        if joint_targets:
+            event['joint_targets_radians']={s:np.asarray(v).tolist() for s,v in joint_targets.items()}
+            event['max_joint_tracking_error_radians']=max(float(np.max(np.abs(self.data.qpos[self.arm_indices[s][:5]]-v))) for s,v in joint_targets.items())
         event['targets_m']={s:np.asarray(p).tolist() for s,p in targets.items()}
         event['orientation_error_degrees']={}
         if orientation is not None:

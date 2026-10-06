@@ -40,7 +40,10 @@ def main():
     frames=[];heading=font(22);body=font(17);small=font(15)
     for t in timeline:
         im=Image.new('RGB',(1280,764),'#f1f2f3');draw=ImageDraw.Draw(im)
-        draw.text((14,8),a.case.upper().replace('-',' ')+' | OFFLINE SIMULATION | 1x time | whole robot + close view',font=heading,fill='#111')
+        title=(f"PARTIAL DIAGNOSTIC | Short flaps initially {items[0]['result']['assumptions']['short_initial_angle_degrees']:g} degrees | No full closure"
+               if items[0]['result'].get('stage_only') else
+               a.case.upper().replace('-',' ')+' | OFFLINE SIMULATION | 1x time | whole robot + close view')
+        draw.text((14,8),title,font=heading,fill='#111')
         for col,item in enumerate(items):
             x=col*640;states=item['states'];result=item['result'];d=item['data'];m=item['model'];r=item['renderer']
             st=states[max(0,bisect_right(item['times'],t+1e-7)-1)]
