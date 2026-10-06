@@ -1,5 +1,7 @@
 # Four-flap folding with the cart behind the table
 
+**Material update:** the [free-box and springback audit](carton-free-box-springback.md) now tests empty/load/friction/crease variations and hands-off retention. The passes below used the loaded, weak-crease assumptions and do not demonstrate closure of a loose resistant carton.
+
 The corrected **offline simulation** passes with both arm mounts behind the
 table. The box is rotated 30 degrees: the left hand folds the left short flap
 and the far flap near its left corner; the right hand folds the right short
@@ -97,7 +99,8 @@ PYTHONPATH=. python tools/simulate_bimanual_folding.py \
   --box-from-table-edge .01 --base-spacing .30 \
   --table-tag-x -.50 --table-tag-y .55 \
   --backup-table-tag-x .45 --backup-table-tag-y .70 \
-  --yaw 30 --dy .07579259463549806 --width 960 --height 540
+  --yaw 30 --dy .07579259463549806 --width 960 --height 540 \
+  --contents-mass .96 --table-friction .7 --stiffness .008
 ```
 
 Choose a new output path for every run. Add `--dx .005 --seed 17` or

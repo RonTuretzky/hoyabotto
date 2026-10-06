@@ -14,6 +14,7 @@ from carton.folding_vision import RGBDTagObserver,depth_flap_angles
 from carton.folding_controller import FoldingController
 from carton.folding_diagonal import DiagonalFoldingController
 from carton.folding_station import FoldingStation
+from carton.folding_material import CartonMaterial
 
 
 def station_from_args(args):
@@ -97,6 +98,14 @@ class PixelPort:
 
 def run(args,controller_class=None):
     station=station_from_args(args)
+    material=CartonMaterial(cardboard_mass_kg=getattr(args,'cardboard_mass',.272),
+        contents_mass_kg=getattr(args,'contents_mass',0.),contents_top_m=getattr(args,'contents_top',.102),
+        table_friction=getattr(args,'table_friction',.35),hinge_stiffness=args.stiffness,
+        hinge_friction=getattr(args,'hinge_friction',.004),hinge_damping=getattr(args,'hinge_damping',.008),
+        hinge_rest_degrees=getattr(args,'hinge_rest',0.),
+        flap_stiffness=None if getattr(args,'flap_stiffness',None) is None else tuple(args.flap_stiffness))
+    release_seconds=getattr(args,'release_seconds',5.)
+    if not np.isfinite(release_seconds) or release_seconds<0:raise ValueError('Nonnegative finite release duration required')
     if controller_class is None:
         strategy=getattr(args,'strategy','original')
         if strategy not in ('original','diagonal'):raise ValueError('Unknown folding strategy')
@@ -108,7 +117,7 @@ def run(args,controller_class=None):
         raise ValueError('Invalid finite simulation geometry, camera size or sensor noise')
     out=Path(args.out).resolve()
     if out.exists():raise ValueError('Output already exists; preserve previous experiments')
-    sim=FoldingSimulation(Path(args.simulation_root),out,station=station,stiffness=args.stiffness,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw))
+    sim=FoldingSimulation(Path(args.simulation_root),out,station=station,material=material,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw))
     port=PixelPort(sim,seed=args.seed,noise=args.noise,dropout=args.dropout,fault=args.fault,record=not args.no_video)
     if args.fault=='stuck_far_flap':
         j=sim.model.joint('long_far_hinge').id
@@ -142,31 +151,64 @@ def run(args,controller_class=None):
     supported=all(any(set(c['geoms'])=={'contents',f+'_cardboard'} for c in final_contacts) for f in ('short_left','short_right'))
     holds=[e for e in sim.events if e['label']=='Verify two-second closure']
     hold_passed=bool(holds and holds[-1]['duration_s']>=2 and all(85<=lo<=hi<=95 for lo,hi in holds[-1]['flap_angle_extrema_degrees'].values()))
+    held_passed=bool(outcome.get('visual_sequence_passed') and all_closed and hold_passed and both_worked and sim.stats['max_bad_penetration_mm']<=1
+                     and sim.motion_stats['minimum_bottom_corner_table_clearance_mm']>=0)
+    release={'requested_seconds':release_seconds,'performed':False,'passed':False,
+             'reason':'No verified held closure to release' if not held_passed else 'Release test disabled'}
+    if held_passed and release_seconds>0:
+        release['reason']=None
+        release_event_start=len(sim.events)
+        try:
+            port.set_grippers({'left':.35,'right':.35},.4,'Release finger pinch after held closure')
+            # Encoder-derived robot tip poses, not hidden carton coordinates.
+            raised={side:(sim.data.site(side+'_tip').xpos+[0,0,.080]).tolist() for side in ('left','right')}
+            port.move_arms(raised,.8,'Lift hands off the folded flaps','down')
+            port.move_arms({'left':[-.24,-.10,.29],'right':[.24,-.10,.29]},1.,'Withdraw both hands from the carton','down')
+            event=sim.move({},release_seconds,'Observe unassisted flap springback',capture=not args.no_video)
+            release.update(performed=True,flap_angle_extrema_degrees=event['flap_angle_extrema_degrees'],
+                           final_flap_degrees=sim.truth_angles(),robot_flap_contacts=event['contact_pairs'],duration_s=event['duration_s'])
+            release['closure_maintained_during_withdrawal']=all(
+                85<=lo<=hi<=95 for segment in sim.events[release_event_start:]
+                for lo,hi in segment['flap_angle_extrema_degrees'].values())
+            # Both physical contact absence and the whole observation window
+            # matter: returning to near-horizontal later is not retention.
+            release['passed']=bool(release['closure_maintained_during_withdrawal'] and event['duration_s']>=release_seconds and not event['contact_pairs']
+                and all(85<=lo<=hi<=95 for lo,hi in event['flap_angle_extrema_degrees'].values())
+                and sim.stats['max_bad_penetration_mm']<=1
+                and sim.motion_stats['minimum_bottom_corner_table_clearance_mm']>=0)
+            if not release['passed']:release['reason']='Flaps did not stay closed without robot contact for the full release interval'
+            try:release['visual_observation']=port.observe('Observe flaps after both hands release')
+            except ValueError as exc:
+                release['visual_error']=str(exc);release['passed']=False
+        except ValueError as exc:release['reason']=str(exc)
+    sim.capture('After release: retained closure' if release['passed'] else
+                ('STOP: closure not retained after release' if release['performed'] else 'STOP: full unassisted closure not demonstrated'))
     report={'simulation_only':True,'physical_validation':False,'approach':'geometric_rgbd_tag_contact_controller','learned_policy':False,
-            'success':bool(outcome.get('visual_sequence_passed') and all_closed and hold_passed and both_worked and supported and sim.stats['max_bad_penetration_mm']<=1),
-            'controller':outcome,'independent_evaluation':{'final_flap_degrees':final,'all_four_closed':all_closed,'continuous_two_second_hold_passed':hold_passed,'short_flaps_supported_by_contents':supported,'final_contacts':final_contacts,
+            'success':bool(held_passed and release['passed']),'success_definition':'Four flaps closed under contact, then still closed with no hand contact during the full requested release interval',
+            'held_closure_passed':held_passed,'release_test':release,
+            'controller':outcome,'independent_evaluation':{'pre_release_flap_degrees':final,'final_flap_degrees':sim.truth_angles(),'all_four_closed_before_release':all_closed,'continuous_two_second_hold_passed':hold_passed,'short_flaps_supported_by_contents':supported if material.contents_mass_kg>0 else None,'pre_release_contacts':final_contacts,
                                       'initial_carton_position_error_mm':float(np.linalg.norm(np.asarray(port.readings[0]['world_from_box'])[:3,3]-initial_box)*1000) if port.readings else None,
                                       'carton_translation_during_run_mm':float(np.linalg.norm(sim.data.body('carton').xpos-initial_box)*1000),
                                       'both_hands_contacted_flaps':both_worked,'finger_contacts':finger_contact,'assigned_flaps':assignments},
             'configuration':vars(args),'station':station.report(),'initial_carton_footprint':station.carton_footprint((args.dx,args.dy),math.radians(args.yaw)),
             'observations':port.readings,'perception_quality':port.observer.history,'arm_tag_checks':port.arm_tag_checks,
             'assumptions':{'base_height_above_table_m':station.base_height,'base_setback_from_near_rim_m':station.setback,'base_spacing_m':station.base_spacing,
-                           'contents_top_above_table_m':.102,'hinge_range_degrees':[-97.4,174.8],'closure_tolerance_degrees_from_horizontal':5.,
-                           'hinge_stiffness_Nm_per_rad':args.stiffness,'hinge_friction_Nm':.004,'flap_mass_kg':.023,'depth_noise_std_m':args.noise,'depth_dropout_fraction':args.dropout,
+                           'material':material.report(),'contents_top_above_table_m':material.contents_top_m if material.contents_mass_kg>0 else None,'hinge_range_degrees':[-97.4,174.8],'closure_tolerance_degrees_from_horizontal':5.,
+                           'hinge_stiffness_Nm_per_rad':list(material.stiffnesses),'hinge_friction_Nm':material.hinge_friction,'flap_mass_kg':.023*material.cardboard_mass_kg/.272,'depth_noise_std_m':args.noise,'depth_dropout_fraction':args.dropout,
                            'registration':'Surveyed table tag 1 and optional ID 20; calibrated robot base locations. With two anchors the camera is fixed after initial registration and fresh anchor geometry is checked every observation. Carton pose obtained from fresh detected tag 10 and depth.',
                            'additional_markers':'ID 4 left housing; ID 10 carton wall; IDs 11-14 flap outside faces; optional ID 20 second table anchor (60 mm); exact simulated sizes and rigid mounts.',
                            'gripper_geometry':'Stock rigid SO101 fingertips. White compliant attachments visible in the photos have not been identified or modeled.',
                            'cart_geometry':'Historical fixed arm bases with no cart' if station.reference_layout else 'Fixed three-tray cart approximation; static table overlap refused; arm/cart contacts checked',
                            'cardboard_model':'Rigid panels with passive frictional spring hinges. Material properties assumed, not measured.'},
             'actuated_joint_names':[sim.model.joint(int(j)).name for j in sim.model.actuator_trnid[:,0]],
-            'code_sha256':{str(p.relative_to(Path(__file__).resolve().parents[1])):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__).resolve(),*[Path(__file__).resolve().parents[1]/'carton'/n for n in ['folding_sim.py','folding_vision.py','folding_controller.py','folding_station.py','folding_cart.py']]]},
+            'code_sha256':{str(p.relative_to(Path(__file__).resolve().parents[1])):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__).resolve(),*[Path(__file__).resolve().parents[1]/'carton'/n for n in ['folding_sim.py','folding_vision.py','folding_controller.py','folding_station.py','folding_cart.py','folding_material.py']]]},
             'source_arm_sha256':hashlib.sha256((Path(args.simulation_root)/'scene-assets/arm-import.xml').read_bytes()).hexdigest()}
     controller_source=Path(inspect.getfile(controller_class))
     report['controller_source']={'class':controller_class.__name__,'path':str(controller_source),'sha256':hashlib.sha256(controller_source.read_bytes()).hexdigest()}
     physics=sim.save('folding')
     report['physics']=physics
     (out/'result.json').write_text(json.dumps(report,indent=2,allow_nan=False))
-    print(json.dumps({'out':str(out),'success':report['success'],'controller_error':outcome.get('error'),'flap_degrees':final,'hold_passed':hold_passed,'contents_support':supported},indent=2),flush=True)
+    print(json.dumps({'out':str(out),'success':report['success'],'held_closure_passed':held_passed,'release_passed':release['passed'],'controller_error':outcome.get('error'),'flap_degrees':sim.truth_angles(),'carton_motion':sim.motion_stats},indent=2),flush=True)
     return report
 
 
@@ -184,7 +226,16 @@ def main():
     p.add_argument('--table-tag-y',type=float,help='Assumed surveyed table anchor Y coordinate, metres')
     p.add_argument('--backup-table-tag-x',type=float,help='Optional surveyed ID 20 table anchor X, metres')
     p.add_argument('--backup-table-tag-y',type=float,help='Optional surveyed ID 20 table anchor Y, metres')
-    p.add_argument('--stiffness',type=float,default=.008);p.add_argument('--seed',type=int,default=1)
+    p.add_argument('--stiffness',type=float,default=.018,help='Unmeasured elastic crease stiffness, Nm/rad')
+    p.add_argument('--flap-stiffness',type=float,nargs=4,metavar=('LEFT','RIGHT','FAR','NEAR'),help='Optional per-flap stiffnesses, Nm/rad')
+    p.add_argument('--hinge-friction',type=float,default=.004);p.add_argument('--hinge-damping',type=float,default=.008)
+    p.add_argument('--hinge-rest',type=float,default=0.,help='Passive crease rest angle from upright, degrees')
+    p.add_argument('--cardboard-mass',type=float,default=.272,help='Total empty cardboard mass, kg; unmeasured default')
+    p.add_argument('--contents-mass',type=float,default=0.,help='Rigid contents mass, kg; zero removes interior support')
+    p.add_argument('--contents-top',type=float,default=.102,help='Contents top height within carton, metres')
+    p.add_argument('--table-friction',type=float,default=.35,help='Explicit table/cardboard sliding coefficient; unmeasured')
+    p.add_argument('--release-seconds',type=float,default=5.,help='Hands-off retention observation; zero leaves retention unverified')
+    p.add_argument('--seed',type=int,default=1)
     p.add_argument('--noise',type=float,default=.0008);p.add_argument('--dropout',type=float,default=.25)
     p.add_argument('--dx',type=float,default=0);p.add_argument('--dy',type=float,default=0);p.add_argument('--yaw',type=float,default=0)
     p.add_argument('--fault',choices=['missing_tags','missing_depth','right_arm_disabled','stuck_far_flap','no_actions','bad_gripper_calibration'])

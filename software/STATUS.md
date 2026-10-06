@@ -4,6 +4,25 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Unbolted carton and springback update — 2026-10-06
+
+The [new free-box and material tests](docs/carton-free-box-springback.md) expose
+limits of the previous passing GIF. The box was already a free body, but the
+passing assumptions included 960 g contents, friction 0.7 and weak creases.
+The loaded weak-crease reference still passes withdrawal and a five-second
+hands-off hold. Eight empty/lower-friction/stronger-crease sensitivity variants
+fail; the empty weak-crease box moves about 35 mm horizontally in recorded
+frames. Separate explicitly preset-closed material tests show stronger creases
+springing open without any hand contact. Those are not robot-folding successes.
+
+Material/load/friction parameters and per-flap resistance are configurable.
+Zero contents mass removes both weight and support. Overall success now also
+requires retention during withdrawal and after hands release; held closure is
+reported separately. All material values remain unmeasured. Stock fingertips
+are still used, and no brace-and-paddle controller has been validated. RGB plus
+aligned depth remains required for the folding controller; the material-only
+probe does not use perception. 94 focused tests pass. No hardware was accessed.
+
 ## Two-hand carton folding simulation — 2026-10-06
 
 The [corrected rear-cart simulation](docs/carton-diagonal-folding.md) closes all

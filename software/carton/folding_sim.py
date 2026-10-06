@@ -18,6 +18,7 @@ from PIL import Image, ImageDraw
 from carton.servo.tag_kit import marker_grid
 from carton.geometry import Box
 from carton.folding_station import FoldingStation
+from carton.folding_material import CartonMaterial
 from carton.folding_cart import cart_boxes,table_overlap,report as cart_report
 
 JOINTS = ('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper')
@@ -44,7 +45,8 @@ def marker(parent,name,tag_id,size,pos,xyaxes=None):
     return b
 
 
-def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, offset=(0,0), yaw=0.):
+def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0.):
+    material=material or CartonMaterial(hinge_stiffness=stiffness)
     if not station.carton_footprint(offset,yaw)['fully_on_table']:
         raise ValueError('Initial carton bottom extends beyond the tabletop')
     if not station.reference_layout and table_overlap(station):
@@ -108,26 +110,37 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
     box=E.SubElement(world,'body',name='carton',pos=words([*offset,.001]),euler=words([0,0,yaw]))
     E.SubElement(box,'freejoint',name='carton_free')
     common=dict(type='box',rgba='.68 .45 .24 1',friction='.65 .002 .0001',solref='.004 1',solimp='.95 .99 .001')
-    E.SubElement(box,'geom',name='bottom',pos=words([0,0,.0015]),size=words([L/2,W/2,.0015]),mass='.08',**common)
-    E.SubElement(box,'geom',name='contents',pos='0 0 .052',size=words([L/2-.012,W/2-.012,.05]),mass='.96',**{**common,'rgba':'.5 .52 .50 1'})
+    scale=material.cardboard_mass_kg/.272
+    E.SubElement(box,'geom',name='bottom',pos=words([0,0,.0015]),size=words([L/2,W/2,.0015]),mass=str(.08*scale),**common)
+    if material.contents_mass_kg>0:
+        half=(material.contents_top_m-.002)/2
+        E.SubElement(box,'geom',name='contents',pos=words([0,0,.002+half]),size=words([L/2-.012,W/2-.012,half]),mass=str(material.contents_mass_kg),**{**common,'rgba':'.5 .52 .50 1'})
     for name,pos,size in [('wall_left',[-L/2,0,H/2],[.0015,W/2,H/2]),('wall_right',[L/2,0,H/2],[.0015,W/2,H/2]),('wall_far',[0,W/2,H/2],[L/2,.0015,H/2]),('wall_near',[0,-W/2,H/2],[L/2,.0015,H/2])]:
-        E.SubElement(box,'geom',name=name,pos=words(pos),size=words(size),mass='.025',**common)
+        E.SubElement(box,'geom',name=name,pos=words(pos),size=words(size),mass=str(.025*scale),**common)
     marker(box,'box_tag',10,.045,[0,-W/2-.0018,H/2],[1,0,0,0,0,1])
     specs=[('short_left',[-L/2,0,H],[0,1,0],[.0015,W/2-.004,F/2],[0,-1,0,0,0,1]),
            ('short_right',[L/2,0,H],[0,-1,0],[.0015,W/2-.004,F/2],[0,1,0,0,0,1]),
            ('long_far',[0,W/2,H+.0035],[1,0,0],[L/2-.004,.0015,F/2],[-1,0,0,0,0,1]),
            ('long_near',[0,-W/2,H+.0035],[-1,0,0],[L/2-.004,.0015,F/2],[1,0,0,0,0,1])]
-    for name,pos,axis,size,axes in specs:
+    for index,(name,pos,axis,size,axes) in enumerate(specs):
         f=E.SubElement(box,'body',name=name,pos=words(pos))
-        E.SubElement(f,'joint',name=name+'_hinge',axis=words(axis),range='-1.7 3.05',stiffness=str(stiffness),springref='0',damping='.008',frictionloss='.004')
-        E.SubElement(f,'geom',name=name+'_cardboard',pos=words([0,0,F/2]),size=words(size),mass='.023',**common)
+        E.SubElement(f,'joint',name=name+'_hinge',axis=words(axis),range='-1.7 3.05',stiffness=str(material.stiffnesses[index]),springref=str(math.radians(material.hinge_rest_degrees)),damping=str(material.hinge_damping),frictionloss=str(material.hinge_friction))
+        E.SubElement(f,'geom',name=name+'_cardboard',pos=words([0,0,F/2]),size=words(size),mass=str(.023*scale),**common)
         # MuJoCo filters parent/child contacts by default. Contents must explicitly
         # collide with each hinged flap; otherwise a hinge limit could fake support.
-        E.SubElement(contact,'pair',geom1='contents',geom2=name+'_cardboard',solref='.004 1',solimp='.95 .99 .001',friction='.65 .65 .002 .0001 .0001')
+        if material.contents_mass_kg>0:
+            E.SubElement(contact,'pair',geom1='contents',geom2=name+'_cardboard',solref='.004 1',solimp='.95 .99 .001',friction='.65 .65 .002 .0001 .0001')
         # Outside-face markers face upward after folding; offset from hand contacts.
         n=np.cross(axes[:3],axes[3:])
         tag_point=[0,.07,.090] if name.startswith('short') else ([-.08,0,.090] if name=='long_far' else [.08,0,.090])
         marker(f,name+'_tag',TAG_IDS[name],.035,np.array(tag_point)+n*.0018,axes)
+    # Explicit pairs avoid MuJoCo's max(geom friction) mixing silently keeping
+    # the old high friction when only the table coefficient is lowered.
+    for name in ('bottom','wall_left','wall_right','wall_far','wall_near',*[f+'_cardboard' for f in FLAPS]):
+        # Preserve the previous table/cardboard mixed normal-contact response;
+        # only the explicitly selected sliding friction changes here.
+        E.SubElement(contact,'pair',geom1='table',geom2=name,condim='3',solref='.004 1',solimp='.925 .97 .001',
+                     friction=words([material.table_friction,material.table_friction,.003,.0001,.0001]))
     front=([.0,-.55,.85],[0,-.04,.08]) if station.reference_layout else ([0,station.base_y-.08,station.base_height+.45],[0,-.015,.10])
     for name,pos,look in [('overhead',[0,.00,.85],[0,0,.06]),('front',*front),('side',[.85,-.3,.5],[0,station.base_y/2,.08]),('overview',[1.1,station.base_y-.95,.6],[0,station.base_y,-.14])]:
         back=np.array(pos)-look;back/=np.linalg.norm(back)
@@ -143,6 +156,7 @@ class FoldingSimulation:
     def __init__(self,source,out,width=960,height=720,**kwargs):
         self.width,self.height=width,height
         self.station=kwargs['station']
+        self.material=kwargs.get('material') or CartonMaterial(hinge_stiffness=kwargs.get('stiffness',.018))
         self.out=Path(out);self.model=build_scene(Path(source),self.out,**kwargs)
         self.data=mujoco.MjData(self.model);self.kin=mujoco.MjData(self.model)
         self.arm_indices={s:[self.model.jnt_qposadr[self.model.joint(s+'_'+n).id] for n in JOINTS] for s in ('left','right')}
@@ -160,6 +174,22 @@ class FoldingSimulation:
             ix=self.arm_indices[s];self.data.qpos[ix[:5]]=q;self.data.qpos[ix[5]]=-.17
             self.data.ctrl[[self.model.actuator(s+'_'+n).id for n in JOINTS]]=np.r_[q,-.17]
         mujoco.mj_forward(self.model,self.data)
+        self.box_origin=self.data.body('carton').xpos.copy()
+        self.box_rotation=self.data.body('carton').xmat.reshape(3,3).copy()
+        self.motion_stats={'max_translation_mm':0.,'max_rotation_degrees':0.,'minimum_bottom_corner_table_clearance_mm':float('inf')}
+
+    def measure_carton_motion(self):
+        """Independent evaluation only; never supplied to the visual controller."""
+        pose=self.data.body('carton');r=pose.xmat.reshape(3,3)
+        distance=float(np.linalg.norm(pose.xpos-self.box_origin)*1000)
+        angle=math.degrees(math.acos(float(np.clip((np.trace(self.box_rotation.T@r)-1)/2,-1,1))))
+        corners=np.array([[x,y,0.] for x in (-L/2,L/2) for y in (-W/2,W/2)])@r.T+pose.xpos
+        clearance=float(min(np.min(corners[:,0]+.55),np.min(.55-corners[:,0]),
+                            np.min(corners[:,1]-self.station.table_edge_y),np.min(self.station.table_edge_y+1.1-corners[:,1]))*1000)
+        self.motion_stats['max_translation_mm']=max(self.motion_stats['max_translation_mm'],distance)
+        self.motion_stats['max_rotation_degrees']=max(self.motion_stats['max_rotation_degrees'],angle)
+        self.motion_stats['minimum_bottom_corner_table_clearance_mm']=min(self.motion_stats['minimum_bottom_corner_table_clearance_mm'],clearance)
+        return {'translation_mm':distance,'rotation_degrees':angle,'minimum_bottom_corner_table_clearance_mm':clearance}
 
     def ik(self,side,target,orientation=None):
         ix=self.arm_indices[side][:5];site=self.model.site(side+'_tip').id
@@ -210,6 +240,7 @@ class FoldingSimulation:
         for i in range(n):
             t=min(1,(i+1)/(n*.8));self.data.ctrl[:]=start+(ctrl-start)*(t*t*(3-2*t))
             mujoco.mj_step(self.model,self.data)
+            motion=self.measure_carton_motion()
             for c in self.data.contact:
                 a,b=self.model.geom(c.geom1).name,self.model.geom(c.geom2).name
                 if 'cardboard' in a or 'cardboard' in b:
@@ -232,6 +263,7 @@ class FoldingSimulation:
         event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.data.site(a+'_tip').xpos-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.data.site(s+'_tip').xpos.tolist() for s in self.arm_indices}}
         self.events.append(event)
         event['forbidden_contact_pairs']=sorted(bad_pairs)
+        event['carton_motion']=motion
         return event
 
     def arm_tag_fk(self,side):
@@ -263,7 +295,7 @@ class FoldingSimulation:
         self.frames.append(im)
 
     def save(self,name='trial'):
-        report={'simulation_only':True,'hardware_commands':0,'actuated_carton_joints':0,'engine':mujoco.__version__,'events':self.events,'stats':self.stats,'final_angles':self.truth_angles()}
+        report={'simulation_only':True,'hardware_commands':0,'actuated_carton_joints':0,'engine':mujoco.__version__,'events':self.events,'stats':self.stats,'carton_motion':self.motion_stats,'material':self.material.report(),'final_angles':self.truth_angles()}
         (self.out/(name+'.json')).write_text(json.dumps(report,indent=2))
         (self.out/(name+'-frames.json')).write_text(json.dumps(self.frame_states))
         if self.frames:

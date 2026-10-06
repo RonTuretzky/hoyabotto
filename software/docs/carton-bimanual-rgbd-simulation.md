@@ -1,5 +1,7 @@
 # Two-hand carton folding with AprilTags and depth
 
+**Material update:** the [free-box and springback audit](carton-free-box-springback.md) now tests empty/load/friction/crease variations and hands-off retention. The passes below used the loaded, weak-crease assumptions and do not demonstrate closure of a loose resistant carton.
+
 **New corrected simulation:** the [rear-cart diagonal trial](carton-diagonal-folding.md) closes all four flaps with both bases 150 mm behind the table edge. It includes cart collisions and a fully supported rotated box. It is still hypothetical, uses a filled carton and stock fingertips, and fails the heavier-noise trial. The results below describe the superseded favorable layout.
 
 **Station correction, 6 October:** the successful layout does not reproduce
@@ -148,7 +150,8 @@ cd /path/to/xlerobot-farm/software
 python -m pip install -r requirements-carton-folding-sim.txt
 PYTHONPATH=. python tools/simulate_bimanual_folding.py \
   --simulation-root /absolute/path/to/gemma-xlerobot \
-  --out /absolute/path/to/new-fold-run --reference-layout
+  --out /absolute/path/to/new-fold-run --reference-layout \
+  --contents-mass .96 --table-friction .7 --stiffness .008
 
 # Five operating cases, six failure controls, one known material limit.
 PYTHONPATH=. python tools/evaluate_bimanual_folding.py \
