@@ -1,5 +1,21 @@
 # Where the build stands
 
+## Gemma AprilTag observations — 2026-10-06
+
+- The Gemma chat exposes `robot_get_tags` through the shared detector and its
+  existing authenticated `robot_get_cameras` transport. Detection runs on the
+  Gemma Mac; no additional camera stream or motor owner was opened.
+- Live physical detections: OAK IDs 1 (table) and 3 (paddle), phone ID 2 (gripper).
+  Neither view currently contains both gripper and paddle; relative alignment
+  is explicitly unavailable. Phone timing remains receipt-only.
+- Real Gemma inference invoked the tool and accurately reported missing views
+  and tags. The live chat advertised 19 tools after installation, retaining
+  existing direct-control tools and STOP. This check issued no motor writes.
+- The integration provides 2D measurements and annotated images. No metric
+  pose, camera-to-arm calibration, grasp or physical motion was validated.
+  See [setup](docs/gemma-apriltags.md) and
+  [evidence](docs/evidence/gemma-apriltags.json).
+
 ## Servo temperature sensing removed — 2026-10-05
 
 - At the owner's direction the software no longer reads or acts on servo temperature anywhere: the `farm` safety

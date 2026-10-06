@@ -167,6 +167,9 @@ def test_actual_prepare_cli_uses_only_head_and_oak_no_wrist(tmp_path,monkeypatch
     monkeypatch.setattr(carton_session,'camera_identity',lambda name:{'head':'head-test','oak':'oak-test'}[name])
     readers=carton_session.head_oak_readers(dict(manifests={'head':str(frames/'head.json'),'oak':str(oak/'oak.json')}))
     assert set(readers)=={'head','oak'}
+    # This is an immutable fixture, not a live publisher; imports must not age it.
+    for reader in readers.values():
+        reader.clock=lambda: max(head[k] for k in ('captured_at','rgb_captured_at','depth_captured_at')) + .01
     assert {n:r.read().camera_id for n,r in readers.items()}=={'head':'head-test','oak':'oak-test'}
     with pytest.raises(ValueError,match='manifest paths'):
         carton_session.head_oak_readers(dict(manifests={'head':str(frames/'head.json')}))

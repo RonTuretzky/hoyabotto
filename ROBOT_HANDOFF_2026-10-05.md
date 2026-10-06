@@ -1,5 +1,11 @@
 # Robot / carton pickup handoff
 
+**2026-10-06 update:** Gemma now has an AprilTag observation adapter and the live
+pilot has been tested with mounted tags. See
+[Gemma AprilTag setup and deployment](software/docs/gemma-apriltags.md) and
+[current software status](software/STATUS.md). This older handoff's process and
+connection state is historical; it does not describe the new Gemma hardware server.
+
 Prepared 2026-10-05, approximately 16:01 JST (Asia/Tokyo). The user has removed this agent from the task and explicitly requested this handoff and its upload. This document records established results and remaining gaps; it is not a claim that the carton task succeeded.
 
 ## Outcome and shutdown

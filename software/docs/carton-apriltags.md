@@ -1,12 +1,18 @@
 # AprilTags for carton tracking
 
+For Gemma's OAK/phone observations and `robot_get_tags`, see
+[Gemma integration](gemma-apriltags.md). The sections below describe the separate
+carton commissioning workflow. Live detections were subsequently verified on
+2026-10-06; see the Gemma evidence for the exact camera coverage and limitations.
+
 This integrates printed markers into the existing carton visual controller. It
 reuses `farm.perception.tags` (pupil-apriltags) and `TagTracker`; there is no second
 detector, motor owner, learned policy or DepthAI dependency. The OAK-D Lite is
 optional: the existing head and wrist RGB cameras can read these markers.
 
-The software and rendered print sheet are tested. **Physical mounting, visibility
-on the robot, motor calibration and a successful grasp remain unverified.** A tag
+The original software and rendered print-sheet tests did not establish physical
+mounting or robot visibility. **Motor calibration for this tag-based experiment
+and a successful grasp remain unverified.** A tag
 check can run with the motor session stopped, including while the other Mac is
 diagnosing an elbow/power problem. It neither reads the motor session nor sends
 commands. Do not run it alongside a moving experiment: hold the scene stationary
