@@ -1,0 +1,6 @@
+# Tested RGB pose + hand-eye environment. OpenCV 5.0.0.93's Python wheel lacks
+# calibrateHandEye despite exposing the method constants. Camera server stays
+# in its own existing DepthAI environment.
+opencv-python==4.11.0.86
+numpy==2.2.6
+pupil-apriltags==1.0.4.post11

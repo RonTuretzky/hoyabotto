@@ -72,3 +72,15 @@ def test_group_read_validates_requested_length():
     port = Port()
     ph.syncReadTx(port, 56, 2, [9], 1)
     assert ph.readRx(port, 9, 2)[1] == COMM_RX_CORRUPT
+
+
+def test_sdk_failures_record_bounded_bytes_without_changing_failure_result():
+    raw = [255, 255, 9, 17]
+    bus = bus_for(raw, result=COMM_RX_CORRUPT)
+    for _ in range(100):
+        assert bus.packet_handler.read2ByteTxRx(Port(), 9, 56)[1] == COMM_RX_CORRUPT
+    events = bus.reply_validation_events
+    assert len(events) == 64
+    assert events[-1]['packet'] == raw
+    assert events[-1]['communication'] == COMM_RX_CORRUPT
+    assert events[-1]['expected_payload_length'] == 2

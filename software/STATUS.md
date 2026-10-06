@@ -1,5 +1,36 @@
 # Where the build stands
 
+## Metric AprilTags and registration utilities — 2026-10-06
+
+- The live Gemma chat now reads camera-relative tag centres in millimetres,
+  through its existing OAK camera and authenticated transport. Actual Gemma
+  inference read IDs 1/2/3 and reported approximately 378 mm between the gripper
+  and paddle tag centres, correctly stating that these data cannot yet command
+  a grasp. A prior stale-frame probe was rejected. No motor commands were issued.
+- Added stationary camera/encoder sampling, candidate FK through existing
+  LeRobot/Placo and fixed-camera OpenCV hand-eye fitting with independent
+  validation poses. Captured one physical pose and assembled its candidate FK;
+  fitting correctly refuses this insufficient dataset. No robot-frame transform
+  was invented or activated. Printed sizes remain user-confirmed 60/40/40 mm,
+  without a separate ruler measurement.
+- Metric rendered-camera tests retained both failures: worst error 6.72 mm at
+  640×480 and 5.05 mm at 1280×960. The 1920×1440 run passed the unchanged 5 mm
+  target at 4.73 mm maximum across 138 tag positions. This does not validate the
+  live 640×360 camera's physical accuracy. All three runs detected all three
+  tags in 46/46 nominal frames and passed the existing negative controls.
+- Repository tests: 583 passed, 8 skipped. Existing pilot tests: 26 passed;
+  browser-session recovery checks passed. The local chat was restarted idle
+  with saved history and inactive prior goals; its 21-tool catalog includes
+  metric observations. No camera process or remote owner was restarted.
+- Physical pickup remains blocked: the remote owner is latched after an idle
+  `COMM_RX_CORRUPT` read. Source and saved-row timestamps point to right gripper
+  ID 6 but do not prove USB contention or a particular packet failure. Added
+  bounded transaction/reply diagnostics to the existing telemetry helper, with
+  unchanged failure handling and no retries. This diagnostic update is not
+  loaded into the running remote owner.
+- [Guide and next steps](docs/gemma-tag-geometry.md),
+  [measured evidence](docs/evidence/gemma-tag-geometry.json).
+
 ## Gemma AprilTag simulation — 2026-10-06
 
 - Passed the production `TagRobot`/`TagObserver` on MuJoCo-rendered RGB using

@@ -7,6 +7,8 @@ Install strict_servo_replies.guard_replies on the bus before connecting, as the
 owner already does, to reject wrong-length/servo-error packets before SDK decoding.
 """
 from scservo_sdk.scservo_def import COMM_SUCCESS
+import json
+import time
 
 ADDRESS = 56
 LENGTH = 15
@@ -44,6 +46,22 @@ def read_servo_telemetry(bus, name):
     motor = bus.motors[name]
     if motor.model != 'sts3215':
         raise ValueError('Coherent telemetry mapping is restricted to STS3215')
-    data, communication, packet_error = bus.packet_handler.readTxRx(
-        bus.port_handler, motor.id, ADDRESS, LENGTH)
-    return decode_telemetry(data, communication, packet_error)
+    started = time.time()
+    transaction = {"motor": name, "servo_id": motor.id, "model": motor.model,
+                   "port": str(getattr(bus.port_handler, "port_name", getattr(bus, "port", "unknown"))),
+                   "stage": "coherent_telemetry", "address": ADDRESS, "length": LENGTH,
+                   "started_at": started, "attempts": 1}
+    try:
+        data, communication, packet_error = bus.packet_handler.readTxRx(
+            bus.port_handler, motor.id, ADDRESS, LENGTH)
+        transaction.update(communication=communication, packet_error=packet_error,
+                           payload_length=len(data) if isinstance(data, (list, tuple, bytes, bytearray)) else None)
+        return decode_telemetry(data, communication, packet_error)
+    except Exception as exc:
+        transaction.update(finished_at=time.time(), exception_type=type(exc).__name__,
+            reply_validation_events=[dict(e) for e in getattr(bus, "reply_validation_events", [])
+                                     if e.get("captured_at", 0) >= started][-4:])
+        bus.last_telemetry_failure = transaction
+        # Existing owners persist str(exc) as their root failure. Include the
+        # transaction there so diagnosis survives release and process exit.
+        raise RuntimeError(str(exc)+"; transaction="+json.dumps(transaction, sort_keys=True)) from exc

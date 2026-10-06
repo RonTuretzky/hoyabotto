@@ -30,8 +30,11 @@ omits annotations when only measurements are needed.
   is returned in place of a missing detection.
 - `gripper_to_paddle_px` only when IDs 2 and 3 are accepted **in the same frame**.
   Positive x is image-right; positive y is image-down. These are not motor axes.
-- `pose_3d:null`, `metric_pose_available:false`, `depth_used:false` and
-  `physical_task_completed:false`.
+- By default, `pose_3d:null` and `metric_pose_available:false`. With an explicit
+  geometry configuration, camera-relative tag-centre estimates, pose ambiguity,
+  noise sensitivity and size/calibration provenance are included. See
+  [metric geometry and registration](gemma-tag-geometry.md).
+- `depth_used:false` and `physical_task_completed:false` in either mode.
 
 OAK RGB capture time is preferred over depth time. Phone frames retain
 `captured_at:null` and `receipt_only_capture_delay_unknown`. Age is calculated on

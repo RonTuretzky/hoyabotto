@@ -62,5 +62,13 @@ Results are recorded in [simulation evidence](evidence/gemma-apriltag-simulation
 The complete local output includes the scene, raw structured observations,
 annotated before/after/failure images and `apriltag-simulation.gif`.
 
+For metric testing, add `--metric --resolution 1920`. The verifier also compares
+camera-relative tag centres against MuJoCo ground truth with a 5 mm maximum
+error target. Native widths 640, 1280 and 1920 preserve the same field of view;
+images are rendered at that resolution, not enlarged after detection. The
+undersized-tag negative control maintains comparable pixel size. The recorded
+640 and 1280 metric runs failed the target and are retained alongside the
+passing 1920 run. See [metric commissioning](gemma-tag-geometry.md).
+
 Implementation references: [MuJoCo Python](https://mujoco.readthedocs.io/en/stable/python.html)
 and [MJCF geometry](https://mujoco.readthedocs.io/en/stable/XMLreference.html#body-geom).

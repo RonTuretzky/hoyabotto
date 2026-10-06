@@ -10,6 +10,7 @@ import copy
 import hashlib
 import json
 import math
+from pathlib import Path
 import threading
 import time
 
@@ -17,6 +18,7 @@ import cv2
 import numpy as np
 
 from farm.perception.tags import detect_tags
+from farm.perception.tag_geometry import TagGeometry
 from farm.status import Reading, Status
 
 TOOL_NAME = "robot_get_tags"
@@ -25,7 +27,7 @@ _DETECT_LOCK = threading.Lock()
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
 
 
-def tool_schema(cameras):
+def tool_schema(cameras, metric=False):
     return {"type": "function", "function": {
         "name": TOOL_NAME,
         "description": (
@@ -36,7 +38,11 @@ def tool_schema(cameras):
             "Phone receipt time is not capture time. Missing/stale tags are unknown. "
             "Pixels are not millimetres, joint directions, jaw contact or grasp proof. "
             "Use fresh observations and measured motor results between movements. "
-            "This tool reads only; it neither authorizes nor performs motor commands."
+            "This tool reads only; it neither authorizes nor performs motor commands. "
+            + ("Configured tag widths and matching camera intrinsics also provide camera-relative "
+               "tag-centre estimates in millimetres, with pose ambiguity and uncertainty. These are "
+               "not robot-frame coordinates or jaw/contact targets. Inspect pose_3d.status and provenance."
+               if metric else "Metric geometry has not been configured.")
         ),
         "parameters": {"type": "object", "properties": {
             "cameras": {"type": "array", "items": {"type": "string", "enum": list(cameras)},
@@ -99,11 +105,12 @@ def _decode(image, meta):
 class TagObserver:
     """Per-view fresh measurements; no seeded displacement or fixed-head assumption."""
 
-    def __init__(self, *, clock=time.time, max_age_s=2.0, detector=detect_tags):
+    def __init__(self, *, clock=time.time, max_age_s=2.0, detector=detect_tags, geometry=None):
         self.clock = clock
         self.max_age_s = max_age_s
         self.detector = detector
         self._previous = {}
+        self.geometry = geometry if geometry is None or isinstance(geometry, TagGeometry) else TagGeometry(geometry)
 
     def _measure(self, image, meta, ids):
         bgr, digest = _decode(image, meta)
@@ -154,10 +161,11 @@ class TagObserver:
                         "dx": accepted[3]["center_px"][0] - accepted[2]["center_px"][0],
                         "dy": accepted[3]["center_px"][1] - accepted[2]["center_px"][1],
                         "axes": "+x=image right, +y=image down", "contact_offset_calibrated": False}
+        metric = None if self.geometry is None else self.geometry.measure(tags, meta, image, bgr.shape)
         return {"status": "OBSERVED" if accepted else "NO_VALID_TAGS", "frame": frame,
                 "image_size_px": [bgr.shape[1], bgr.shape[0]], "tags": tags,
                 "expected_ids": ids, "missing_ids": [i for i in ids if i not in accepted],
-                "gripper_to_paddle_px": relative, "pose_3d": None}, bgr
+                "gripper_to_paddle_px": relative, "pose_3d": metric}, bgr
 
     def _check_age(self, stamp):
         age = self.clock() - stamp
@@ -216,6 +224,10 @@ class TagObserver:
                    "role_mapping_source": "printed_carton_kit_verify_physical_mounting",
                    "coordinate_system": "per_image_pixels", "depth_used": False,
                    "metric_pose_available": False, "physical_task_completed": False}
+        compact["metric_pose_available"] = any((r.get("pose_3d") or {}).get("status") == "CAMERA_RELATIVE_ESTIMATE"
+                                               for r in observations.values())
+        if compact["metric_pose_available"]:
+            compact["coordinate_system"] = "per_image_pixels_and_per_camera_optical_mm"
         compact["observation_id"] = hashlib.sha256(json.dumps(compact, sort_keys=True).encode()).hexdigest()[:24]
         out = {"ok": available, "result": compact, "images": images, "motor_writes": 0}
         if not available:
@@ -250,9 +262,15 @@ class TagRobot:
     If the server already provides robot_get_tags, prefer its native implementation.
     """
 
-    def __init__(self, robot, *, observer=None):
+    def __init__(self, robot, *, observer=None, geometry=None):
         self.robot = robot
-        self.observer = observer or TagObserver()
+        # Optional local commissioning file beside the authenticated client's
+        # config. No model argument can choose widths or install calibration.
+        if geometry is None and observer is None and getattr(robot, "config", None):
+            path = Path(robot.config).with_name("apriltag-geometry.json")
+            if path.is_file():
+                geometry = path
+        self.observer = observer or TagObserver(geometry=geometry)
         self.last_catalog = None
         self._cameras = None
 
@@ -268,7 +286,7 @@ class TagRobot:
             names = camera_schema.get("items", {}).get("enum", [])
             if names and all(isinstance(n, str) for n in names):
                 self._cameras = names
-                catalog["tools"].append(tool_schema(names))
+                catalog["tools"].append(tool_schema(names, self.observer.geometry is not None))
                 catalog.setdefault("metadata", {})["apriltags"] = {
                     "execution": "local_detector_on_authenticated_robot_camera_snapshots",
                     "tool": TOOL_NAME, "motor_access": False}

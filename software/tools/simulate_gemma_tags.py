@@ -52,8 +52,9 @@ def add_marker(parent, name, tag_id, size, pos, xyaxes=None):
 
 
 class CameraSimulation:
-    def __init__(self, source, out):
+    def __init__(self, source, out, metric=False, width=WIDTH, height=HEIGHT):
         self.out = out
+        self.width, self.height = width, height
         out.mkdir(parents=True, exist_ok=True)
         sys.path.insert(0, str(source))
         module = importlib.import_module("paddle_sim")
@@ -62,6 +63,14 @@ class CameraSimulation:
         module.build_model()
         tree = ET.parse(module.OUT / "scene.xml")
         root = tree.getroot()
+        visual = root.find("visual")
+        if visual is None:
+            visual = ET.SubElement(root, "visual")
+        global_options = visual.find("global")
+        if global_options is None:
+            global_options = ET.SubElement(visual, "global")
+        global_options.set("offwidth", str(width))
+        global_options.set("offheight", str(height))
         world = root.find("worldbody")
         gripper = root.find(".//body[@name='gripper_link']")
         paddle = root.find(".//body[@name='paddle']")
@@ -88,13 +97,16 @@ class CameraSimulation:
         self.sim = module.PaddleSimulation(render=False)
         self.model, self.data = self.sim.model, self.sim.data
         self.camera = self.model.camera("tag_camera").id
-        self.renderer = mujoco.Renderer(self.model, height=HEIGHT, width=WIDTH)
+        self.renderer = mujoco.Renderer(self.model, height=height, width=width)
         self.option = mujoco.MjvOption()
         self.option.geomgroup[3] = 0
         self.seq, self.calls, self.frames, self.samples = 0, [], [], []
         self.stopped = False
         self.initial_pan = float(self.data.qpos[0])
-        self.tagged = TagRobot(self, observer=TagObserver())
+        geometry = {"schema": 1, "family": "tag36h11", "camera_ids": ["sim"],
+                    "tags": {str(i): {"black_square_mm": size, "source": "Exact simulator geometry"}
+                             for i, size in ((1, 60), (2, 40), (3, 40))}} if metric else None
+        self.tagged = TagRobot(self, observer=TagObserver(geometry=geometry))
         self.tagged.catalog()
 
     def catalog(self):
@@ -119,21 +131,30 @@ class CameraSimulation:
         digest = hashlib.sha256(encoded).hexdigest()
         frame = {"camera_id": "sim", "captured_at": captured, "seq": self.seq,
                  "stream_id": "mujoco-tags", "sha256": digest, "mime_type": "image/png",
-                 "data_base64": base64.b64encode(encoded).decode()}
+                 "projection": "rectified_pinhole", "data_base64": base64.b64encode(encoded).decode()}
         self.calls.append(name)
+        focal = self.height / (2 * math.tan(math.radians(self.model.cam_fovy[self.camera]) / 2))
         return {"ok": True, "result": {"cameras": {"sim": {"camera_id": "sim", "seq": self.seq,
-                "stream_id": "mujoco-tags", "sha256": digest, "width": WIDTH, "height": HEIGHT}}},
+                "stream_id": "mujoco-tags", "sha256": digest, "width": self.width, "height": self.height,
+                "projection": "rectified_pinhole", "coordinate_frame": "sim_camera_optical",
+                "intrinsics": [[focal, 0, self.width/2], [0, focal, self.height/2], [0, 0, 1]]}}},
                 "images": [frame], "simulation_only": True}
+
+    def ground_truth_metric(self):
+        rotation = self.data.cam_xmat[self.camera].reshape(3, 3)
+        origin = self.data.cam_xpos[self.camera]
+        return {i: ((self.data.site(f"tag{i}_center").xpos-origin) @ rotation) * [1000, -1000, -1000]
+                for i in (1, 2, 3)}
 
     def ground_truth(self):
         rotation = self.data.cam_xmat[self.camera].reshape(3, 3)
         origin = self.data.cam_xpos[self.camera]
-        focal = HEIGHT / (2 * math.tan(math.radians(self.model.cam_fovy[self.camera]) / 2))
+        focal = self.height / (2 * math.tan(math.radians(self.model.cam_fovy[self.camera]) / 2))
         pixels = {}
         for tag_id in [1, 2, 3]:
             relative = (self.data.site(f"tag{tag_id}_center").xpos-origin) @ rotation
-            pixels[tag_id] = [WIDTH/2 + focal*relative[0]/-relative[2],
-                              HEIGHT/2 - focal*relative[1]/-relative[2]]
+            pixels[tag_id] = [self.width/2 + focal*relative[0]/-relative[2],
+                              self.height/2 - focal*relative[1]/-relative[2]]
         return pixels
 
     def observe(self, label, record=True):
@@ -151,6 +172,10 @@ class CameraSimulation:
         sample = {"label": label, "sim_time_s": float(self.data.time), "joint_pan_degrees": math.degrees(self.data.qpos[0]),
                   "detected_ids": sorted(detected), "center_error_px": errors, "relative_error_px": pair_error,
                   "observation": {k: v for k, v in result.items() if k != "images"}}
+        metric_truth = self.ground_truth_metric()
+        sample["metric_center_error_mm"] = {str(t["tag_id"]): float(np.linalg.norm(
+            np.array(t["center_camera_mm"]) - metric_truth[t["tag_id"]]))
+            for t in (row.get("pose_3d") or {}).get("tags", []) if t.get("center_camera_mm") is not None}
         if record:
             self.samples.append(sample)
             rgb = self.render()
@@ -158,7 +183,7 @@ class CameraSimulation:
                 rgb = cv2.cvtColor(cv2.imdecode(np.frombuffer(base64.b64decode(result["images"][0]["data_base64"]), np.uint8), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
             picture = Image.fromarray(rgb)
             draw = ImageDraw.Draw(picture)
-            draw.rectangle((0, 0, WIDTH, 42), fill="white")
+            draw.rectangle((0, 0, self.width, 42), fill="white")
             draw.text((9, 7), "SIMULATION ONLY | Actual SO-101 / paddle meshes | Production tag detector", fill="black")
             draw.text((9, 24), label, fill="black")
             self.frames.append(picture)
@@ -204,8 +229,10 @@ class CameraSimulation:
         target_geoms = np.flatnonzero(self.model.geom_bodyid == target_body)
         original_positions = self.model.geom_pos[target_geoms].copy()
         original_sizes = self.model.geom_size[target_geoms].copy()
-        self.model.geom_pos[target_geoms, :2] *= .4
-        self.model.geom_size[target_geoms, :2] *= .4
+        # Keep this negative control comparably small in pixels at each resolution.
+        tiny_scale = .4 * WIDTH / self.width
+        self.model.geom_pos[target_geoms, :2] *= tiny_scale
+        self.model.geom_size[target_geoms, :2] *= tiny_scale
         mujoco.mj_forward(self.model, self.data)
         tiny = self.observe("Negative control: paddle marker too small")
         self.frames[-1].save(self.out / "undersized.png")
@@ -309,8 +336,12 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--initial-only", action="store_true")
     parser.add_argument("--gemma", action="store_true", help="Also test actual local LM Studio Gemma tool use in simulation")
+    parser.add_argument("--metric", action="store_true", help="Also compare camera-relative metric estimates with simulator ground truth")
+    parser.add_argument("--resolution", choices=[640, 1280, 1920], type=int, default=640,
+                        help="Native render width; height preserves the 4:3 camera field of view")
     args = parser.parse_args()
-    sim = CameraSimulation(args.simulation_root.resolve(), args.out.resolve())
+    sim = CameraSimulation(args.simulation_root.resolve(), args.out.resolve(), metric=args.metric,
+                           width=args.resolution, height=args.resolution*3//4)
     try:
         first = sim.observe("All tags visible: initial simulated pose")
         sim.frames[-1].save(sim.out / "initial.png")
@@ -327,6 +358,7 @@ def main():
         errors = [v for s in nominal for v in s["center_error_px"].values()]
         pair_errors = [s["relative_error_px"] for s in nominal if s["relative_error_px"] is not None]
         report = {"environment": "MUJOCO_RENDERED_RGB", "mujoco_version": mujoco.__version__,
+                  "image_size_px": [sim.width, sim.height],
                   "production_adapter": "farm.perception.gemma_tags.TagRobot", "hardware_connected": False,
                   "motor_writes": 0, "physical_grasp_validated": False,
                   "assumptions": "Existing photo-informed model; tag mounts/camera pose are illustrative, not a calibrated real scene.",
@@ -337,6 +369,13 @@ def main():
         report["passed"] = (report["all_tags_detected_frames"] == len(nominal) and bool(errors) and max(errors) < 2
                             and bool(pair_errors) and max(pair_errors) < 2 and all(faults.values())
                             and report["measured_pan_travel_degrees"] >= 20)
+        if args.metric:
+            metric_errors = [v for s in nominal for v in s["metric_center_error_mm"].values()]
+            report["metric_validation"] = {"compared_tag_positions": len(metric_errors),
+                "expected_tag_positions": len(nominal)*3, "acceptance_target_mm": 5,
+                "max_position_error_mm": max(metric_errors, default=None)}
+            report["metric_validation"]["passed"] = len(metric_errors) == len(nominal)*3 and max(metric_errors) <= 5
+            report["passed"] = report["passed"] and report["metric_validation"]["passed"]
         if args.gemma:
             # A new, deliberately started simulation goal follows the STOP test.
             sim.stopped = False

@@ -62,3 +62,25 @@ def test_failed_read_is_not_retried():
     with pytest.raises(RuntimeError):
         read_servo_telemetry(bus, 'j')
     assert len(calls) == 1
+
+
+def test_failure_persists_exact_transaction_without_retry_or_hardware_changes():
+    import json
+    import time
+    bus = SimpleNamespace(port_handler=SimpleNamespace(port_name='/dev/test-right'),
+        motors={'right_arm_gripper': SimpleNamespace(id=6, model='sts3215')},
+        reply_validation_events=[{'captured_at': 1, 'reason': 'old event'}])
+    calls = []
+    def read(*args):
+        calls.append(args)
+        bus.reply_validation_events.append({'captured_at': time.time(), 'reason': 'SDK receive failure',
+                                            'packet': [255, 255, 6, 17], 'communication': -7})
+        return [], -7, 0
+    bus.packet_handler = SimpleNamespace(readTxRx=read)
+    with pytest.raises(RuntimeError, match='Coherent servo read communication failure: -7') as err:
+        read_servo_telemetry(bus, 'right_arm_gripper')
+    detail = json.loads(str(err.value).split('; transaction=')[1])
+    assert detail == bus.last_telemetry_failure
+    assert (detail['motor'], detail['servo_id'], detail['port']) == ('right_arm_gripper', 6, '/dev/test-right')
+    assert (detail['address'], detail['length'], detail['payload_length'], detail['attempts']) == (56, 15, 0, 1)
+    assert len(detail['reply_validation_events']) == 1 and len(calls) == 1
