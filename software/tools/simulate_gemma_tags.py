@@ -14,6 +14,7 @@ import math
 from pathlib import Path
 import sys
 import time
+import uuid
 import xml.etree.ElementTree as ET
 
 import cv2
@@ -93,14 +94,19 @@ class CameraSimulation:
                       xyaxes=words(np.r_[right, up]), fovy="40")
         tree.write(out / "tag-scene.xml", encoding="unicode")
         model = mujoco.MjModel.from_xml_path(str(out / "tag-scene.xml"))
+        original_builder = module.build_model
         module.build_model = lambda: model
-        self.sim = module.PaddleSimulation(render=False)
+        try:
+            self.sim = module.PaddleSimulation(render=False)
+        finally:
+            module.build_model = original_builder
         self.model, self.data = self.sim.model, self.sim.data
         self.camera = self.model.camera("tag_camera").id
         self.renderer = mujoco.Renderer(self.model, height=height, width=width)
         self.option = mujoco.MjvOption()
         self.option.geomgroup[3] = 0
         self.seq, self.calls, self.frames, self.samples = 0, [], [], []
+        self.stream_id = 'mujoco-tags-' + uuid.uuid4().hex
         self.stopped = False
         self.initial_pan = float(self.data.qpos[0])
         geometry = {"schema": 1, "family": "tag36h11", "camera_ids": ["sim"],
@@ -130,12 +136,12 @@ class CameraSimulation:
             raise RuntimeError("Failed to encode simulated image")
         digest = hashlib.sha256(encoded).hexdigest()
         frame = {"camera_id": "sim", "captured_at": captured, "seq": self.seq,
-                 "stream_id": "mujoco-tags", "sha256": digest, "mime_type": "image/png",
+                 "stream_id": self.stream_id, "sha256": digest, "mime_type": "image/png",
                  "projection": "rectified_pinhole", "data_base64": base64.b64encode(encoded).decode()}
         self.calls.append(name)
         focal = self.height / (2 * math.tan(math.radians(self.model.cam_fovy[self.camera]) / 2))
         return {"ok": True, "result": {"cameras": {"sim": {"camera_id": "sim", "seq": self.seq,
-                "stream_id": "mujoco-tags", "sha256": digest, "width": self.width, "height": self.height,
+                "stream_id": self.stream_id, "sha256": digest, "width": self.width, "height": self.height,
                 "projection": "rectified_pinhole", "coordinate_frame": "sim_camera_optical",
                 "intrinsics": [[focal, 0, self.width/2], [0, focal, self.height/2], [0, 0, 1]]}}},
                 "images": [frame], "simulation_only": True}

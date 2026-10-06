@@ -1,0 +1,8 @@
+# Install in the local Gemma pilot, not the remote motor/camera environment.
+-r requirements-tag-geometry.txt
+-c constraints-carton.txt
+-c constraints-carton-kinematics.txt
+lerobot[kinematics]==0.6.1
+# LeRobot also requests the headless distribution; keep both cv2 providers at
+# the same tested version instead of silently replacing the pose solver.
+opencv-python-headless==4.11.0.86

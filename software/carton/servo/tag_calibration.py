@@ -114,6 +114,7 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
     with motion_lock(config['lock_file']):
         trace = Trace(output)
         outcome = None
+        released = False
         try:
             settings = transport.preflight()
             observer = GemmaTagObserver(robot, transport, config.get('camera', 'oak'), clock=clock)
@@ -141,6 +142,8 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
             transport.enable()
             if mode == 'local_model':
                 outcome = experiment.calibrate()
+                transport.finish()
+                released = True
             else:
                 experiment.observe()
                 captures = []
@@ -156,10 +159,12 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
                     captures.append(sample)
                     atomic_json(output/f'pose-{i:02d}.json', sample)
                 _move_to(experiment, {j: transport.origin[j] for j in transport.joints})
+                # Offline FK/fitting can be slow; do not hold motors during it.
+                transport.finish()
+                released = True
                 dataset = assemble_dataset(captures, config['model_directory'])
                 atomic_json(output/'dataset.json', dataset)
                 outcome = fit_registration(dataset)
-            transport.finish()
             if 'motor_writes' in outcome:
                 outcome['fitter_motor_writes'] = outcome.pop('motor_writes')
             outcome.update(calibration_commands_sent=transport.commands_sent, commanded_path_ticks=transport.path_ticks,
@@ -168,7 +173,8 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
             return outcome
         except BaseException as exc:
             try:
-                transport.finish(failed=True)
+                if not released:
+                    transport.finish(failed=True)
             except Exception as cleanup_error:
                 transport.cleanup = {'release_confirmed': False, 'error': str(cleanup_error)}
             atomic_json(output/'failure.json', {'error': str(exc), 'calibration_commands_sent': transport.commands_sent,

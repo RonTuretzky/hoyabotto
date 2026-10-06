@@ -6,19 +6,23 @@ import json
 from pathlib import Path
 import time
 
-from carton.servo.common import Refused
+from carton.servo.common import Refused, atomic_json
 from carton.servo.tag_calibration import motion_lock, readiness, run_calibration
+from farm.perception.registered_tags import read_registered_tags
 
 STATUS = 'robot_calibration_status'
 RUN = 'robot_calibrate_tags'
+REGISTERED = 'robot_get_registered_tags'
 
 
 class CalibrationRobot:
-    def __init__(self, robot, config=None):
+    def __init__(self, robot, config=None, *, clock=time.time):
         self.robot = robot
         raw = getattr(robot, 'robot', robot)
         self.config_path = Path(config) if config else Path(raw.config).with_name('tag-calibration.json')
         self.last_catalog = None
+        self.clock = clock
+        self.registration_path = self.config_path.with_name('tag-registration.json')
 
     def settings(self):
         cfg = json.loads(self.config_path.read_text())
@@ -36,11 +40,16 @@ class CalibrationRobot:
         if self.config_path.exists():
             self.settings()
             existing = {t['function']['name'] for t in catalog['tools']}
-            if STATUS in existing or RUN in existing:
+            if {STATUS, RUN, REGISTERED} & existing:
                 raise Refused('Calibration tool name is already supplied by the server')
             for name, description, parameters in [
                 (STATUS, 'Read current tag-calibration readiness and tag visibility. No motor commands. '
                  'Reports exact blockers and tag-2 border clearance; a small margin is not proof of clipping.',
+                 {'type': 'object', 'properties': {}, 'additionalProperties': False}),
+                (REGISTERED, 'Read fresh AprilTag poses in the configured arm base using a passing registration. '
+                 'Rechecks camera stream, table anchor, fixed gripper mount, model, motor mapping and current '
+                 'camera/encoder agreement. Refuses missing or changed calibration. Read-only marker estimates; '
+                 'these are not jaw contact targets or permission to grasp. No motor commands.',
                  {'type': 'object', 'properties': {}, 'additionalProperties': False}),
                 (RUN, 'Perform the CURRENT user-requested automatic calibration through the existing owner. '
                  'Enables only the configured arm positioning motors, makes small observed joint movements, '
@@ -48,7 +57,8 @@ class CalibrationRobot:
                  'registration collects eight fit and three held-out poses then runs the existing hand-eye fitter. '
                  'Use only after fresh readiness and with the operator supervising the cleared workspace. '
                  'Stops on changed state or a refusal; never resets STOP, starts another owner or retries a failed run. '
-                 'This does not grasp an object or install a Cartesian transform. Paths, arm, joints and limits '
+                 'A passing registration is saved for read-only robot_get_registered_tags. It does not grasp '
+                 'an object or enable Cartesian control. Paths, arm, joints and limits '
                  'are local configuration and cannot be changed by tool arguments.',
                  {'type': 'object', 'properties': {'mode': {'type': 'string', 'enum': ['local_model', 'registration']}},
                   'required': ['mode'], 'additionalProperties': False})]:
@@ -57,17 +67,22 @@ class CalibrationRobot:
         return catalog
 
     def call(self, name, args, request_id=None):
-        if name in (STATUS, RUN):
+        if name in (STATUS, RUN, REGISTERED):
             try:
                 cfg = self.settings()
-                if not isinstance(args, dict) or set(args) != (set() if name == STATUS else {'mode'}):
+                if not isinstance(args, dict) or set(args) != ({'mode'} if name == RUN else set()):
                     raise Refused('Unexpected calibration arguments')
                 if name == STATUS:
-                    return {'ok': True, 'result': readiness(self.robot, cfg), 'motor_writes': 0}
+                    return {'ok': True, 'result': readiness(self.robot, cfg, clock=self.clock), 'motor_writes': 0}
+                if name == REGISTERED:
+                    return read_registered_tags(self.robot, cfg, json.loads(self.registration_path.read_text()), clock=self.clock)
                 if args['mode'] not in ('local_model', 'registration'):
                     raise Refused('Unknown calibration mode')
                 output = Path(cfg['output_root'])/f'{time.time_ns()}-{args["mode"]}'
-                return {'ok': True, 'result': run_calibration(self.robot, cfg, args['mode'], output)}
+                outcome = run_calibration(self.robot, cfg, args['mode'], output, clock=self.clock)
+                if outcome.get('status') == 'REGISTRATION_VALIDATED':
+                    atomic_json(self.registration_path, outcome)
+                return {'ok': True, 'result': outcome}
             except (Refused, ValueError, OSError, KeyError) as exc:
                 return {'ok': False, 'result': {'error': str(exc), 'automatic_retry': False}}
         # Ordinary read tools and independent STOP remain responsive during a run.

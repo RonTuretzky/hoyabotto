@@ -1,5 +1,36 @@
 # Where the build stands
 
+## Calibrated tags consumed by Gemma and simulated grasp — 2026-10-06
+
+- Added `robot_get_registered_tags` to the installed local Gemma chat (24 tools).
+  Automatic registration saves a passing fit for this read-only tool; each read
+  rechecks stream, intrinsics, tag mount, robot model, motor configuration/raw
+  ranges, table/head stability, and current gripper agreement. A missing or
+  changed registration refuses coordinates. Cartesian motion stays disabled.
+- Installed the pinned LeRobot/Placo dependencies in the local pilot; the
+  detector-only environment previously lacked these registration dependencies.
+  Calibration now releases motors before the offline FK/fitting stage.
+- Full rendered end-to-end run passed: production adapters, eight fitting and
+  three held-out poses, actual LeRobot FK/OpenCV solve, registered tag 3, CAD
+  handle offset, then contact-physics lift/hold/release. A moved paddle produced
+  a new target and successful grasp; an open-jaw control correctly failed to lift.
+- Held-out fit RMS was 0.637 mm, but independent handle error was about 7 mm and
+  camera-origin error 8.60 mm. Rendering was 1920×1440; these results do not
+  establish the live 640×360 camera's accuracy. Station placement, mass, friction
+  and the simulated tag mount remain assumptions, including compliant contacts.
+- 646 repository tests passed, 8 skipped; 26 pilot tests passed. Actual Gemma
+  inference used the new read-only tool and correctly reported that a physical
+  registration is not installed. No physical motor commands were issued.
+- Latest read-only readiness is blocked by stale/stopped owner status and an
+  unavailable authorized motion interface; only table tag 1 was detected.
+  A subsequent fresh image shows the lower edge of gripper tag 2 outside the
+  image. This differs from the earlier frame with about 8 px clearance.
+  Physical calibration/use remain
+  unvalidated; this work did not restart or change the remote motor owner.
+- [End-to-end method and limits](docs/gemma-calibration-simulation.md),
+  [compact evidence](docs/evidence/gemma-calibration-e2e.json),
+  [installation and execution](docs/gemma-automatic-calibration.md).
+
 ## Automatic Gemma tag calibration integration — 2026-10-06
 
 - Connected the existing `Experiment.calibrate` to authenticated Gemma motor

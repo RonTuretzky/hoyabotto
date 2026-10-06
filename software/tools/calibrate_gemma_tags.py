@@ -13,18 +13,20 @@ from farm.perception.gemma_calibration import CalibrationRobot
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=['status', 'local_model', 'registration'])
+    p.add_argument('command', choices=['status', 'registered', 'local_model', 'registration'])
     p.add_argument('--pilot-root', type=Path, required=True)
     p.add_argument('--execute', action='store_true', help='Explicitly enable and move the configured positioning joints')
     args = p.parse_args()
-    if args.command != 'status' and not args.execute:
+    read_only = args.command in ('status', 'registered')
+    if not read_only and not args.execute:
         p.error('Movement requires --execute; use status for a read-only check')
     sys.path.insert(0, str(args.pilot_root.resolve()))
     raw = importlib.import_module('chat_server').Robot(args.pilot_root/'.private/robot.json')
     robot = CalibrationRobot(TagRobot(raw))
     robot.catalog()
-    name = 'robot_calibration_status' if args.command == 'status' else 'robot_calibrate_tags'
-    result = robot.call(name, {} if args.command == 'status' else {'mode': args.command})
+    name = {'status':'robot_calibration_status', 'registered':'robot_get_registered_tags'}.get(args.command, 'robot_calibrate_tags')
+    result = robot.call(name, {} if read_only else {'mode': args.command})
+    result.pop('images', None)
     print(json.dumps(result, indent=2, allow_nan=False))
     return 0 if result['ok'] else 1
 

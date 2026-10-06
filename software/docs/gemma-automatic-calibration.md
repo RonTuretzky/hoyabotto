@@ -15,10 +15,17 @@ registers, controller limits or STOP state.
   This produces a local pixel-motion model, not robot-frame coordinates.
 - `robot_calibrate_tags(mode="registration")`: automatically collect eight
   training and three held-out poses, return to the starting joint positions,
-  assemble candidate FK through the existing LeRobot model, fit camera/base and
-  tag/gripper transforms, and release. A rejected fit returns no transforms.
-  An accepted fit still has `motion_ready:false`; it is not installed or used
-  for grasping by these tools.
+  release the motors, then assemble candidate FK through the existing LeRobot
+  model and fit camera/base and tag/gripper transforms. A rejected fit returns
+  no transforms. A passing fit is saved as `.private/tag-registration.json`
+  for read-only coordinate estimates. It still has `motion_ready:false`.
+- `robot_get_registered_tags`: use the saved fit to return fresh tag centres
+  and unambiguous poses in the selected arm's base. Rechecks the camera stream,
+  intrinsics, tag sizes/mount, model, motor configuration and raw ranges, fixed
+  table/head, and observed gripper pose against fresh encoder FK. A changed or
+  missing binding refuses coordinates. Ambiguous object orientation produces
+  only its centre, so an offset handle target cannot be inferred from it.
+  This read-only tool enables neither Cartesian control nor physical grasping.
 
 Both execution modes are explicit tool calls for the current user-requested
 calibration. Merely constructing the adapter, opening the chat, reading status,
@@ -40,6 +47,15 @@ First install the existing tag adapter and metric dependencies as described in
 [the geometry guide](gemma-tag-geometry.md). Do not change the working DepthAI
 camera environment. Registration mode also requires the existing LeRobot/Placo
 FK dependencies and verified model assets; it checks those before enabling.
+The complete pinned local-pilot dependency set is:
+
+```sh
+uv pip install --python /path/to/gemma/.venv/bin/python \
+  -r /path/to/xlerobot-farm/software/requirements-gemma-calibration.txt
+```
+
+This retains OpenCV 4.11 for the hand-eye solver and adds LeRobot/Placo to the
+pilot environment. Having the detector installed alone is insufficient.
 
 Create `.private/tag-calibration.json` next to the pilot's `robot.json`:
 
@@ -71,7 +87,7 @@ PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py statu
 
 The installer adds two source hooks to the already tag-enabled chat and
 preserves a content-addressed backup. It does not restart anything. Reload the
-**idle local chat** using its existing launcher to expose the two tools;
+**idle local chat** using its existing launcher to expose the three tools;
 preserve history and leave old goals inactive. No camera or remote-owner
 restart is needed. The CLI works without reloading the running chat.
 
@@ -83,6 +99,10 @@ PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py local
   --pilot-root /path/to/gemma/pilot --execute
 PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py registration \
   --pilot-root /path/to/gemma/pilot --execute
+
+# Read-only after a passing registration; prints JSON without image payloads.
+PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py registered \
+  --pilot-root /path/to/gemma/pilot
 ```
 
 ## Evidence and interruption
@@ -117,10 +137,19 @@ run. Owner supervision and all existing hardware enforcement remain authoritativ
 
 ## Verification boundary
 
-Tests use an API-level simulated owner and analytic camera/encoder data. They
+Unit tests use an API-level simulated owner and analytic camera/encoder data. They
 exercise the existing probing algorithm, automatic sample collection, actual
 OpenCV fit, release and fault handling. This is not a dynamics/collision simulation
 or proof that physical motor movement, hand-eye calibration or grasping works.
+
+The separate [rendered end-to-end validation](gemma-calibration-simulation.md)
+uses actual camera images rendered from the existing SO101/paddle meshes,
+the production Gemma adapters, eleven automatic poses, LeRobot FK, OpenCV
+fitting and `robot_get_registered_tags`. It then derives a handle target from
+tag 3 plus its declared simulated mounting offset and executes a dynamics
+grasp, lift, two-second hold and release. Independent object truth is used
+only for scoring. This passed for two paddle placements; an open-jaw control
+correctly failed to lift. These results do not establish physical accuracy.
 
 The live read-only check on 2026-10-06 detected table tag 1 and gripper tag 2.
 Tag 2's black square was fully visible with approximately 8 px bottom clearance;

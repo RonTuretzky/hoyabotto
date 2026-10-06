@@ -209,6 +209,11 @@ def test_registration_automatically_collects_and_fits_held_out_poses(rig, tmp_pa
                            motor_calibration_sha256='motors', encoder_mapping_source='synthetic known FK')
         return dict(schema=1, samples=samples, binding=binding)
     monkeypatch.setattr('carton.servo.tag_calibration.assemble_dataset', assemble)
+    from farm.kinematics.tag_registration import fit_registration
+    def fit_after_release(dataset):
+        assert not owner.enabled, 'Motors must be released before the offline hand-eye solve'
+        return fit_registration(dataset)
+    monkeypatch.setattr('carton.servo.tag_calibration.fit_registration', fit_after_release)
     r = run_calibration(owner, cfg, 'registration', tmp_path/'registration', clock=owner.clock)
     assert r['status'] == 'REGISTRATION_VALIDATED'
     assert r['residuals']['train']['count'] == 8 and r['residuals']['validation']['count'] == 3
@@ -230,7 +235,7 @@ def test_wrapper_shared_lock_blocks_mutations_but_not_stop_or_reads(rig, tmp_pat
     path = tmp_path/'config.json'
     path.write_text(json.dumps(cfg))
     wrapped = CalibrationRobot(owner, path)
-    assert {t['function']['name'] for t in wrapped.catalog()['tools']} == {'robot_calibration_status', 'robot_calibrate_tags'}
+    assert {t['function']['name'] for t in wrapped.catalog()['tools']} == {'robot_calibration_status', 'robot_calibrate_tags', 'robot_get_registered_tags'}
     with motion_lock(path.with_name('tag-calibration.lock')):
         with pytest.raises(Refused):wrapped.call('robot_set_motor_enable', {'names': [], 'enabled': True})
         assert wrapped.call('robot_get_state', {'fresh': True})['ok']

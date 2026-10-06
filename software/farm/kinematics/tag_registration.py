@@ -91,6 +91,7 @@ def assemble_dataset(captures, model_directory):
                    "tag_geometry_sha256": sample["tag_geometry_sha256"],
                    "robot_model_sha256": hashlib.sha256(urdf.read_bytes()).hexdigest(),
                    "motor_calibration_sha256": cfg.get("calibration_sha256"),
+                   "raw_arm_ranges_sha256": fingerprint(selected),
                    "encoder_mapping_source": "installed LeRobot MotorsBus._normalize DEGREES; candidate pending physical fit",
                    "gripper_tag_id": sample["gripper_tag_id"], "gripper_tag_mount": mount}
         if result["binding"] is not None and result["binding"] != binding:
