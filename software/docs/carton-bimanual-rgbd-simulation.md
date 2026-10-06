@@ -1,5 +1,14 @@
 # Two-hand carton folding with AprilTags and depth
 
+**Station correction, 6 October:** the successful layout does not reproduce
+the photographed robot/table placement. Its arm bases were 248.5 mm beyond the
+table's near edge, over the tabletop, and 260 mm above it. The apparent 40 mm
+"setback" was measured from the carton rim, not the table edge. The real side
+photo shows the cart behind the table. Read the
+[photo review and reach audit](carton-folding-station-audit.md) before reusing
+this result. The five passes below remain a hypothetical contact baseline;
+they do **not** establish that the current robot can reach and fold the box.
+
 The October 6 simulation closes the measured carton's four top flaps using
 both actual SO101 arm models and their bare grippers. The working approach is
 a geometric RGB-D controller. **This is not a trained MolmoAct2 box policy or
@@ -8,7 +17,7 @@ later learned-policy comparison against this working contact baseline.
 
 ![Actual simulator frames](assets/bimanual-folding-simulation.png)
 
-## Verified result
+## Historical result in the favorable layout
 
 At 640×360, five operating cases passed: nominal, two translated/rotated carton
 placements, heavier depth noise/dropout, and a moderately stiffer crease. Each
@@ -75,7 +84,9 @@ The real station must be measured before transferring any of this setup.
 
 - Measured carton CAD dimensions: 379×283×108 mm; four 140 mm flaps.
 - Arm bases: 300 mm apart, **260 mm above the tabletop**, with the base line
-  40 mm behind the near rim. This differs from the earlier saved station.
+  40 mm behind the near rim. The table near edge is at y=-430 mm while the base
+  line is at y=-181.5 mm: bases are 248.5 mm over the tabletop. This was not
+  measured from the photographed cart/table station.
   The real arm chains, mesh geometry and joint limits are retained. The robot
   cart body is not modeled, so this is not cart/table collision validation.
 - The carton represents a filled box: contents are approximated by one rigid
@@ -135,13 +146,18 @@ cd /path/to/xlerobot-farm/software
 python -m pip install -r requirements-carton-folding-sim.txt
 PYTHONPATH=. python tools/simulate_bimanual_folding.py \
   --simulation-root /absolute/path/to/gemma-xlerobot \
-  --out /absolute/path/to/new-fold-run
+  --out /absolute/path/to/new-fold-run --reference-layout
 
 # Five operating cases, six failure controls, one known material limit.
 PYTHONPATH=. python tools/evaluate_bimanual_folding.py \
   --simulation-root /absolute/path/to/gemma-xlerobot \
-  --out /absolute/path/to/new-fold-matrix
+  --out /absolute/path/to/new-fold-matrix --reference-layout
 ```
+
+There is no implicit favorable station default. For a different hypothetical
+station, supply `--base-height`, `--base-to-table-edge`, and
+`--box-from-table-edge` in metres instead of `--reference-layout`.
+These explicit values still do not constitute measured physical registration.
 
 The tools have no serial transport or hardware camera backend. They save the
 MJCF scene, observation history, contact/angle traces, code hashes, independent

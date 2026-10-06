@@ -11,11 +11,23 @@ import mujoco
 from carton.folding_sim import FoldingSimulation,FLAPS,TAG_IDS,W,H
 from carton.folding_vision import RGBDTagObserver,depth_flap_angles
 from carton.folding_controller import FoldingController
+from carton.folding_station import FoldingStation
+
+
+def station_from_args(args):
+    dimensions = (args.base_height, args.base_to_table_edge, args.box_from_table_edge)
+    if args.reference_layout:
+        if any(v is not None for v in dimensions) or args.base_spacing != .30:
+            raise ValueError('--reference-layout cannot be combined with station dimensions')
+        return FoldingStation.historical_reference()
+    if any(v is None for v in dimensions):
+        raise ValueError('Specify --base-height, --base-to-table-edge and --box-from-table-edge in metres, or explicitly choose --reference-layout (not the real station)')
+    return FoldingStation(*dimensions, base_spacing=args.base_spacing)
 
 class PixelPort:
     def __init__(self,sim,*,seed=0,noise=.0008,dropout=.25,fault=None,record=True):
         self.sim=sim;self.rng=np.random.default_rng(seed);self.noise=noise;self.dropout=dropout;self.fault=fault
-        anchor=np.eye(4);anchor[:3,:3]=np.diag([-1,1,-1]);anchor[:3,3]=[0,-.35,.0013]
+        anchor=np.eye(4);anchor[:3,:3]=np.diag([-1,1,-1]);anchor[:3,3]=sim.station.table_tag_position
         self.observer=RGBDTagObserver(anchor);self.seq=0;self.readings=[];self.record=record
         self.box_from_tag=np.eye(4)
         self.box_from_tag[:3,:3]=[[-1,0,0],[0,0,1],[0,1,0]]
@@ -69,13 +81,14 @@ class PixelPort:
 
 
 def run(args):
-    if (not all(np.isfinite(getattr(args,n)) for n in ('base_height','setback','stiffness','noise','dropout','dx','dy','yaw'))
+    station=station_from_args(args)
+    if (not all(np.isfinite(getattr(args,n)) for n in ('stiffness','noise','dropout','dx','dy','yaw'))
             or args.noise<0 or args.stiffness<0 or not 0<=args.dropout<=1
             or not 64<=args.width<=1280 or not 64<=args.height<=960):
         raise ValueError('Invalid finite simulation geometry, camera size or sensor noise')
     out=Path(args.out).resolve()
     if out.exists():raise ValueError('Output already exists; preserve previous experiments')
-    sim=FoldingSimulation(Path(args.simulation_root),out,base_height=args.base_height,setback=args.setback,stiffness=args.stiffness,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw))
+    sim=FoldingSimulation(Path(args.simulation_root),out,station=station,stiffness=args.stiffness,width=args.width,height=args.height,offset=(args.dx,args.dy),yaw=math.radians(args.yaw))
     port=PixelPort(sim,seed=args.seed,noise=args.noise,dropout=args.dropout,fault=args.fault,record=not args.no_video)
     if args.fault=='stuck_far_flap':
         j=sim.model.joint('long_far_hinge').id
@@ -84,6 +97,7 @@ def run(args):
         raise ValueError('Only the twelve robot joints may be actuated')
     controller=FoldingController(port)
     outcome={'visual_sequence_passed':False}
+    initial_box=sim.data.body('carton').xpos.copy()
     try:
         sim.capture('Initial open carton')
         sim.move({},.4,'Settle passive carton',capture=False)
@@ -109,8 +123,8 @@ def run(args):
                                       'initial_carton_position_error_mm':float(np.linalg.norm(np.asarray(port.readings[0]['world_from_box'])[:3,3]-initial_box)*1000) if port.readings else None,
                                       'carton_translation_during_run_mm':float(np.linalg.norm(sim.data.body('carton').xpos-initial_box)*1000),
                                       'both_hands_contacted_flaps':both_worked,'finger_contacts':finger_contact},
-            'configuration':vars(args),'observations':port.readings,'perception_quality':port.observer.history,'arm_tag_checks':port.arm_tag_checks,
-            'assumptions':{'base_height_above_table_m':args.base_height,'base_setback_from_near_rim_m':args.setback,'base_spacing_m':.30,
+            'configuration':vars(args),'station':station.report(),'observations':port.readings,'perception_quality':port.observer.history,'arm_tag_checks':port.arm_tag_checks,
+            'assumptions':{'base_height_above_table_m':station.base_height,'base_setback_from_near_rim_m':station.setback,'base_spacing_m':station.base_spacing,
                            'contents_top_above_table_m':.102,'hinge_range_degrees':[-97.4,174.8],'closure_tolerance_degrees_from_horizontal':5.,
                            'hinge_stiffness_Nm_per_rad':args.stiffness,'hinge_friction_Nm':.004,'flap_mass_kg':.023,'depth_noise_std_m':args.noise,'depth_dropout_fraction':args.dropout,
                            'registration':'Surveyed table tag 1; calibrated robot base locations. Carton pose obtained from detected tag 10 and depth.',
@@ -118,7 +132,7 @@ def run(args):
                            'cart_geometry':'Fixed arm bases; robot cart body not modeled; tabletop and carton collide.',
                            'cardboard_model':'Rigid panels with passive frictional spring hinges. Material properties assumed, not measured.'},
             'actuated_joint_names':[sim.model.joint(int(j)).name for j in sim.model.actuator_trnid[:,0]],
-            'code_sha256':{str(p.relative_to(Path(__file__).resolve().parents[1])):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__).resolve(),*[Path(__file__).resolve().parents[1]/'carton'/n for n in ['folding_sim.py','folding_vision.py','folding_controller.py']]]},
+            'code_sha256':{str(p.relative_to(Path(__file__).resolve().parents[1])):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__).resolve(),*[Path(__file__).resolve().parents[1]/'carton'/n for n in ['folding_sim.py','folding_vision.py','folding_controller.py','folding_station.py']]]},
             'source_arm_sha256':hashlib.sha256((Path(args.simulation_root)/'scene-assets/arm-import.xml').read_bytes()).hexdigest()}
     physics=sim.save('folding')
     report['physics']=physics
@@ -131,7 +145,11 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--simulation-root',required=True);p.add_argument('--out',required=True)
     p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360)
-    p.add_argument('--base-height',type=float,default=.26);p.add_argument('--setback',type=float,default=.04)
+    p.add_argument('--reference-layout',action='store_true',help='Explicitly replay the old favorable station, which does not match the photos')
+    p.add_argument('--base-height',type=float,help='Arm base_link origin height above tabletop, metres')
+    p.add_argument('--base-to-table-edge',type=float,help='Horizontal distance from base_link origin line to near table edge, metres')
+    p.add_argument('--box-from-table-edge',type=float,help='Distance from near table edge to carton near wall, metres')
+    p.add_argument('--base-spacing',type=float,default=.30)
     p.add_argument('--stiffness',type=float,default=.008);p.add_argument('--seed',type=int,default=1)
     p.add_argument('--noise',type=float,default=.0008);p.add_argument('--dropout',type=float,default=.25)
     p.add_argument('--dx',type=float,default=0);p.add_argument('--dy',type=float,default=0);p.add_argument('--yaw',type=float,default=0)

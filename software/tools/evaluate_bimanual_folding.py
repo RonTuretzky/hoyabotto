@@ -1,4 +1,4 @@
-"""Reproduce the positive and negative RGB-D folding cases without hardware."""
+"""Reproduce historical favorable-layout cases; not the photographed station."""
 import argparse
 import json
 from pathlib import Path
@@ -22,10 +22,11 @@ CASES=[
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--simulation-root',required=True);p.add_argument('--out',required=True)
+    p.add_argument('--reference-layout',action='store_true',required=True,help='Acknowledge this is the old favorable layout, not physical station validation')
     args=p.parse_args();root=Path(args.out).resolve()
     if root.exists():raise ValueError('Refusing to overwrite an existing evaluation')
     root.mkdir(parents=True)
-    base=dict(simulation_root=args.simulation_root,base_height=.26,setback=.04,stiffness=.008,seed=1,noise=.0008,dropout=.25,dx=0,dy=0,yaw=0,fault=None,no_video=True,width=640,height=360)
+    base=dict(simulation_root=args.simulation_root,reference_layout=True,base_height=None,base_to_table_edge=None,box_from_table_edge=None,base_spacing=.30,stiffness=.008,seed=1,noise=.0008,dropout=.25,dx=0,dy=0,yaw=0,fault=None,no_video=True,width=640,height=360)
     rows=[]
     for name,changes,expected in CASES:
         config={**base,**changes,'out':str(root/name),'no_video':name!='nominal'}

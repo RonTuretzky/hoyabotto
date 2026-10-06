@@ -12,6 +12,16 @@ from carton.geometry import Box
 _box=Box()
 L,W,H,F=_box.length,_box.width,_box.height,_box.flap
 
+def short_flap_points(theta):
+    r=.095;extra=.012
+    return {side:[sign*(L/2-r*math.sin(theta)+extra*math.cos(theta)),0,H+r*math.cos(theta)+extra*math.sin(theta)] for side,sign in [('left',-1),('right',1)]}
+
+def long_flap_point(theta,sign,x):
+    r=.12;extra=.020
+    point=[x,sign*(W/2-r*math.sin(theta)+extra*math.cos(theta)),H+.0035+r*math.cos(theta)+extra*math.sin(theta)]
+    direction=np.array([0,-.65*(1-theta/(math.pi/2)),1.]);direction/=np.linalg.norm(direction)
+    return point,{'direction':direction.tolist()}
+
 class FoldingController:
     def __init__(self,port):
         self.port=port
@@ -42,8 +52,7 @@ class FoldingController:
         self.sense('Register carton from rendered RGB and aligned depth')
         # Each short flap is contacted by a different real gripper.
         for i,theta in enumerate(np.linspace(0,math.pi/2,19)):
-            r=.095;extra=.012
-            points={side:[sign*(L/2-r*math.sin(theta)+extra*math.cos(theta)),0,H+r*math.cos(theta)+extra*math.sin(theta)] for side,sign in [('left',-1),('right',1)]}
+            points=short_flap_points(theta)
             if i==0:self.move({a:np.array(p)+[0,0,.055] for a,p in points.items()},1.,'Approach short flaps')
             self.move(points,.22,f'Fold both short flaps: {math.degrees(theta):.0f} degrees')
             if i%4==0:self.sense('Observe short-flap progress')
@@ -56,10 +65,7 @@ class FoldingController:
             if measured is None:raise ValueError(f'Depth/marker observation required before contacting {flap}')
             start=math.radians(np.clip(measured['degrees']-5,-30,0))
             for i,theta in enumerate(np.linspace(start,math.pi/2,25)):
-                r=.12;extra=.020
-                point=[x,sign*(W/2-r*math.sin(theta)+extra*math.cos(theta)),H+.0035+r*math.cos(theta)+extra*math.sin(theta)]
-                direction=np.array([0,-.65*(1-theta/(math.pi/2)),1.]);direction/=np.linalg.norm(direction)
-                ori={'direction':direction.tolist()}
+                point,ori=long_flap_point(theta,sign,x)
                 if i==0:self.move({side:np.array(point)+[0,0,.035]},1.,'Approach '+flap,ori)
                 self.move({side:point},.25,f'Fold {flap}: {math.degrees(theta):.0f} degrees',ori)
                 if i%4==0:self.sense('Observe '+flap+' progress')

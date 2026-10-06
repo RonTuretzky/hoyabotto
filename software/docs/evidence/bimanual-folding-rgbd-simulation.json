@@ -1,6 +1,6 @@
 {
   "date": "2026-10-06",
-  "scope": "Close the four top flaps of the measured carton with both SO101 grippers, using rendered AprilTags and aligned depth.",
+  "scope": "Historical favorable station only: four simulated top flaps folded by both SO101 grippers. This scene is not registered to the photographed robot/table setup.",
   "result": "PASS for the documented station, camera and material envelope; no physical or learned-policy validation.",
   "local_run_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2",
   "matrix_sha256": "b661caed44e08af7ef188d4b1249df6b72005df7e919c54dde41ea346fd7ab48",
@@ -486,5 +486,13 @@
       "directory": "audited-matrix",
       "result": "Passive retention did not satisfy continuous closure in noisy/stiffer cases; final paired contact press resolved those cases."
     }
-  ]
+  ],
+  "station_correction": {
+    "date": "2026-10-06",
+    "arm_bases_over_tabletop_mm": 248.5,
+    "arm_base_height_above_table_mm": 260,
+    "base_setback_from_carton_near_rim_mm": 40,
+    "physical_station_applicability_verified": false,
+    "audit": "bimanual-folding-station-audit.json"
+  }
 }

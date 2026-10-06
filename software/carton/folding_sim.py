@@ -17,6 +17,7 @@ from PIL import Image, ImageDraw
 
 from carton.servo.tag_kit import marker_grid
 from carton.geometry import Box
+from carton.folding_station import FoldingStation
 
 JOINTS = ('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper')
 FLAPS = ('short_left','short_right','long_far','long_near')
@@ -42,7 +43,7 @@ def marker(parent,name,tag_id,size,pos,xyaxes=None):
     return b
 
 
-def build_scene(source:Path,out:Path, *, setback=.04, base_height=.04, stiffness=.018, offset=(0,0), yaw=0.):
+def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, offset=(0,0), yaw=0.):
     root=E.parse(source/'scene-assets/arm-import.xml').getroot()
     root.set('model','dual_SO101_passive_carton')
     E.SubElement(root,'option',timestep='.002',integrator='implicitfast',cone='elliptic',iterations='80')
@@ -55,11 +56,11 @@ def build_scene(source:Path,out:Path, *, setback=.04, base_height=.04, stiffness
     for mesh,spec in manifest.items():
         for i,file in enumerate(spec['files']):E.SubElement(asset,'mesh',name=mesh+'_part_'+str(i),file=file)
     contact=E.SubElement(root,'contact');act=E.SubElement(root,'actuator')
-    for side,x in [('left',-.15),('right',.15)]:
+    for side,x in [('left',-station.base_spacing/2),('right',station.base_spacing/2)]:
         b=copy.deepcopy(arm)
         for elem in b.iter():
             if elem.get('name'):elem.set('name',side+'_'+elem.get('name'))
-        b.set('pos',words([x,-W/2-setback,base_height]));b.set('euler',words([0,0,math.pi/2]))
+        b.set('pos',words([x,station.base_y,station.base_height]));b.set('euler',words([0,0,math.pi/2]))
         for parent in b.iter('body'):
             for child in parent.findall('body'):E.SubElement(contact,'exclude',body1=parent.get('name'),body2=child.get('name'))
             for i,g in enumerate(list(parent.findall('geom'))):
@@ -81,8 +82,8 @@ def build_scene(source:Path,out:Path, *, setback=.04, base_height=.04, stiffness
         marker(grip,side+'_tag',4 if side=='left' else 2,.040,[.045,0,.008],[0,1,0,0,0,1])
         world.append(b)
     E.SubElement(world,'light',pos='0 -.2 1.4',dir='0 0 -1',directional='true')
-    E.SubElement(world,'geom',name='table',type='box',pos='0 .12 -.016',size='.55 .55 .016',rgba='.70 .66 .58 1',friction='.7 .003 .0001',solref='.004 1')
-    marker(world,'table_tag',1,.060,[0,-.35,.001])
+    E.SubElement(world,'geom',name='table',type='box',pos=words([0,station.table_edge_y+.55,-.016]),size='.55 .55 .016',rgba='.70 .66 .58 1',friction='.7 .003 .0001',solref='.004 1')
+    marker(world,'table_tag',1,.060,np.asarray(station.table_tag_position)-[0,0,.0003])
     box=E.SubElement(world,'body',name='carton',pos=words([*offset,.001]),euler=words([0,0,yaw]))
     E.SubElement(box,'freejoint',name='carton_free')
     common=dict(type='box',rgba='.68 .45 .24 1',friction='.65 .002 .0001',solref='.004 1',solimp='.95 .99 .001')
@@ -106,7 +107,7 @@ def build_scene(source:Path,out:Path, *, setback=.04, base_height=.04, stiffness
         n=np.cross(axes[:3],axes[3:])
         tag_point=[0,.07,.090] if name.startswith('short') else ([-.08,0,.090] if name=='long_far' else [.08,0,.090])
         marker(f,name+'_tag',TAG_IDS[name],.035,np.array(tag_point)+n*.0018,axes)
-    for name,pos,look in [('overhead',[0,.00,.85],[0,0,.06]),('front',[.0,-.55,.85],[0,-.04,.08]),('side',[.65,-.2,.45],[0,0,.1])]:
+    for name,pos,look in [('overhead',[0,.00,.85],[0,0,.06]),('front',[.0,-.55,.85],[0,-.04,.08]),('side',[.85,-.3,.5],[0,station.base_y/2,.08])]:
         back=np.array(pos)-look;back/=np.linalg.norm(back)
         right=np.cross([0,1,0] if name=='overhead' else [0,0,1],back);right/=np.linalg.norm(right)
         up=np.cross(back,right)
@@ -119,6 +120,7 @@ def build_scene(source:Path,out:Path, *, setback=.04, base_height=.04, stiffness
 class FoldingSimulation:
     def __init__(self,source,out,width=960,height=720,**kwargs):
         self.width,self.height=width,height
+        self.station=kwargs['station']
         self.out=Path(out);self.model=build_scene(Path(source),self.out,**kwargs)
         self.data=mujoco.MjData(self.model);self.kin=mujoco.MjData(self.model)
         self.arm_indices={s:[self.model.jnt_qposadr[self.model.joint(s+'_'+n).id] for n in JOINTS] for s in ('left','right')}
@@ -126,8 +128,9 @@ class FoldingSimulation:
         self.frames=[];self.events=[];self.stats={'max_bad_penetration_mm':0.,'carton_contact_simulated':True}
         self.renderer=None;self.option=mujoco.MjvOption();self.option.geomgroup[3]=0
         for name in FLAPS:self.data.qpos[self.model.jnt_qposadr[self.model.joint(name+'_hinge').id]]=.10
-        for s,x in [('left',-.23),('right',.23)]:
-            q,err=self.ik(s,[x,-.08,.30],orientation=None)
+        for s,sign in [('left',-1),('right',1)]:
+            q,err=self.ik(s,[sign*(self.station.base_spacing/2+.08),self.station.base_y+.1015,self.station.base_height+.04],orientation=None)
+            if err>.008:raise ValueError('Initial arm-relative pose is unreachable')
             ix=self.arm_indices[s];self.data.qpos[ix[:5]]=q;self.data.qpos[ix[5]]=-.17
             self.data.ctrl[[self.model.actuator(s+'_'+n).id for n in JOINTS]]=np.r_[q,-.17]
         mujoco.mj_forward(self.model,self.data)
@@ -212,7 +215,7 @@ class FoldingSimulation:
 
     def capture(self,label):
         im=Image.fromarray(self.render());draw=ImageDraw.Draw(im)
-        draw.rectangle((0,0,self.width,44),fill='white');draw.text((10,6),'SIMULATION | Two SO101 arms | Passive carton hinges | No paddle',fill='black');draw.text((10,25),label,fill='black')
+        draw.rectangle((0,0,self.width,44),fill='white');draw.text((10,6),'SIMULATION | ASSUMED STATION | NO PHYSICAL REGISTRATION',fill='black');draw.text((10,25),label,fill='black')
         draw.rectangle((8,49,82,66),fill='white');draw.text((12,51),'LEFT ARM',fill='black')
         draw.rectangle((self.width-90,49,self.width-8,66),fill='white');draw.text((self.width-86,51),'RIGHT ARM',fill='black')
         self.frames.append(im)

@@ -6,6 +6,18 @@ The read-only CLI now skips calibration handshake writes and disconnects without
 
 ## Two-hand carton folding simulation — 2026-10-06
 
+**Photo-review correction:** the passing layout below does not match the real
+robot/table placement. Its bases were 248.5 mm over the tabletop, 260 mm above
+it, and only 40 mm behind the carton rim. The saved side photo shows the cart
+behind the table; the latest October 6 packet has no positioned folding carton.
+The [station audit](docs/carton-folding-station-audit.md) separates base-to-edge
+distance and carton inset. Hypothetical 150 mm base-to-edge plus 50 mm inset
+layouts miss the far-flap target by 31–52 mm with this controller, depending on
+base height; 250 mm plus 50 mm exceeds a conservative chain-length bound.
+These distances are **not photo measurements**. No current physical reach or
+fold has been validated. Commands now require explicit layout dimensions or
+`--reference-layout`; the old favorable setup is no longer the implicit default.
+
 The [rendered RGB-D / AprilTag folding simulation](docs/carton-bimanual-rgbd-simulation.md)
 now folds all four measured-carton flaps with both actual SO101 grippers.
 Five operating cases passed at 640×360; six failure controls were rejected;

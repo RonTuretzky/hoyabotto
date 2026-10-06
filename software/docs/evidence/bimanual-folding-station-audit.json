@@ -1,0 +1,1479 @@
+{
+  "date": "2026-10-06",
+  "scope": "Photo review and hypothetical station-distance sensitivity; actual station registration remains unverified.",
+  "physical_registration_verified": false,
+  "physical_folding_validated": false,
+  "hardware_commands": 0,
+  "photos": [
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/real-scene/00-phone.jpg",
+      "sha256": "22fa186f228d11ebc989046ea5040eea66d6af244aab7c0672961545ac4eb9da"
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/real-scene/Measurement-Readme.md",
+      "sha256": "53715e656d9d9db10d622c97f057430ebf1b28ae812a65b983b26e903f4aca00"
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/real-scene/measurement.json",
+      "sha256": "68c8f2982781310872c2e00929c922cc795e95e72bcc393d08d7323d3b9974db"
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/molmoact2-mac-sim/research/packet-20261006-camera-only-next/phone.jpg",
+      "sha256": "cf19a9df1e9cd39c7197d2be96aad5b76471f132b6d0e5bd466019c8cda32449"
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/molmoact2-mac-sim/research/packet-20261006-camera-only-next/oak.jpg",
+      "sha256": "d3c357ea1c36ddbdd53bd25b3d30b9c98c9586af52e99cfa65d14e06bb5bf6ba"
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/molmoact2-mac-sim/research/packet-20261006-camera-only-next/packet.json",
+      "sha256": "a3bd5168bf2ffcfa78df6004de298cf0f6f40ff62c3b693e0cf2ebb594760013"
+    }
+  ],
+  "photo_observations": [
+    "2026-10-05 side photo: robot cart and arm mounts are behind the table edge. Metric gap and height not independently established.",
+    "2026-10-06 13:32 JST packet: parked hanging arms in phone view, tagged paddle at table edge in OAK view, no positioned folding carton. Phone sensor timestamp unknown."
+  ],
+  "missing_measurements": [
+    "Both base_link transforms relative to table",
+    "Current folding carton pose",
+    "Cart collision envelope",
+    "Actual fingertip and marker mounts"
+  ],
+  "audit_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/photo-layout-audit-v3/reach.json",
+  "audit_sha256": "9927358a4f2441990733a5685fa90fa90585e9fe5fcc9f8d4fb1a450fc8e9b35",
+  "reach_audit": {
+    "physical_registration_verified": false,
+    "hardware_commands": 0,
+    "contact_simulation_run": false,
+    "scope": "Offline reach sensitivity, using the folding controller's contact geometry.\n\nThese are selected hypothetical layouts, not measurements or a confidence\ninterval fitted to photos. No simulated camera observations or physical motion.\nNumerical IK misses reject this controller; only the conservative chain-length\nbound proves a point unreachable independent of the chosen wrist orientation.\nPassing sparse reach probes does not validate collision-free motion or folding.\n",
+    "cases": [
+      {
+        "case": "historical-reference",
+        "station": {
+          "base_height": 0.26,
+          "base_to_table_edge": -0.2485,
+          "box_from_table_edge": 0.2885,
+          "base_spacing": 0.3,
+          "reference_layout": true,
+          "base_setback_from_near_rim_m": 0.03999999999999998,
+          "table_edge_y_m": -0.42999999999999994,
+          "base_y_m": -0.18149999999999994,
+          "table_tag_position_m": [
+            0.0,
+            -0.35,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "historical favorable layout, not photographed station"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 4.9209231848973255e-06,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 192.41628712210505,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 7.361861598692975e-06,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 192.41628232123128,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 3.469207803796933e-10,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 252.97317176051487,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 3.206626822051368e-10,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 252.97317569577456,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 0.24610341663187155,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 321.08904625189336,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 4.242363504945977e-08,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 255.95323718005707,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 0.4811451753497614,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 175.8885324161546,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 6.133815320705107e-09,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 270.63423995405435,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": true,
+        "any_contact_outside_chain_bound": false
+      },
+      {
+        "case": "height-0.26_gap-0.05_inset-0.05",
+        "station": {
+          "base_height": 0.26,
+          "base_to_table_edge": 0.05,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.1,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.2415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 3.676785360189798e-05,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 240.2993790043086,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 3.767840407133271e-05,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 240.29937516007772,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 1.2061106579264217e-06,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 291.0587391413887,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 1.3187876580135429e-06,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 291.05874256171245,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 0.5125824965334214,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 378.41503620092914,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 3.2302284508881606e-05,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 298.01312659503867,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 0.9542657137355725,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 179.65672777691532,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 2.9710470680444985e-07,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 302.2956430971321,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": true,
+        "any_contact_outside_chain_bound": false
+      },
+      {
+        "case": "height-0.26_gap-0.15_inset-0.05",
+        "station": {
+          "base_height": 0.26,
+          "base_to_table_edge": 0.15,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.2,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.3415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 1.933341078229942,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 329.0542987864714,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 1.9333392376067804,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 329.05429597913445,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 4.23255181052618,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 367.76096806291855,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 4.232563445168477,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 367.7609707698809,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 52.14515106298795,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 475.4270497383911,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 5.979487862386881,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 379.00496516925807,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 1.2533014322065161,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 224.74314190984487,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 4.759031281372329,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 370.96576100161684,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": false,
+        "any_contact_outside_chain_bound": false
+      },
+      {
+        "case": "height-0.26_gap-0.25_inset-0.05",
+        "station": {
+          "base_height": 0.26,
+          "base_to_table_edge": 0.25,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.3,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.4415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 16.461377916887376,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 422.8589262979515,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 16.461506817251884,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 422.8589241133783,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 50.02867130920751,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 453.6309839843118,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 50.029788811860975,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 453.6309861788601,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 146.95451337915964,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 573.4664938973772,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": true
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 59.7963648746237,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 467.4159856305201,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 0.7784071794128616,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 297.89665965819194,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 45.897664875027516,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 451.49588684229303,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": false,
+        "any_contact_outside_chain_bound": true
+      },
+      {
+        "case": "height-0.12_gap-0.05_inset-0.05",
+        "station": {
+          "base_height": 0.12,
+          "base_to_table_edge": 0.05,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.1,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.2415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 0.12161505096831596,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 210.21843770196838,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 0.12161533742146596,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 210.2184333076521,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 9.885773862830164e-11,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 218.91365793521186,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 1.4408222637385572e-10,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 218.91366248273587,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 2.367856175039359,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 370.97970244064635,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 7.201071877701952e-08,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 235.03153750709828,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 0.9546942120719039,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 163.41523746428498,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 1.323295473419888e-08,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 240.4384657984422,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": true,
+        "any_contact_outside_chain_bound": false
+      },
+      {
+        "case": "height-0.12_gap-0.15_inset-0.05",
+        "station": {
+          "base_height": 0.12,
+          "base_to_table_edge": 0.15,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.2,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.3415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 3.588854988924125,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 307.77383181462386,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 3.588921472725476,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 307.7738288131787,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 2.0794329687709983,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 313.77719743565655,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 2.0794383477745297,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 313.77720060833803,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 31.318118560305702,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 469.5304884913764,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 3.3948665492220513,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 331.77215618998315,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 1.2532460972109147,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 211.98462169579346,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 2.8402178265823337,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 322.5578953234732,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": false,
+        "any_contact_outside_chain_bound": false
+      },
+      {
+        "case": "height-0.12_gap-0.25_inset-0.05",
+        "station": {
+          "base_height": 0.12,
+          "base_to_table_edge": 0.25,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.3,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.4415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 9.967191631526076,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 406.51896825345847,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 9.967233017130704,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 406.5189659810767,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 11.126833086970572,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 411.08280142883,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 11.127205462092231,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 411.0828038505201,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 128.09779230766452,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 568.5875654839372,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": true
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 16.335128731918562,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 430.0066320685653,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 0.7783471965273765,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 288.3928220942897,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 11.3215510238584,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 412.645775254647,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": false,
+        "any_contact_outside_chain_bound": true
+      },
+      {
+        "case": "height-0.06_gap-0.05_inset-0.05",
+        "station": {
+          "base_height": 0.06,
+          "base_to_table_edge": 0.05,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.1,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.2415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 2.946798637862705,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 224.46334121601316,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 2.946801607274054,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 224.46333710056922,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 3.5403706455371618e-06,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 210.1313627961684,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 3.039831128484393e-06,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 210.13136753375304,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 4.326375912286712,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 383.7159621685688,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 0.13131570869748507,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 229.8952448898205,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 4.67514135473375,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 190.5689897006033,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 0.27329912235898274,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 235.42016871013547,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": true,
+        "any_contact_outside_chain_bound": false
+      },
+      {
+        "case": "height-0.06_gap-0.15_inset-0.05",
+        "station": {
+          "base_height": 0.06,
+          "base_to_table_edge": 0.15,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.2,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.3415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 5.31963121052891,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 317.6739390473452,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 5.319632658016842,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 317.6739361394381,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 3.0478988389942083,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 307.71436370532814,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 3.0479495412962887,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 307.71436694052034,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 34.870923809654876,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 479.6570437541291,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 4.347564661945765,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 328.1535671342771,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 1.5979065434625397,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 233.5583007206309,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 3.87539390984815,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 318.8347469074045,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": false,
+        "any_contact_outside_chain_bound": false
+      },
+      {
+        "case": "height-0.06_gap-0.25_inset-0.05",
+        "station": {
+          "base_height": 0.06,
+          "base_to_table_edge": 0.25,
+          "box_from_table_edge": 0.05,
+          "base_spacing": 0.3,
+          "reference_layout": false,
+          "base_setback_from_near_rim_m": 0.3,
+          "table_edge_y_m": -0.1915,
+          "base_y_m": -0.4415,
+          "table_tag_position_m": [
+            -0.31,
+            0.08,
+            0.0013
+          ],
+          "physical_registration_verified": false,
+          "scope": "explicit hypothetical dimensions; not measured from photos"
+        },
+        "probes": [
+          {
+            "probe": "short_left_0",
+            "side": "left",
+            "target_m": [
+              -0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 10.887971761063277,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 414.06481563863446,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_0",
+            "side": "right",
+            "target_m": [
+              0.2015,
+              0.0,
+              0.20400000000000001
+            ],
+            "ik_position_error_mm": 10.888045779893623,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 414.0648134076642,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_left_90",
+            "side": "left",
+            "target_m": [
+              -0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 9.976371724176936,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 406.4739470502076,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "short_right_90",
+            "side": "right",
+            "target_m": [
+              0.0945,
+              0.0,
+              0.121
+            ],
+            "ik_position_error_mm": 9.976415452370988,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 406.47394949935625,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "far_0",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 131.00346084989232,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 576.978179503307,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": true
+          },
+          {
+            "probe": "far_90",
+            "side": "right",
+            "target_m": [
+              0.1,
+              0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 13.775613338017243,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 427.22090728679296,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_0",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.16149999999999998,
+              0.23249999999999998
+            ],
+            "ik_position_error_mm": 1.3340658673791321,
+            "passes_controller_8mm_tolerance": true,
+            "distance_from_shoulder_pan_mm": 304.60206800924493,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          },
+          {
+            "probe": "near_90",
+            "side": "left",
+            "target_m": [
+              0.0,
+              -0.02149999999999999,
+              0.1325
+            ],
+            "ik_position_error_mm": 10.418985596162749,
+            "passes_controller_8mm_tolerance": false,
+            "distance_from_shoulder_pan_mm": 409.7420357194374,
+            "conservative_chain_radius_mm": 475.62517026322587,
+            "outside_conservative_chain_bound": false
+          }
+        ],
+        "all_sampled_contacts_within_ik_tolerance": false,
+        "any_contact_outside_chain_bound": true
+      }
+    ],
+    "source_arm_sha256": "0827dbdfe75891205ad699d5d04d3f978aa7ddfe90bba064caf103f141b21a30",
+    "code_sha256": {
+      "tools/audit_folding_reach.py": "5e2907e71253cb5069701ca7712cda568d36cc12333cd662c782b04806e29bfc",
+      "carton/folding_station.py": "71cef755c0da6ba1163488babfb4cd5cd743c34a6d8c84a0b527c7d5e8c3f267",
+      "carton/folding_sim.py": "5b00500635e5fa31852a1bd65048078d529cdbba0950e6a58845a31a95937813",
+      "carton/folding_controller.py": "31592e24baff23143e004359f7b8a2fb30fc5672789637db306a9dce08f1e1cf"
+    }
+  },
+  "full_controller_trials": [
+    {
+      "case": "reference-layout-regression-final",
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/reference-layout-regression-final/result.json",
+      "sha256": "8195a7ad8270d7df84e0e8fce1e86da0b7488e9bbe4827649088374c2217295d",
+      "station": {
+        "base_height": 0.26,
+        "base_to_table_edge": -0.2485,
+        "box_from_table_edge": 0.2885,
+        "base_spacing": 0.3,
+        "reference_layout": true,
+        "base_setback_from_near_rim_m": 0.03999999999999998,
+        "table_edge_y_m": -0.42999999999999994,
+        "base_y_m": -0.18149999999999994,
+        "table_tag_position_m": [
+          0.0,
+          -0.35,
+          0.0013
+        ],
+        "physical_registration_verified": false,
+        "scope": "historical favorable layout, not photographed station"
+      },
+      "success": true,
+      "error": null,
+      "all_four_closed": true,
+      "continuous_two_second_hold_passed": true
+    },
+    {
+      "case": "separated-layout-final",
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/separated-layout-final/result.json",
+      "sha256": "bc360b78553ab98e004ce81c82ddd5ffb51f422715f58dd89558961bd8beeb27",
+      "station": {
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.05,
+        "base_spacing": 0.3,
+        "reference_layout": false,
+        "base_setback_from_near_rim_m": 0.2,
+        "table_edge_y_m": -0.1915,
+        "base_y_m": -0.3415,
+        "table_tag_position_m": [
+          -0.31,
+          0.08,
+          0.0013
+        ],
+        "physical_registration_verified": false,
+        "scope": "explicit hypothetical dimensions; not measured from photos"
+      },
+      "success": false,
+      "error": "Both housing tags required for initial arm registration check",
+      "all_four_closed": false,
+      "continuous_two_second_hold_passed": false
+    }
+  ],
+  "tests": {
+    "focused_passed": 101,
+    "cli_unspecified_and_conflicting_layouts_rejected": true
+  },
+  "interpretation": "Historical favorable station still passes; it is not the photographed station. 150 mm base-to-edge + 50 mm inset rejects the current far-contact IK. 250 mm + 50 mm exceeds the conservative link-length bound. Passing sparse reach probes is not fold, collision, or perception validation."
+}
