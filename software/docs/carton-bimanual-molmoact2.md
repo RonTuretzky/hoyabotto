@@ -1,6 +1,6 @@
 # Two-arm carton folding, without the paddle
 
-Exploration started 2026-10-06. Initial scope is **closing the four top flaps of
+Exploration started 2026-10-06. **Update:** the [tag/depth contact simulator](carton-bimanual-rgbd-simulation.md) now passes the documented two-hand folding cases; this page records the initial research and compatibility checks. Initial scope is **closing the four top flaps of
 the already-formed carton**, using both grippers. Erecting a flat blank is a
 different contact task. Tape, lifting the box and conveyor handling are outside
 this first experiment. The existing paddle workflow remains available.
@@ -60,7 +60,7 @@ test does not prove orientation reachability or collision clearance.
 
 ## Implementation and next checks
 
-Implemented now: `carton.bimanual`, `tools/explore_bimanual_carton.py`, boundary
+The initial exploration implemented `carton.bimanual`, `tools/explore_bimanual_carton.py`, boundary
 tests and an evidence report. These perform **offline geometry and model-schema
 checks only**. They do not fold a simulated or physical carton, run a learned
 box policy, or change the active Molmo experiment.
@@ -72,7 +72,7 @@ PYTHONPATH=. .venv/bin/python tools/explore_bimanual_carton.py \
 .venv/bin/python -m pytest -q tests/test_carton_bimanual.py
 ```
 
-Next work, in dependency order:
+Original follow-up plan (simulation items now have results in the linked guide):
 
 1. **Dual-arm contact scene:** import both actual SO101 models; use a common
    table frame, measured base separation, carton hinges, flap thickness and

@@ -1,0 +1,7 @@
+# Offline simulation only; no robot or camera device drivers are needed.
+mujoco==3.14.0
+numpy==2.2.6
+scipy==1.18.1
+opencv-python==4.11.0.86
+pupil-apriltags==1.0.4.post11
+Pillow==12.3.0

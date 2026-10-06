@@ -4,6 +4,24 @@ After updating main and reconciling local changes, the requested read-only `farm
 
 The read-only CLI now skips calibration handshake writes and disconnects without changing torque. A failed second-bus connection closes the first successfully opened bus.
 
+## Two-hand carton folding simulation — 2026-10-06
+
+The [rendered RGB-D / AprilTag folding simulation](docs/carton-bimanual-rgbd-simulation.md)
+now folds all four measured-carton flaps with both actual SO101 grippers.
+Five operating cases passed at 640×360; six failure controls were rejected;
+strong springback remains a documented failure. Closure requires every flap
+within 5° of horizontal continuously for two seconds, paired finger contact
+evidence, content support and collision checks. The final paired hold gives
+nominal angles 91.843°, 91.843°, 90.290°, 90.324°. Relevant tests: 93 passed.
+
+This is a geometric visual controller, not a trained Molmo box policy. The
+successful station uses bases 260 mm above the table and a 40 mm setback;
+cart-body collisions, real cardboard, physical calibration and deployment are
+unverified. Tags 4 and 10–14 are additional assumed markers. No robot commands
+were issued, no live calibration installed and the other Molmo chat was not
+changed. Hinge/content contact is explicit; no flap actuators or near-flat
+joint stops manufacture closure. See the [evidence](docs/evidence/bimanual-folding-rgbd-simulation.json).
+
 ## Servo protection readback — 6 October 2026
 
 Read-only verification at 2026-10-06 13:30:02 JST: all 16 servos responded and all torque-enable readings were zero. Hardware temperature protection remains enabled; the proposed 100/40/43 configuration was not applied.
