@@ -164,8 +164,8 @@
 - 2026-10-06: the servo-side protection is next. `farm servo-protection -p paper-tray-v0` reads every servo's
   EEPROM temperature limit (default 70 °C) and unload/alarm masks; `--write` sets the limit to 100 °C (the
   register's top value) and clears the temperature bit in both masks, so the firmware neither unloads nor flags
-  on heat. Not yet run on the robot: this Mac has no motor boards. Run it from the robot Mac with the arms at
-  rest and record the before/after table here.
+  on heat. Not yet run on the robot: this Mac has no motor boards. Run it from the robot Mac following
+  `ROBOT_HANDOFF_2026-10-06-servo-protection.md` and record the before/after table here.
 - The 2026-10-05 session-archive copies of the motor owner and claw script, which enforced 55 °C, were deleted
   on 2026-10-06. A robot-Mac working copy of the carton owner outside this repository (`work/`) keeps its old
   checks until the packaged scripts in `software/scripts/carton_robot/` replace it.
