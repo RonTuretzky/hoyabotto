@@ -1,3 +1,18 @@
+## Right arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:50
+
+Job 20261007-195000-fd5abb validated and installed; the owner's servo-versus-file check shows no mismatches. The 18:19 attempt had failed validation only because left/right pan travel differed by 48.9°, against the old 191° left pan; after the left recalibration (238.5°) the right run validated.
+
+| Joint | Old (homing / range) | New (homing / range) | Travel |
+|---|---|---|---|
+| Pan | −57 / 679..3415 | −51 / 673..3421 | 241.5° |
+| Lift | 785 / 826..3268 | 785 / 824..3270 | 215.0° |
+| Elbow | 634 / 932..3162 | 634 / 932..3162 (unchanged) | 196.0° |
+| Wrist flex | −770 / 929..3165 | −777 / 924..3170 | 197.4° |
+| Roll | 790 / 121..3973 | 798 / 130..3964 | 337.0° |
+| Gripper | 329 / 1270..2824 | 329 / 1269..2825 | 136.8° |
+
+Homing shifts are at most 8 ticks (under 1°), so the recorded paddle sequence is effectively unchanged. Any future tag registration must use this calibration. Persistence across a 12 V power cycle is unconfirmed, as for the left arm.
+
 ## Left arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:43–19:46
 
 Job 20261007-194349-22d282 ran pinned PR #3282 at velocity 200, started by the owner from the chat. Evidence is in `work/calibration-runs/left-20261007-194349` on the robot Mac.
