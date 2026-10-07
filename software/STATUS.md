@@ -1,3 +1,9 @@
+## Cameras kept alive by the restart script — 7 October 2026, 18:10
+
+- **OAK.** It went stale because `farm.oak_camera stream` exits after `--seconds` and nothing restarted it. The camera step now restarts it when stale: a 24 h stream, `--usb2`, into the API's OAK folder, using a Python with depthai found under the Codex workspaces and remembered in `work/oak-python`.
+- **Left wrist.** It froze again mid-session, then streamed again after the publisher was restarted. Treat it as intermittent USB until the cable is reseated.
+- **Tools.** `robot_restart_cameras` lets the pilot restart stale streams with no motors involved; `/admin/processes` lists the robot services remotely.
+
 ## Left arm calibration restored; both arms movable — 7 October 2026, 17:45
 
 Done remotely from the chat Mac: `/admin/deploy` to 2e887dc, then the `robot_restore_calibration(left)` tool. No motion.
