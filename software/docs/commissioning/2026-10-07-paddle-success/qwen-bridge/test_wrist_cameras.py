@@ -17,4 +17,16 @@ with tempfile.TemporaryDirectory() as tmp:
  else:raise AssertionError('Swapped wrist camera accepted')
  s=wrist_status([own,old],now=101.0);assert s['right_wrist']['fresh'] and not s['left_wrist']['fresh'] and 'error' in s['left_wrist']
  assert not wrist_status([Path(tmp,'missing')],now=101.0)['right_wrist']['available']
-print('Wrist cameras: freshest folder, 1 s staleness, pinned identity and status checks passed; no camera access')
+from wrist_cameras import resolve_ids
+R,Lw,H='0x12200005a39230','0x12140005a39230','0x12400005a39230'
+cur={'right_wrist':R,'left_wrist':Lw};ok={'right_wrist':True,'left_wrist':True}
+ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':R},{'name':'USB Camera','camera_id':Lw},{'name':'USB Camera','camera_id':H},{'name':'FaceTime HD Camera','camera_id':'0xFT'}],cur,ok)
+assert ids==cur and ver==ok and miss==[] # unchanged IDs stay verified
+ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':R},{'name':'USB Camera','camera_id':'0x13140005a39230'},{'name':'USB Camera','camera_id':H},{'name':'iPhone Camera','camera_id':'0xIP'}],cur,ok)
+assert ids=={'right_wrist':R,'left_wrist':'0x13140005a39230'} and ver==ok and miss==[] # same port path on another bus: matched; head and iPhone skipped
+ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':R},{'name':'USB Camera','camera_id':'0x12300005a39230'},{'name':'USB Camera','camera_id':H}],cur,ok)
+assert ids=={'right_wrist':R,'left_wrist':'0x12300005a39230'} and ver=={'right_wrist':True,'left_wrist':False} # different port: assigned but unverified
+ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':'0x13200005a39230'},{'name':'USB Camera','camera_id':'0x13140005a39230'},{'name':'USB Camera','camera_id':'0x13400005a39230'}],cur,ok)
+assert ids=={'right_wrist':'0x13200005a39230','left_wrist':'0x13140005a39230'} and ver==ok # hub moved to another bus: same port paths, still verified
+ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':H}],cur,ok);assert ids=={} and miss==['right_wrist','left_wrist']
+print('Wrist cameras: freshest folder, 1 s staleness, pinned identity, status and ID auto-detection checks passed; no camera access')

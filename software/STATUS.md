@@ -1,3 +1,15 @@
+## Wrist cameras configure themselves — 7 October 2026
+
+`./restart-robot-server.sh` now sets up the wrist cameras itself, with no separate commands; `--cameras-only` does just this step. In order, it:
+1. Builds `work/capture-single` if it is missing.
+2. Lists the cameras the Mac sees.
+3. Keeps configured wrist IDs that are still present.
+4. Re-matches a wrist whose ID moved. The same hub port path on another USB bus counts as the same camera. Anything else is assigned and marked `identity_verified: false`, and the chat flags it on each image.
+5. Saves the result to `work/wrist-cameras.json`, which the API reads.
+6. Stops stale capture processes holding a wrist camera, starts the streams, and restarts only the API if the IDs changed.
+
+Earlier "no publisher output" was not a camera-permission problem: the script was run from Terminal. A stale pinned ID is the likely cause, and the next run will print which.
+
 ## Continuous monitored motion and chat sessions — 7 October 2026
 
 Software only; fake-hardware tests pass.

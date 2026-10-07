@@ -33,8 +33,9 @@ from carton.servo.common import atomic_json
 from gemma_execution_binding import TrustedExecutionBinding
 from gemma_direct_client import DirectJointClient
 from paddle_segments import paddle_target_segments, expand_path
-from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status
+from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED
 WRIST_DIRS = wrist_dirs(ROOT)
+configure_wrist_ids(ROOT)  # IDs detected by the restart script
 LEGACY_CONTINUOUS_BINDING = TrustedExecutionBinding(SESSION)
 
 def bind_trusted_execution(adapter, reference_provider, *, source):
@@ -344,7 +345,9 @@ def cameras_strict(names):
                     image = {'camera_id': m['camera_id'], 'camera_name': name, 'arm': name.split('_')[0],
                              'mime_type': 'image/jpeg', 'captured_at': stamp, 'received_at': m.get('received_at'),
                              'seq': m['seq'], 'stream_id': m['stream_id'], 'width': m.get('width'), 'height': m.get('height'),
-                             'robot_frame_calibrated': False}
+                             'robot_frame_calibrated': False, 'identity_verified': IDENTITY_VERIFIED[name]}
+                    if not IDENTITY_VERIFIED[name]:
+                        image['identity_note'] = 'Left/right for this wrist camera was auto-assigned after its USB ID changed; confirm from the image which gripper it shows.'
                 else:
                     raise ValueError('Unsupported camera')
                 if not 0 <= time.time() - stamp <= 1:
