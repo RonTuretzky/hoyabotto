@@ -48,6 +48,12 @@ def camera_calibration(meta, image, shape):
         distortion = np.asarray(meta.get("distortion_coefficients"), dtype=float)
         if distortion.shape not in ((4,), (5,), (8,), (12,), (14,)) or not np.isfinite(distortion).all():
             raise ValueError("Raw RGB requires its matching OpenCV distortion coefficients")
+        # solvePnP/projectPoints apply the OpenCV pinhole (rational/tilted) model:
+        # corners are undistorted before IPPE. A fisheye or other lens model
+        # would be silently misread, so refuse it when the provider declares one.
+        model = meta.get("distortion_model")
+        if model is not None and str(model).rsplit(".", 1)[-1] != "Perspective":
+            raise ValueError(f"Distortion model {model!r} is not the OpenCV pinhole (Perspective) model")
     else:
         raise ValueError("Unknown camera projection; cannot interpret metric pose")
     coordinate_frame = meta.get("coordinate_frame")
@@ -64,8 +70,17 @@ def estimate_square(corners, size_mm, k, distortion):
     if points.shape != (4, 2) or not np.isfinite(points).all() or not cv2.isContourConvex(points.astype(np.float32)):
         raise ValueError("Expected four finite convex tag corners in decoded order")
     obj = square_points(size_mm / 1000)
+    solve_points, solve_k, solve_d = points, k, distortion
+    if np.any(distortion):
+        # Undistort the raw (OAK --wide) corners before the planar pose. OpenCV's
+        # IPPE path does this itself but with only 5 fixed-point iterations, which
+        # leaves up to ~1px (~1mm) error near strongly distorted image corners.
+        solve_points = cv2.undistortPointsIter(
+            points.reshape(-1, 1, 2), k, distortion, None, None,
+            (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 100, 1e-12)).reshape(-1, 2)
+        solve_k, solve_d = np.eye(3), np.zeros(5)
     count, rotations, translations, _ = cv2.solvePnPGeneric(
-        obj, points, k, distortion, flags=cv2.SOLVEPNP_IPPE_SQUARE)
+        obj, solve_points, solve_k, solve_d, flags=cv2.SOLVEPNP_IPPE_SQUARE)
     candidates = []
     for rotation, translation in zip(rotations, translations):
         if not np.isfinite(rotation).all() or not np.isfinite(translation).all():

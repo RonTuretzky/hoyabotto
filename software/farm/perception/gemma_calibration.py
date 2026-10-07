@@ -8,7 +8,7 @@ import time
 
 from carton.servo.common import Refused, atomic_json
 from carton.servo.tag_calibration import motion_lock, readiness, run_calibration
-from farm.perception.registered_tags import read_registered_tags
+from farm.perception.registered_tags import load_binding_state, read_registered_tags
 from farm.perception.tag_sampling import gripper_tag_for_arm
 
 STATUS = 'robot_calibration_status'
@@ -24,6 +24,8 @@ class CalibrationRobot:
         self.last_catalog = None
         self.clock = clock
         self.registration_path = self.config_path.with_name('tag-registration.json')
+        # Mutable verified-stream / table-anchor state; the registration stays immutable.
+        self.binding_state_path = self.config_path.with_name('tag-registration-binding.json')
         self.folding_path = self.config_path.with_name('folding-readiness.json')
 
     def settings(self):
@@ -50,8 +52,10 @@ class CalibrationRobot:
                  'Reports exact blockers and the configured gripper tag border clearance; a small margin is not proof of clipping.',
                  {'type': 'object', 'properties': {}, 'additionalProperties': False}),
                 (REGISTERED, 'Read fresh AprilTag poses in the configured arm base using a passing registration. '
-                 'Rechecks camera stream, table anchor, fixed gripper mount, model, motor mapping and current '
-                 'camera/encoder agreement. Refuses missing or changed calibration. Read-only marker estimates; '
+                 'Rechecks camera identity and geometry (resolution, projection, intrinsics, distortion), head ticks, '
+                 'fixed gripper mount, model, motor mapping and current gripper-tag/arm-model agreement. After an OAK '
+                 'restart or a cart move (table tag 1 shifted, head unchanged) it accepts the new stream / re-anchors '
+                 'only when that agreement passes, and reports the event. Refusals name the cause and fix. Read-only marker estimates; '
                  'these are not jaw contact targets or permission to grasp. No motor commands.',
                  {'type': 'object', 'properties': {}, 'additionalProperties': False}),
                 (RUN, 'Perform the CURRENT user-requested automatic calibration through the existing owner. '
@@ -98,13 +102,19 @@ class CalibrationRobot:
                 if name == STATUS:
                     return {'ok': True, 'result': readiness(self.robot, cfg, clock=self.clock), 'motor_writes': 0}
                 if name == REGISTERED:
-                    return read_registered_tags(self.robot, cfg, json.loads(self.registration_path.read_text()), clock=self.clock)
+                    registration = json.loads(self.registration_path.read_text())
+                    answer = read_registered_tags(self.robot, cfg, registration, clock=self.clock,
+                                                  state=load_binding_state(self.binding_state_path, registration))
+                    if answer['result'].get('binding_events'):
+                        atomic_json(self.binding_state_path, answer['result']['binding_state'])
+                    return answer
                 if args['mode'] not in ('local_model', 'registration'):
                     raise Refused('Unknown calibration mode')
                 output = Path(cfg['output_root'])/f'{time.time_ns()}-{args["mode"]}'
                 outcome = run_calibration(self.robot, cfg, args['mode'], output, clock=self.clock)
                 if outcome.get('status') == 'REGISTRATION_VALIDATED':
                     atomic_json(self.registration_path, outcome)
+                    self.binding_state_path.unlink(missing_ok=True)
                 return {'ok': True, 'result': outcome}
             except (Refused, ValueError, OSError, KeyError) as exc:
                 return {'ok': False, 'result': {'error': str(exc), 'automatic_retry': False}}

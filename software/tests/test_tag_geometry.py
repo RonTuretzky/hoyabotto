@@ -158,3 +158,58 @@ def test_local_commissioning_file_is_opt_in_and_cannot_be_set_by_model(tmp_path)
     assert 'millimetres' in tagged.catalog()['tools'][-1]['function']['description']
     with pytest.raises(ValueError):
         tagged.call('robot_get_tags', {'tag_size': 100})
+
+
+# OAK --wide: raw lens image, factory OpenCV rational coefficients (14 values).
+OAK_WIDE_D = np.array([-.32, .11, .0012, -.0008, -.018, .04, -.01, .002, 0, 0, 0, 0, 0, 0])
+
+
+def wide_payload(stream='stream1', **camera):
+    p = calibrated_payload()
+    p['images'][0]['projection'] = 'camera_pinhole_with_factory_distortion'
+    p['images'][0]['stream_id'] = stream
+    p['result']['cameras']['oak'].update({'projection': 'camera_pinhole_with_factory_distortion', 'stream_id': stream,
+        'distortion_coefficients': OAK_WIDE_D.tolist(), 'distortion_model': 'CameraModel.Perspective', **camera})
+    return p
+
+
+@pytest.mark.parametrize('rotation,translation', [((.55, .35, .1), (.03, -.02, .55)),
+                                                  ((.3, -.4, .2), (.28, .16, .45)),
+                                                  ((.3, -.4, .2), (.35, .2, .45))])  # tag at the wide-FOV corner
+def test_wide_projection_undistorts_corners_before_pose(rotation, translation):
+    # OpenCV's built-in IPPE undistortion (5 iterations) left ~1mm here; the
+    # converged undistortion must recover the pose exactly.
+    rotation, translation = np.array(rotation, float), np.array(translation)
+    pixels, _ = cv2.projectPoints(square_points(.04), rotation, translation, K, OAK_WIDE_D)
+    p = wide_payload()
+    k, d, binding = camera_calibration(p['result']['cameras']['oak'], p['images'][0], (480, 640, 3))
+    assert binding['projection'] == 'camera_pinhole_with_factory_distortion' and d.tolist() == OAK_WIDE_D.tolist()
+    result = estimate_square(pixels[:, 0], 40, k, d)
+    assert result['center_camera_mm'] == pytest.approx(translation*1000, abs=1e-3)
+    assert result['reprojection_rms_px'] < 1e-6
+    assert np.asarray(result['camera_from_tag'])[:3, :3] == pytest.approx(cv2.Rodrigues(rotation)[0], abs=1e-6)
+    # Treating the raw pixels as rectified (no undistortion) would misplace the tag.
+    try:
+        wrong = estimate_square(pixels[:, 0], 40, k, np.zeros(5))['center_camera_mm']
+        assert np.linalg.norm(np.subtract(wrong, translation*1000)) > 1
+    except ValueError as exc:
+        assert 'reprojection' in str(exc)
+
+
+def test_camera_geometry_hash_survives_restart_but_not_projection_or_intrinsics_change():
+    def metric(p):
+        row = TagObserver(clock=lambda: 1000.1, geometry=config()).observe(p, ['oak'])['result']['observations']['oak']
+        assert row['pose_3d']['status'] == 'CAMERA_RELATIVE_ESTIMATE'
+        return row['pose_3d']
+    wide = metric(wide_payload())
+    assert wide['camera_calibration']['effective_distortion'] == OAK_WIDE_D.tolist()
+    assert 'stream_id' not in wide['camera_calibration']
+    assert metric(wide_payload(stream='restarted'))['calibration_sha256'] == wide['calibration_sha256']
+    assert metric(calibrated_payload())['calibration_sha256'] != wide['calibration_sha256']
+    assert metric(wide_payload(intrinsics=(K*[[1.01], [1.01], [1]]).tolist()))['calibration_sha256'] != wide['calibration_sha256']
+
+
+def test_non_pinhole_lens_model_is_refused_for_wide_projection():
+    p = wide_payload(distortion_model='CameraModel.Fisheye')
+    with pytest.raises(ValueError, match='Perspective'):
+        camera_calibration(p['result']['cameras']['oak'], p['images'][0], (480, 640, 3))

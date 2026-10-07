@@ -71,6 +71,9 @@ def stationary_sample(before, after, observation, arm, *, gripper_tag_id=None):
     frame = observation["frame"]
     return {"sample_id": fingerprint(frame)[:24], "arm": arm, "frame": frame,
             "camera_calibration_sha256": geometry["calibration_sha256"],
+            # Camera identity, resolution, projection, intrinsics and effective
+            # distortion (no stream_id): lets a refusal name what changed.
+            "camera_geometry": geometry.get("camera_calibration"),
             "tag_geometry_sha256": geometry["geometry_config_sha256"],
             "camera_from_tag": gripper["camera_from_tag"], "gripper_tag_id": gripper_tag_id,
             "gripper_tag_mount": dict(mount),

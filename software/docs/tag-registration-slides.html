@@ -303,7 +303,6 @@
         <ul>
           <li><b>Grasp geometry:</b> tag 3 &rarr; handle, jaw contact point (<code>gripper_from_tool</code>), workspace bounds.</li>
           <li><b>From pose to motion:</b> <code>robot_plan_reach</code> returns proposals only, and the repo says not to send them to the owner. Nothing turns a registered paddle pose into a move.</li>
-          <li><b>Re-use</b> after an OAK restart or a cart move: the registration is bound to the OAK <code>stream_id</code> (random per publisher start) and to the table-tag pixels.</li>
           <li><b>Wider calibration</b>: the grid moves only 2 joints by &plusmn;96 ticks, and there is no joint-offset fit.</li>
         </ul>
       </div>
@@ -346,7 +345,7 @@ SW=/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software
 QB=&lt;repo&gt;/software/docs/commissioning/2026-10-07-paddle-success/qwen-bridge</pre>
       </div>
     </div>
-    <p class="note">Only the chat Mac adapter reads <code>tag-registration.json</code>; the robot API never does. Its binding covers the robot API's right-arm config (<code>calibration_sha256</code>), the SO-101 model hash, raw arm ranges, camera id + <code>stream_id</code> + intrinsics hash, the tag-geometry hash and the tag 2 mount.</p>
+    <p class="note">Only the chat Mac adapter reads <code>tag-registration.json</code>; the robot API never does. Its binding covers the robot API's right-arm config (<code>calibration_sha256</code>), the SO-101 model hash, raw arm ranges, camera id + camera-geometry hash (resolution, projection, intrinsics, distortion; not the <code>stream_id</code>), the tag-geometry hash and the tag 2 mount. Verified-stream and table-anchor updates go in <code>tag-registration-binding.json</code> next to it.</p>
   </div>
   <div class="footer"><span>Where the pieces live</span><span class="pg"></span></div>
 </section>
@@ -391,25 +390,25 @@ QB=&lt;repo&gt;/software/docs/commissioning/2026-10-07-paddle-success/qwen-bridg
     <div class="cols">
       <div>
         <h3>Why it matters</h3>
-        <p class="why">Registration solves one fixed camera-to-arm-base transform. The code refuses if the head encoders move by more than 3 ticks, or if table tag 1 shifts by more than 2 px (corners) or 5 mm (centre). Each OAK publisher start gets a new random <code>stream_id</code>, and that id is part of the binding.</p>
+        <p class="why">Registration solves one fixed camera-to-arm-base transform. The code refuses if the head encoders move by more than 3 ticks, A table-tag-1 shift (2 px corners / 5 mm centre) is re-anchored only when the head is unchanged and tag 2 still matches the arm model. Each OAK publisher start gets a new random <code>stream_id</code>; it is not part of the binding, but the first read from a new stream must pass the gripper-consistency check.</p>
         <h3>Owner</h3>
         <ol>
-          <li>Park the cart where the paddle work will happen. No base pulses after this point (see step 15).</li>
+          <li>Park the cart where the paddle work will happen. Base pulses later are re-anchored if the head is untouched (see step 15).</li>
           <li>Aim the head so the OAK sees tag 1, the paddle and the right gripper across its working area. After that, <b>don't touch the head</b>. In the right-arm-only owner the head motors are released and read-only, so a bump moves it.</li>
         </ol>
         <h3>Agent (chat tools)</h3>
 <pre>robot_get_cameras {"cameras":["oak"]}
 robot_get_tags    {"cameras":["oak"],"tag_ids":[1,2,3]}</pre>
         <ol>
-          <li>Check <code>result.cameras.oak</code>: <code>camera_id oak-1944301091DA1C2E00</code>, 640&times;360, <code>projection</code>, <code>intrinsics</code>, <code>distortion_coefficients</code> (raw stream), <code>coordinate_frame CAM_A_optical</code>. Record the <code>stream_id</code>.</li>
+          <li>Check <code>result.cameras.oak</code>: <code>camera_id oak-1944301091DA1C2E00</code>, 640&times;360, <code>projection</code>, <code>intrinsics</code>, <code>distortion_coefficients</code> (raw stream), <code>coordinate_frame CAM_A_optical</code>. Record the <code>projection</code> (<code>camera_pinhole_with_factory_distortion</code> for <code>--wide</code>).</li>
           <li>Tags 1, 2 and 3 should be <code>DETECTED</code>, with <code>pose_3d</code> present and tag 2 <code>orientation_ambiguous: false</code>.</li>
         </ol>
       </div>
       <div>
         <div class="panel done"><h3>Done when</h3>
-          <ul><li>Tags 1, 2 and 3 are detected in 5 consecutive fresh frames, with the same <code>stream_id</code>.</li><li>The head ticks are recorded (from <code>robot_get_state</code>).</li><li>The team has chosen one OAK stream (raw or rectified) and will keep using it.</li></ul></div>
+          <ul><li>Tags 1, 2 and 3 are detected in 5 consecutive fresh frames, with the same <code>stream_id</code>.</li><li>The head ticks are recorded (from <code>robot_get_state</code>).</li><li>The team has chosen one OAK mode (<code>--wide</code> raw or rectified) and will keep using it.</li></ul></div>
         <div class="panel risk"><h3>Risks</h3>
-          <ul><li>An OAK publisher restart gives a new <code>stream_id</code>, so the registration is refused and step 10 must be redone.</li><li>Switching between the raw and rectified streams changes the projection, which also forces a re-registration.</li><li>Phone frames are receipt-timestamped only and are never used for registration.</li></ul></div>
+          <ul><li>An OAK publisher restart in the same mode keeps the registration; the first read after it must pass the gripper-consistency check (tag 2 in view).</li><li>Switching between the raw (<code>--wide</code>) and rectified streams changes the projection, which also forces a re-registration.</li><li>Phone frames are receipt-timestamped only and are never used for registration.</li></ul></div>
       </div>
     </div>
   </div>
@@ -793,10 +792,10 @@ cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py registratio
         <table>
           <tr><th>Change</th><th>Effect today</th><th>Redo</th></tr>
           <tr><td>Head moved &gt; 3 ticks</td><td>Registered read refuses</td><td>10-11</td></tr>
-          <tr><td>OAK publisher restarted</td><td>New <code>stream_id</code>, so it refuses</td><td>10</td></tr>
-          <tr><td>Cart moved / base pulse, or tag 1 moved</td><td>Table-anchor check refuses (camera-to-arm is still valid, but the code can't tell)</td><td>10</td></tr>
+          <tr><td>OAK publisher restarted, same mode</td><td>Kept; first read re-checks tag 2 against the arm model (4 mm / 2&deg;) and records <code>camera_stream_reverified</code></td><td>none (10 if the check fails)</td></tr>
+          <tr><td>Cart moved / base pulse, or tag 1 moved</td><td>Re-anchored to the new tag-1 pixels if head unchanged and tag 2 check passes; records <code>table_anchor_re_anchored</code></td><td>none (10 if the check fails)</td></tr>
           <tr><td>Tag 2 bumped or re-mounted</td><td>Gripper consistency refuses</td><td>10-11</td></tr>
-          <tr><td>Raw/rectified stream switched</td><td>Intrinsics hash changes, so it refuses</td><td>10</td></tr>
+          <tr><td>Raw/rectified stream switched, or intrinsics/resolution changed</td><td>Camera-geometry hash changes; refusal names the projection/intrinsics/resolution change</td><td>restart OAK in the registered mode, or 10</td></tr>
           <tr><td><code>apriltag-geometry.json</code> edited</td><td>Geometry hash changes, so it refuses</td><td>10</td></tr>
           <tr><td>Right arm recalibrated</td><td>Ranges and mapping change</td><td>5, 6, 10-12</td></tr>
           <tr><td>SO-101 model changed</td><td>Model hash changes</td><td>5, 10</td></tr>
@@ -805,8 +804,8 @@ cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py registratio
       <div>
         <div class="panel done"><h3>Session-start routine</h3>
           <p>Call <code>robot_get_registered_tags {}</code> once. A refusal names what changed. Until a registration passes, Qwen should report "registration unavailable" and carry on with the camera-guided procedure.</p></div>
-        <div class="panel build"><h3>Worth building</h3>
-          <ul><li>Bind the camera id + intrinsics hash + resolution instead of <code>stream_id</code>, and re-verify with the gripper consistency check after a publisher restart.</li><li>Re-anchor after a cart move. When the head ticks are unchanged and gripper consistency passes, accept the new table-tag pixels as reference. Both camera and arm ride on the cart, so camera-to-arm doesn't change.</li></ul></div>
+        <div class="panel done"><h3>Built (binding robustness)</h3>
+          <ul><li>Bound to camera id + camera-geometry hash (resolution, projection, intrinsics, distortion), not <code>stream_id</code>; a new stream needs a passing gripper-consistency check before its first registered read.</li><li>Re-anchor after a cart move: head ticks unchanged and gripper consistency passing, so the new table-tag pixels become the reference. Both camera and arm ride on the cart. Events are kept in <code>tag-registration-binding.json</code>; the registration file is never modified.</li></ul></div>
       </div>
     </div>
   </div>
@@ -826,7 +825,7 @@ cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py registratio
       <tr><td>4</td><td>Wider grid (4-5 joints) and/or a joint-offset fit</td><td><code>carton/servo/tag_calibration.py</code>, <code>farm/kinematics/tag_registration.py</code></td><td>1-2 days</td><td>Only if step 11 fails</td></tr>
       <tr><td>5</td><td>Validated <code>feetech_degrees_v1</code> &rarr; explicit zero/sign (or <code>CalibratedArm</code> accepts it)</td><td><code>farm/kinematics/lerobot.py</code> or config</td><td>2 h + review</td><td>Step 12</td></tr>
       <tr><td>6</td><td><code>robot_get_paddle_target</code> + Qwen reach procedure + tests; owner policy on executing planner output</td><td><code>farm/perception/</code>, pilot, <code>qwen-bridge/</code></td><td>1-2 days</td><td>Step 13-14</td></tr>
-      <tr><td>7</td><td>Binding robustness: no <code>stream_id</code> lock-in; re-anchor after cart moves</td><td><code>farm/perception/registered_tags.py</code>, <code>tag_registration.py</code></td><td>0.5-1 day</td><td>Day-to-day use</td></tr>
+      <tr><td>7</td><td>Done: binding robustness (no <code>stream_id</code> lock-in; re-anchor after cart moves)</td><td><code>farm/perception/registered_tags.py</code>, <code>tag_registration.py</code></td><td>0.5-1 day</td><td>Day-to-day use</td></tr>
       <tr><td>8</td><td>Optional: higher-resolution OAK stream or own intrinsic calibration</td><td>OAK publisher (outside repo), <code>farm/oak_camera.py</code></td><td>0.5 day + re-check</td><td>Accuracy (step 3)</td></tr>
       <tr><td>9</td><td>Optional: right wrist camera intrinsics, for eye-in-hand final alignment (640&times;480, uncalibrated; the left wrist camera freezes)</td><td>new</td><td>0.5 day</td><td>Final approach quality</td></tr>
     </table>
@@ -842,7 +841,7 @@ cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py registratio
     <h2 style="margin-bottom:14px">Tick these in order. Record each one in STATUS.md.</h2>
     <ul class="checklist">
       <li><span><b>1 Tags</b>: widths measured with a ruler; flat, rigid; tag 2 on the fixed housing; photos taken.</span></li>
-      <li><span><b>2 Camera and anchor</b>: cart parked, head untouched, one OAK stream, tags 1/2/3 detected, <code>stream_id</code> noted.</span></li>
+      <li><span><b>2 Camera and anchor</b>: cart parked, head untouched, one OAK mode (<code>--wide</code>), tags 1/2/3 detected, <code>projection</code> noted.</span></li>
       <li><span><b>3 Metric check</b>: distance differences within 2 %, tag 1&harr;3 within 5 mm.</span></li>
       <li><span><b>4 Motor calibration frozen</b>: hash recorded, right joints in range, no recalibration planned.</span></li>
       <li><span><b>5 Right-arm config</b>: <code>robot_get_arm_pose(right)</code> shows <code>feetech_degrees_v1</code> and verified assets.</span></li>

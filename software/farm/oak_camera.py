@@ -140,6 +140,10 @@ def main(argv=None) -> int:
         lens_position = calibration.getLensPosition(dai.CameraBoardSocket.CAM_A)
         if lens_position:
             rgb.initialControl.setManualFocus(lens_position)
+        try:  # OpenCV's pinhole + distortion maths is only valid for the Perspective lens model.
+            distortion_model = str(calibration.getDistortionModel(dai.CameraBoardSocket.CAM_A))
+        except (AttributeError, RuntimeError):
+            distortion_model = None
         left = pipeline.create(dai.node.MonoCamera)
         right = pipeline.create(dai.node.MonoCamera)
         for cam, socket in ((left, dai.CameraBoardSocket.CAM_B), (right, dai.CameraBoardSocket.CAM_C)):
@@ -168,6 +172,7 @@ def main(argv=None) -> int:
                     "rgb_undistortion": "disabled; wide ISP preview" if args.wide else "factory calibration", "calibrated_lens_position": lens_position,
                     "intrinsics": calibration.getCameraIntrinsics(dai.CameraBoardSocket.CAM_A, 640, 360),
                     **({"distortion_coefficients": calibration.getDistortionCoefficients(dai.CameraBoardSocket.CAM_A),
+                        "distortion_model": distortion_model,
                         "projection": "camera_pinhole_with_factory_distortion"} if args.wide else {"projection": "rectified_pinhole"}),
                     "coordinate_frame": "CAM_A_optical"}
         print(json.dumps(metadata), flush=True)

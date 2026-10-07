@@ -1,3 +1,12 @@
+## Tag registration binding robustness (software only) — 7 October 2026
+
+No hardware touched. `robot_get_registered_tags` no longer refuses after an OAK publisher restart or a cart move:
+
+- A registration is bound to the camera id and its geometry hash (resolution, projection, intrinsics, distortion), not the OAK `stream_id`. After a restart in the same mode, the first read must pass the gripper-consistency check (tag 2 versus the arm model, 4 mm / 2°), and the event is recorded. Switching `--wide` on or off changes the projection and is refused by name.
+- If table tag 1 moved (cart move, base pulse, tag bumped) while the head ticks are unchanged (3 ticks) and the gripper-consistency check passes, the new tag-1 pixels become the reference (`table_anchor_re_anchored`). A head move is still refused, as are model, tag-geometry, mount and arm-calibration changes; each refusal names the cause and the fix.
+- Re-anchor and stream events go in `tag-registration-binding.json` next to `tag-registration.json`, which stays unchanged. A new registration deletes the binding file.
+- Wide (`--wide`) tag poses now undistort corners with a converged iteration before IPPE. OpenCV's built-in 5-iteration undistortion left up to about 1 mm error near strongly distorted image corners. The OAK manifest now records `distortion_model`, and anything other than Perspective is refused.
+
 ## Right arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:50
 
 Job 20261007-195000-fd5abb validated and installed; the owner's servo-versus-file check shows no mismatches. The 18:19 attempt had failed validation only because left/right pan travel differed by 48.9°, against the old 191° left pan; after the left recalibration (238.5°) the right run validated.
