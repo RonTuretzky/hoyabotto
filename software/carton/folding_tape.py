@@ -6,8 +6,10 @@ stiffness. Adhesion uses MuJoCo's native finite-tension contact law, not a
 weld, a flap-angle constraint, or an actuator. The strip is never pinned.
 
 The ordinary 2 ms folding timestep is unsuitable for this thin strip.
-Coupon trials use Newton/implicitfast at 50, 25 and 10 microseconds; peel
-timing has not converged. Do not use these parameters to certify retention.
+The dated coupon audit compares discrete/Newton with exact constraint-inertia
+diagonals at 25 and 10 microseconds. That component agreement is configuration
+specific; it does not certify tape placement, carton retention or material
+strength. See docs/carton-tape-convergence-2026-10-07.md.
 """
 from dataclasses import asdict, dataclass
 import math
@@ -68,6 +70,7 @@ class TapeSpec:
                 'twist_stiffness_Nm_per_rad':self.twist_stiffness_Nm,
                 'adhesion_model':'Native passive finite-tension contact, per contact point; not measured masking-tape peel strength.',
                 'validated_for_folding':False,'peel_timing_converged':False,
+                'peel_timing_scope':'No integrator/timestep is specified by TapeSpec. Use the dated component convergence audit; generic material parameters are not a retention certificate.',
                 'approximations':'Inextensible rectangular segments with bending and twist; no in-plane bending or adhesive aging. Finite adhesive range and thin-layer one-sided contact require validation before robot use.',
                 'pinned':False,'actuated':False}
 

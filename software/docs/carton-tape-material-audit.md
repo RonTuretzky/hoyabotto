@@ -1,5 +1,10 @@
 # Passive tape component — 6 October 2026
 
+The [7 October numerical audit](carton-tape-convergence-2026-10-07.md) adds a
+25/10 µs discrete/Newton comparison with exact constraint-inertia diagonals.
+This older report and its evidence remain preserved; neither audit establishes
+robot tape placement or carton retention.
+
 **Neither robot variant has completed the carton.** These are isolated tape
 material tests, not robot pickup, placement, four-flap closure or retention.
 The tape component is not enabled in the folding scene or controller.

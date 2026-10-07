@@ -16,16 +16,59 @@ from PIL import Image,ImageDraw
 from carton.folding_tape import TapeSpec,add_tape
 
 
+class ContactTimeline:
+    """Step-resolution separation evidence, keeping later recontacts explicit."""
+    def __init__(self):
+        self.first_adhesive_contact_s = None
+        self.last_adhesive_contact_s = None
+        self.last_tensile_contact_s = None
+        self.open_separation = None
+        self.separations = []
+        self.recontacts = 0
+
+    def update(self, time, adhesive_contacts, tension):
+        if adhesive_contacts:
+            if self.first_adhesive_contact_s is None:
+                self.first_adhesive_contact_s = time
+            self.last_adhesive_contact_s = time
+            if self.open_separation is not None:
+                self.separations.append((self.open_separation, time))
+                self.open_separation = None
+                self.recontacts += 1
+        elif self.first_adhesive_contact_s is not None and self.open_separation is None:
+            self.open_separation = time
+        if tension > 1e-9:
+            self.last_tensile_contact_s = time
+
+    def report(self, time):
+        intervals = self.separations + ([(self.open_separation, time)]
+                                       if self.open_separation is not None else [])
+        sustained = [start for start, end in intervals if end - start >= .050 - 1e-10]
+        return {'first_adhesive_contact_s': self.first_adhesive_contact_s,
+                'last_adhesive_contact_s': self.last_adhesive_contact_s,
+                'last_tensile_contact_s': self.last_tensile_contact_s,
+                'first_separation_at_least_50ms_s': min(sustained) if sustained else None,
+                'recontacts_after_complete_separation': self.recontacts,
+                'complete_separation_intervals_s': intervals,
+                'measurement': 'Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent.'}
+
+
 def run(args):
     out=Path(args.out).resolve()
     if out.exists():raise ValueError('Use a new output directory')
-    if not np.isfinite(args.dt) or not .00001<=args.dt<=.002:raise ValueError('Invalid test timestep')
+    if not np.isfinite(args.dt) or not .000001<=args.dt<=.002:raise ValueError('Invalid test timestep')
     if not np.isfinite(args.seconds) or args.seconds<=0:raise ValueError('Positive finite test duration required')
     if not np.isfinite(args.lift_distance) or args.lift_distance<=0:raise ValueError('Positive finite lift distance required')
+    mode=getattr(args,'mode','peel');hold_force=getattr(args,'hold_force',.010)
+    if mode not in ('peel','hold'):raise ValueError('Select peel or hold coupon instrument mode')
+    if not np.isfinite(hold_force) or not 0<hold_force<=.15:raise ValueError('Hold load must be finite in (0, 0.15] N')
+    source_paths=(Path(__file__).resolve(),Path(__file__).resolve().parents[1]/'carton/folding_tape.py')
+    sources={str(path):path.read_bytes() for path in source_paths}
     spec=TapeSpec(adhesion_per_contact_N=args.adhesion)
     root=E.Element('mujoco',model='Passive tape coupon; no folding claim')
-    E.SubElement(root,'option',timestep=str(args.dt),integrator=args.integrator,solver=args.solver,
+    option=E.SubElement(root,'option',timestep=str(args.dt),integrator=args.integrator,solver=args.solver,
                  iterations='120',tolerance='1e-10',cone='elliptic',gravity='0 0 -9.81')
+    if getattr(args,'exact_impedance',False):E.SubElement(option,'flag',diagexact='enable')
     E.SubElement(root,'size',memory='32M')
     E.SubElement(E.SubElement(root,'visual'),'global',offwidth='960',offheight='540')
     world=E.SubElement(root,'worldbody')
@@ -40,6 +83,8 @@ def run(args):
     right=np.cross([0,0,1],back);right/=np.linalg.norm(right);up=np.cross(back,right)
     E.SubElement(world,'camera',name='coupon',pos=' '.join(map(str,pos)),xyaxes=' '.join(map(str,np.r_[right,up])),fovy='38')
     out.mkdir(parents=True);E.indent(root);E.ElementTree(root).write(out/'scene.xml',encoding='unicode')
+    (out/'sources').mkdir()
+    for path,content in sources.items():(out/'sources'/Path(path).name).write_bytes(content)
     model=mujoco.MjModel.from_xml_path(str(out/'scene.xml'));data=mujoco.MjData(model)
     if model.nu or model.neq:raise ValueError('Coupon must not contain actuators or equality constraints')
     bid=model.body(body_name).id;vadr=model.joint('tape_free').dofadr[0]
@@ -50,36 +95,45 @@ def run(args):
     every=max(1,round(.05/args.dt));n=round(args.seconds/args.dt)
     max_force=0.;max_adhesive_contacts=0;last_time=0.;warning_time=None
     max_wrong_face_tension=0.
+    timeline=ContactTimeline();instrument_work=0.;previous_end_z=float(data.body(bid).xpos[2])
+    cardboard_geom=model.geom('cardboard_contact').id
+    tape_geoms={model.geom(f'tape_{face}_{index}').id for index in range(spec.segments) for face in ('backing','adhesive')}
+    adhesive_geoms={model.geom(f'tape_adhesive_{index}').id for index in range(spec.segments)}
     for step in range(n+1):
         t=float(data.time);goal=start[2]+min(args.lift_distance,.020*max(0,t-.2))
-        force=0. if t<.2 else float(np.clip(10*(goal-data.body(bid).xpos[2])-.03*data.qvel[vadr+2],0,.15))
+        force=0. if t<.2 else (hold_force if mode=='hold' else float(np.clip(10*(goal-data.body(bid).xpos[2])-.03*data.qvel[vadr+2],0,.15)))
         data.qfrc_applied[:]=0
         mujoco.mj_applyFT(model,data,np.array([0,0,force]),np.zeros(3),data.body(bid).xpos,bid,data.qfrc_applied)
         if step:mujoco.mj_step(model,data)
-        if not np.isfinite(data.qpos).all() or any(w.number for w in data.warning):
+        if not np.isfinite(data.qpos).all() or not np.isfinite(data.qvel).all() or any(w.number for w in data.warning):
             error='Nonfinite state or MuJoCo warning';warning_time=t;break
         last_time=float(data.time);max_force=max(max_force,force)
         contacts=0;adhesive_contacts=0;tension=0.
         for ci,contact in enumerate(data.contact):
-            a,b=model.geom(contact.geom1).name,model.geom(contact.geom2).name
-            if 'cardboard_contact' not in (a,b) or not any(x.startswith('tape_') for x in (a,b)):continue
+            a,b=contact.geom1,contact.geom2
+            if cardboard_geom not in (a,b) or not (a in tape_geoms or b in tape_geoms):continue
             contacts+=1
-            if any(x.startswith('tape_adhesive_') for x in (a,b)):adhesive_contacts+=1
+            if a in adhesive_geoms or b in adhesive_geoms:adhesive_contacts+=1
             f=np.zeros(6);mujoco.mj_contactForce(model,data,ci,f)
             tension+=max(0.,-float(f[0]));max_tension=max(max_tension,max(0.,-float(f[0])))
             for gid,sign in ((contact.geom1,1),(contact.geom2,-1)):
-                if model.geom(gid).name.startswith('tape_adhesive_'):
+                if gid in adhesive_geoms:
                     sticky_normal=-data.geom_xmat[gid].reshape(3,3)[:,2]
                     outward_normal=sign*contact.frame[:3]
                     if np.dot(sticky_normal,outward_normal)<-.5:
                         max_wrong_face_tension=max(max_wrong_face_tension,-float(f[0]))
             max_tape_penetration=max(max_tape_penetration,-float(contact.dist)*1000)
+        # mj_step leaves its contact solution at the beginning of the step;
+        # use that time, not the already-advanced qpos clock, for contact events.
+        timeline.update(t,adhesive_contacts,tension)
+        end_z=float(data.body(bid).xpos[2]);instrument_work+=force*(end_z-previous_end_z);previous_end_z=end_z
         movement=float(np.linalg.norm(data.body('cardboard').xpos-plate_origin)*1000)
         max_translation=max(max_translation,movement)
         max_adhesive_contacts=max(max_adhesive_contacts,adhesive_contacts)
         if step%every==0:
             sample={'time':float(data.time),'instrument_force_N':force,'end_z_mm':float(data.body(bid).xpos[2]*1000),
                     'plate_translation_mm':movement,'contacts':contacts,'adhesive_contacts':adhesive_contacts,'total_tensile_contact_force_N':tension}
+            sample['contact_solution_time_s']=t
             samples.append(sample)
             if renderer:
                 renderer.update_scene(data,camera='coupon');im=Image.fromarray(renderer.render()).convert('RGB');draw=ImageDraw.Draw(im)
@@ -99,15 +153,19 @@ def run(args):
             'max_single_contact_tension_N':max_tension,'max_tape_penetration_mm':max_tape_penetration,
             'max_instrument_force_N':max_force,'max_adhesive_contacts':max_adhesive_contacts,
             'max_wrong_face_tension_N':max_wrong_face_tension,
-            'actuators':model.nu,'equality_constraints':model.neq,'explicit_test_force':'Vertical compliant pull at first tape segment, capped at 0.15 N; not robot execution.',
-            'samples':samples,'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in (Path(__file__).resolve(),Path(__file__).resolve().parents[1]/'carton/folding_tape.py')}}
+            'contact_timeline':timeline.report(last_time),'instrument_work_J':instrument_work,
+            'actuators':model.nu,'equality_constraints':model.neq,
+            'explicit_test_force':('Vertical compliant peel at first tape segment, capped at 0.15 N; not robot execution.' if mode=='peel'
+                                   else f'Constant {hold_force:g} N upward coupon load after 0.2s settling; not robot execution.'),
+            'numerical_options_change_material_parameters':False,'folding_integration_enabled':False,
+            'samples':samples,'sources':{p:hashlib.sha256(content).hexdigest() for p,content in sources.items()}}
     (out/'result.json').write_text(json.dumps(report,indent=2,allow_nan=False))
     print(json.dumps({k:report[k] for k in ('error','duration_s','max_plate_translation_mm','max_single_contact_tension_N','max_tape_penetration_mm')},indent=2))
     print('Final sample',samples[-1])
     return report
 
 
-if __name__=='__main__':
+def parser():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out',required=True);parser.add_argument('--adhesion',type=float,default=.020)
     parser.add_argument('--flipped',action='store_true');parser.add_argument('--dt',type=float,default=.00005)
@@ -116,4 +174,11 @@ if __name__=='__main__':
     parser.add_argument('--no-video',action='store_true')
     parser.add_argument('--integrator',choices=['implicitfast','discrete'],default='implicitfast')
     parser.add_argument('--solver',choices=['Newton','CG'],default='Newton')
-    run(parser.parse_args())
+    parser.add_argument('--exact-impedance',action='store_true',help='Use exact constraint inertia diagonal; does not change tape material parameters')
+    parser.add_argument('--mode',choices=['peel','hold'],default='peel')
+    parser.add_argument('--hold-force',type=float,default=.010,help='Explicit upward load in N for --mode hold')
+    return parser
+
+
+if __name__=='__main__':
+    run(parser().parse_args())
