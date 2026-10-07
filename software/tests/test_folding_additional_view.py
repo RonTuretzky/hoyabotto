@@ -73,7 +73,8 @@ class Primary:
 def rig(monkeypatch):
     primary = Primary()
     controls = SimpleNamespace(angles=packet('front')['angles'], box=np.eye(4),
-                               fail_anchor=False, fail_carton=False, calls=[], priors=[])
+                               fail_anchor=False, fail_carton=False, calls=[], priors=[],
+                               short_angles={}, pixel_calls=[])
 
     class Observer:
         def __init__(self, anchor, *, additional_anchors, stationary_camera):
@@ -97,11 +98,17 @@ def rig(monkeypatch):
 
     def majors(rgb, depth, k, camera, box, priors):
         controls.priors.append(copy.deepcopy(priors))
+        controls.pixel_calls.append(('major', id(rgb), id(depth), id(k), id(camera), id(box)))
         return copy.deepcopy(controls.angles)
+
+    def shorts(rgb, depth, k, camera, box, priors):
+        controls.pixel_calls.append(('short', id(rgb), id(depth), id(k), id(camera), id(box)))
+        return copy.deepcopy(controls.short_angles)
 
     monkeypatch.setattr(view, 'RGBDTagObserver', Observer)
     monkeypatch.setattr(view, 'carton_pose_from_tags', carton)
     monkeypatch.setattr(view, 'depth_major_flap_angles', majors)
+    monkeypatch.setattr(view, 'depth_open_short_flap_angles', shorts)
     port = view.AdditionalViewPixelPort(primary, configuration=config(), seed=3)
     return port, primary, controls
 
@@ -336,3 +343,106 @@ def test_privileged_primary_source_is_refused(rig):
     primary.reading['privileged_mechanics_probe'] = True
     with pytest.raises(ValueError, match='ordinary pixel'):
         port.observe('probe')
+
+
+def open_config():
+    return replace(config(), assumption_id='offline:open-short-stage',
+                   required_flaps=view.MAJORS + view.SHORTS, observe_open_shorts=True)
+
+
+def short_plane(angle):
+    row = plane(angle)
+    row.update(method='aligned_depth_open_short_hinge_consistent_plane',
+               valid_angle_bounds_degrees=[-40., 30.], competing_plane_support_ratio=.05)
+    return row
+
+
+def enable_shorts(rig):
+    _, primary, controls = rig
+    controls.short_angles = {'short_left': short_plane(-12.), 'short_right': short_plane(-15.)}
+    primary.reading['angles']['short_right'] = dict(degrees=-14., method='aligned_depth_cardboard_plane')
+    return view.AdditionalViewPixelPort(primary, configuration=open_config()), primary, controls
+
+
+def test_default_major_mode_never_calls_open_short_observer(rig):
+    port, _, controls = rig
+    port.observe('major phase')
+    assert [row[0] for row in controls.pixel_calls] == ['major']
+    assert 'open_short_angle_bounds_degrees' not in port.declaration
+
+
+def test_open_short_opt_in_uses_same_registered_pixels_without_recapture(rig):
+    port, primary, controls = enable_shorts(rig)
+    reading = port.observe('paired short stage')
+    assert primary.render_calls == [('front', False), ('front', True)]
+    assert controls.pixel_calls[0][1:] == controls.pixel_calls[1][1:]
+    assert set(reading['angles']) == set(view.MAJORS + view.SHORTS)
+    for name in view.SHORTS:
+        row = reading['angles'][name]
+        assert row['method'] == 'additional_view_open_short_hinge_consistent_plane'
+        assert row['valid_angle_bounds_degrees'] == [-40., 30.]
+        assert row['source_camera'] == 'front'
+    comparison = reading['additional_view']['comparison']['angles']['short_right']
+    assert comparison['primary_degrees'] is None
+    assert comparison['primary_omitted_method'] == 'aligned_depth_cardboard_plane'
+
+
+def test_required_short_cannot_be_filled_by_legacy_primary_or_prior(rig):
+    port, _, controls = enable_shorts(rig)
+    port.observe('seen')
+    del controls.short_angles['short_right']
+    with pytest.raises(ValueError, match='required short_right missing'):
+        port.observe('hidden')
+    assert port.readings[-1]['angles'] == {}
+
+
+@pytest.mark.parametrize('field,value', [('degrees', 30.), ('degrees', -40.),
+    ('valid_angle_bounds_degrees', [-40., 103.]), ('competing_plane_support_ratio', .35),
+    ('supported_patches', 5), ('method', 'aligned_depth_cardboard_plane')])
+def test_invalid_open_short_identity_or_scope_refuses(rig, field, value):
+    port, _, controls = enable_shorts(rig)
+    controls.short_angles['short_left'][field] = value
+    with pytest.raises(ValueError): port.observe('invalid short')
+
+
+@pytest.mark.parametrize('name,tag', [('short_left', 11), ('short_right', 12)])
+def test_disagreeing_current_identified_short_tags_refuse(rig, name, tag):
+    port, primary, controls = enable_shorts(rig)
+    primary.reading['tags'].append(tag)
+    primary.reading['angles'][name] = dict(degrees=controls.short_angles[name]['degrees']+3.01,
+                                         method='apriltag_aligned_depth_plane')
+    with pytest.raises(ValueError, match='disagree on '+name):
+        port.observe('tag conflict')
+
+
+def test_current_tag_can_supply_missing_additional_short_within_open_range(rig):
+    port, primary, controls = enable_shorts(rig)
+    primary.reading['tags'].append(11)
+    primary.reading['angles']['short_left'] = dict(degrees=-12., method='apriltag_aligned_depth_plane')
+    del controls.short_angles['short_left']
+    result = port.observe('current identified primary')
+    assert result['angles']['short_left']['source_camera'] == 'station'
+
+
+def test_open_short_phase_preserves_full_prior_multiview_provenance(rig):
+    previous, primary, controls = rig
+    first = previous.observe('major stage')
+    controls.short_angles = {'short_left': short_plane(-12.), 'short_right': short_plane(-15.)}
+    port = view.AdditionalViewPixelPort(previous, configuration=open_config())
+    assert port.primary is primary
+    assert port.readings == [first] and port.readings[0] is not first
+    assert port.additional_view_history == previous.additional_view_history
+    assert port.declaration['previous_phase']['assumptions_sha256'] == previous.assumptions_sha256
+    assert port.declaration['previous_phase']['declaration'] == previous.declaration
+    port.observe('short stage')
+    assert len(port.readings) == len(port.additional_view_history) == 2
+    assert port.readings[0] == first
+    assert port.additional_view_history[-1]['assumption_id'] == 'offline:open-short-stage'
+
+
+def test_rewrapping_failed_view_cannot_bypass_failure_latch(rig):
+    previous, _, controls = rig
+    controls.fail_anchor = True
+    with pytest.raises(ValueError): previous.observe('failed phase')
+    with pytest.raises(ValueError, match='new primary startup'):
+        view.AdditionalViewPixelPort(previous, configuration=open_config())

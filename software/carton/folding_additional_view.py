@@ -16,10 +16,14 @@ import numpy as np
 
 from carton.folding_hinge_vision import depth_major_flap_angles, _rigid
 from carton.folding_markers import carton_pose_from_tags
+from carton.folding_short_hinge_vision import (
+    OPEN_SHORT_ANGLE_BOUNDS_DEGREES, depth_open_short_flap_angles,
+)
 from carton.folding_vision import RGBDTagObserver
 
 
 MAJORS = ('long_near', 'long_far')
+SHORTS = ('short_left', 'short_right')
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,7 @@ class AdditionalViewConfiguration:
     max_carton_translation_m: float = .012
     max_carton_rotation_degrees: float = 8.
     max_flap_disagreement_degrees: float = 3.
+    observe_open_shorts: bool = False
 
     def __post_init__(self):
         for field in ('assumption_id', 'clock_id'):
@@ -43,10 +48,13 @@ class AdditionalViewConfiguration:
                 raise ValueError('Explicit offline assumption and simulation clock identities required')
         if self.camera != 'front' or self.primary_camera != 'station':
             raise ValueError('Only the declared station primary plus hypothetical front view is supported')
+        if not isinstance(self.observe_open_shorts, bool):
+            raise ValueError('Explicit boolean open-short opt-in required')
+        supported = MAJORS + SHORTS if self.observe_open_shorts else MAJORS
         if (not isinstance(self.required_flaps, tuple) or not self.required_flaps
                 or len(set(self.required_flaps)) != len(self.required_flaps)
-                or not set(self.required_flaps) <= set(MAJORS)):
-            raise ValueError('Explicit nonempty unique required major-flap tuple required')
+                or not set(self.required_flaps) <= set(supported)):
+            raise ValueError('Explicit nonempty unique required flap tuple within enabled methods required')
         for field, limit in (('max_carton_translation_m', .012),
                              ('max_carton_rotation_degrees', 8.),
                              ('max_flap_disagreement_degrees', 3.)):
@@ -66,11 +74,21 @@ def _angle(row, name, tags, seq):
     angle = row.get('degrees')
     if isinstance(angle, bool) or not isinstance(angle, (float, int)) or not np.isfinite(angle) or not -40 < angle < 103:
         raise ValueError(f'{name}: fresh finite angle within existing observation range required')
+    if name in SHORTS and not OPEN_SHORT_ANGLE_BOUNDS_DEGREES[0] < angle < OPEN_SHORT_ANGLE_BOUNDS_DEGREES[1]:
+        raise ValueError(f'{name}: outside explicitly supported open-short angle bounds')
     if row.get('method') == 'apriltag_aligned_depth_plane':
-        tag = {'long_near': 14, 'long_far': 13}[name]
+        tag = {'long_near': 14, 'long_far': 13, 'short_left': 11, 'short_right': 12}[name]
         if tag not in tags:
             raise ValueError(f'{name}: decoded flap identity absent from current view')
-    elif row.get('method') == 'aligned_depth_hinge_consistent_plane':
+    elif row.get('method') == ('aligned_depth_open_short_hinge_consistent_plane'
+                              if name in SHORTS else 'aligned_depth_hinge_consistent_plane'):
+        if name in SHORTS:
+            if row.get('valid_angle_bounds_degrees') != list(OPEN_SHORT_ANGLE_BOUNDS_DEGREES):
+                raise ValueError(f'{name}: declared open-short angle bounds required')
+            competitor = row.get('competing_plane_support_ratio')
+            if (not isinstance(competitor, (int, float)) or isinstance(competitor, bool)
+                    or not np.isfinite(competitor) or not 0 <= competitor < .35):
+                raise ValueError(f'{name}: competing open-short planes are ambiguous')
         for key, minimum in (('pixel_support', 60), ('supported_patches', 6),
                              ('along_span_mm', 75.), ('radial_span_mm', 30.)):
             value = row.get(key)
@@ -99,8 +117,15 @@ def _combine(primary, secondary, configuration):
     if translation > configuration.max_carton_translation_m or rotation > configuration.max_carton_rotation_degrees:
         raise ValueError('Fresh independent camera views disagree on the carton pose')
     angles, comparisons = copy.deepcopy(primary['angles']), {}
-    for name in MAJORS:
+    for name in MAJORS + SHORTS if configuration.observe_open_shorts else MAJORS:
         first, second = primary['angles'].get(name), secondary['angles'].get(name)
+        omitted = None
+        if name in SHORTS and first and first.get('method') == 'aligned_depth_cardboard_plane':
+            # The legacy stripe lacks hinge identity. It is not a trusted
+            # corroborating estimate, and cannot defeat a fresh identified view.
+            omitted = first['method']
+            first = None
+            angles.pop(name, None)
         a = _angle(first, name, primary['tags'], seq)
         b = _angle(second, name, secondary['tags'], seq)
         difference = None if a is None or b is None else abs(a - b)
@@ -108,6 +133,8 @@ def _combine(primary, secondary, configuration):
             raise ValueError(f'Fresh independent camera views disagree on {name}')
         comparisons[name] = dict(primary_degrees=a, additional_degrees=b,
                                  difference_degrees=difference)
+        if omitted:
+            comparisons[name]['primary_omitted_method'] = omitted
         if a is not None:
             angles[name]['source_camera'] = 'station'
             angles[name]['observed_seq'] = seq
@@ -115,7 +142,8 @@ def _combine(primary, secondary, configuration):
             angles[name] = copy.deepcopy(second)
             angles[name].update(source_camera='front', observed_seq=seq,
                                 source_method=second['method'],
-                                method='additional_view_hinge_consistent_plane')
+                                method=('additional_view_open_short_hinge_consistent_plane'
+                                        if name in SHORTS else 'additional_view_hinge_consistent_plane'))
         elif name in configuration.required_flaps:
             raise ValueError(f'Fresh required {name} missing from both synchronized views')
     return angles, dict(carton_translation_disagreement_mm=translation * 1000,
@@ -141,6 +169,11 @@ class AdditionalViewPixelPort:
                  seed=0, noise=.0008, dropout=.25):
         if not isinstance(configuration, AdditionalViewConfiguration):
             raise ValueError('Explicit hypothetical additional-camera configuration required')
+        previous = primary if isinstance(primary, AdditionalViewPixelPort) else None
+        if previous is not None:
+            if previous._failed:
+                raise ValueError('Failed additional-view port requires a new primary startup')
+            primary = previous.primary
         if primary.camera != configuration.primary_camera:
             raise ValueError('Station PixelPort must retain primary startup housing registration checks')
         if ((getattr(primary, 'seq', 0) > 0 or primary.readings)
@@ -161,11 +194,11 @@ class AdditionalViewPixelPort:
         # transform anew from current pixels, with no cached registration.
         self.additional_observer = RGBDTagObserver(anchor, additional_anchors=anchors,
                                                     stationary_camera=False)
-        self.additional_priors = {}
-        self.additional_view_history = []
+        self.additional_priors = copy.deepcopy(previous.additional_priors) if previous else {}
+        self.additional_view_history = copy.deepcopy(previous.additional_view_history) if previous else []
         # A stage may enable this mode after a completed primary-only prefix.
         # Preserve that prefix without relabelling it as multiview evidence.
-        self.readings = copy.deepcopy(primary.readings)
+        self.readings = copy.deepcopy(previous.readings if previous else primary.readings)
         self._last_seq = self.readings[-1]['seq'] if self.readings else 0
         self._failed = False
         declaration = dict(configuration=asdict(configuration),
@@ -176,6 +209,11 @@ class AdditionalViewPixelPort:
             depth_noise_std_m=self.noise, dropout_fraction=self.dropout, random_seed=int(seed),
             simulation_only=True, physical_camera_verified=False,
             uncertainty_source='comparison gates and synthetic noise, not physical accuracy bounds')
+        if configuration.observe_open_shorts:
+            declaration['open_short_angle_bounds_degrees'] = list(OPEN_SHORT_ANGLE_BOUNDS_DEGREES)
+        if previous:
+            declaration['previous_phase'] = dict(assumptions_sha256=previous.assumptions_sha256,
+                                                declaration=copy.deepcopy(previous.declaration))
         self.declaration = declaration
         self.assumptions_sha256 = hashlib.sha256(json.dumps(declaration, sort_keys=True,
                                                           allow_nan=False).encode()).hexdigest()
@@ -250,6 +288,9 @@ class AdditionalViewPixelPort:
             box, registration = carton_pose_from_tags(tags, quality['quality'])
             angles = depth_major_flap_angles(rgb, depth, k,
                 self.additional_observer.world_from_camera, box, self.additional_priors)
+            if self.configuration.observe_open_shorts:
+                angles.update(depth_open_short_flap_angles(rgb, depth, k,
+                    self.additional_observer.world_from_camera, box, self.additional_priors))
             secondary = dict(seq=seq, camera='front', tags=sorted(tags),
                 world_from_box=box.tolist(), box_registration=registration, angles=angles,
                 world_from_camera=self.additional_observer.world_from_camera.tolist(),
