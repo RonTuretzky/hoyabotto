@@ -1,3 +1,18 @@
+## Full-scope owner startup failed — 7 October 2026
+
+Reported by the robot-Mac session. A restart was attempted with a full-scope owner (all 16 motors commandable), and it failed:
+- Startup hit the existing left-arm saved-versus-hardware calibration mismatch. That is shoulder lift, wrist flex, wrist roll and gripper; the servos still hold the unvalidated 6 October upstream-300 candidate, while the file holds the validated velocity-200 calibration.
+- The owner then hit telemetry communication faults during startup.
+- The process ended stopped and latched.
+
+Final safe state:
+- All 16 motors released, `Torque_Enable = 0` on every motor.
+- Zero motor writes after the release.
+
+The right-only pickup owner (`--right-arm-only --paddle-profile`) remains the known-working profile. Full-scope startup stays blocked until the left-arm calibration is deliberately resolved: restore those four joints' offsets/limits from the validated file with torque off, as was already done for pan and elbow, or recalibrate.
+
+This was not the new server on `main`. `./restart-robot-server.sh` always starts the owner with `--right-arm-only --paddle-profile --wheels`, and the owner on `main` (25c57bc) has no STOP latch, so a full-scope start ending "latched" ran the previously installed owner code. The new owner (simultaneous joints, settle corrections, no latch, base drive, wrist cameras) is still undeployed. To deploy it: release the arm, then from a checkout of `main` in Terminal run `./restart-robot-server.sh --dry-run`, then `./restart-robot-server.sh`. Check that the summary shows `execution_profile: paddle-success-v1` and `base_drive_supported: true`. The cause of the startup telemetry faults is not established.
+
 ## Qwen owner: no STOP latch, base drive — 7 October 2026
 
 Software only; not yet run on the robot. Fake-hardware tests pass.
