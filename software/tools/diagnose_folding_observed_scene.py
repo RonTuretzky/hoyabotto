@@ -261,7 +261,8 @@ def source_snapshot(repo, output):
         file=getattr(module,'__file__',None)
         if not file:continue
         path=Path(file).resolve()
-        if path.suffix=='.py' and path.is_relative_to(repo):paths.add(path)
+        # Some extension modules (torch.classes) report a bare relative file name.
+        if path.suffix=='.py' and path.is_file() and path.is_relative_to(repo):paths.add(path)
     manifest={}
     for path in sorted(paths):
         content=path.read_bytes();relative=path.relative_to(repo)

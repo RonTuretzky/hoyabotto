@@ -88,7 +88,8 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
             command += ['--probe-shorts-after-release', '--short-view-camera',
                         job.get('short_view_camera', 'front'), '--short-contact-policy',
                         job.get('short_contact_policy', 'measured_v2'), '--short-approach-policy',
-                        job.get('short_approach_policy', 'elevated_v2')]
+                        job.get('short_approach_policy', 'elevated_v2'), '--short-stroke-step-degrees',
+                        str(job.get('short_stroke_step_degrees', .25))]
             if job.get('allow_primary_carton_absence'):
                 command.append('--allow-primary-carton-absence')
             if job.get('observe_primary_open_shorts'):
@@ -181,7 +182,9 @@ def main():
                         default='front', help='Explicit hypothetical camera mount for the short probe only')
     parser.add_argument('--allow-primary-carton-absence', action='store_true',
                         help='Require full fresh additional-view geometry when only primary carton identity is absent')
-    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3'),
+    parser.add_argument('--short-stroke-step-degrees', type=float, choices=(.25, .5, 1.), default=.25,
+                        help='Declared measured-angle advance per bounded short stroke command')
+    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4'),
                         default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
     parser.add_argument('--observe-primary-open-shorts', action='store_true',
                         help='Use strict hinge-plane evidence from current primary pixels during the short probe')
@@ -241,6 +244,7 @@ def main():
                        short_view_camera=args.short_view_camera,
                        short_contact_policy=args.short_contact_policy,
                        short_approach_policy=args.short_approach_policy,
+                       short_stroke_step_degrees=args.short_stroke_step_degrees,
                        observe_primary_open_shorts=args.observe_primary_open_shorts,
                        allow_primary_carton_absence=args.allow_primary_carton_absence)
     if not math.isfinite(args.far_hold_degrees) or not 20<=args.far_hold_degrees<=90:
@@ -261,6 +265,8 @@ def main():
         parser.error('Primary open-short observation requires the explicit paired-short probe')
     if args.short_approach_policy != 'elevated_v2' and not args.probe_shorts_after_release:
         parser.error('Alternative short approach requires the explicit paired-short probe')
+    if args.short_stroke_step_degrees != .25 and not args.probe_shorts_after_release:
+        parser.error('Alternative short stroke increment requires the explicit paired-short probe')
     if args.far_contact_profile == 'central' and args.far_hold_degrees > 45:
         parser.error('Central contact profile is only proposed through45 degrees')
     if any(not math.isfinite(v) or not 0<=v<=.002 for v in args.far_normal_extra):

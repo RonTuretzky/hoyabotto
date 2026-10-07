@@ -45,7 +45,13 @@ _PROFILES = {
 }
 _SIDES = ('left', 'right')
 _FLAPS = ('short_left', 'short_right', 'long_near', 'long_far')
-_CONTACT_POLICIES = ('measured_v2', 'setpoint_feedback_v3')
+_CONTACT_POLICIES = ('measured_v2', 'setpoint_feedback_v3', 'tangent_deadband_v4')
+# V4 corrects errors across the panel (radial) and along the hinge only beyond
+# these bounds. In the recorded V3 whole-jaw strokes both components jitter by
+# about 1 mm (one sigma) from current registration noise and never exceed
+# 3.3 mm; neither direction changes the flap angle.
+_TANGENT_DEADBANDS_M = dict(radial=.003, hinge=.003)
+_STROKE_STEPS_DEGREES = (.25, .5, 1.)
 _APPROACH_POLICIES = ('elevated_v2', 'whole_jaw_normal_v1')
 _WHOLE_JAW = {
     'left': dict(vertex=dict(body='left_gripper_link',
@@ -223,13 +229,66 @@ def _actuator_setpoint(sim, side):
     return q
 
 
-def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy='measured_v2'):
+def _fold_frame(box, side, degrees):
+    """Unit fold, radial and hinge directions of one short panel, in world.
+
+    The fold direction is the panel's inward face normal: a hinged panel's
+    contact point moves along it as the angle grows. Radial runs from hinge to
+    tip across the panel and hinge follows the hinge axis; motion along either
+    leaves the flap angle unchanged. The frame uses only the current source
+    registration and its measured angle; no renderer or simulator state.
+    """
+    if side not in _SIDES:
+        raise ValueError('Unknown short side for fold frame')
+    if (isinstance(degrees, bool) or not isinstance(degrees, (float, int))
+            or not math.isfinite(degrees) or not -40 <= degrees <= 103):
+        raise ValueError('Finite short angle within the observation range required for fold frame')
+    rotation = _rigid(box, 'Short fold-frame carton pose')[:3, :3]
+    theta, sign = math.radians(degrees), (-1. if side == 'left' else 1.)
+    return dict(fold=rotation @ np.array([-sign*math.cos(theta), 0., -math.sin(theta)]),
+                radial=rotation @ np.array([-sign*math.sin(theta), 0., math.cos(theta)]),
+                hinge=rotation @ np.array([0., 1., 0.]))
+
+
+def _tangent_deadband_increment(delta, frame, max_step_m):
+    """Capped fold-direction lead plus only out-of-deadband radial/hinge error.
+
+    The fold component never retreats: a vertex already ahead of the current
+    measured target along the arc is left where it is and recorded, so a flap
+    that does not follow shows up as a measured stall rather than as chasing.
+    """
+    if (not isinstance(frame, dict) or set(frame) != {'fold', 'radial', 'hinge'}
+            or any(np.shape(frame[k]) != (3,) or not np.isfinite(frame[k]).all() for k in frame)):
+        raise ValueError('Current unit fold frame required for tangent deadband policy')
+    axes = {k: np.asarray(frame[k], dtype=float) for k in ('fold', 'radial', 'hinge')}
+    gram = np.array([[a @ b for b in axes.values()] for a in axes.values()])
+    if not np.allclose(gram, np.eye(3), atol=1e-9):
+        raise ValueError('Orthonormal fold frame required for tangent deadband policy')
+    gaps = {k: float(delta @ axis) for k, axis in axes.items()}
+    corrections = {k: (gaps[k] if abs(gaps[k]) > _TANGENT_DEADBANDS_M[k] else 0.)
+                   for k in ('radial', 'hinge')}
+    lead = min(max(gaps['fold'], 0.), max_step_m)
+    increment = (lead*axes['fold'] + corrections['radial']*axes['radial']
+                 + corrections['hinge']*axes['hinge'])
+    size = float(np.linalg.norm(increment))
+    increment = increment*min(1., max_step_m/max(size, 1e-12))
+    return increment, dict(fold_frame_world={k: axis.tolist() for k, axis in axes.items()},
+        gap_fold_m=gaps['fold'], gap_radial_m=gaps['radial'], gap_hinge_m=gaps['hinge'],
+        fold_lead_increment_m=lead, radial_correction_m=corrections['radial'],
+        hinge_correction_m=corrections['hinge'], deadbands_m=dict(_TANGENT_DEADBANDS_M),
+        fold_direction_retreat_allowed=False)
+
+
+def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy='measured_v2',
+                           frames=None):
     """Bound the declared CAD command increment; actual motion is monitored.
 
     V2 references measured FK. V3 instead adds the capped measured target error
     to the existing actuator-setpoint FK. A steady following offset therefore
-    does not get added to every command. This is a controller policy, never a
-    promise that the physical point moves by exactly the requested increment.
+    does not get added to every command. V4 keeps the V3 reference but spends
+    the increment only on the measured fold-direction lead, correcting radial
+    and hinge error beyond explicit deadbands. This is a controller policy,
+    never a promise that the physical point moves by the requested increment.
     """
     if contact_policy not in _CONTACT_POLICIES:
         raise ValueError('Unknown bounded short contact policy')
@@ -244,8 +303,12 @@ def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy
             raise ValueError('Finite current FK and sensed short contact target required')
         distance = float(np.linalg.norm(delta))
         increment = delta*min(1., max_step_m/max(distance, 1e-12))
+        decomposition = None
+        if contact_policy == 'tangent_deadband_v4':
+            increment, decomposition = _tangent_deadband_increment(
+                delta, (frames or {}).get(side), max_step_m)
         seed, reference = actual_q, actual
-        if contact_policy == 'setpoint_feedback_v3':
+        if contact_policy in ('setpoint_feedback_v3', 'tangent_deadband_v4'):
             seed = _actuator_setpoint(sim, side)
             reference = ik[side].point(seed).copy()
             if not np.isfinite(reference).all():
@@ -263,9 +326,11 @@ def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy
                              contact_policy=contact_policy, command_reference_world=reference.tolist(),
                              commanded_increment_world=increment.tolist(), commanded_fk_increment_m=command_step,
                              ik_goal_point_world=goal_point.tolist())
-        if contact_policy == 'setpoint_feedback_v3':
+        if contact_policy in ('setpoint_feedback_v3', 'tangent_deadband_v4'):
             details[side].update(current_actuator_setpoint_radians=seed.tolist(),
                 current_setpoint_fk_world=reference.tolist(), actual_minus_setpoint_world=(actual-reference).tolist())
+        if decomposition is not None:
+            details[side].update(decomposition)
     return goals, points, details
 
 
@@ -464,7 +529,8 @@ def _preflight(sim, boxes, angles, profile, vertices):
 
 
 def probe_shorts_against_passive_majors(sim, controller, *, capture=False, target_degrees=10.,
-                                      contact_policy='measured_v2', approach_policy='elevated_v2'):
+                                      contact_policy='measured_v2', approach_policy='elevated_v2',
+                                      stroke_step_degrees=.25):
     """Opt-in paired short attempt, with freely moving partial major panels."""
     if not math.isfinite(target_degrees) or not 0 <= target_degrees <= 10:
         raise ValueError('Bounded short probe target must be 0 to 10 degrees')
@@ -472,6 +538,10 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
         raise ValueError('Unknown bounded short contact policy')
     if approach_policy not in _APPROACH_POLICIES:
         raise ValueError('Unknown bounded short approach policy')
+    if (isinstance(stroke_step_degrees, bool) or not isinstance(stroke_step_degrees, (float, int))
+            or stroke_step_degrees not in _STROKE_STEPS_DEGREES):
+        raise ValueError('Declared short stroke increment must be 0.25, 0.5 or 1 degree')
+    step_tag = {.25: '0p25', .5: '0p5', 1.: '1'}[float(stroke_step_degrees)]
     c = controller
     if getattr(c, 'partial_short_probe', None) is not None:
         raise ValueError('Partial short probe already attempted; faults cannot be reset')
@@ -488,7 +558,7 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                   stage='require fresh four-flap entry', fault=None, target_short_degrees=target_degrees,
                   majors_remain_free=True, target_source='fresh RGB-D short angles and carton pose',
                   contact_radius_m=.14, normal_offset_m=.0015, candidates=[], checks=[])
-    report.update(trajectory_policy='source_coherent_0p5mm_0p25deg_v2', baseline_commit='ecbbb00',
+    report.update(trajectory_policy=f'source_coherent_0p5mm_{step_tag}deg_v2', baseline_commit='ecbbb00',
                   target_source='current raw source-camera carton pose paired with its own RGB-D short angle',
                   max_contact_point_step_m=.0005, max_contact_approach_commands=80,
                   contact_approach_endpoint_tolerance_m=.00075,
@@ -499,11 +569,22 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
     report['approach_policy'] = approach_policy
     report['contact_increment_reference'] = 'measured encoder FK'
     if contact_policy == 'setpoint_feedback_v3':
-        report.update(trajectory_policy='source_coherent_setpoint_feedback_0p5mm_0p25deg_v3',
+        report.update(trajectory_policy=f'source_coherent_setpoint_feedback_0p5mm_{step_tag}deg_v3',
                       contact_increment_reference='current actuator-setpoint FK',
                       contact_feedback='setpoint FK plus capped sensed-target-minus-actual-FK error',
                       max_contact_point_step_m=None, max_commanded_setpoint_increment_m=.0005,
                       original_physical_gates_unchanged=True)
+    if contact_policy == 'tangent_deadband_v4':
+        report.update(trajectory_policy=f'source_coherent_tangent_deadband_0p5mm_{step_tag}deg_v4',
+                      contact_increment_reference='current actuator-setpoint FK',
+                      contact_feedback='setpoint FK plus capped measured fold-direction lead only; '
+                                       'radial and hinge errors corrected only beyond explicit deadbands',
+                      tangent_deadbands_m=dict(_TANGENT_DEADBANDS_M),
+                      fold_direction_retreat_allowed=False,
+                      fold_frame_source='current source-camera carton registration and its own measured short angle',
+                      max_contact_point_step_m=None, max_commanded_setpoint_increment_m=.0005,
+                      original_physical_gates_unchanged=True)
+    report['stroke_step_degrees'] = float(stroke_step_degrees)
     c.partial_short_probe = report
     try:
         reading = c.sense('Register both shorts and passive majors before bounded paired probe')
@@ -660,7 +741,10 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             for _ in range(0 if normal_waypoints is not None else 80):
                 sources = {a: _contact_reading(reading, a)[1] for a in _SIDES}
                 targets = {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, angles[a]) for a in _SIDES}
-                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy)
+                frames = ({a: _fold_frame(np.asarray(sources[a]['world_from_box']), a, angles[a]) for a in _SIDES}
+                          if contact_policy == 'tangent_deadband_v4' else None)
+                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy,
+                                                                frames=frames)
                 if all(row['requested_distance_m'] <= .00075 for row in details.values()):
                     report['contact_approach_transition'] = 'CAD points near fresh sensed targets; contact not asserted'
                     break
@@ -681,7 +765,7 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             for a in _SIDES:
                 guards['short_'+a].begin_stroke(reading)
                 contact_guards[a].begin_stroke(_contact_reading(reading, a)[0])
-            stroke = _ShortStroke(angles, target_degrees)
+            stroke = _ShortStroke(angles, target_degrees, step_degrees=stroke_step_degrees)
             report['measured_stroke'] = dict(max_advance_degrees=stroke.step_degrees, max_commands=stroke.max_commands,
                                              stall_window_commands=stroke.stall_window,
                                              minimum_window_progress_degrees=2.,
@@ -691,7 +775,10 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             while (commands := stroke.next_angles()) is not None:
                 sources = {a: _contact_reading(reading, a)[1] for a in _SIDES}
                 targets = {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, commands[a]) for a in _SIDES}
-                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy)
+                frames = ({a: _fold_frame(np.asarray(sources[a]['world_from_box']), a, angles[a]) for a in _SIDES}
+                          if contact_policy == 'tangent_deadband_v4' else None)
+                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy,
+                                                                frames=frames)
                 row = dict(stage='stroke', seq=reading['seq'],
                     sources=sources, command_degrees=commands, robot_substeps=details)
                 report['contact_commands'].append(row)

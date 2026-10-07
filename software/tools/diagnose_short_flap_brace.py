@@ -194,7 +194,8 @@ def run(args):
                     result['partial_short_probe'] = probe_shorts_against_passive_majors(
                         sim, controller, capture=True, target_degrees=10.,
                         contact_policy=getattr(args, 'short_contact_policy', 'measured_v2'),
-                        approach_policy=getattr(args, 'short_approach_policy', 'elevated_v2'))
+                        approach_policy=getattr(args, 'short_approach_policy', 'elevated_v2'),
+                        stroke_step_degrees=getattr(args, 'short_stroke_step_degrees', .25))
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -370,8 +371,10 @@ if __name__ == '__main__':
                         default='front', help='Explicit hypothetical camera mount for the short probe only')
     parser.add_argument('--allow-primary-carton-absence', action='store_true',
                         help='Opt in to fully fresh additional-view geometry when only the primary carton identity is absent')
-    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3'),
+    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4'),
                         default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
+    parser.add_argument('--short-stroke-step-degrees', type=float, choices=(.25, .5, 1.), default=.25,
+                        help='Declared measured-angle advance per bounded short stroke command')
     parser.add_argument('--observe-primary-open-shorts', action='store_true',
                         help='Use strict hinge-plane evidence from current primary pixels during the short probe')
     parser.add_argument('--short-approach-policy', choices=('elevated_v2', 'whole_jaw_normal_v1'),
@@ -455,6 +458,8 @@ if __name__ == '__main__':
         parser.error('Primary open-short observation requires the explicit paired-short probe')
     if args.short_approach_policy != 'elevated_v2' and not args.probe_shorts_after_release:
         parser.error('Alternative short approach requires the explicit paired-short probe')
+    if args.short_stroke_step_degrees != .25 and not args.probe_shorts_after_release:
+        parser.error('Alternative short stroke increment requires the explicit paired-short probe')
     if args.center_floor_marker and args.floor_marker_x is not None and abs(args.floor_marker_x)<.057:
         parser.error('Declared floor markers would overlap')
     run(args)
