@@ -32,6 +32,9 @@ sys.path.insert(0, str(UTILITY))
 from carton.servo.common import atomic_json
 from gemma_execution_binding import TrustedExecutionBinding
 from gemma_direct_client import DirectJointClient
+from paddle_segments import paddle_target_segments
+from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status
+WRIST_DIRS = wrist_dirs(ROOT)
 LEGACY_CONTINUOUS_BINDING = TrustedExecutionBinding(SESSION)
 
 def bind_trusted_execution(adapter, reference_provider, *, source):
@@ -68,6 +71,29 @@ HEAD_TARGET = target_schema([n for n in POSITION_NAMES if n.startswith('head_mot
 def commandable_ranges():
     return {n: {'min_ticks': CAL[n]['range_min'] + 4, 'max_ticks': CAL[n]['range_max'] - 4, 'margin_ticks': 4} for n in POSITION_NAMES}
 
+def execute_targets(positions, duration_s):
+    """Run a target set through the owner, segmenting it under the pickup profile."""
+    state = DIRECT_CLIENT.status()
+    if state.get('execution_profile') != 'paddle-success-v1':
+        return DIRECT_CLIENT.execute(positions, duration_s)
+    segments = paddle_target_segments(positions, state)
+    if not segments:
+        return {'accepted': True, 'completed': True, 'no_op': True, 'endpoint_reached': True, 'motor_writes': 0,
+                'reason': 'Every requested joint is already within 2 ticks of its target'}
+    results = []
+    for segment in segments:
+        result = DIRECT_CLIENT.execute(segment, max(.4, duration_s / len(segments)))
+        results.append(result)
+        # settled_short holds where it stopped; a closure that met resistance must not keep closing.
+        if not result.get('completed') or result.get('closure_outcome') == 'stationary_closure_unverified':
+            break
+    final = dict(results[-1])
+    final.update(segments_total=len(segments), segments_completed=sum(1 for r in results if r.get('completed')),
+                 segment_targets=segments, simultaneous_joints=sorted({n for s in segments for n in s}),
+                 segment_outcomes=[{'targets': s, 'closure_outcome': r.get('closure_outcome'), 'readbacks': r.get('readbacks')}
+                                   for s, r in zip(segments, results)])
+    return final
+
 def normalize_targets(targets, arm=None, head=False):
     result = {}
     for key, q in targets.items():
@@ -93,7 +119,7 @@ TOOLS = [
     tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Wheel activation holds the current encoder in existing position mode0; no wheel movement/mode change. Never automatically activates at server startup.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}}, ['names', 'enabled']),
     tool('robot_move_motor_targets', 'Raw integer encoder targets for the14 arm/head/gripper position motors already enabled. Sole owner enforces ranges, rates, following, watchdog and measured completion. No wheel movement or automatic activation.', {'positions': TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions', 'duration_s']),
     tool('robot_get_state', 'Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.', {'fresh': {'type': 'boolean'}}),
-    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback) and phone snapshots. Reject stale feeds. Phone timestamp is receipt, not capture; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone']}, 'minItems': 1, 'maxItems': 2}}),
+    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}}),
     tool('robot_get_capabilities', 'Report actual joint ranges, units, supported controller protocol and concrete motion blockers.'),
     tool('robot_get_depth', 'Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.'),
     tool('robot_get_handoff', 'Retrieve the user-authorized complete paddle-task handoff, historical evidence and guards, plus current camera and saved servo ages. Context transfer never arms or binds execution.'),
@@ -103,7 +129,7 @@ TOOLS = [
     tool('robot_get_evidence', 'Read bounded deployment evidence and recording metadata without arbitrary filesystem access.'),
     tool('robot_get_execution', 'Read the bound sole-owner execution status; no motor connection.'),
     tool('robot_stop', 'Independent STOP for the current bound owner; never enables motors, clears STOP, or restarts an owner.'),
-    tool('robot_move_joint_targets', 'Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'positions': ARM_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'positions', 'duration_s']),
+    tool('robot_move_joint_targets', 'Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'positions': ARM_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'positions', 'duration_s']),
     tool('robot_move_head', 'Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
     tool('robot_set_gripper', 'Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'position_ticks': {'type': 'integer'}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'position_ticks']),
     tool('robot_move_base', 'Base drive request; currently unsupported by the parked arm owner. No wheel activation.', {'linear_m_s': {'type': 'number'}, 'angular_rad_s': {'type': 'number'}, 'duration_s': {'type': 'number'}}, ['linear_m_s', 'angular_rad_s', 'duration_s']),
@@ -215,6 +241,7 @@ def camera_status():
                 result[name]['captured_at'] = None
         except (OSError, ValueError, KeyError, TypeError) as exc:
             result[name] = {'available': False, 'fresh': False, 'error': str(exc)}
+    result.update(wrist_status(WRIST_DIRS))
     result['continuous_visual_registration_ready'] = False
     return result
 
@@ -271,6 +298,15 @@ def cameras_strict(names):
                     image = {'camera_id': 'phone_overview', 'mime_type': 'image/jpeg',
                              'captured_at': None, 'received_at': stamp, 'seq': m['seq'],
                              'timestamp_semantics': 'server receipt; capture delay unknown'}
+                elif name in ('left_wrist', 'right_wrist'):
+                    folder, m = select_wrist_manifest(name, WRIST_DIRS)
+                    data = manifest_image_path(folder, m['image']).read_bytes()
+                    assert hashlib.sha256(data).hexdigest() == m['sha256']
+                    stamp = m['captured_at']
+                    image = {'camera_id': m['camera_id'], 'camera_name': name, 'arm': name.split('_')[0],
+                             'mime_type': 'image/jpeg', 'captured_at': stamp, 'received_at': m.get('received_at'),
+                             'seq': m['seq'], 'stream_id': m['stream_id'], 'width': m.get('width'), 'height': m.get('height'),
+                             'robot_frame_calibrated': False}
                 else:
                     raise ValueError('Unsupported camera')
                 if not 0 <= time.time() - stamp <= 1:
@@ -462,7 +498,7 @@ def dispatch(name, args):
     if name == 'robot_set_motor_enable':
         return DIRECT_CLIENT.set_motor_enable(args['names'], args['enabled']), None
     if name == 'robot_move_motor_targets':
-        return DIRECT_CLIENT.execute(normalize_targets(args['positions']), args['duration_s']), None
+        return execute_targets(normalize_targets(args['positions']), args['duration_s']), None
     if name == 'robot_get_state':
         return state(args.get('fresh', True)), None
     if name == 'robot_get_cameras':
@@ -472,10 +508,11 @@ def dispatch(name, args):
     if name == 'robot_get_depth':
         return depth_snapshot()
     if name == 'robot_get_handoff':
-        return {'source': 'primary-saved Gemma-Paddle-Handoff.json (historical task)',
+        return {'source': 'physical_pickup_procedure (how to run the pickup through this API) and physical_pickup_handoff (the 2026-10-07 success record); handoff is the older historical task',
                 'current_user_scope': 'Verified physical pickup procedure for Qwen integration and scoped motion; query live readiness. Server recovery performs no movement test',
-                'handoff': bounded_json(ROOT / 'outputs/Gemma-Paddle-Handoff.json'),
+                'physical_pickup_procedure': bounded_json(Path(__file__).with_name('paddle-procedure.json')),
                 'physical_pickup_handoff': bounded_json(ROOT / 'outputs/Qwen-Paddle-Success-Handoff.json'),
+                'handoff': bounded_json(ROOT / 'outputs/Gemma-Paddle-Handoff.json'),
                 'integration_reference': 'https://github.com/RonTuretzky/xlerobot-farm/blob/main/software/docs/commissioning/2026-10-07-paddle-success/README.md',
                 'retrieved_at': time.time(), 'camera_status_now': camera_status(),
                 'saved_motor_readiness_now': saved_motor_readiness(),
@@ -506,7 +543,7 @@ def dispatch(name, args):
             b=commandable_ranges()[n]
             raise ValueError(f"Gripper target out of bounds: {n}={args['position_ticks']}; valid inclusive range [{b['min_ticks']}, {b['max_ticks']}] ticks; readiness={json.dumps(DIRECT_CLIENT.readiness())}")
     if name == 'robot_move_joint_targets':
-        return DIRECT_CLIENT.execute(args['positions'], args['duration_s']), None
+        return execute_targets(args['positions'], args['duration_s']), None
     if name == 'robot_move_head':
         return DIRECT_CLIENT.execute(args['positions'], args.get('duration_s', 3)), None
     if name == 'robot_set_gripper':

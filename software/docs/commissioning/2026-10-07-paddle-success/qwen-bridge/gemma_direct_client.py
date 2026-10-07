@@ -35,7 +35,7 @@ class DirectJointClient:
                 supported_motors=state.get('supported_motors',[]),enabled_motors=state.get('enabled_motors',[]),
                 operator_armed=state.get('operator_armed') is True,local_operator_gate=state.get('operator_armed') is True,
                 motor_owner_active=state.get('hardware_server') is True and 0<=state['status_age_s']<=1)
-            result.update(read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}))
+            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}))
             if state.get('read_only') is True:result['blockers'].append('READ_ONLY_OWNER: calibration mismatch blocks activation')
             if state.get('control_mode')!='direct_joint' or state.get('hardware_server') is not True:result['blockers'].append('HARDWARE_OWNER_PROTOCOL_UNAVAILABLE')
             if not 0<=state['status_age_s']<=1:result['blockers'].append('OWNER_STATUS_STALE')
@@ -49,7 +49,7 @@ class DirectJointClient:
             result['torque_enabled_by_joint']=torque
             result['lease_remaining_s']=state.get('lease_remaining',0)
             result['lease_applies_while_enabled']=True
-            result['explicit_enable_renews_idle_lease']=not bool(state.get('enabled_motors'))
+            result['explicit_enable_renews_idle_lease']=state.get('execution_profile')=='paddle-success-v1' or not bool(state.get('enabled_motors'))
             for name in selected:
                 issues=[];row=rows.get(name,{})
                 if name not in self.calibration or name.startswith('base_'):issues.append('UNSUPPORTED_POSITION_JOINT')
@@ -58,7 +58,7 @@ class DirectJointClient:
                     if state.get('ranges',{}).get(name)!=[lo,hi]:issues.append('SAVED_RANGE_MISMATCH')
                     q=row.get('Present_Position')
                     if type(q) not in (int,float) or not math.isfinite(q) or not lo<=q<=hi:issues.append('CURRENT_POSITION_OUTSIDE_SAVED_RANGE')
-                for field,valid in [('Status',lambda x:x==0),('Present_Temperature',lambda x:x<=SOFTWARE_TEMPERATURE_LIMIT_C),('Present_Load',lambda x:abs(x)<500)]:
+                for field,valid in [('Status',lambda x:x==0),*([('Present_Temperature',lambda x:x<=SOFTWARE_TEMPERATURE_LIMIT_C)] if state.get('execution_profile')!='paddle-success-v1' else []),('Present_Load',lambda x:abs(x)<=(800 if state.get('execution_profile')=='paddle-success-v1' and not name.endswith('gripper') else 500))]:
                     v=row.get(field)
                     if type(v) not in (int,float) or not math.isfinite(v) or not valid(v):issues.append('UNSAFE_OR_INVALID_'+field)
                 if type(row.get('Torque_Enable')) is not int or row['Torque_Enable'] not in (0,1):issues.append('INVALID_TORQUE_TELEMETRY')
@@ -117,6 +117,13 @@ class DirectJointClient:
                 c=self.calibration[n]
                 if not c['range_min']+4<=q<=c['range_max']-4:raise ValueError('Target outside saved range plus4tickmargin: '+n)
                 if state['rows'][n].get('Torque_Enable')!=1:raise ValueError('Requested motor is released; explicitly enable it first: '+n)
+        if request['op']!='enable_motors' and state.get('execution_profile')=='paddle-success-v1':
+            required=state.get('pickup_required_enabled_motors',state.get('supportsselectedjoints',[]))
+            if set(required)!=set(state.get('enabled_motors',[])):raise ValueError('Pickup requires all six right-arm motors explicitly enabled: '+json.dumps(required))
+            if state.get('pickup_motion_segments_used',0)>=20:raise ValueError('Pickup session motion budget exhausted (20 segments)')
+            from paddle_joint_executor import PaddleJointExecutor
+            dry=PaddleJointExecutor(names,{n:state['ranges'][n] for n in names},lambda _:None)
+            dry.start(dict(request,id=1,session_started=state['started']),{n:state['rows'][n]['Present_Position'] for n in names},session_started=state['started'],held_goals=state.get('goals'))
         ready=self.readiness()
         faults={n:ready['joint_blockers'][n] for n in names if n in ready['joint_blockers']}
         if faults:raise ValueError('Requested motor health/range blockers: '+json.dumps(faults))
@@ -146,12 +153,15 @@ class DirectJointClient:
             self._validate(request,prospective)
             from direct_joint_executor import DirectJointExecutor
             executor=DirectJointExecutor
-            if arm=='right':
+            if state.get('execution_profile')=='paddle-success-v1':
+                from paddle_joint_executor import PaddleJointExecutor
+                executor=PaddleJointExecutor
+            elif arm=='right':
                 from gripper_waypoint_executor import GripperWaypointExecutor
                 executor=GripperWaypointExecutor
             dry=executor([name],{name:state['ranges'][name]},lambda _: (_ for _ in ()).throw(AssertionError('Validation wrote')))
             dry.start(dict(request,id=1,session_started=started),{name:state['rows'][name]['Present_Position']},session_started=started)
-            if state.get('enabled_motors') and state.get('lease_remaining',0)<=dry.duration+5:raise ValueError('Insufficient owner lease before gripper activation')
+            if state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else dry.duration+5):raise ValueError('Insufficient owner lease before gripper activation')
             enabled_here=state['rows'][name]['Torque_Enable']==0;enable_attempted=False;phase='validated'
             try:
                 if enabled_here:
@@ -186,7 +196,7 @@ class DirectJointClient:
                 if state.get('hardware_server') is not True or not 0<=state['status_age_s']<=1:raise RuntimeError('Fresh hardware owner unavailable')
                 if not release and (state.get('phase') not in ('idle','holding') or state.get('operator_armed') is not True or state.get('ok') is not True):raise RuntimeError('Owner busy, unsafe or STOP latched')
                 self._validate(request,state)
-                if not release and state.get('enabled_motors') and state.get('lease_remaining',0)<=request.get('duration_s',0)+5:raise RuntimeError('Insufficient owner lease')
+                if not release and state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else request.get('duration_s',0)+5):raise RuntimeError('Insufficient owner lease')
                 command_file=self.folder/'command.json';old=json.loads(command_file.read_text()) if command_file.exists() else None
                 command_id=max(time.time_ns(),int((old or {}).get('id',0))+1)
                 command={**request,'id':command_id,'session_started':started}
@@ -195,7 +205,7 @@ class DirectJointClient:
                 if generation!=self.cancel_generation:raise RuntimeError('STOP interrupted dispatch')
                 if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:raise RuntimeError('Another writer changed command file')
                 atomic_json(command_file,command);dispatched=True
-                deadline=self.clock()+(60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
+                deadline=self.clock()+(90 if state.get('execution_profile')=='paddle-success-v1' and request['op'] in ('direct_joint','gripper_target') else 60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
                 while self.clock()<deadline:
                     if generation!=self.cancel_generation:raise RuntimeError('STOP cancelled goal; no automatic resume')
                     current=self.status()
@@ -214,9 +224,21 @@ class DirectJointClient:
                                 continue
                         else:
                             measured={n:current['rows'][n]['Present_Position'] for n in request['positions']}
-                            if any(abs(measured[n]-request['positions'][n])>(20 if request['op']=='gripper_target' else 5) for n in measured):raise RuntimeError('Completion contradicts measured endpoint')
+                            if current.get('execution_profile')=='paddle-success-v1' and current.get('closure_outcome')=='settled_short':
+                                # At rest short of target after bounded corrections: holding, not a success and not a STOP.
+                                if any(abs(q-request['positions'][n])>96+57 for n,q in measured.items()):raise RuntimeError('Pickup settled_short contradicts measured endpoint')
+                                return {'accepted':True,'completed':False,'endpoint_reached':False,'closure_outcome':'settled_short','holding':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
+                                    'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':False,'owner_status_time':current['time'],
+                                    'reason':'Joint came to rest short of its target after bounded goal corrections; motors are holding at the measured position. Re-plan from fresh readbacks or STOP.',
+                                    'motor_writes':'canonical owner only','mode':'direct_joint'}
+                            if current.get('execution_profile')=='paddle-success-v1':
+                                for n,q in measured.items():
+                                    tolerance=30 if n.endswith('gripper') else 57
+                                    contact=n.endswith('gripper') and current.get('closure_outcome')=='stationary_closure_unverified'
+                                    if abs(q-request['positions'][n])>(96 if contact else tolerance):raise RuntimeError('Pickup completion contradicts measured endpoint')
+                            elif any(abs(measured[n]-request['positions'][n])>(20 if request['op']=='gripper_target' else 5) for n in measured):raise RuntimeError('Completion contradicts measured endpoint')
                         return {'accepted':True,'completed':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
-                            'gripper_result':current.get('gripper_result'),'owner_status_time':current['time'],'duration_s_actual':current.get('direct_duration_s'),
+                            'endpoint_reached':current.get('endpoint_reached'),'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':current.get('grasp_verified',False),'closure_outcome':current.get('closure_outcome'),'gripper_result':current.get('gripper_result'),'owner_status_time':current['time'],'duration_s_actual':current.get('direct_duration_s'),
                             'motor_writes':'canonical owner only','mode':'direct_joint'}
                     self.sleep(.02)
                 raise RuntimeError('Owner completion timed out')

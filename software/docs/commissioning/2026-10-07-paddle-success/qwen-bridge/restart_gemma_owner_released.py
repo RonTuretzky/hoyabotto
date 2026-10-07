@@ -5,7 +5,7 @@ if 'gemma_hardware_owner.py' in cmd.stdout:raise RuntimeError('Existing hardware
 status=root/'work/gemma-hardware-session/status.json'
 if status.exists():(root/'outputs/Gemma-Previous-Owner-Fault-Status.json').write_bytes(status.read_bytes())
 with (root/'work/gemma-hardware-owner.log').open('ab') as log:
- p=subprocess.Popen(['/Users/teachera/Documents/Codex/2026-10-02/set-this-up-x20/xlerobot-farm/software/.venv/bin/python',str(root/'work/gemma_hardware_owner.py')]+(['--read-only'] if '--read-only' in sys.argv else [])+(['--right-arm-only'] if '--right-arm-only' in sys.argv else []),cwd=root,stdout=log,stderr=log,start_new_session=True)
+ p=subprocess.Popen(['/Users/teachera/Documents/Codex/2026-10-02/set-this-up-x20/xlerobot-farm/software/.venv/bin/python',str(root/'work/gemma_hardware_owner.py')]+(['--read-only'] if '--read-only' in sys.argv else [])+(['--right-arm-only'] if '--right-arm-only' in sys.argv else [])+(['--paddle-profile'] if '--paddle-profile' in sys.argv else []),cwd=root,stdout=log,stderr=log,start_new_session=True)
 record.write_text(json.dumps({'pid':p.pid,'started':time.time()},indent=2))
 for _ in range(60):
  if p.poll() is not None:raise RuntimeError('Owner startup failed; inspect log')

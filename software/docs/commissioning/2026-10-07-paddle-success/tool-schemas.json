@@ -180,7 +180,7 @@
     "type": "function",
     "function": {
       "name": "robot_get_cameras",
-      "description": "Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback) and phone snapshots. Reject stale feeds. Phone timestamp is receipt, not capture; images do not authorize motion.",
+      "description": "Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -190,11 +190,13 @@
               "type": "string",
               "enum": [
                 "oak",
-                "phone"
+                "phone",
+                "left_wrist",
+                "right_wrist"
               ]
             },
             "minItems": 1,
-            "maxItems": 2
+            "maxItems": 4
           }
         },
         "required": [],
@@ -323,7 +325,7 @@
     "type": "function",
     "function": {
       "name": "robot_move_joint_targets",
-      "description": "Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner.",
+      "description": "Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.",
       "parameters": {
         "type": "object",
         "properties": {

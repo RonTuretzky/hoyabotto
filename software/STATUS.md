@@ -1,3 +1,14 @@
+## Pickup owner: simultaneous joints, settle corrections, wrist cameras — 7 October 2026
+
+Software only; not yet run on the robot. The code was changed in [qwen-bridge](docs/commissioning/2026-10-07-paddle-success/qwen-bridge/PADDLE-PROFILE.md) and tested on fake hardware:
+
+- One pickup command can now move several right-arm joints together. A closing gripper still runs alone.
+- A joint that comes to rest short under load gets at most 3 goal corrections (at most 57 ticks of overdrive). If it is still short, the move ends `settled_short` with the motors holding. Before, the owner faulted at the deadline, released everything and latched STOP. This is what happened when a joint ended 58 ticks short with zero stable samples. A joint that never comes to rest still faults.
+- `robot_get_cameras` can return `left_wrist`/`right_wrist` from native capture manifests.
+- `robot_get_handoff` now serves `physical_pickup_procedure`.
+
+The paddle files that commit d364773 dropped from the repo are restored. On the robot Mac, run `./restart-robot-server.sh --dry-run` from the repo root in Terminal, then run it without the flag. It replaces the API and owner (all motors released, STOP clear) and starts the wrist publishers. Record the first physical multi-joint move and any `settled_short` here.
+
 ## Verified physical right-arm paddle pickup — 7 October 2026
 
 The right claw picked up the white paddle, followed through two bounded lifts, held it visibly above the table, then lowered/released it and withdrew. The operator explicitly confirmed the lift. Cleanup verified all six right-arm torque releases and restored the original RAM controller settings. This is one successful observed trial, not general autonomy or repeatability.

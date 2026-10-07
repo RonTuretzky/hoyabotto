@@ -7,8 +7,16 @@ from gemma_control_limits import SOFTWARE_TEMPERATURE_LIMIT_C
 DIAGNOSTIC_REGISTERS=['Torque_Enable','Operating_Mode','Goal_Position','Goal_Time','Goal_Velocity','Acceleration','Torque_Limit','Max_Torque_Limit','Max_Temperature_Limit','P_Coefficient','I_Coefficient','D_Coefficient','CW_Dead_Zone','CCW_Dead_Zone','Minimum_Startup_Force','Protection_Current','Protective_Torque','Protection_Time','Overload_Torque','Over_Current_Protection_Time','Unloading_Condition','Lock']
 
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None):
   self.read_only=read_only
+  self.paddle_profile=paddle_profile
+  self.motion_count=0
+  if paddle_profile:
+   from paddle_camera_gate import PaddleCameraGate
+   if camera_metadata is None:
+    camera_metadata=lambda:json.loads(Path('/Users/teachera/Documents/Codex/2026-10-05/m/work/phone_camera/latest.json').read_text())
+   self.camera_gate=PaddleCameraGate(camera_metadata,clock=clock,wall=wall)
+  if paddle_profile and (read_only or not position_scope or any(not n.startswith("right_arm_") for n in position_scope)):raise ValueError("Pickup profile requires explicit right-arm scope")
   self.buses=buses;self.cal=calibration;self.telemetry=read_telemetry;self.clock=clock;self.wall=wall
   self.names=[n for b in buses for n in b.motors];self.by_name={n:b for b in buses for n in b.motors}
   all_position_names=[n for n in self.names if not n.startswith('base_')]
@@ -18,7 +26,7 @@ class HardwareOwner:
   self.ranges={n:[self.cal[n].range_min,self.cal[n].range_max] for n in self.position_names}
   self.enabled=set();self.old={};self.goals={};self.rows={};self.limits={};self.last_tick=clock();self.lease=clock()+30
   self.started=wall();self.latched=False;self.engine=None;self.current_command=None
-  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':False,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'motor_writes':0,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
+  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':20 if paddle_profile else None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','motor_writes':0,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
  def read(self,n,f):return int(self.by_name[n].read(f,n,normalize=False,num_retry=2))
  def write(self,n,f,v):
   self.by_name[n].write(f,n,v,normalize=False,num_retry=2);self.state['motor_writes']+=1
@@ -39,7 +47,7 @@ class HardwareOwner:
   self.state['released_register_diagnostics']={n:self.register_diagnostics(n) for n in self.names if n.endswith('gripper')}
   self.poll()
   n='right_arm_gripper'
-  if n in self.by_name:
+  if n in self.by_name and not self.paddle_profile:
    coherent=dict(self.rows[n])
    independent=self.read(n,'Present_Temperature')
    self.state['independent_temperature_check']={'motor':n,'time':self.wall(),'register':63,'length':1,'coherent_temperature':coherent['Present_Temperature'],'independent_temperature':independent,'coherent_evidence':coherent.get('coherent_read_evidence'),'independent_reply':getattr(self.by_name[n],'last_reply_evidence',None),'matches':independent==coherent['Present_Temperature'],'motor_writes':0}
@@ -73,23 +81,33 @@ class HardwareOwner:
 
  def poll(self):
   now=self.clock()
-  if self.engine and self.engine.active and not 0<=now-self.last_tick<=.2:raise RuntimeError('Motor-owner watchdog expired')
+  if self.engine and self.engine.active and not 0<=now-self.last_tick<=(1.0 if self.paddle_profile else .2):raise RuntimeError('Motor-owner watchdog expired')
+  poll_elapsed=now-self.last_tick
   self.last_tick=now
   for n in self.names:
    row=self.read_telemetry(n);row['Torque_Enable']=self.read(n,'Torque_Enable');row['Operating_Mode']=self.read(n,'Operating_Mode');row['captured_at']=self.wall();row['firmware_position_limits']=self.limits.get(n);self.rows[n]=row
    if n in self.enabled:
-    failures=[('Torque_Enable',row['Torque_Enable'],'must equal',1),('Status',row['Status'],'must equal',0),('Present_Temperature',row['Present_Temperature'],'must be <=',SOFTWARE_TEMPERATURE_LIMIT_C),('Present_Load',row['Present_Load'],'absolute must be <=',500)]
+    failures=[('Torque_Enable',row['Torque_Enable'],'must equal',1),('Status',row['Status'],'must equal',0),*([('Present_Temperature',row['Present_Temperature'],'must be <=',SOFTWARE_TEMPERATURE_LIMIT_C)] if not self.paddle_profile else []),('Present_Load',row['Present_Load'],'absolute must be <=',500 if n.endswith('gripper') or not self.paddle_profile else 800)]
     for field,value,rule,limit in failures:
      failed=(value!=limit if field in ('Torque_Enable','Status') else value>limit if field=='Present_Temperature' else abs(value)>limit)
      if failed:
       self.state['health_fault']={'motor':n,'field':field,'value':value,'rule':rule,'limit':limit,'captured_at':row['captured_at']}
       raise RuntimeError(f'{n}: {field}={value}; {rule} {limit}')
+    if self.paddle_profile and not 100<=row['Present_Voltage']<=140:raise RuntimeError(n+': pickup supply voltage outside 10..14V')
     if n in self.ranges and not self.ranges[n][0]<=row['Present_Position']<=self.ranges[n][1]:raise RuntimeError(n+': outside saved travel range')
-    if not(self.engine and self.engine.active and n in self.engine.joints) and abs(row['Present_Position']-self.goals[n])>68:raise RuntimeError(n+': uncommanded holding drift')
+    if not(self.engine and self.engine.active and n in self.engine.joints) and abs(row['Present_Position']-self.goals[n])>(96 if self.paddle_profile else 68):raise RuntimeError(n+': uncommanded holding drift')
   if self.enabled and self.clock()>self.lease:raise RuntimeError('Command heartbeat expired')
-  if self.engine and self.engine.active:
+  camera_ready=True
+  if self.paddle_profile:
+   camera_ready=self.camera_gate.update(holding=bool(self.enabled)) if self.enabled else True
+   self.state.update(camera_supervision_ok=camera_ready,camera_pause_active=not camera_ready,camera_pauses=self.camera_gate.events)
+   if not camera_ready:
+    self.lease+=max(0,poll_elapsed)
+    if self.engine and self.engine.active:self.engine.pause(max(0,poll_elapsed))
+  if self.engine and self.engine.active and camera_ready:
    current={n:self.rows[n]['Present_Position'] for n in self.engine.joints}
-   update=self.engine.tick(current,telemetry_at=min(self.rows[n]['captured_at'] for n in self.engine.joints));self.state.update(update)
+   update=self.engine.tick(current,telemetry_at=min(self.rows[n]['captured_at'] for n in self.engine.joints),**({'rows':self.rows} if self.paddle_profile else {}));self.state.update(update)
+   if self.paddle_profile and not self.engine.active:self.lease=self.clock()+120
    if self.state.get('local_gripper_probe') and not self.engine.active:
     self.release_all('Local probe complete',latch=False)
   self.publish();return self.state
@@ -103,6 +121,10 @@ class HardwareOwner:
    else:
     for n in names:self.release(n)
    self.publish();return
+  if self.paddle_profile:
+   try:camera_ready=self.camera_gate.update(holding=False)
+   except RuntimeError as exc:raise ValueError(str(exc)) from exc
+   if not camera_ready:raise ValueError('Pickup phone feed paused; motor activation refused')
   if self.read_only:raise ValueError('READ_ONLY_OWNER: motor activation disabled; calibration mismatch must be resolved deliberately')
   if not set(names)<=self.commandable_names:raise ValueError('UNSUPPORTED_OWNER_SCOPE: requested motors are read-only')
   if self.latched:raise ValueError('STOP is latched; a new deliberate operator session is required')
@@ -110,22 +132,26 @@ class HardwareOwner:
   # Validate the entire request before enabling any motor.
   for n in names:
    row=self.rows[n];q=row['Present_Position'];lo,hi=self.limits[n]
-   if row['Status'] or row['Present_Temperature']>SOFTWARE_TEMPERATURE_LIMIT_C or abs(row['Present_Load'])>500:raise ValueError(n+': fault or health limit')
+   if row['Status'] or (not self.paddle_profile and row['Present_Temperature']>SOFTWARE_TEMPERATURE_LIMIT_C) or abs(row['Present_Load'])>(500 if n.endswith('gripper') or not self.paddle_profile else 800):raise ValueError(n+': fault or health limit')
+   if self.paddle_profile and not 100<=row['Present_Voltage']<=140:raise ValueError(n+': pickup supply voltage outside 10..14V')
    if row['Operating_Mode']!=0:raise ValueError(n+': current mode is not supported position-hold mode')
-   if n in self.ranges and not self.ranges[n][0]+4<=q<=self.ranges[n][1]-4:raise ValueError(n+': current position outside saved travel margin')
+   if n in self.ranges and not self.ranges[n][0]+(40 if self.paddle_profile else 4)<=q<=self.ranges[n][1]-(40 if self.paddle_profile else 4):raise ValueError(n+': current position outside saved travel margin')
    if not 0<=q<=4095 or (lo<hi and not lo<=q<=hi):raise ValueError(n+': current position outside firmware position limits')
   for n in names:
    if n in self.enabled:continue
    self.state.setdefault('enable_register_diagnostics',{})[n]={'pre_enable':self.register_diagnostics(n)}
    self.old[n]={f:self.read(n,f) for f in ['Lock','Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient']}
-   self.write(n,'Lock',0);self.write(n,'Torque_Limit',min(self.old[n]['Torque_Limit'],250 if n.endswith('gripper') else 400));self.write(n,'Goal_Velocity',100);self.write(n,'Goal_Time',0);self.write(n,'Acceleration',10)
+   self.write(n,'Lock',0)
+   torque=(500 if n.endswith('gripper') else 400 if n.endswith('elbow_flex') else 800) if self.paddle_profile else (250 if n.endswith('gripper') else 400)
+   self.write(n,'Torque_Limit',min(self.old[n]['Torque_Limit'],torque));self.write(n,'Goal_Velocity',200 if self.paddle_profile and n.endswith('gripper') else 100);self.write(n,'Goal_Time',0);self.write(n,'Acceleration',5 if self.paddle_profile else 10)
+   if self.paddle_profile and n.endswith(('shoulder_lift','elbow_flex')):self.write(n,'P_Coefficient',32)
    q=self.read(n,'Present_Position');lo,hi=self.limits[n]
-   if n in self.ranges and not self.ranges[n][0]+4<=q<=self.ranges[n][1]-4:raise RuntimeError(n+': drifted before enable')
+   if n in self.ranges and not self.ranges[n][0]+(40 if self.paddle_profile else 4)<=q<=self.ranges[n][1]-(40 if self.paddle_profile else 4):raise RuntimeError(n+': drifted before enable')
    if not 0<=q<=4095 or(lo<hi and not lo<=q<=hi):raise RuntimeError(n+': drifted outside firmware limits')
    self.write(n,'Goal_Position',q);self.enabled.add(n)
    self.write(n,'Torque_Enable',1);self.write(n,'Lock',1);self.write(n,'Goal_Position',q);self.goals[n]=q
    self.state['enable_register_diagnostics'][n]['applied']=self.register_diagnostics(n)
-  self.lease=self.clock()+30;self.state['released']=False;self.poll()
+  self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['released']=False;self.poll()
  def release(self,n):
   self.by_name[n].disable_torque([n],num_retry=3)
   if self.read(n,'Torque_Enable')!=0:raise RuntimeError(n+': release not confirmed')
@@ -147,7 +173,7 @@ class HardwareOwner:
   for n,q in goals.items():
    if n not in self.enabled or n.startswith('base_'):raise RuntimeError('Direct position target is not an enabled arm/head joint')
    lo,hi=self.ranges[n]
-   if type(q)is not int or not lo+4<=q<=hi-4 or abs(q-self.goals[n])>68:raise RuntimeError('Position target leaves saved limits or sample bound')
+   if type(q)is not int or not lo+4<=q<=hi-4 or abs(q-self.goals[n])>(96 if self.paddle_profile else 68):raise RuntimeError('Position target leaves saved limits or sample bound')
    if q!=self.goals[n]:self.write(n,'Goal_Position',q);self.goals[n]=q
  def command(self,c):
   if type(c.get('id'))is not int or c['id']<=0 or c.get('session_started')!=self.started:raise ValueError('Command belongs to another hardware-owner session')
@@ -157,6 +183,7 @@ class HardwareOwner:
   if op=='enable_motors':self.enable(c.get('names'),c.get('enabled'));self.state['completed']=c['id'];return
   if self.latched:raise ValueError('STOP is latched; new operator session required')
   if op=='local_gripper_probe':
+   if self.paddle_profile:raise ValueError('Legacy diagnostic probe unavailable under pickup profile')
    if self.enabled or any(r.get('Torque_Enable')!=0 for r in self.rows.values()) or len(self.rows)!=16:raise ValueError('Probe requires all16 observed released')
    if c.get('authorization')!='one-shot-right-gripper-48' or self.state.get('probe_used'):raise ValueError('Local diagnostic authorization missing or already used')
    n='right_arm_gripper';current=int(self.rows[n]['Present_Position'])
@@ -167,20 +194,29 @@ class HardwareOwner:
    applied=self.state['enable_register_diagnostics'][n]['applied']['registers']
    if any(applied[f]!=v for f,v in {'Torque_Limit':250,'Goal_Velocity':100,'Acceleration':10,'P_Coefficient':32,'Operating_Mode':0}.items()):raise RuntimeError('Probe applied settings differ from authorized values')
    self.engine=probe;self.current_command=c['id'];self.state.update(probe.start(c));self.last_tick=self.clock();self.lease=self.clock()+30;self.publish();return
-  if op=='hold':self.lease=self.clock()+30;self.state['completed']=c['id'];return
+  if op=='hold':self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['completed']=c['id'];return
   if op not in ('direct_joint','gripper_target'):raise ValueError('Unsupported hardware command')
   positions=c.get('positions')
   if not isinstance(positions,dict) or not positions or not set(positions)<=self.enabled or not set(positions)<=set(self.position_names):raise ValueError('Targets require already-enabled arm/head motors; wheels do not accept position-motion requests')
   if self.engine and self.engine.active:raise ValueError('Previous motion has not completed')
   executor=DirectJointExecutor
-  if op=='gripper_target':
+  if self.paddle_profile:
+   from paddle_joint_executor import PaddleJointExecutor
+   executor=PaddleJointExecutor
+  elif op=='gripper_target':
    from gripper_waypoint_executor import GripperWaypointExecutor
    executor=GripperWaypointExecutor
   candidate=executor(list(positions),{n:self.ranges[n] for n in positions},self.setpoints,clock=self.clock,wall=self.wall)
   current={n:self.rows[n]['Present_Position'] for n in positions}
-  update=candidate.start(c,current,session_started=self.started)
+  if self.paddle_profile:
+   if set(self.position_names)!=self.enabled:raise ValueError('Pickup requires all six right-arm motors explicitly enabled')
+   if self.motion_count>=20:raise ValueError('Pickup session motion budget exhausted (20 segments)')
+   if not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
+  update=candidate.start(c,current,session_started=self.started,**({'held_goals':self.goals} if self.paddle_profile else {}))
+  if self.paddle_profile:self.motion_count+=1
+  self.state['pickup_motion_segments_used']=self.motion_count
   self.state['local_gripper_probe']=False
-  self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.lease=self.clock()+(candidate.deadline+5 if op=='gripper_target' else 30);self.last_tick=self.clock();self.publish()
+  self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.lease=self.clock()+(candidate.deadline+5 if op=='gripper_target' or self.paddle_profile else 30);self.last_tick=self.clock();self.publish()
 
 def atomic(path,value):
  temp=path.with_suffix('.tmp');temp.write_text(json.dumps(value,allow_nan=False));temp.replace(path)
@@ -211,7 +247,7 @@ def main():
  try:
   ownership=ServoOwnership([b.port for b in buses]).acquire()
   for b in buses:guard_replies(b);b.connect(handshake=False)
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else None);owner.inspect();atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv);owner.inspect();atomic(folder/'status.json',owner.state)
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print('Hardware owner ready:16 motor reads, all torque off.',flush=True)
   while not stop.is_set():

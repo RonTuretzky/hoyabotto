@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "title": "Paddle pickup procedure through the robot API (paddle-success-v1 owner profile)",
+  "evidence": "One observed success on 2026-10-07 (see physical_pickup_handoff and the repo README software/docs/commissioning/2026-10-07-paddle-success/README.md). Station-specific; not a keyframe replay and not a repeatability claim.",
+  "not_yet_physically_validated": [
+    "Several joints moving together in one command",
+    "Bounded settle corrections and the settled_short outcome",
+    "Wrist-camera snapshots through robot_get_cameras"
+  ],
+  "owner_preconditions": [
+    "robot_get_execution shows execution_profile paddle-success-v1, stop_latched false, phase idle or holding, status age under 1 s. If not, the owner must be restarted on the robot Mac with ./restart-robot-server.sh (motors released first).",
+    "Owner scope is the six right-arm joints only; left arm, head and wheels are read-only.",
+    "Phone side view fresh: work/phone_camera/latest.json received_at under 10 s old with a seq. Enable and every new target are refused otherwise. While holding, a stale feed pauses target advancement; after 20 s stale the owner releases torque and a held paddle drops.",
+    "Every right-arm joint at least 40 ticks inside its saved range when enabling; a folded rest pose near a limit is refused.",
+    "Supply voltage raw 100..140 on all six joints."
+  ],
+  "enable": "robot_set_motor_enable with all six right-arm names and enabled=true in one call. Every motion command is refused until all six are enabled. Torque ceilings 800 (elbow 400, gripper 500), speed 100 (gripper 200), acceleration 5, shoulder-lift and elbow P 32; originals restore on release.",
+  "hold_lease": "Enable and each finished move (including settled_short) grant a 120 s monitored hold. Re-sending robot_set_motor_enable for the same six joints while holding renews it to 120 s (camera must be fresh). When it expires the owner releases torque and a held paddle drops.",
+  "motion_rules": {
+    "per_joint_segment_ticks": "3..341 from the measured position; targets and goals stay 40 ticks inside saved ranges",
+    "simultaneous": "One robot_move_joint_targets call may move several right-arm joints; they ramp together in 40-tick steps (no faster than every 0.4 s) and arrive on the same step. Moves over 341 ticks are split into <=280-tick segments.",
+    "gripper_closing": "A closing gripper is always run alone, after the other joints of the same call. It advances 10 ticks per step, waits 0.3 s stationary, max 1.5 s per step, and stops when stationary closing error reaches 40 ticks: closure_outcome stationary_closure_unverified, grasp_verified false.",
+    "following_envelope": "Each joint must stay within 96 ticks of its commanded goal or the owner faults, releases and latches STOP.",
+    "segment_budget": "20 motion segments per owner session (settled_short moves count). Only an owner restart resets it, and a restart needs the arm released, so never run out while holding the paddle."
+  },
+  "settling": {
+    "endpoint_settled": "Three fresh samples with velocity below 3, sample change at most 3, Moving flag 0, and endpoint error at most 57 ticks (gripper 30).",
+    "corrections": "If a joint comes to rest short of target (gravity sag), the owner overdrives its held goal by the measured residual: at most 40 ticks per write, at most 57 ticks beyond target, never more than 90 ticks from the present position, at most 3 corrections, within an extra 5 s.",
+    "settled_short": "If a joint is still short at rest after corrections, the move returns completed=false, endpoint_reached=false, closure_outcome=settled_short, settle_residual_ticks per joint, motors holding (no STOP). Re-plan from the readbacks or call robot_stop.",
+    "deadline_fault": "A joint that never comes to rest by the deadline still faults: torque released, STOP latched until an owner restart."
+  },
+  "observed_start_pose_ticks": {"shoulder_pan": 2122, "shoulder_lift": 2781, "elbow_flex": 2798, "wrist_flex": 1579, "wrist_roll": 1242, "gripper": 1592},
+  "observed_start_pose_note": "Pan, lift, elbow and gripper are measured starts from the table; wrist flex and roll are the held targets. Re-measure before every move.",
+  "observed_sequence": [
+    {"step": 1, "move": "elbow_flex +100", "start": 2798, "target": 2898, "endpoint": 2862},
+    {"step": 2, "move": "shoulder_lift -341", "start": 2781, "target": 2440, "endpoint": 2453},
+    {"step": 3, "move": "shoulder_lift -130", "start": 2453, "target": 2323, "endpoint": 2336},
+    {"step": 4, "move": "shoulder_pan +40", "start": 2122, "target": 2162, "endpoint": 2160},
+    {"step": 5, "move": "shoulder_pan +40", "start": 2160, "target": 2200, "endpoint": 2197},
+    {"step": 6, "move": "elbow_flex -114", "start": 2901, "target": 2787, "endpoint": 2796},
+    {"step": 7, "move": "CLOSE gripper to saved min+40", "start": 1592, "target": 1310, "endpoint": 1350, "note": "resistance stop, load 328; empty-jaw baseline endpoint 1331, load 176"},
+    {"step": 8, "move": "shoulder_lift -60 (lift)", "start": 2336, "target": 2276, "endpoint": 2296},
+    {"step": 9, "move": "shoulder_lift -60 (lift)", "start": 2296, "target": 2236, "endpoint": 2257},
+    {"step": 10, "move": "shoulder_lift +79 (lower)", "start": 2257, "target": 2336, "endpoint": 2336},
+    {"step": 11, "move": "gripper +260 (open)", "start": 1349, "target": 1609, "endpoint": 1586},
+    {"step": 12, "move": "elbow_flex +114 (withdraw)", "start": 2791, "target": 2905, "endpoint": 2903},
+    {"step": 13, "move": "shoulder_lift +341 (park)", "start": 2339, "target": 2680, "endpoint": 2681}
+  ],
+  "sequence_note": "Commands were relative to fresh measured positions. Each pilot step is one segment (13 total, budget 20). Steps 12 and 13 can be one simultaneous call. Use robot_set_gripper or a lower gripper target for CLOSE. Check cameras after every segment; locally correct a healthy held pose on an empty miss instead of resetting the arm.",
+  "cameras": {
+    "phone": "Side view of handle and both fingers; required by the owner (receipt time, not capture time).",
+    "oak": "Head RGB/depth; raw distorted fallback unless a rectified stream declares itself.",
+    "right_wrist": "Native wrist camera (AVFoundation 0x12200005a39230), request explicitly in robot_get_cameras. Used during the original success.",
+    "left_wrist": "AVFoundation 0x12140005a39230; known to freeze, expect camera_errors until its cable is reseated.",
+    "calibration": "No camera is calibrated to the robot frame; images guide the operator, they do not authorize motion."
+  },
+  "success_criteria": "Only call it a pickup when the paddle follows the jaws, visibly clears the table, stays held, and can be placed and released without a passive drop. Resistance, tool success, simulation or an image description alone are not a grasp.",
+  "stop_and_recovery": "robot_stop releases all motors and latches STOP; so does any owner fault. A latched owner refuses enable and motion until restarted. Recovery on the robot Mac: support the arm, confirm all 16 torque off, run ./restart-robot-server.sh from the repo root, then fetch fresh state and readiness. Never replay requests from an earlier owner session.",
+  "do_not": [
+    "Call robot_get_registered_tags as a prerequisite; tag registration is not part of this procedure.",
+    "Replay the sequence blindly after power-off, manual arm movement or cart repositioning.",
+    "Use Cartesian reach/FK proposals as motor targets.",
+    "Drive the base; robot_move_base is unsupported in this owner."
+  ]
+}
