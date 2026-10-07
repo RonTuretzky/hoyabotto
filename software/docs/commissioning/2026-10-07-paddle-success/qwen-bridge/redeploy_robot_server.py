@@ -20,8 +20,8 @@ OAK_RAW_DIR=os.environ.get('XLEROBOT_OAK_RAW_DIR','/Users/teachera/Documents/Cod
 WORK=ROOT/'work';SESSION=WORK/'gemma-hardware-session';STATUS=SESSION/'status.json'
 OWNER_RECORD=WORK/'gemma-hardware-owner-process.json';API_RECORD=WORK/'gemma-robot-tools-process.json'
 OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api.log'
-INSTALL=['wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
-TESTS=['test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
+INSTALL=['remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
+TESTS=['test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
 OWNER_ARGS=['--right-arm-only','--paddle-profile','--wheels'];API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
 CAPTURE_SOURCE=BRIDGE.parents[1]/'session-archive-2026-10-05/capture-single.swift'
@@ -32,6 +32,9 @@ configure_wrist_ids(ROOT)
 CAMERA_REPORT=None  # list collecting camera-setup messages while setup_wrist_cameras runs
 def say(message):
  print('[redeploy] '+message,flush=True)
+ try:
+  with (WORK/'redeploy.log').open('a') as f:f.write(time.strftime('%Y-%m-%d %H:%M:%S ')+message+'\n')
+ except OSError:pass
  if CAMERA_REPORT is not None:CAMERA_REPORT.append(message)
 def fail(message):say('ABORT: '+message);sys.exit(1)
 
@@ -166,6 +169,7 @@ def main():
     say('restarting the API so it uses the new wrist camera IDs (no motors involved)')
     if stop(apis,'API',10):fail('API did not exit')
     start_api()
+  record_deploy('cameras-only')
   print(json.dumps({'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_camera_ids':WRIST_CAMERA_IDS,'identity_verified':IDENTITY_VERIFIED},indent=2));return
  if not Path(PYTHON).exists():fail(f'{PYTHON} not found; set XLEROBOT_PYTHON')
  run_tests();changed=show_changes()
@@ -189,12 +193,32 @@ def main():
   final=read_status()
   if final and any(r.get('Torque_Enable')!=0 for r in final.get('rows',{}).values()):fail('old owner exited without confirming all motors released; inspect before restarting')
   say('old owner exited with all motors released')
+ backup=None
  if changed:
   backup=WORK/'backups'/time.strftime('qwen-bridge-%Y%m%d-%H%M%S');backup.mkdir(parents=True)
   for name in INSTALL:
    if (WORK/name).exists():shutil.copy2(WORK/name,backup/name)
   for name in INSTALL:shutil.copy2(BRIDGE/name,WORK/name)
   say(f'installed {", ".join(changed)}; previous copies in {backup}')
+ try:s,owner,api=bring_up(args)
+ except SystemExit:
+  if not changed:raise
+  say('ROLLBACK: the new version did not come up; restoring the previous files and restarting them')
+  for pids,label in ((processes('gemma_robot_tools.py'),'API'),(processes('gemma_hardware_owner.py'),'hardware owner')):
+   if stop(pids,label,20):fail(f'{label} did not exit during rollback; inspect before restarting')
+  for name in INSTALL:
+   if (backup/name).exists():shutil.copy2(backup/name,WORK/name)
+  s,owner,api=bring_up(args)
+  record_deploy('rolled-back')  # keep the checkout known so a fix can be deployed remotely
+  say(f'ROLLBACK complete: the previous version is running again; the failed attempt is in {WORK/"redeploy.log"}');sys.exit(1)
+ record_deploy('restart')
+ print(json.dumps({'owner_pid':owner.pid,'owner_session_started':s['started'],'execution_profile':s['execution_profile'],'phase':s['phase'],
+                   'all16_released':True,'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
+                   'relay':'unchanged','installed':changed,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
+ say('done. Motors are released; enable all six right-arm joints explicitly before any pickup move.')
+
+def bring_up(args):
+ """Start the owner from the installed files, check it, set up the wrist cameras, start the API."""
  previous=read_status();previous_started=(previous or {}).get('started',0)
  if previous:(ROOT/'outputs').mkdir(exist_ok=True);(ROOT/'outputs/Gemma-Previous-Owner-Fault-Status.json').write_text(json.dumps(previous))
  with OWNER_LOG.open('ab') as log:
@@ -214,9 +238,13 @@ def main():
  if s.get('base_drive_supported') is not ('--wheels' in OWNER_ARGS):fail('fresh owner base_drive_supported does not match the requested --wheels setting')
  if not args.no_wrist_cams:setup_wrist_cameras(False)  # before the API, which loads the detected IDs at startup
  api=start_api()
- print(json.dumps({'owner_pid':owner.pid,'owner_session_started':s['started'],'execution_profile':s['execution_profile'],'phase':s['phase'],
-                   'all16_released':True,'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
-                   'relay':'unchanged','installed':changed,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
- say('done. Motors are released; enable all six right-arm joints explicitly before any pickup move.')
+
+ return s,owner,api
+
+def record_deploy(mode):
+ """Remember which checkout/commit is deployed, so /admin/deploy can update and restart it remotely."""
+ top=subprocess.run(['git','-C',str(BRIDGE),'rev-parse','--show-toplevel'],capture_output=True,text=True).stdout.strip()
+ head=subprocess.run(['git','-C',str(BRIDGE),'rev-parse','HEAD'],capture_output=True,text=True).stdout.strip()
+ if top:(WORK/'deploy.json').write_text(json.dumps({'checkout':top,'head':head,'mode':mode,'time':time.time()},indent=2))
 
 if __name__=='__main__':main()

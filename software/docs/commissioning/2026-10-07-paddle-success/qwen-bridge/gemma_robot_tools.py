@@ -33,6 +33,7 @@ from carton.servo.common import atomic_json
 from gemma_execution_binding import TrustedExecutionBinding
 from gemma_direct_client import DirectJointClient
 from paddle_segments import paddle_target_segments, expand_path
+import remote_admin
 from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED, setup_report
 WRIST_DIRS = wrist_dirs(ROOT)
 configure_wrist_ids(ROOT)  # IDs detected by the restart script
@@ -637,11 +638,39 @@ class Handler(BaseHTTPRequestHandler):
                                         'client_certificate_pinned': True, 'motor_owner_active': execution()['active']})
         if self.path == '/tools':
             return self.send_json(200, {'ok': True, 'tools': TOOLS})
+        if self.path.startswith('/admin/'):
+            return self.admin_get()
         return self.send_json(404, {'ok': False, 'error': 'Unknown route'})
+
+    # Operator administration (not LLM tools; same pinned client certificate). See remote_admin.py.
+    def admin_get(self):
+        from urllib.parse import urlsplit, parse_qs
+        url = urlsplit(self.path); query = {k: v[-1] for k, v in parse_qs(url.query).items()}
+        try:
+            if url.path == '/admin/logs':
+                names = [n for n in query.get('names', '').split(',') if n] or None
+                return self.send_json(200, {'ok': True, 'logs': remote_admin.logs(ROOT, names, int(query.get('lines', 80)))})
+            if url.path == '/admin/deploy':
+                return self.send_json(200, {'ok': True, 'deploy': remote_admin.deploy_status(ROOT)})
+            if url.path == '/admin/job':
+                return self.send_json(200, {'ok': True, 'job': remote_admin.job_status(ROOT, query.get('id', ''), int(query.get('lines', 200)))})
+        except (ValueError, OSError) as e:
+            return self.send_json(400, {'ok': False, 'error': str(e)})
+        return self.send_json(404, {'ok': False, 'error': 'Unknown admin route'})
 
     def do_POST(self):
         if not self.peer_ok():
             return self.send_json(403, {'ok': False, 'error': 'Unpinned mTLS client'})
+        if self.path == '/admin/deploy':
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 4096: raise ValueError('Invalid request size')
+                body = json.loads(self.rfile.read(size))
+                job = remote_admin.start_deploy(ROOT, body.get('ref', 'main'), body.get('mode', 'restart'))
+                print('admin deploy job '+job['id']+': '+json.dumps({k: job[k] for k in ('ref', 'mode')}), flush=True)
+                return self.send_json(202, {'ok': True, 'job': job, 'note': 'Runs detached; a restart replaces this API for a few seconds. Poll /admin/job?id=...'})
+            except (ValueError, OSError, KeyError, TypeError, AttributeError) as e:
+                return self.send_json(400, {'ok': False, 'error': str(e)})
         if self.path != '/call':
             return self.send_json(404, {'ok': False, 'error': 'Unknown route'})
         request_id = None

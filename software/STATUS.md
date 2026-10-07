@@ -1,3 +1,7 @@
+## Remote administration of the robot server — 7 October 2026
+
+After the next manual `./restart-robot-server.sh` (motors released), the robot API exposes `/admin/logs`, `/admin/deploy` and `/admin/job` behind the pinned client certificate. The chat Mac can then read the restart, owner, API and camera logs, and deploy a pushed branch or commit with a restart, without anyone at the robot. A restart that fails to come up rolls back to the previous files. Remote restarts still refuse while motors are holding.
+
 ## Contact guard — 7 October 2026
 
 Software only; fake-hardware tests pass. There is no self-collision model, so joint limits alone let the arm reach into the robot's own parts. Now, if an arm joint shows load ≥ 600 while lagging ≥ 20 ticks behind its command, the motion ends `contact_halt`: that joint stops pushing and holds, and nothing is released. Settle corrections never push a loaded or non-moving joint. 600 is a first guess; record real contact and false-halt loads here to tune it.
