@@ -46,6 +46,20 @@ _PROFILES = {
 _SIDES = ('left', 'right')
 _FLAPS = ('short_left', 'short_right', 'long_near', 'long_far')
 _CONTACT_POLICIES = ('measured_v2', 'setpoint_feedback_v3')
+_APPROACH_POLICIES = ('elevated_v2', 'whole_jaw_normal_v1')
+_WHOLE_JAW = {
+    'left': dict(vertex=dict(body='left_gripper_link',
+        local=[-.03499957180960571, -.012649502777943581, -.0069244265327669235],
+        geometry='left_wrist_roll_follower_so101_v1_part_37'),
+        along=0., radius=.14, offset=.0015,
+        seed=[-.40179800698637935, .37215188776714014, -.5126514124071644,
+              1.1376084149710965, 1.347337488154797]),
+    'right': dict(vertex=dict(body='right_gripper_link',
+        local=[-.01064218, -.007367827, -.084425503]),
+        along=-.10, radius=.14, offset=.0035,
+        seed=[.5143840450876404, -.754664796272655, .23038185403013392,
+              1.429046286599008, -2.416513149718617]),
+}
 
 
 class _PanelStepAudit(AbstractContextManager):
@@ -256,9 +270,153 @@ def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy
 
 
 def _point(box, profile, side, degrees):
+    configuration = profile.get('per_side', {}).get(side, {})
     point, _ = contact_point(math.radians(degrees), 0, -1 if side == 'left' else 1,
-                             profile['along'], .14, 0., .0015)
+                             configuration.get('along', profile['along']),
+                             configuration.get('radius', .14), 0., configuration.get('offset', .0015))
     return box[:3, :3] @ point + box[:3, 3]
+
+
+def _validated_jaw_vertex(sim, side, declared):
+    """Verify an exact vertex on a permitted original jaw collision mesh.
+
+    This deliberately does not change the older distal-only vertex selector.
+    The new approach can use an existing proximal jaw surface, and records
+    which original mesh supplied it. External arm/housing meshes are excluded.
+    """
+    body_name = declared.get('body')
+    local = np.asarray(declared.get('local'), dtype=float)
+    if (side not in _SIDES or not isinstance(body_name, str) or not body_name.startswith(side+'_')
+            or local.shape != (3,) or not np.isfinite(local).all()
+            or mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, body_name) < 0):
+        raise ValueError('A finite side-bound original jaw vertex is required')
+    data = mujoco.MjData(sim.model)
+    data.qpos[:] = sim.data.qpos
+    mujoco.mj_kinematics(sim.model, data)
+    body = data.body(body_name)
+    body_id = sim.model.body(body_name).id
+    nearest = None
+    for gid in range(sim.model.ngeom):
+        name = sim.model.geom(gid).name
+        if (not name.startswith(side+'_') or not sim.model.geom_contype[gid]
+                or sim.model.geom_type[gid] != mujoco.mjtGeom.mjGEOM_MESH
+                or not any(kind in name for kind in ('wrist_roll_follower', 'moving_jaw'))
+                or sim.model.geom_bodyid[gid] != body_id
+                or (declared.get('geometry') is not None and declared['geometry'] != name)):
+            continue
+        mid = sim.model.geom_dataid[gid]
+        start, count = sim.model.mesh_vertadr[mid], sim.model.mesh_vertnum[mid]
+        world = np.einsum('ij,kj->ki', data.geom_xmat[gid].reshape(3, 3),
+                          sim.model.mesh_vert[start:start+count]) + data.geom_xpos[gid]
+        points = np.einsum('ji,kj->ki', body.xmat.reshape(3, 3), world-body.xpos)
+        errors = np.linalg.norm(points-local, axis=1)
+        index = int(np.argmin(errors))
+        if nearest is None or errors[index] < nearest['source_vertex_error_m']:
+            nearest = dict(body=body_name, local=local.tolist(), geometry=name,
+                           source_mesh_id=int(mid), source_mesh_vertex_index=index,
+                           source_vertex_error_m=float(errors[index]))
+    if nearest is None or nearest['source_vertex_error_m'] > 1e-6:
+        raise ValueError('Declared whole-jaw contact vertex absent from original permitted collision meshes')
+    return nearest
+
+
+def _subdivide_reversed_joint_paths(paths, ik, *, max_step_m=.0005):
+    """Subdivide existing joint edges, without solving new inward IK poses."""
+    if not math.isfinite(max_step_m) or not 0 < max_step_m <= .0005:
+        raise ValueError('Exact approach CAD increment must be at most 0.5 mm')
+    if set(paths) != set(_SIDES) or len(paths['left']) != len(paths['right']) or len(paths['left']) < 2:
+        raise ValueError('Equal finite paired reverse joint paths required')
+    waypoints = [{a: np.asarray(paths[a][0], dtype=float).copy() for a in _SIDES}]
+
+    def append_edge(start, end, depth=0):
+        if any(q.shape != (5,) or not np.isfinite(q).all() for q in (*start.values(), *end.values())):
+            raise ValueError('Finite original robot joint waypoints required')
+        distance = max(float(np.linalg.norm(ik[a].point(end[a])-ik[a].point(start[a]))) for a in _SIDES)
+        if not math.isfinite(distance):
+            raise ValueError('Finite exact approach CAD FK required')
+        if distance <= max_step_m+1e-6:
+            waypoints.append(end)
+        else:
+            if depth >= 8:
+                raise ValueError('Exact approach subdivision exceeded finite depth')
+            middle = {a: (start[a]+end[a])/2 for a in _SIDES}
+            append_edge(start, middle, depth+1)
+            append_edge(middle, end, depth+1)
+
+    for index in range(1, len(paths['left'])):
+        end = {a: np.asarray(paths[a][index], dtype=float).copy() for a in _SIDES}
+        append_edge(waypoints[-1], end)
+    return waypoints
+
+
+def _whole_jaw_preflight(sim, boxes, angles, profile, vertices):
+    """Plan outward once, then check its exact joint reversal in a copy."""
+    copy = SimpleNamespace(model=sim.model, data=mujoco.MjData(sim.model),
+                           arm_indices=sim.arm_indices, forbidden_contact=sim.forbidden_contact)
+    copy.data.qpos[:] = sim.data.qpos
+    ik = {a: RobotVertexIK(copy, a, vertices[a]) for a in _SIDES}
+    reversed_paths = {}
+    for a in _SIDES:
+        point = _point(boxes[a], profile, a, angles[a])
+        theta = math.radians(angles[a])
+        normal = boxes[a][:3, :3] @ np.array([(-1 if a == 'left' else 1)*math.cos(theta), 0., math.sin(theta)])
+        q, _ = ik[a].solve(point, profile['per_side'][a]['seed'])
+        planner = JointPathPlanner(copy, a, clearance=.006, allowed_flaps=('short_'+a+'_cardboard',))
+        if not planner.valid(q):
+            raise ValueError(a+' whole-jaw endpoint collides: '+str(planner.last_collision))
+        outward = [q.copy()]
+        for gap in np.linspace(.001, .050, 50):
+            goal, _ = ik[a].solve(point+gap*normal, q)
+            if not planner.edge(q, goal):
+                raise ValueError(a+' whole-jaw outward path collides: '+str(planner.last_collision))
+            q = goal
+            outward.append(q.copy())
+        reversed_paths[a] = list(reversed(outward))
+    waypoints = _subdivide_reversed_joint_paths(reversed_paths, ik)
+    free = {}
+    for a in _SIDES:
+        free[a] = JointPathPlanner(copy, a, clearance=.006).plan(waypoints[0][a], max_seconds=4.)
+        copy.data.qpos[copy.arm_indices[a][:5]] = waypoints[0][a]
+    for goals in waypoints[1:]:
+        _paired_edge(copy, goals)
+        for a, q in goals.items():
+            copy.data.qpos[copy.arm_indices[a][:5]] = q
+    return free, waypoints
+
+
+def _exact_waypoint_details(sim, ik, goals, targets):
+    """Audit a checked joint waypoint; reject jumps instead of re-solving IK."""
+    points, details = {}, {}
+    for a in _SIDES:
+        actual = ik[a].point(sim.data.qpos[sim.arm_indices[a][:5]]).copy()
+        setpoint_q = _actuator_setpoint(sim, a)
+        setpoint = ik[a].point(setpoint_q).copy()
+        point = ik[a].point(goals[a]).copy()
+        increment = point-setpoint
+        if not np.isfinite(increment).all() or np.linalg.norm(increment) > .000501:
+            raise ValueError('Exact normal waypoint exceeds checked 0.5 mm CAD command increment')
+        points[a] = point
+        details[a] = dict(actual_point_world=actual.tolist(), sensor_target_world=np.asarray(targets[a]).tolist(),
+            command_point_world=point.tolist(), requested_distance_m=float(np.linalg.norm(np.asarray(targets[a])-actual)),
+            actual_fk_step_m=float(np.linalg.norm(point-actual)), contact_policy='exact_checked_reverse_joint_path',
+            command_reference_world=setpoint.tolist(), commanded_increment_world=increment.tolist(),
+            commanded_fk_increment_m=float(np.linalg.norm(increment)), ik_goal_point_world=point.tolist(),
+            current_actuator_setpoint_radians=setpoint_q.tolist(), current_setpoint_fk_world=setpoint.tolist(),
+            actual_minus_setpoint_world=(actual-setpoint).tolist())
+    return points, details
+
+
+def _entry_route_endpoint_drifts(targets, entry_targets):
+    """Fresh geometry can invalidate an entry-bound route, never retarget it."""
+    drifts = {}
+    for side in _SIDES:
+        current, entry = np.asarray(targets[side]), np.asarray(entry_targets[side])
+        if current.shape != (3,) or entry.shape != (3,) or not np.isfinite(np.r_[current, entry]).all():
+            raise ValueError('Finite fresh and entry-bound short endpoints required')
+        drifts[side] = float(np.linalg.norm(current-entry))
+        if drifts[side] > .035:
+            raise ValueError('Fresh short endpoint drift exceeds original 35 mm Cartesian bound for exact route')
+    return drifts
 
 
 def _paired_edge(sim, goals):
@@ -306,12 +464,14 @@ def _preflight(sim, boxes, angles, profile, vertices):
 
 
 def probe_shorts_against_passive_majors(sim, controller, *, capture=False, target_degrees=10.,
-                                      contact_policy='measured_v2'):
+                                      contact_policy='measured_v2', approach_policy='elevated_v2'):
     """Opt-in paired short attempt, with freely moving partial major panels."""
     if not math.isfinite(target_degrees) or not 0 <= target_degrees <= 10:
         raise ValueError('Bounded short probe target must be 0 to 10 degrees')
     if contact_policy not in _CONTACT_POLICIES:
         raise ValueError('Unknown bounded short contact policy')
+    if approach_policy not in _APPROACH_POLICIES:
+        raise ValueError('Unknown bounded short approach policy')
     c = controller
     if getattr(c, 'partial_short_probe', None) is not None:
         raise ValueError('Partial short probe already attempted; faults cannot be reset')
@@ -336,6 +496,7 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                   preflight_scope='free transit and 5 mm elevated standoff; each subsequent contact substep checked at execution',
                   contact_commands=[])
     report['contact_policy'] = contact_policy
+    report['approach_policy'] = approach_policy
     report['contact_increment_reference'] = 'measured encoder FK'
     if contact_policy == 'setpoint_feedback_v3':
         report.update(trajectory_policy='source_coherent_setpoint_feedback_0p5mm_0p25deg_v3',
@@ -366,7 +527,35 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
         major_commands = {f: reading['angles'][f]['degrees'] for f in ('long_near', 'long_far')}
         major_limits = {f: np.degrees(sim.model.joint(f+'_hinge').range) for f in major_commands}
         chosen = None
-        for name, profile in _PROFILES.items():
+        normal_waypoints = None
+        if approach_policy == 'whole_jaw_normal_v1':
+            name, profile = 'whole_jaw_central_left_front_right', dict(along=0., per_side=_WHOLE_JAW)
+            vertices = {a: _validated_jaw_vertex(sim, a, _WHOLE_JAW[a]['vertex']) for a in _SIDES}
+            boxes = {a: np.asarray(coherent[a][0]['world_from_box']) for a in _SIDES}
+            paths, normal_waypoints = _whole_jaw_preflight(sim, boxes, angles, profile, vertices)
+            chosen = (name, profile, vertices, paths)
+            report['candidates'].append(dict(profile=name, free_and_complete_normal_path_clear=True,
+                                             static_preflight_only=True))
+            report.update(preflight_scope='free transit and complete paired outside-normal exact joint path; runtime checks remain required',
+                target_source='exact normal route bound to entry source-camera geometry; fresh geometry monitored after each command; bounded stroke uses current source-camera targets',
+                contact_surface_scope='original permitted fixed and moving jaw meshes; proximal left jaw surface is not a distal fingertip',
+                normal_approach_travel_m=.050, normal_approach_point_increment_m=.0005,
+                normal_approach_waypoint_count=len(normal_waypoints)-1,
+                normal_approach_sources={a: coherent[a][1] for a in _SIDES},
+                normal_approach_entry_targets_world={a:_point(boxes[a], profile, a, angles[a]).tolist() for a in _SIDES},
+                normal_approach_joint_waypoints=[{a:q.tolist() for a,q in row.items()} for row in normal_waypoints],
+                normal_approach_increment_reference='current actuator-setpoint FK; not a physical-motion bound',
+                normal_approach_fk_increment_allowance_m=.000001,
+                normal_approach_fresh_endpoint_drift_limit_m=.035,
+                normal_approach_fresh_box_guards='existing 15 mm translation and 8 degree rotation limits remain active',
+                bounded_stroke_increment_reference=report['contact_increment_reference'],
+                contact_increment_reference='stage-specific: exact normal route uses setpoint FK; bounded stroke uses its selected contact policy',
+                max_contact_point_step_scope='bounded stroke only; exact normal waypoint increments checked separately',
+                any_short_advance_transition_scope='one short advancing does not establish contact or progress of the other short',
+                normal_waypoint_budget='derived from the finite 50 mm planned path with checked joint-edge subdivision',
+                max_contact_approach_commands=len(normal_waypoints)-1,
+                normal_offset_m=None, normal_offset_by_arm_m={a:_WHOLE_JAW[a]['offset'] for a in _SIDES})
+        for name, profile in (() if chosen is not None else _PROFILES.items()):
             vertices = {}
             for a in _SIDES:
                 actual_vertices = mesh_contact_vertices(sim.model, sim.data, a)
@@ -385,6 +574,8 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             raise ValueError('Neither declared paired short approach passes original clearance gates')
         name, profile, vertices, paths = chosen
         report.update(contact_profile=name, contact_along_m=profile['along'], actual_cad_vertices=vertices)
+        if normal_waypoints is not None:
+            report.update(contact_along_m=None, contact_along_by_arm_m={a:_WHOLE_JAW[a]['along'] for a in _SIDES})
         ik = {a: RobotVertexIK(sim, a, vertices[a]) for a in _SIDES}
 
         def observe(label, commands, *, require_partial_majors=False):
@@ -438,12 +629,35 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             report['stage'] = 'checked free paired short approach'
             for a in _SIDES:
                 current_path = JointPathPlanner(sim, a, clearance=.006).plan(paths[a][-1])
-                execute_path(sim, a, current_path, 'Reach above '+a+' outward short edge', capture=capture)
+                label = ('Reach outside '+a+' short face' if normal_waypoints is not None
+                         else 'Reach above '+a+' outward short edge')
+                execute_path(sim, a, current_path, label, capture=capture)
                 reading, angles = observe('Check all four flaps after short free transit', angles,
                                           require_partial_majors=True)
             report['stage'] = 'checked paired short contact approach'
             approach_angles = dict(angles)
-            for _ in range(80):
+            if normal_waypoints is not None:
+                report['stage'] = 'checked exact whole-jaw normal approach'
+                for index, goals in enumerate(normal_waypoints[1:], 1):
+                    if any(angles[a]-approach_angles[a] >= 1. for a in _SIDES):
+                        report['contact_approach_transition'] = 'fresh short advance reached 1 degree on exact normal path; switch to bounded stroke'
+                        break
+                    sources = {a:_contact_reading(reading, a)[1] for a in _SIDES}
+                    targets = {a:_point(np.asarray(sources[a]['world_from_box']), profile, a, angles[a]) for a in _SIDES}
+                    drifts = _entry_route_endpoint_drifts(targets, report['normal_approach_entry_targets_world'])
+                    points, details = _exact_waypoint_details(sim, ik, goals, targets)
+                    for a in _SIDES:
+                        details[a].update(entry_route_target_world=report['normal_approach_entry_targets_world'][a],
+                                          fresh_endpoint_drift_m=drifts[a])
+                    row = dict(stage='normal_approach', seq=reading['seq'], sources=sources,
+                        planned_source_sequences={a:coherent[a][1]['seq'] for a in _SIDES},
+                        normal_waypoint=index, command_degrees=dict(angles), robot_substeps=details)
+                    report['contact_commands'].append(row)
+                    command(goals, points, 'Follow exact checked whole-jaw normal joint approach', row)
+                    reading, angles = observe('Check fresh shorts and free majors after exact normal waypoint', angles)
+                else:
+                    report['contact_approach_transition'] = 'complete exact normal joint path; actual contact and folding progress not asserted'
+            for _ in range(0 if normal_waypoints is not None else 80):
                 sources = {a: _contact_reading(reading, a)[1] for a in _SIDES}
                 targets = {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, angles[a]) for a in _SIDES}
                 goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy)
@@ -462,7 +676,8 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                 command(goals, points, 'Approach both outward shorts using actual CAD fingers', row)
                 reading, angles = observe('Check both shorts and free majors during contact approach', angles)
             else:
-                raise ValueError('Short contact approach exceeded 80 conservative CAD substeps')
+                if normal_waypoints is None:
+                    raise ValueError('Short contact approach exceeded 80 conservative CAD substeps')
             for a in _SIDES:
                 guards['short_'+a].begin_stroke(reading)
                 contact_guards[a].begin_stroke(_contact_reading(reading, a)[0])

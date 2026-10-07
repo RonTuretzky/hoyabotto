@@ -6,6 +6,59 @@
 hands-clear retention has passed. No robot or physical camera was accessed.**
 Keep this distinction when handing the work to Gemma or the robot Mac.
 
+### Latest update — whole-jaw normal approach and parallel run
+
+The latest full-prefix experiment is
+`/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-whole-jaw-normal-06`.
+It used three isolated workers, the original free/unbolted carton, the same
+hinge stiffness/friction and loose-box dynamics, the V3 setpoint-feedback
+controller, the hypothetical left/back RGB-D view, and the new opt-in
+`whole_jaw_normal_v1` approach. It did not access hardware or train model
+weights. All three original partial-major prefixes completed and the two major
+flaps remained passively retained; none completed the short-fold target:
+
+- seed 0: right short stalled after 148 approach/stroke commands; final
+  shorts −8.81° / −14.13° and maximum horizontal carton motion 1.265 mm;
+- seed 1: right short stalled after 148 commands; final shorts −8.60° /
+  −14.09° and maximum horizontal motion 0.205 mm;
+- seed 2: fresh left-short geometry disappeared; final shorts −9.41° /
+  −13.83° and maximum horizontal motion 0.032 mm.
+
+The run therefore remains **0/3 complete short probes and 0/3 full carton
+folds**. It is useful evidence: changing the bare-claw entry posture removed
+the previous left-wrist collision refusal, but it did not produce reliable
+right-short progress or a complete vision-controlled stroke. The detailed
+worker outputs, frozen source snapshot, RGB-D refusal records, contact logs,
+and panel logs are all in that absolute directory. They are intentionally not
+copied into Git because they are large generated artifacts.
+
+The new static approach is documented in
+`docs/carton-whole-jaw-short-approach.md`. It uses the actual SO101 jaw mesh,
+checks the selected vertex against its declared rigid body, follows a reversed
+joint path that was statically checked through the full 50 mm approach, and
+subdivides planned endpoints to at most 0.5 mm. This is a planning and
+collision result, not a force or contact-success result. The source-CAD audit
+of the previous refusals is at
+`/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/cad-hull-audit-20261007/`;
+it confirms the original STL itself intersects those proposed poses, so the
+1 mm collision gate was retained.
+
+The observer now also has an explicit, default-off `observe_tagged_shorts`
+phase. It reuses current AprilTag 11/12 poses only when same-frame aligned
+depth quality, identity, angle range, and cross-view agreement pass. Rejected
+or stale tag-depth records refuse; the existing strict hinge-plane bounds and
+all carton/arm failure latches remain. This makes a later tagged transition
+possible, but no dynamic trial has yet established continuous short visibility
+through 90°.
+
+Parallel controller search is now reproducible with isolated worker directories
+and frozen source snapshots. The measured same-host benchmark was 95.35 s
+sequential versus 53.37 s with three workers (1.79× observed speedup), with all
+2,465 timestamped states identical. This is a measured local result, not a
+guaranteed speedup on every machine. The latest three-worker run above took
+66.81 s with a 2.93 worker-overlap factor; overlap is diagnostic, not a speedup
+claim.
+
 The strongest executed components are:
 
 - Both shorts folded and supported by one open right claw while the left

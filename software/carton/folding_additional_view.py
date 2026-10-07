@@ -31,6 +31,7 @@ from carton.folding_additional_view_profiles import (
 
 MAJORS = ('long_near', 'long_far')
 SHORTS = ('short_left', 'short_right')
+TAGGED_SHORT_ANGLE_BOUNDS_DEGREES = (-40., 103.)
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,8 @@ class AdditionalViewConfiguration:
     max_flap_disagreement_degrees: float = 3.
     observe_open_shorts: bool = False
     allow_primary_carton_absence: bool = False
+    observe_primary_open_shorts: bool = False
+    observe_tagged_shorts: bool = False
 
     def __post_init__(self):
         for field in ('assumption_id', 'clock_id'):
@@ -60,6 +63,12 @@ class AdditionalViewConfiguration:
             raise ValueError('Explicit boolean open-short opt-in required')
         if not isinstance(self.allow_primary_carton_absence, bool):
             raise ValueError('Explicit boolean primary carton-absence opt-in required')
+        if (not isinstance(self.observe_primary_open_shorts, bool)
+                or self.observe_primary_open_shorts and not self.observe_open_shorts):
+            raise ValueError('Primary open-short opt-in requires enabled open-short observation')
+        if (not isinstance(self.observe_tagged_shorts, bool)
+                or self.observe_tagged_shorts and not self.observe_open_shorts):
+            raise ValueError('Tagged-short phase requires enabled open-short observation')
         supported = MAJORS + SHORTS if self.observe_open_shorts else MAJORS
         if (not isinstance(self.required_flaps, tuple) or not self.required_flaps
                 or len(set(self.required_flaps)) != len(self.required_flaps)
@@ -75,7 +84,7 @@ class AdditionalViewConfiguration:
             raise ValueError('Only the explicitly declared 48 degree front intrinsics are supported')
 
 
-def _angle(row, name, tags, seq):
+def _angle(row, name, tags, seq, *, allow_tagged_shorts=False):
     if row is None:
         return None
     if (not isinstance(row, dict) or row.get('unambiguous', True) is not True
@@ -84,7 +93,9 @@ def _angle(row, name, tags, seq):
     angle = row.get('degrees')
     if isinstance(angle, bool) or not isinstance(angle, (float, int)) or not np.isfinite(angle) or not -40 < angle < 103:
         raise ValueError(f'{name}: fresh finite angle within existing observation range required')
-    if name in SHORTS and not OPEN_SHORT_ANGLE_BOUNDS_DEGREES[0] < angle < OPEN_SHORT_ANGLE_BOUNDS_DEGREES[1]:
+    tagged_short = (allow_tagged_shorts and name in SHORTS
+                    and row.get('method') == 'apriltag_aligned_depth_plane')
+    if name in SHORTS and not tagged_short and not OPEN_SHORT_ANGLE_BOUNDS_DEGREES[0] < angle < OPEN_SHORT_ANGLE_BOUNDS_DEGREES[1]:
         raise ValueError(f'{name}: outside explicitly supported open-short angle bounds')
     if row.get('method') == 'apriltag_aligned_depth_plane':
         tag = {'long_near': 14, 'long_far': 13, 'short_left': 11, 'short_right': 12}[name]
@@ -115,6 +126,86 @@ def _angle(row, name, tags, seq):
     return float(angle)
 
 
+def _short_tag_quality(packet, name):
+    """Require a decoded ID and its own same-frame accepted aligned depth."""
+    tag = {'short_left': 11, 'short_right': 12}[name]
+    history = packet.get('observer_history', {})
+    if not isinstance(history, dict):
+        raise ValueError(f'{name}: current short-tag depth history required')
+    rejected = history.get('rejected', {})
+    quality = history.get('quality', {})
+    if (tag not in packet.get('tags', ()) or history.get('seq') != packet['seq']
+            or tag not in history.get('detected', ()) or not isinstance(rejected, dict)
+            or tag in rejected or str(tag) in rejected or not isinstance(quality, dict)
+            or tag in quality and str(tag) in quality):
+        raise ValueError(f'{name}: current decoded tag and matching accepted depth history required')
+    row = quality.get(tag, quality.get(str(tag)))
+    if not isinstance(row, dict):
+        raise ValueError(f'{name}: current short-tag depth quality required')
+    for key, low, high in (('valid_depth_pixels', 30, float('inf')),
+                           ('square_fit_rms_mm', 0., 4.),
+                           ('plane_rms_mm', 0., float('inf'))):
+        value = row.get(key)
+        if (not isinstance(value, (int, float)) or isinstance(value, bool)
+                or not np.isfinite(value) or not low <= value <= high):
+            raise ValueError(f'{name}: unchanged aligned tag-depth gate failed: {key}')
+    return copy.deepcopy(row)
+
+
+def _validate_tagged_shorts(packet):
+    history = packet.get('observer_history', {})
+    if not isinstance(history, dict):
+        raise ValueError('Current short-tag depth history required')
+    rejected = history.get('rejected', {})
+    if not isinstance(rejected, dict):
+        raise ValueError('Current decoded-tag rejection history required')
+    for name, tag in zip(SHORTS, (11, 12)):
+        row = packet.get('angles', {}).get(name)
+        if (tag in packet.get('tags', ()) or tag in history.get('detected', ())
+                or tag in rejected or str(tag) in rejected
+                or row and row.get('method') == 'apriltag_aligned_depth_plane'):
+            _short_tag_quality(packet, name)
+            if not row or row.get('method') != 'apriltag_aligned_depth_plane':
+                raise ValueError(f'{name}: decoded short tag lacks its current in-range tag angle')
+            _angle(row, name, packet['tags'], packet['seq'], allow_tagged_shorts=True)
+
+
+def _with_additional_tagged_shorts(packet, decoded_poses, configuration):
+    """Use this capture's tag poses and carton pose, never recapture or infer IDs.
+
+    The angle calculation matches ordinary PixelPort tag angles. Both primary
+    and additional packets use the shared quality/range/identity validator.
+    Strict open-plane corroboration and all later cross-view checks still apply.
+    """
+    if not configuration.observe_tagged_shorts:
+        raise ValueError('Explicit tagged-short phase required')
+    result = copy.deepcopy(packet)
+    box = _rigid(packet.get('world_from_box'), 'Additional pixel carton pose')
+    evidence = dict(method='current_decoded_short_tags_and_aligned_depth',
+        valid_angle_bounds_degrees=list(TAGGED_SHORT_ANGLE_BOUNDS_DEGREES), comparisons={})
+    for name, tag, outward in (('short_left', 11, np.array([-1., 0., 0.])),
+                               ('short_right', 12, np.array([1., 0., 0.]))):
+        if tag not in decoded_poses:
+            continue
+        quality = _short_tag_quality(packet, name)
+        pose = _rigid(decoded_poses[tag], 'Current additional short-tag pose')
+        normal = -box[:3, :3].T @ pose[:3, 2]
+        angle = math.degrees(math.atan2(normal[2], normal @ outward))
+        tagged = dict(degrees=angle, method='apriltag_aligned_depth_plane',
+            observed_seq=packet['seq'], valid_angle_bounds_degrees=list(TAGGED_SHORT_ANGLE_BOUNDS_DEGREES))
+        value = _angle(tagged, name, packet['tags'], packet['seq'], allow_tagged_shorts=True)
+        plane = _angle(packet['angles'].get(name), name, packet['tags'], packet['seq'])
+        difference = None if plane is None else abs(plane - value)
+        if difference is not None and difference > configuration.max_flap_disagreement_degrees:
+            raise ValueError(f'Current additional short tag and hinge plane disagree on {name}')
+        tagged['depth_check_degrees'] = plane
+        result['angles'][name] = tagged
+        evidence['comparisons'][name] = dict(tag_id=tag, tag_degrees=value,
+            hinge_plane_degrees=plane, difference_degrees=difference, tag_depth_quality=quality)
+    _validate_tagged_shorts(result)
+    return result, evidence
+
+
 def _primary_carton_absent(primary, configuration):
     partial = (primary.get('source') == PARTIAL_VIEW_SOURCE
                or 'packet_schema' in primary or 'carton_status' in primary)
@@ -136,6 +227,10 @@ def _combine(primary, secondary, configuration):
             or secondary['camera'] != configuration.camera):
         raise ValueError('Matching sequence and explicitly declared view identities required')
     absent = _primary_carton_absent(primary, configuration)
+    if configuration.observe_tagged_shorts:
+        if not absent:
+            _validate_tagged_shorts(primary)
+        _validate_tagged_shorts(secondary)
     s = _rigid(secondary['world_from_box'], 'Additional pixel carton pose')
     translation, rotation = None, None
     if not absent:
@@ -154,8 +249,10 @@ def _combine(primary, secondary, configuration):
             omitted = first['method']
             first = None
             angles.pop(name, None)
-        a = _angle(first, name, primary['tags'], seq)
-        b = _angle(second, name, secondary['tags'], seq)
+        a = _angle(first, name, primary['tags'], seq,
+                   allow_tagged_shorts=configuration.observe_tagged_shorts)
+        b = _angle(second, name, secondary['tags'], seq,
+                   allow_tagged_shorts=configuration.observe_tagged_shorts)
         difference = None if a is None or b is None else abs(a - b)
         if difference is not None and difference > configuration.max_flap_disagreement_degrees:
             raise ValueError(f'Fresh independent camera views disagree on {name}')
@@ -170,7 +267,10 @@ def _combine(primary, secondary, configuration):
             angles[name] = copy.deepcopy(second)
             angles[name].update(source_camera=configuration.camera, observed_seq=seq,
                                 source_method=second['method'],
-                                method=('additional_view_open_short_hinge_consistent_plane'
+                                method=('additional_view_apriltag_aligned_depth_plane'
+                                        if configuration.observe_tagged_shorts and name in SHORTS
+                                        and second['method'] == 'apriltag_aligned_depth_plane'
+                                        else 'additional_view_open_short_hinge_consistent_plane'
                                         if name in SHORTS else 'additional_view_hinge_consistent_plane'))
         elif name in configuration.required_flaps:
             raise ValueError(f'Fresh required {name} missing from both synchronized views')
@@ -181,6 +281,64 @@ def _combine(primary, secondary, configuration):
         comparison.update(carton_comparison_status='primary_carton_unavailable',
                           primary_carton_status=CartonAvailability.MISSING_IDENTITY.value)
     return angles, comparison
+
+
+def _with_primary_open_shorts(primary, cache, configuration, *, timestamp, priors=None):
+    """Enrich one current registered primary packet from its exact exposed cache.
+
+    No renderer, RNG, simulator geometry or alternative carton pose is used.
+    Keep the original PixelPort short rows as evidence. Identified current tags
+    retain precedence; when a current strict plane is also present, both must
+    agree within the same 3-degree gate.
+    """
+    if not configuration.observe_primary_open_shorts:
+        raise ValueError('Explicit primary open-short observation opt-in required')
+    if (_primary_carton_absent(primary, configuration)
+            or primary.get('camera') != configuration.primary_camera
+            or primary.get('rgb_timestamp_s') != timestamp
+            or primary.get('depth_timestamp_s') != timestamp
+            or primary.get('source') not in (None, 'calibrated_rgbd')):
+        raise ValueError('Current registered ordinary primary packet required for open shorts')
+    if not isinstance(cache, LastRGBDFrameCache) or cache.camera != configuration.primary_camera:
+        raise ValueError('Exact current primary exposed RGB-D cache required')
+    if configuration.observe_tagged_shorts:
+        _validate_tagged_shorts(primary)
+    seq = primary['seq']
+    if primary.get('observer_history', {}).get('seq') != seq:
+        raise ValueError('Current primary calibration history required for open shorts')
+    camera = _rigid(primary.get('world_from_camera'), 'Current primary pixel camera pose')
+    box = _rigid(primary.get('world_from_box'), 'Current primary pixel carton pose')
+    frame = cache.read_current(expected_seq=seq, timestamp_s=timestamp,
+                               clock_id=configuration.clock_id)
+    planes = depth_open_short_flap_angles(frame['rgb'], frame['exposed_depth'],
+        frame['intrinsics'], camera, box, priors)
+    packet = copy.deepcopy(primary)
+    original = {name: copy.deepcopy(primary['angles'][name]) for name in SHORTS if name in primary['angles']}
+    comparisons = {}
+    for name in SHORTS:
+        row = primary['angles'].get(name)
+        legacy = row is not None and row.get('method') == 'aligned_depth_cardboard_plane'
+        identified = None if legacy else row
+        existing = _angle(identified, name, primary['tags'], seq,
+                          allow_tagged_shorts=configuration.observe_tagged_shorts)
+        plane = _angle(planes.get(name), name, primary['tags'], seq)
+        difference = None if existing is None or plane is None else abs(existing - plane)
+        if difference is not None and difference > configuration.max_flap_disagreement_degrees:
+            raise ValueError(f'Current primary identified estimate and hinge plane disagree on {name}')
+        comparisons[name] = dict(current_identified_degrees=existing, hinge_plane_degrees=plane,
+                                 difference_degrees=difference, legacy_stripe_omitted=legacy)
+        packet['angles'].pop(name, None)
+        if existing is not None:
+            packet['angles'][name] = copy.deepcopy(identified)
+        elif plane is not None:
+            packet['angles'][name] = copy.deepcopy(planes[name])
+        if name in packet['angles']:
+            packet['angles'][name].update(source_camera=configuration.primary_camera, observed_seq=seq)
+    evidence = dict(status='observed', method='strict_open_short_hinge_planes_from_current_primary_cache',
+        frame_metadata=frame['metadata'], original_pixelport_short_angles=original,
+        plane_estimates=copy.deepcopy(planes), comparisons=comparisons,
+        valid_angle_bounds_degrees=list(OPEN_SHORT_ANGLE_BOUNDS_DEGREES))
+    return packet, evidence
 
 
 class AdditionalViewPixelPort:
@@ -218,6 +376,9 @@ class AdditionalViewPixelPort:
             raise ValueError('Failed primary command requires a new primary startup')
         if getattr(primary, '_observation_failed', False):
             raise ValueError('Failed primary observation requires a new primary startup')
+        if configuration.observe_primary_open_shorts and not isinstance(
+                getattr(primary, 'last_rgbd_frame', None), LastRGBDFrameCache):
+            raise ValueError('Primary open-short observation requires exact exposed-frame caching')
         if configuration.allow_primary_carton_absence:
             if (getattr(primary, 'startup_registration_verified', False) is not True
                     or not primary.readings or primary.readings[0]['seq'] != 1
@@ -251,6 +412,7 @@ class AdditionalViewPixelPort:
         self.additional_observer = RGBDTagObserver(anchor, additional_anchors=anchors,
                                                     stationary_camera=False)
         self.additional_priors = copy.deepcopy(previous.additional_priors) if previous else {}
+        self.primary_short_priors = copy.deepcopy(previous.primary_short_priors) if previous else {}
         self.additional_view_history = copy.deepcopy(previous.additional_view_history) if previous else []
         # A stage may enable this mode after a completed primary-only prefix.
         # Preserve that prefix without relabelling it as multiview evidence.
@@ -268,6 +430,11 @@ class AdditionalViewPixelPort:
             uncertainty_source='comparison gates and synthetic noise, not physical accuracy bounds')
         if configuration.observe_open_shorts:
             declaration['open_short_angle_bounds_degrees'] = list(OPEN_SHORT_ANGLE_BOUNDS_DEGREES)
+        if configuration.observe_primary_open_shorts:
+            declaration['primary_open_short_source'] = 'exact current primary exposed RGB-D cache and current registered primary pose'
+        if configuration.observe_tagged_shorts:
+            declaration['tagged_short_angle_bounds_degrees'] = list(TAGGED_SHORT_ANGLE_BOUNDS_DEGREES)
+            declaration['tagged_short_phase'] = 'current ID11/12 aligned-depth angles; no extension of open-plane bounds or motion authorization'
         if previous:
             declaration['previous_phase'] = dict(assumptions_sha256=previous.assumptions_sha256,
                                                 declaration=copy.deepcopy(previous.declaration))
@@ -391,6 +558,20 @@ class AdditionalViewPixelPort:
             audit['primary'].update(rgb_timestamp_s=timestamp, depth_timestamp_s=timestamp,
                 world_from_camera=np.asarray(self.primary.observer.world_from_camera).tolist(),
                 observer_history=copy.deepcopy(self.primary.observer.history[-1]))
+            if self.configuration.observe_tagged_shorts:
+                # Ordinary PixelPort rows do not embed observer history. Bind
+                # tag validation to this same capture even without plane mode.
+                primary = copy.deepcopy(audit['primary'])
+            if self.configuration.observe_primary_open_shorts:
+                if absent:
+                    audit['primary_open_short_observation'] = dict(status='not_observed',
+                        reason='current_primary_carton_identity_absent')
+                else:
+                    primary, evidence = _with_primary_open_shorts(audit['primary'],
+                        self.primary.last_rgbd_frame, self.configuration, timestamp=timestamp,
+                        priors=self.primary_short_priors)
+                    audit['primary'] = copy.deepcopy(primary)
+                    audit['primary_open_short_observation'] = evidence
             camera = self.configuration.camera
             if verify_additional_view_camera(camera, self.primary.sim.model.camera(camera)) != self.renderer_camera_declaration:
                 raise ValueError('Additional camera declaration changed during observation')
@@ -425,6 +606,11 @@ class AdditionalViewPixelPort:
                 rgb_sha256=hashlib.sha256(rgb.tobytes()).hexdigest(),
                 exposed_depth_sha256=hashlib.sha256(depth.tobytes()).hexdigest())
             audit['additional'] = secondary
+            if self.configuration.observe_tagged_shorts:
+                secondary, evidence = _with_additional_tagged_shorts(secondary, tags,
+                    self.configuration)
+                audit['additional'] = copy.deepcopy(secondary)
+                audit['additional_tagged_short_observation'] = evidence
             combined, comparison = _combine(primary, secondary, self.configuration)
             self._same_time(timestamp)
             audit.update(status='accepted', comparison=comparison)
@@ -439,6 +625,8 @@ class AdditionalViewPixelPort:
             result.update(angles=combined, source='calibrated_rgbd_additional_view',
                           additional_view=copy.deepcopy(audit))
             self.additional_priors.update({name: row['degrees'] for name, row in angles.items()})
+            primary_planes = audit.get('primary_open_short_observation', {}).get('plane_estimates', {})
+            self.primary_short_priors.update({name: row['degrees'] for name, row in primary_planes.items()})
             self._last_seq = seq
             self.readings.append(result)
             self.additional_view_history.append(audit)
