@@ -1,0 +1,837 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_list_motors",
+      "description": "List all16 configured motors and saved ranges. Live owner telemetry when available; explicitly aged historical rows in passive recovery, never asserted as current torque state. No serial owner duplication.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_set_motor_enable",
+      "description": "Explicitly enable or release named motors through the single hardware owner. Wheel activation holds the current encoder in existing position mode0; no wheel movement/mode change. Never automatically activates at server startup.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "left_arm_shoulder_pan",
+                "left_arm_shoulder_lift",
+                "left_arm_elbow_flex",
+                "left_arm_wrist_flex",
+                "left_arm_wrist_roll",
+                "left_arm_gripper",
+                "head_motor_1",
+                "head_motor_2",
+                "right_arm_shoulder_pan",
+                "right_arm_shoulder_lift",
+                "right_arm_elbow_flex",
+                "right_arm_wrist_flex",
+                "right_arm_wrist_roll",
+                "right_arm_gripper",
+                "base_left_wheel",
+                "base_right_wheel"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "names",
+          "enabled"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_move_motor_targets",
+      "description": "Raw integer encoder targets for the14 arm/head/gripper position motors already enabled. Sole owner enforces ranges, rates, following, watchdog and measured completion. No wheel movement or automatic activation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "positions": {
+            "type": "object",
+            "description": "Absolute raw encoder ticks by canonical motor name; query robot_get_capabilities.commandable_ranges first. Endpoints are not geometric full extension.",
+            "minProperties": 1,
+            "properties": {
+              "left_arm_shoulder_pan": {
+                "type": "integer",
+                "minimum": 963,
+                "maximum": 3131
+              },
+              "left_arm_shoulder_lift": {
+                "type": "integer",
+                "minimum": 859,
+                "maximum": 3235
+              },
+              "left_arm_elbow_flex": {
+                "type": "integer",
+                "minimum": 946,
+                "maximum": 3148
+              },
+              "left_arm_wrist_flex": {
+                "type": "integer",
+                "minimum": 902,
+                "maximum": 3192
+              },
+              "left_arm_wrist_roll": {
+                "type": "integer",
+                "minimum": 119,
+                "maximum": 3975
+              },
+              "left_arm_gripper": {
+                "type": "integer",
+                "minimum": 1279,
+                "maximum": 2815
+              },
+              "head_motor_1": {
+                "type": "integer",
+                "minimum": 1023,
+                "maximum": 3147
+              },
+              "head_motor_2": {
+                "type": "integer",
+                "minimum": 1936,
+                "maximum": 2661
+              },
+              "right_arm_shoulder_pan": {
+                "type": "integer",
+                "minimum": 683,
+                "maximum": 3411
+              },
+              "right_arm_shoulder_lift": {
+                "type": "integer",
+                "minimum": 830,
+                "maximum": 3264
+              },
+              "right_arm_elbow_flex": {
+                "type": "integer",
+                "minimum": 936,
+                "maximum": 3158
+              },
+              "right_arm_wrist_flex": {
+                "type": "integer",
+                "minimum": 933,
+                "maximum": 3161
+              },
+              "right_arm_wrist_roll": {
+                "type": "integer",
+                "minimum": 125,
+                "maximum": 3969
+              },
+              "right_arm_gripper": {
+                "type": "integer",
+                "minimum": 1274,
+                "maximum": 2820
+              }
+            },
+            "additionalProperties": false
+          },
+          "duration_s": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 25
+          }
+        },
+        "required": [
+          "positions",
+          "duration_s"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_state",
+      "description": "Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fresh": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_cameras",
+      "description": "Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback) and phone snapshots. Reject stale feeds. Phone timestamp is receipt, not capture; images do not authorize motion.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cameras": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "oak",
+                "phone"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 2
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_capabilities",
+      "description": "Report actual joint ranges, units, supported controller protocol and concrete motion blockers.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_depth",
+      "description": "Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_handoff",
+      "description": "Retrieve the user-authorized complete paddle-task handoff, historical evidence and guards, plus current camera and saved servo ages. Context transfer never arms or binds execution.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_readiness",
+      "description": "Saved calibration and physical reference readiness; historical evidence is explicitly dated.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_keyframes",
+      "description": "Inspect real and simulated named keyframes; existence never authorizes blind replay.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_skills",
+      "description": "Inventory validated physical visual skills and source implementations. Does not execute skills.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_evidence",
+      "description": "Read bounded deployment evidence and recording metadata without arbitrary filesystem access.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_execution",
+      "description": "Read the bound sole-owner execution status; no motor connection.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_stop",
+      "description": "Independent STOP for the current bound owner; never enables motors, clears STOP, or restarts an owner.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_move_joint_targets",
+      "description": "Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "arm": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ]
+          },
+          "positions": {
+            "type": "object",
+            "description": "Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {\"right_arm_shoulder_lift\": 2000}; select targets from fresh state and commandable_ranges.",
+            "minProperties": 1,
+            "properties": {
+              "left_arm_shoulder_pan": {
+                "type": "integer",
+                "minimum": 963,
+                "maximum": 3131
+              },
+              "left_arm_shoulder_lift": {
+                "type": "integer",
+                "minimum": 859,
+                "maximum": 3235
+              },
+              "left_arm_elbow_flex": {
+                "type": "integer",
+                "minimum": 946,
+                "maximum": 3148
+              },
+              "left_arm_wrist_flex": {
+                "type": "integer",
+                "minimum": 902,
+                "maximum": 3192
+              },
+              "left_arm_wrist_roll": {
+                "type": "integer",
+                "minimum": 119,
+                "maximum": 3975
+              },
+              "left_arm_gripper": {
+                "type": "integer",
+                "minimum": 1279,
+                "maximum": 2815
+              },
+              "right_arm_shoulder_pan": {
+                "type": "integer",
+                "minimum": 683,
+                "maximum": 3411
+              },
+              "right_arm_shoulder_lift": {
+                "type": "integer",
+                "minimum": 830,
+                "maximum": 3264
+              },
+              "right_arm_elbow_flex": {
+                "type": "integer",
+                "minimum": 936,
+                "maximum": 3158
+              },
+              "right_arm_wrist_flex": {
+                "type": "integer",
+                "minimum": 933,
+                "maximum": 3161
+              },
+              "right_arm_wrist_roll": {
+                "type": "integer",
+                "minimum": 125,
+                "maximum": 3969
+              },
+              "right_arm_gripper": {
+                "type": "integer",
+                "minimum": 1274,
+                "maximum": 2820
+              },
+              "elbow_flex": {
+                "type": "integer"
+              },
+              "gripper": {
+                "type": "integer"
+              },
+              "shoulder_lift": {
+                "type": "integer"
+              },
+              "shoulder_pan": {
+                "type": "integer"
+              },
+              "wrist_flex": {
+                "type": "integer"
+              },
+              "wrist_roll": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "duration_s": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 25
+          }
+        },
+        "required": [
+          "arm",
+          "positions",
+          "duration_s"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "arm": {
+                  "const": "left"
+                }
+              },
+              "required": [
+                "arm"
+              ]
+            },
+            "then": {
+              "properties": {
+                "positions": {
+                  "type": "object",
+                  "description": "Selected arm canonical names or explicit-arm aliases",
+                  "minProperties": 1,
+                  "properties": {
+                    "left_arm_shoulder_pan": {
+                      "type": "integer",
+                      "minimum": 963,
+                      "maximum": 3131
+                    },
+                    "left_arm_shoulder_lift": {
+                      "type": "integer",
+                      "minimum": 859,
+                      "maximum": 3235
+                    },
+                    "left_arm_elbow_flex": {
+                      "type": "integer",
+                      "minimum": 946,
+                      "maximum": 3148
+                    },
+                    "left_arm_wrist_flex": {
+                      "type": "integer",
+                      "minimum": 902,
+                      "maximum": 3192
+                    },
+                    "left_arm_wrist_roll": {
+                      "type": "integer",
+                      "minimum": 119,
+                      "maximum": 3975
+                    },
+                    "left_arm_gripper": {
+                      "type": "integer",
+                      "minimum": 1279,
+                      "maximum": 2815
+                    },
+                    "shoulder_pan": {
+                      "type": "integer",
+                      "minimum": 963,
+                      "maximum": 3131
+                    },
+                    "shoulder_lift": {
+                      "type": "integer",
+                      "minimum": 859,
+                      "maximum": 3235
+                    },
+                    "elbow_flex": {
+                      "type": "integer",
+                      "minimum": 946,
+                      "maximum": 3148
+                    },
+                    "wrist_flex": {
+                      "type": "integer",
+                      "minimum": 902,
+                      "maximum": 3192
+                    },
+                    "wrist_roll": {
+                      "type": "integer",
+                      "minimum": 119,
+                      "maximum": 3975
+                    },
+                    "gripper": {
+                      "type": "integer",
+                      "minimum": 1279,
+                      "maximum": 2815
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "arm": {
+                  "const": "right"
+                }
+              },
+              "required": [
+                "arm"
+              ]
+            },
+            "then": {
+              "properties": {
+                "positions": {
+                  "type": "object",
+                  "description": "Selected arm canonical names or explicit-arm aliases",
+                  "minProperties": 1,
+                  "properties": {
+                    "right_arm_shoulder_pan": {
+                      "type": "integer",
+                      "minimum": 683,
+                      "maximum": 3411
+                    },
+                    "right_arm_shoulder_lift": {
+                      "type": "integer",
+                      "minimum": 830,
+                      "maximum": 3264
+                    },
+                    "right_arm_elbow_flex": {
+                      "type": "integer",
+                      "minimum": 936,
+                      "maximum": 3158
+                    },
+                    "right_arm_wrist_flex": {
+                      "type": "integer",
+                      "minimum": 933,
+                      "maximum": 3161
+                    },
+                    "right_arm_wrist_roll": {
+                      "type": "integer",
+                      "minimum": 125,
+                      "maximum": 3969
+                    },
+                    "right_arm_gripper": {
+                      "type": "integer",
+                      "minimum": 1274,
+                      "maximum": 2820
+                    },
+                    "shoulder_pan": {
+                      "type": "integer",
+                      "minimum": 683,
+                      "maximum": 3411
+                    },
+                    "shoulder_lift": {
+                      "type": "integer",
+                      "minimum": 830,
+                      "maximum": 3264
+                    },
+                    "elbow_flex": {
+                      "type": "integer",
+                      "minimum": 936,
+                      "maximum": 3158
+                    },
+                    "wrist_flex": {
+                      "type": "integer",
+                      "minimum": 933,
+                      "maximum": 3161
+                    },
+                    "wrist_roll": {
+                      "type": "integer",
+                      "minimum": 125,
+                      "maximum": 3969
+                    },
+                    "gripper": {
+                      "type": "integer",
+                      "minimum": 1274,
+                      "maximum": 2820
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_move_head",
+      "description": "Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "positions": {
+            "type": "object",
+            "description": "Canonical head motor names and integer encoder ticks.",
+            "minProperties": 1,
+            "properties": {
+              "head_motor_1": {
+                "type": "integer",
+                "minimum": 1023,
+                "maximum": 3147
+              },
+              "head_motor_2": {
+                "type": "integer",
+                "minimum": 1936,
+                "maximum": 2661
+              }
+            },
+            "additionalProperties": false
+          },
+          "duration_s": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 25
+          }
+        },
+        "required": [
+          "positions"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_set_gripper",
+      "description": "Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success. Validates first, then enables only this gripper if released and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: left: 1279..2815 inclusive ticks; right: 1274..2820 inclusive ticks. Raw calibration endpoints are invalid command targets; no clamping.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "arm": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ]
+          },
+          "position_ticks": {
+            "type": "integer",
+            "description": "Commandable integer encoder ticks: left: 1279..2815 inclusive ticks; right: 1274..2820 inclusive ticks"
+          },
+          "duration_s": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 25
+          }
+        },
+        "required": [
+          "arm",
+          "position_ticks"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "arm": {
+                  "const": "left"
+                }
+              },
+              "required": [
+                "arm"
+              ]
+            },
+            "then": {
+              "properties": {
+                "position_ticks": {
+                  "minimum": 1279,
+                  "maximum": 2815
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "arm": {
+                  "const": "right"
+                }
+              },
+              "required": [
+                "arm"
+              ]
+            },
+            "then": {
+              "properties": {
+                "position_ticks": {
+                  "minimum": 1274,
+                  "maximum": 2820
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_move_base",
+      "description": "Base drive request; currently unsupported by the parked arm owner. No wheel activation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "linear_m_s": {
+            "type": "number"
+          },
+          "angular_rad_s": {
+            "type": "number"
+          },
+          "duration_s": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "linear_m_s",
+          "angular_rad_s",
+          "duration_s"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_plan_reach",
+      "description": "Read-only existing repository LeRobot/Placo reach planner using fresh sole-owner encoders and measured configuration. Returns proposals only when actual calibration permits; otherwise exact missing configuration. No execution or collision certification.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "arm": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ]
+          },
+          "frame": {
+            "type": "string",
+            "enum": [
+              "arm_base",
+              "station"
+            ]
+          },
+          "units": {
+            "type": "string",
+            "enum": [
+              "metres"
+            ]
+          },
+          "orientation": {
+            "type": "string",
+            "enum": [
+              "constrained",
+              "position_only"
+            ]
+          },
+          "tool_poses": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "arm",
+          "frame",
+          "units",
+          "orientation",
+          "tool_poses"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_arm_pose",
+      "description": "Read-only FK tool pose in arm-base metres from measured repository configuration and live encoders; reports missing geometry explicitly.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "arm": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ]
+          }
+        },
+        "required": [
+          "arm"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+]

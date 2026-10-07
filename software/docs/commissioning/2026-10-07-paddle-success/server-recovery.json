@@ -1,0 +1,120 @@
+{
+  "api_listener": "https://127.0.0.1:1241",
+  "chat_mac_api_url": "https://127.0.0.1:1242",
+  "relay_hostname": "organisation-fish-jvc-shopper.trycloudflare.com",
+  "right_motion_ready": true,
+  "supported_joints": [
+    "right_arm_shoulder_pan",
+    "right_arm_shoulder_lift",
+    "right_arm_elbow_flex",
+    "right_arm_wrist_flex",
+    "right_arm_wrist_roll",
+    "right_arm_gripper"
+  ],
+  "all16_released": true,
+  "recovery_motor_writes": 0,
+  "calibration_mismatches": {
+    "left_arm_shoulder_lift": {
+      "expected": {
+        "Homing_Offset": 975,
+        "Min_Position_Limit": 855,
+        "Max_Position_Limit": 3239
+      },
+      "actual": {
+        "Homing_Offset": 677,
+        "Min_Position_Limit": 1130,
+        "Max_Position_Limit": 2964
+      }
+    },
+    "left_arm_wrist_flex": {
+      "expected": {
+        "Homing_Offset": -826,
+        "Min_Position_Limit": 898,
+        "Max_Position_Limit": 3196
+      },
+      "actual": {
+        "Homing_Offset": -824,
+        "Min_Position_Limit": 896,
+        "Max_Position_Limit": 3198
+      }
+    },
+    "left_arm_wrist_roll": {
+      "expected": {
+        "Homing_Offset": 1318,
+        "Min_Position_Limit": 115,
+        "Max_Position_Limit": 3979
+      },
+      "actual": {
+        "Homing_Offset": 1319,
+        "Min_Position_Limit": 110,
+        "Max_Position_Limit": 3984
+      }
+    },
+    "left_arm_gripper": {
+      "expected": {
+        "Homing_Offset": 121,
+        "Min_Position_Limit": 1275,
+        "Max_Position_Limit": 2819
+      },
+      "actual": {
+        "Homing_Offset": 130,
+        "Min_Position_Limit": 1261,
+        "Max_Position_Limit": 2833
+      }
+    }
+  },
+  "tool_count": 20,
+  "read_dispatch_checks": {
+    "robot_get_state": {
+      "ok": true,
+      "image_count": 0,
+      "error": null
+    },
+    "robot_get_capabilities": {
+      "ok": true,
+      "image_count": 0,
+      "error": null
+    },
+    "robot_list_motors": {
+      "ok": true,
+      "image_count": 0,
+      "error": null
+    },
+    "robot_get_cameras": {
+      "ok": true,
+      "image_count": 2,
+      "error": null
+    },
+    "robot_get_depth": {
+      "ok": true,
+      "image_count": 1,
+      "error": null
+    },
+    "robot_get_readiness": {
+      "ok": true,
+      "image_count": 0,
+      "error": null
+    },
+    "robot_get_handoff": {
+      "ok": true,
+      "image_count": 0,
+      "error": null
+    },
+    "robot_get_arm_pose": {
+      "ok": true,
+      "image_count": 0,
+      "error": null
+    }
+  },
+  "tls": {
+    "server_valid_until_utc": "2026-11-05T01:03:36Z",
+    "paired_client_valid_until_utc": "2026-11-05T01:03:19Z",
+    "certificates_changed": false,
+    "server_sha256": "875fee0385f97826a3f74c0239dee9bec292477b249d6aac475ec6190332c55c",
+    "paired_client_sha256": "2ed87f54da051bfdafe4d7c62da46a8530a054b192190bcf70882c6856897fa6",
+    "missing_client_rejected": true,
+    "unpaired_client_rejected": true
+  },
+  "authenticated_remote_roundtrip": "not verified: paired private client key remains on other Mac; client relay still needs hostname update",
+  "setup_movement_tests": false
+}

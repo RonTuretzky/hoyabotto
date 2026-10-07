@@ -1,3 +1,11 @@
+## Verified physical right-arm paddle pickup — 7 October 2026
+
+The right claw picked up the white paddle, followed through two bounded lifts, held it visibly above the table, then lowered/released it and withdrew. The operator explicitly confirmed the lift. Cleanup verified all six right-arm torque releases and restored the original RAM controller settings. This is one successful observed trial, not general autonomy or repeatability.
+
+[Exact successful process, settings, failed attempts, telemetry, and Qwen integration requirements](docs/commissioning/2026-10-07-paddle-success/README.md). The success used camera-guided encoder commands with temporary shoulder/elbow P32, a measured-resistance jaw close, current right-arm calibration, and an earlier 5.43 cm forward cart reposition. No saved calibration or travel limits were rewritten. Approximately 40° wrist movement was separately observed; the requested 40 cm cart travel remains incomplete.
+
+The Qwen tool server now has a motion-capable right-only owner, all16 released and zero recovery motor writes. Normal full-scope startup refuses four left-arm saved-versus-hardware calibration mismatches; they remain read-only. [Actual server commands, relay update, verification and integration gaps](docs/commissioning/2026-10-07-paddle-success/QWEN-SERVER.md). Do not treat a live API or this historical pose sequence as motion readiness.
+
 ## Bare-claw parallel simulation progress — 7 October 2026
 
 Offline only; no physical camera or robot accessed. Three isolated workers now

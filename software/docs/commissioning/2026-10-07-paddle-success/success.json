@@ -1,0 +1,382 @@
+{
+  "event": "physical_right_arm_paddle_pickup",
+  "date": "2026-10-07",
+  "timezone": "Asia/Tokyo",
+  "verified": true,
+  "verification": [
+    "Handle stayed between fingers through two shoulder-lift segments",
+    "Wrist-relative paddle pose stayed stable while table moved in view",
+    "Fresh side view showed paddle above table",
+    "Human operator explicitly confirmed paddle lifted",
+    "Paddle lowered, jaws opened, arm withdrew and all six torques released"
+  ],
+  "repeatability_trials": 1,
+  "cart_40_cm_completed": false,
+  "calibration_sha256": "089fc750c34bc29667688493b14da047b8753c0738d72a800b5b0c46430f6d7d",
+  "right_calibration": {
+    "right_arm_shoulder_pan": {
+      "id": 1,
+      "drive_mode": 0,
+      "homing_offset": -57,
+      "range_min": 679,
+      "range_max": 3415
+    },
+    "right_arm_shoulder_lift": {
+      "id": 2,
+      "drive_mode": 0,
+      "homing_offset": 785,
+      "range_min": 826,
+      "range_max": 3268
+    },
+    "right_arm_elbow_flex": {
+      "id": 3,
+      "drive_mode": 0,
+      "homing_offset": 634,
+      "range_min": 932,
+      "range_max": 3162
+    },
+    "right_arm_wrist_flex": {
+      "id": 4,
+      "drive_mode": 0,
+      "homing_offset": -770,
+      "range_min": 929,
+      "range_max": 3165
+    },
+    "right_arm_wrist_roll": {
+      "id": 5,
+      "drive_mode": 0,
+      "homing_offset": 790,
+      "range_min": 121,
+      "range_max": 3973
+    },
+    "right_arm_gripper": {
+      "id": 6,
+      "drive_mode": 0,
+      "homing_offset": 329,
+      "range_min": 1270,
+      "range_max": 2824
+    }
+  },
+  "commands": [
+    "elbow_flex 100",
+    "shoulder_lift -341",
+    "shoulder_lift -130",
+    "shoulder_pan 40",
+    "shoulder_pan 40",
+    "elbow_flex -114",
+    "CLOSE",
+    "shoulder_lift -60",
+    "shoulder_lift -60",
+    "shoulder_lift 79",
+    "gripper 260",
+    "elbow_flex 114",
+    "shoulder_lift 341",
+    "STOP"
+  ],
+  "segments": [
+    {
+      "joint": "elbow_flex",
+      "start": 2798,
+      "target": 2898,
+      "position": 2862,
+      "actual_delta_deg": 5.625,
+      "all_goals": {
+        "shoulder_pan": 2123,
+        "shoulder_lift": 2785,
+        "elbow_flex": 2898,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1592
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 2781,
+      "target": 2440,
+      "position": 2453,
+      "actual_delta_deg": -28.828125,
+      "all_goals": {
+        "shoulder_pan": 2123,
+        "shoulder_lift": 2440,
+        "elbow_flex": 2898,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1592
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 2453,
+      "target": 2323,
+      "position": 2336,
+      "actual_delta_deg": -10.283203125,
+      "all_goals": {
+        "shoulder_pan": 2123,
+        "shoulder_lift": 2323,
+        "elbow_flex": 2898,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1592
+      }
+    },
+    {
+      "joint": "shoulder_pan",
+      "start": 2122,
+      "target": 2162,
+      "position": 2160,
+      "actual_delta_deg": 3.33984375,
+      "all_goals": {
+        "shoulder_pan": 2162,
+        "shoulder_lift": 2323,
+        "elbow_flex": 2898,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1592
+      }
+    },
+    {
+      "joint": "shoulder_pan",
+      "start": 2160,
+      "target": 2200,
+      "position": 2197,
+      "actual_delta_deg": 3.251953125,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2323,
+        "elbow_flex": 2898,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1592
+      }
+    },
+    {
+      "joint": "elbow_flex",
+      "start": 2901,
+      "target": 2787,
+      "position": 2796,
+      "actual_delta_deg": -9.228515625,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2323,
+        "elbow_flex": 2787,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1592
+      }
+    },
+    {
+      "joint": "gripper",
+      "start": 1592,
+      "target": 1310,
+      "position": 1350,
+      "closure_outcome": "stationary_closure_unverified",
+      "load": 328,
+      "grasp_verified": false,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2323,
+        "elbow_flex": 2787,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1310
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 2336,
+      "target": 2276,
+      "position": 2296,
+      "actual_delta_deg": -3.515625,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2276,
+        "elbow_flex": 2787,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1310
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 2296,
+      "target": 2236,
+      "position": 2257,
+      "actual_delta_deg": -3.427734375,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2236,
+        "elbow_flex": 2787,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1310
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 2257,
+      "target": 2336,
+      "position": 2336,
+      "actual_delta_deg": 6.943359375,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2336,
+        "elbow_flex": 2787,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1310
+      }
+    },
+    {
+      "joint": "gripper",
+      "start": 1349,
+      "target": 1609,
+      "position": 1586,
+      "actual_delta_deg": 20.830078125,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2336,
+        "elbow_flex": 2787,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1609
+      }
+    },
+    {
+      "joint": "elbow_flex",
+      "start": 2791,
+      "target": 2905,
+      "position": 2903,
+      "actual_delta_deg": 9.84375,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2336,
+        "elbow_flex": 2905,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1609
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 2339,
+      "target": 2680,
+      "position": 2681,
+      "actual_delta_deg": 30.05859375,
+      "all_goals": {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2680,
+        "elbow_flex": 2905,
+        "wrist_flex": 1579,
+        "wrist_roll": 1242,
+        "gripper": 1609
+      }
+    }
+  ],
+  "settings_before": {
+    "shoulder_pan": {
+      "Torque_Limit": 1000,
+      "Goal_Velocity": 0,
+      "Acceleration": 0,
+      "P_Coefficient": 16
+    },
+    "shoulder_lift": {
+      "Torque_Limit": 1000,
+      "Goal_Velocity": 0,
+      "Acceleration": 0,
+      "P_Coefficient": 16
+    },
+    "elbow_flex": {
+      "Torque_Limit": 1000,
+      "Goal_Velocity": 0,
+      "Acceleration": 0,
+      "P_Coefficient": 16
+    },
+    "wrist_flex": {
+      "Torque_Limit": 1000,
+      "Goal_Velocity": 0,
+      "Acceleration": 0,
+      "P_Coefficient": 16
+    },
+    "wrist_roll": {
+      "Torque_Limit": 1000,
+      "Goal_Velocity": 0,
+      "Acceleration": 0,
+      "P_Coefficient": 16
+    },
+    "gripper": {
+      "Torque_Limit": 1000,
+      "Goal_Velocity": 0,
+      "Acceleration": 0,
+      "P_Coefficient": 32
+    }
+  },
+  "release": {
+    "shoulder_pan": true,
+    "shoulder_lift": true,
+    "elbow_flex": true,
+    "wrist_flex": true,
+    "wrist_roll": true,
+    "gripper": true
+  },
+  "settings_restored": true,
+  "all_six_torque_off": true,
+  "camera_pauses": [],
+  "images": [
+    {
+      "file": "Wrist-Width-Contact-Test.jpg",
+      "sha256": "68e0aca475e47d9559d31f686faef6ee8bf31fff685085f0717878900117b8ae",
+      "copied_artifact_at_jst": "2026-10-07T12:41:42.978462+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    },
+    {
+      "file": "Wrist-Width-Grasp-Lift-Check.jpg",
+      "sha256": "d85dceeaa1610d4a34e9d3f688e25ae7b149a5de9c50cb6df498b95b2deab674",
+      "copied_artifact_at_jst": "2026-10-07T12:42:36.743570+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    },
+    {
+      "file": "Wrist-Paddle-Hold-Verification.jpg",
+      "sha256": "14c7cc00600169043ec42cfa0c08689a233f491c33186d30dfd363fe1e9c0bc4",
+      "copied_artifact_at_jst": "2026-10-07T12:43:36.967896+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    },
+    {
+      "file": "New-Phone-Width-Grasp-Lift.jpg",
+      "sha256": "aa4fa722622f6a8b8b8bfb37f38d54ac19c5f80da35ddd324c74c3f008767bef",
+      "copied_artifact_at_jst": "2026-10-07T12:42:53.216327+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    },
+    {
+      "file": "New-Phone-Paddle-Hold-Verification.jpg",
+      "sha256": "f2e359636d2176556230efcfce78bea44148e2b8057e176adabebf4d2539df40",
+      "copied_artifact_at_jst": "2026-10-07T12:43:58.533338+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    },
+    {
+      "file": "Oak-Width-Grasp-Lift.jpg",
+      "sha256": "0de9d720191e89736fb5b204e826ec9292a1139e267cd95c9e0cafe3ed67be1e",
+      "copied_artifact_at_jst": "2026-10-07T12:42:53.216807+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    },
+    {
+      "file": "Oak-Paddle-Hold-Verification.jpg",
+      "sha256": "db4c4514078a5514e93425d2a50e44f076551fc870aa73604cec62842d760495",
+      "copied_artifact_at_jst": "2026-10-07T12:43:58.533967+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    },
+    {
+      "file": "New-Phone-Paddle-Placement.jpg",
+      "sha256": "84f62c94098a418a4ffb244d624facae6cc70804747a456b34e95b18d690efbb",
+      "copied_artifact_at_jst": "2026-10-07T12:45:51.154995+09:00",
+      "timestamp_note": "Artifact copy time, not camera capture time; phone receipt time is not capture time"
+    }
+  ],
+  "limitations": [
+    "One observed successful trial; not a validated general autonomous policy",
+    "No accepted camera-to-arm/CAD zero-sign binding; no Cartesian plan used",
+    "OAK depth/RGB pixel registration remains uncommissioned",
+    "Successful report contains ordered telemetry but no per-sample timestamps",
+    "Camera-pause recovery tested with mocks; not exercised in this successful run",
+    "Existing sole-owner API controller differs from this local pilot and is currently read-only"
+  ]
+}

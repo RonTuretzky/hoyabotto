@@ -1,0 +1,15 @@
+{
+  "successful_source_sha256": "5bbf2b8460b21fe01b865afd3f55ee137de7adcbad3a2356d34e83b8f221e118",
+  "archived_source_sha256": "ea6b414bdcc9a4ba88fb887a3bac6a9409814b56f95bdba04c1b631b46a0e907",
+  "archive_difference": "Only the explicit default-off archive execution gate was prepended",
+  "raw_frames_published": false,
+  "frame_location_on_robot": "/Users/teachera/Documents/Codex/2026-10-06/users-teachera-documents-codex-2026-10/outputs",
+  "record_hashes": {
+    "success.json": "31c99911d95476175007dadf68388a59fbba88956afcbd91e41f60bb63561d2c",
+    "telemetry.json": "c1e7fe6238aa87d0bafb1ef344a20f7f7ea15f80a14b9959e3465b4e7f886b5c"
+  },
+  "compression": {
+    "telemetry.json.gz": "gzip, deterministic mtime=0, full original JSON retained losslessly",
+    "jaw-close-open-check.json.gz": "gzip, deterministic mtime=0, full original JSON retained losslessly"
+  }
+}
