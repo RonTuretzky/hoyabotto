@@ -68,31 +68,6 @@ HEAD_TARGET = target_schema([n for n in POSITION_NAMES if n.startswith('head_mot
 def commandable_ranges():
     return {n: {'min_ticks': CAL[n]['range_min'] + 4, 'max_ticks': CAL[n]['range_max'] - 4, 'margin_ticks': 4} for n in POSITION_NAMES}
 
-def paddle_target_segments(targets):
-    """Convert model targets into bounded pickup-profile segments from live goals."""
-    readiness = DIRECT_CLIENT.readiness()
-    if readiness.get('execution_profile') != 'paddle-success-v1':
-        return [targets]
-    state = DIRECT_CLIENT.status()
-    goals = state.get('goals', {})
-    rows = state.get('rows', {})
-    segments = []
-    for name, target in targets.items():
-        start = goals.get(name, rows.get(name, {}).get('Present_Position'))
-        if type(start) is not int:
-            raise ValueError('Pickup start encoder unavailable for '+name+'; refresh robot_get_state')
-        delta = target - start
-        if abs(delta) <= 2:
-            continue
-        step = 341 if delta > 0 else -341
-        cursor = start
-        while abs(target-cursor) > 341:
-            cursor += step; segments.append({name: cursor})
-        if target != cursor: segments.append({name: target})
-    if not segments:
-        return []
-    return segments
-
 def normalize_targets(targets, arm=None, head=False):
     result = {}
     for key, q in targets.items():
@@ -352,258 +327,297 @@ def capabilities():
             'motion_ready': ready['motion_ready'],
             'available_to_accept_authorized_command': ready['available_to_accept_authorized_command'],
             'execution_binding': ready, 'joint_blockers': ready['joint_blockers'],
-            'camera_status': camera…6605 tokens truncated…in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':20 if paddle_profile else None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','motor_writes':0,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
- def read(self,n,f):return int(self.by_name[n].read(f,n,normalize=False,num_retry=2))
- def write(self,n,f,v):
-  self.by_name[n].write(f,n,v,normalize=False,num_retry=2);self.state['motor_writes']+=1
-  actual=self.read(n,f)
-  self.state.setdefault('last_write_readbacks',{}).setdefault(n,{})[f]={'requested':v,'readback':actual,'time':self.wall()}
-  if actual!=v:raise RuntimeError(n+': '+f+' readback mismatch')
- def inspect(self):
-  for n in self.names:
-   if self.read(n,'Torque_Enable')!=0:raise RuntimeError(n+': already powered before hardware-owner startup')
-   self.limits[n]=[self.read(n,'Min_Position_Limit'),self.read(n,'Max_Position_Limit')]
-   if n in self.cal:
-    c=self.cal[n]
-    expected={'Homing_Offset':c.homing_offset,'Min_Position_Limit':c.range_min,'Max_Position_Limit':c.range_max}
-    actual={f:self.read(n,f) for f in expected}
-    if actual!=expected:
-     self.state.setdefault('calibration_mismatches',{})[n]={'expected':expected,'actual':actual}
-     if n in self.commandable_names:raise RuntimeError(n+': saved calibration differs from hardware')
-  self.state['released_register_diagnostics']={n:self.register_diagnostics(n) for n in self.names if n.endswith('gripper')}
-  self.poll()
-  n='right_arm_gripper'
-  if n in self.by_name and not self.paddle_profile:
-   coherent=dict(self.rows[n])
-   independent=self.read(n,'Present_Temperature')
-   self.state['independent_temperature_check']={'motor':n,'time':self.wall(),'register':63,'length':1,'coherent_temperature':coherent['Present_Temperature'],'independent_temperature':independent,'coherent_evidence':coherent.get('coherent_read_evidence'),'independent_reply':getattr(self.by_name[n],'last_reply_evidence',None),'matches':independent==coherent['Present_Temperature'],'motor_writes':0}
- def register_diagnostics(self,n):
-  return {'captured_at':self.wall(),'registers':{f:self.read(n,f) for f in DIAGNOSTIC_REGISTERS},'read_only':True}
- def read_telemetry(self,n):
-  # Retry one transport corruption/timeout only in a fully observed released idle scope.
-  idle_released=(not self.enabled and not (self.engine and self.engine.active)
-                 and len(self.rows)==len(self.names)
-                 and all(row.get('Torque_Enable')==0 and type(row.get('captured_at')) in (int,float)
-                         and 0<=self.wall()-row['captured_at']<=1 for row in self.rows.values()))
-  for attempt in range(2 if idle_released else 1):
-   try:
-    row=self.telemetry(self.by_name[n],n)
-    evidence=getattr(self.by_name[n],'last_telemetry_sample',None)
-    if evidence is not None:row['coherent_read_evidence']=evidence
-    if attempt:
-     self.state['idle_read_recovery']['recovered_count']+=1
-     self.state['idle_read_recovery']['events'][-1]['outcome']='recovered_on_retry'
-     self.state['idle_read_recovery']['events'][-1]['recovered_at']=self.wall()
-    return row
-   except RuntimeError as exc:
-    transport_failure=str(exc).startswith('Coherent servo read communication failure: -7')
-    if not idle_released or not transport_failure:raise
-    report=self.state.setdefault('idle_read_recovery',{'failure_count':0,'recovered_count':0,'events':[],'max_attempts':2,'powered_retries':False})
-    report['failure_count']+=1
-    report['events'].append({'time':self.wall(),'motor':n,'attempt':attempt+1,'outcome':'retry_pending' if attempt==0 else 'retry_failed','diagnostic':str(exc),'transaction':getattr(self.by_name[n],'last_telemetry_failure',None)})
-    report['events']=report['events'][-16:]
-    if attempt:raise
-    time.sleep(.01)
+            'camera_status': camera_status(), 'saved_motor_readiness': saved_motor_readiness(),
+            'automatic_motion_on_startup': False, 'passive_recovery': PASSIVE_RECOVERY,
+            'motion_units': 'encoder_ticks; positioning-joint degrees use4095 ticks/rev',
+            'commandable_ranges': commandable_ranges(),
+            'canonical_position_joint_names': POSITION_NAMES,
+            'arm_joint_aliases': ARM_ALIASES,
+            'ranges': {n: {'min_ticks': v['range_min'], 'max_ticks': v['range_max']} for n, v in CAL.items()},
+            'read_tools_ready': True, 'stop_tool_ready': True,
+            'controller': 'DirectJointClient atomic file handoff -> canonical sole-owner direct_joint interpolator',
+            'direct_joint_requirements': ['existing healthy authorized hardware owner in direct_joint mode',
+                'requested joints in explicitly supported owner scope',
+                'actual saved range margins and owner speed/acceleration/torque/health/watchdog checks',
+                'measured hardware completion feedback; sensor status reported independently'],
+            'continuous_profile_required_for_direct_joint': False,
+            'cartesian_transform_required_for_direct_joint': False,
+            'cartesian_pickup_additional_requirements': ['validated spatial target registration and actual tool/contact offset when requesting a Cartesian plan'],
+            'wheel_policy': 'enable/release position-mode hold at current encoder only; wheel motion unavailable', 'automatic_motor_activation': False, 'remote_start_or_stop_reset_supported': False,
+            'blockers': ready['blockers']}
 
- def poll(self):
-  now=self.clock()
-  if self.engine and self.engine.active and not 0<=now-self.last_tick<=(1.0 if self.paddle_profile else .2):raise RuntimeError('Motor-owner watchdog expired')
-  poll_elapsed=now-self.last_tick
-  self.last_tick=now
-  for n in self.names:
-   row=self.read_telemetry(n);row['Torque_Enable']=self.read(n,'Torque_Enable');row['Operating_Mode']=self.read(n,'Operating_Mode');row['captured_at']=self.wall();row['firmware_position_limits']=self.limits.get(n);self.rows[n]=row
-   if n in self.enabled:
-    failures=[('Torque_Enable',row['Torque_Enable'],'must equal',1),('Status',row['Status'],'must equal',0),*([('Present_Temperature',row['Present_Temperature'],'must be <=',SOFTWARE_TEMPERATURE_LIMIT_C)] if not self.paddle_profile else []),('Present_Load',row['Present_Load'],'absolute must be <=',500 if n.endswith('gripper') or not self.paddle_profile else 800)]
-    for field,value,rule,limit in failures:
-     failed=(value!=limit if field in ('Torque_Enable','Status') else value>limit if field=='Present_Temperature' else abs(value)>limit)
-     if failed:
-      self.state['health_fault']={'motor':n,'field':field,'value':value,'rule':rule,'limit':limit,'captured_at':row['captured_at']}
-      raise RuntimeError(f'{n}: {field}={value}; {rule} {limit}')
-    if self.paddle_profile and not 100<=row['Present_Voltage']<=140:raise RuntimeError(n+': pickup supply voltage outside 10..14V')
-    if n in self.ranges and not self.ranges[n][0]<=row['Present_Position']<=self.ranges[n][1]:raise RuntimeError(n+': outside saved travel range')
-    if not(self.engine and self.engine.active and n in self.engine.joints) and abs(row['Present_Position']-self.goals[n])>(96 if self.paddle_profile else 68):raise RuntimeError(n+': uncommanded holding drift')
-  if self.enabled and self.clock()>self.lease:raise RuntimeError('Command heartbeat expired')
-  camera_ready=True
-  if self.paddle_profile:
-   camera_ready=self.camera_gate.update(holding=bool(self.enabled)) if self.enabled else True
-   self.state.update(camera_supervision_ok=camera_ready,camera_pause_active=not camera_ready,camera_pauses=self.camera_gate.events)
-   if not camera_ready:
-    self.lease+=max(0,poll_elapsed)
-    if self.engine and self.engine.active:self.engine.pause(max(0,poll_elapsed))
-  if self.engine and self.engine.active and camera_ready:
-   current={n:self.rows[n]['Present_Position'] for n in self.engine.joints}
-   update=self.engine.tick(current,telemetry_at=min(self.rows[n]['captured_at'] for n in self.engine.joints),**({'rows':self.rows} if self.paddle_profile else {}));self.state.update(update)
-   if self.paddle_profile and not self.engine.active:self.lease=self.clock()+120
-   if self.state.get('local_gripper_probe') and not self.engine.active:
-    self.release_all('Local probe complete',latch=False)
-  self.publish();return self.state
- def publish(self):
-  if not self.latched and not(self.engine and self.engine.active):self.state['phase']='holding' if self.enabled else 'idle'
-  self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals=self.goals,lease_remaining=max(0,self.lease-self.clock()),stop_latched=self.latched)
- def enable(self,names,enabled):
-  if not isinstance(names,list) or not names or len(set(names))!=len(names) or not set(names)<=set(self.names) or type(enabled)is not bool:raise ValueError('Select known distinct motor names and boolean enabled')
-  if not enabled:
-   if self.engine and self.engine.active:self.release_all('Release requested during movement',latch=False)
-   else:
-    for n in names:self.release(n)
-   self.publish();return
-  if self.paddle_profile:
-   try:camera_ready=self.camera_gate.update(holding=False)
-   except RuntimeError as exc:raise ValueError(str(exc)) from exc
-   if not camera_ready:raise ValueError('Pickup phone feed paused; motor activation refused')
-  if self.read_only:raise ValueError('READ_ONLY_OWNER: motor activation disabled; calibration mismatch must be resolved deliberately')
-  if not set(names)<=self.commandable_names:raise ValueError('UNSUPPORTED_OWNER_SCOPE: requested motors are read-only')
-  if self.latched:raise ValueError('STOP is latched; a new deliberate operator session is required')
-  if self.engine and self.engine.active:raise ValueError('Movement is in progress')
-  # Validate the entire request before enabling any motor.
-  for n in names:
-   row=self.rows[n];q=row['Present_Position'];lo,hi=self.limits[n]
-   if row['Status'] or (not self.paddle_profile and row['Present_Temperature']>SOFTWARE_TEMPERATURE_LIMIT_C) or abs(row['Present_Load'])>(500 if n.endswith('gripper') or not self.paddle_profile else 800):raise ValueError(n+': fault or health limit')
-   if self.paddle_profile and not 100<=row['Present_Voltage']<=140:raise ValueError(n+': pickup supply voltage outside 10..14V')
-   if row['Operating_Mode']!=0:raise ValueError(n+': current mode is not supported position-hold mode')
-   if n in self.ranges and not self.ranges[n][0]+(40 if self.paddle_profile else 4)<=q<=self.ranges[n][1]-(40 if self.paddle_profile else 4):raise ValueError(n+': current position outside saved travel margin')
-   if not 0<=q<=4095 or (lo<hi and not lo<=q<=hi):raise ValueError(n+': current position outside firmware position limits')
-  for n in names:
-   if n in self.enabled:continue
-   self.state.setdefault('enable_register_diagnostics',{})[n]={'pre_enable':self.register_diagnostics(n)}
-   self.old[n]={f:self.read(n,f) for f in ['Lock','Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient']}
-   self.write(n,'Lock',0)
-   torque=(500 if n.endswith('gripper') else 400 if n.endswith('elbow_flex') else 800) if self.paddle_profile else (250 if n.endswith('gripper') else 400)
-   self.write(n,'Torque_Limit',min(self.old[n]['Torque_Limit'],torque));self.write(n,'Goal_Velocity',200 if self.paddle_profile and n.endswith('gripper') else 100);self.write(n,'Goal_Time',0);self.write(n,'Acceleration',5 if self.paddle_profile else 10)
-   if self.paddle_profile and n.endswith(('shoulder_lift','elbow_flex')):self.write(n,'P_Coefficient',32)
-   q=self.read(n,'Present_Position');lo,hi=self.limits[n]
-   if n in self.ranges and not self.ranges[n][0]+(40 if self.paddle_profile else 4)<=q<=self.ranges[n][1]-(40 if self.paddle_profile else 4):raise RuntimeError(n+': drifted before enable')
-   if not 0<=q<=4095 or(lo<hi and not lo<=q<=hi):raise RuntimeError(n+': drifted outside firmware limits')
-   self.write(n,'Goal_Position',q);self.enabled.add(n)
-   self.write(n,'Torque_Enable',1);self.write(n,'Lock',1);self.write(n,'Goal_Position',q);self.goals[n]=q
-   self.state['enable_register_diagnostics'][n]['applied']=self.register_diagnostics(n)
-  self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['released']=False;self.poll()
- def release(self,n):
-  self.by_name[n].disable_torque([n],num_retry=3)
-  if self.read(n,'Torque_Enable')!=0:raise RuntimeError(n+': release not confirmed')
-  self.rows.setdefault(n,{})['Torque_Enable']=0
-  self.rows[n]['released_readback_at']=self.wall()
-  self.enabled.discard(n)
-  if n in self.old:
-   for f in ['Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient','Lock']:self.write(n,f,self.old[n][f])
-   self.old.pop(n)
- def release_all(self,reason,latch=True):
-  errors=[]
-  for n in list(self.enabled):
-   try:self.release(n)
-   except Exception as e:errors.append(str(e))
-  if self.engine:self.engine.active=False
-  self.latched=latch;self.state.setdefault('root_failure',reason) if reason not in ('Operator STOP','Hardware-owner exit','Local probe complete') else None
-  self.state.update(phase='stopped' if latch else 'idle',ok=not bool(errors),operator_armed=not latch,error=self.state.get('root_failure',reason),release_errors=errors,released=not errors,stop_latched=latch);self.publish()
- def setpoints(self,goals):
-  for n,q in goals.items():
-   if n not in self.enabled or n.startswith('base_'):raise RuntimeError('Direct position target is not an enabled arm/head joint')
-   lo,hi=self.ranges[n]
-   if type(q)is not int or not lo+4<=q<=hi-4 or abs(q-self.goals[n])>(96 if self.paddle_profile else 68):raise RuntimeError('Position target leaves saved limits or sample bound')
-   if q!=self.goals[n]:self.write(n,'Goal_Position',q);self.goals[n]=q
- def command(self,c):
-  if type(c.get('id'))is not int or c['id']<=0 or c.get('session_started')!=self.started:raise ValueError('Command belongs to another hardware-owner session')
-  op=c.get('op')
-  if self.read_only and op not in ('stop','enable_motors','hold'):raise ValueError('READ_ONLY_OWNER: motion commands disabled')
-  if op=='stop':self.release_all('Operator STOP');self.state['completed']=c['id'];return
-  if op=='enable_motors':self.enable(c.get('names'),c.get('enabled'));self.state['completed']=c['id'];return
-  if self.latched:raise ValueError('STOP is latched; new operator session required')
-  if op=='local_gripper_probe':
-   if self.paddle_profile:raise ValueError('Legacy diagnostic probe unavailable under pickup profile')
-   if self.enabled or any(r.get('Torque_Enable')!=0 for r in self.rows.values()) or len(self.rows)!=16:raise ValueError('Probe requires all16 observed released')
-   if c.get('authorization')!='one-shot-right-gripper-48' or self.state.get('probe_used'):raise ValueError('Local diagnostic authorization missing or already used')
-   n='right_arm_gripper';current=int(self.rows[n]['Present_Position'])
-   from gripper_response_probe import GripperResponseProbe
-   probe=GripperResponseProbe(current,c.get('target_ticks'),self.ranges[n],self.setpoints,clock=self.clock,wall=self.wall)
-   self.state['probe_used']=True
-   self.enable([n],True)
-   applied=self.state['enable_register_diagnostics'][n]['applied']['registers']
-   if any(applied[f]!=v for f,v in {'Torque_Limit':250,'Goal_Velocity':100,'Acceleration':10,'P_Coefficient':32,'Operating_Mode':0}.items()):raise RuntimeError('Probe applied settings differ from authorized values')
-   self.engine=probe;self.current_command=c['id'];self.state.update(probe.start(c));self.last_tick=self.clock();self.lease=self.clock()+30;self.publish();return
-  if op=='hold':self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['completed']=c['id'];return
-  if op not in ('direct_joint','gripper_target'):raise ValueError('Unsupported hardware command')
-  positions=c.get('positions')
-  if not isinstance(positions,dict) or not positions or not set(positions)<=self.enabled or not set(positions)<=set(self.position_names):raise ValueError('Targets require already-enabled arm/head motors; wheels do not accept position-motion requests')
-  if self.engine and self.engine.active:raise ValueError('Previous motion has not completed')
-  executor=DirectJointExecutor
-  if self.paddle_profile:
-   from paddle_joint_executor import PaddleJointExecutor
-   executor=PaddleJointExecutor
-  elif op=='gripper_target':
-   from gripper_waypoint_executor import GripperWaypointExecutor
-   executor=GripperWaypointExecutor
-  candidate=executor(list(positions),{n:self.ranges[n] for n in positions},self.setpoints,clock=self.clock,wall=self.wall)
-  current={n:self.rows[n]['Present_Position'] for n in positions}
-  if self.paddle_profile:
-   if set(self.position_names)!=self.enabled:raise ValueError('Pickup requires all six right-arm motors explicitly enabled')
-   if self.motion_count>=20:raise ValueError('Pickup session motion budget exhausted (20 segments)')
-   if not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
-  update=candidate.start(c,current,session_started=self.started,**({'held_goals':self.goals} if self.paddle_profile else {}))
-  if self.paddle_profile:self.motion_count+=1
-  self.state['pickup_motion_segments_used']=self.motion_count
-  self.state['local_gripper_probe']=False
-  self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.lease=self.clock()+(candidate.deadline+5 if op=='gripper_target' or self.paddle_profile else 30);self.last_tick=self.clock();self.publish()
 
-def atomic(path,value):
- temp=path.with_suffix('.tmp');temp.write_text(json.dumps(value,allow_nan=False));temp.replace(path)
+
+def bounded_json(path):
+    if not path.exists():
+        return {'available': False}
+    if path.stat().st_size > 512 * 1024:
+        return {'available': True, 'omitted': 'larger than bounded metadata size'}
+    return {'available': True, 'file_mtime': path.stat().st_mtime,
+            'evidence_age_s': time.time() - path.stat().st_mtime,
+            'data': json.loads(path.read_text())}
+
+
+def readiness():
+    direct = DIRECT_CLIENT.readiness()
+    return {'mode': 'direct_joint', 'control_mode': 'direct_joint',
+            'execution_adapter_bound': True, 'motion_ready': direct['motion_ready'],
+            'available_to_accept_authorized_command': direct['available_to_accept_authorized_command'],
+            'execution_binding': direct, 'joint_blockers': direct['joint_blockers'],
+            'saved_calibration': CAL,
+            'calibration_writes': False, 'reference_evidence': {
+        n: bounded_json(ROOT / 'outputs' / n) for n in (
+            'Arm-Reference-Check.json', 'Reference-Reconciliation.json',
+            'Left-Arm-Measured-Reference.json', 'Reach-Integration-State.json')},
+        'physical_blockers': capabilities()['blockers'],
+        'twenty_degree_candidate': bounded_json(ROOT / 'outputs/Twenty-Degree-Wrist-Candidate.json'),
+        'camera_status': camera_status(),
+        'certificate_renewal_preparation': bounded_json(ROOT / 'outputs/Gemma-Certificate-Renewal-Preparation.json'),
+        'existing_calibration_audit': bounded_json(ROOT / 'outputs/Gemma-Existing-Calibration-Audit.json')}
+
+
+def keyframes():
+    import yaml
+    result = {}
+    for label, path in [('deployment', UTILITY / 'data/keyframes.yaml'),
+                        ('simulation', UTILITY / 'data-carton-sim/keyframes-sim.yaml')]:
+        result[label] = {'available': path.exists(), 'simulated': label == 'simulation'}
+        if path.exists() and path.stat().st_size < 512 * 1024:
+            result[label]['keyframes'] = yaml.safe_load(path.read_text()) or {}
+    return {'stores': result, 'blind_replay_authorized': False}
+
+
+def skills():
+    return {'validated_physical_skills': [], 'commissioned_skill_registry': False,
+            'source_modules': ['carton.servo.skills.save_alignment', 'farm.skills.arm',
+                               'farm.skills.runner', 'farm.skills.keyframes'],
+            'validation_contract': 'VERIFIED_VISUAL_ALIGNMENT_ONLY requires matching guarded result, fingerprint, final trace, three fresh observations and errors within tolerance',
+            'grasp_verified': False, 'execution_authorized': False}
+
+
+def evidence():
+    fixed = ['Reach-Integration-State.json', 'Paddle-Camera-Target-Assessment.json',
+             'Paddle-Measurement-Packet/measurement.json', 'Gemma-Bridge-Preparation.json',
+             'Gemma-Existing-Calibration-Audit.json']
+    return {'evidence': {n: bounded_json(ROOT / 'outputs' / n) for n in fixed},
+            'recordings': {n: bounded_json(ROOT / 'work' / n / 'status.json') for n in
+                          ['paddle-reposition-session', 'paddle-wrist-session', 'paddle-response-session']},
+            'physical_task_completed': False}
+
+
+def depth_snapshot():
+    for _ in range(15):
+        folder, m, source = select_oak_manifest()
+        path = manifest_image_path(folder, m['depth_image'])
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != m['depth_sha256']:
+            time.sleep(.02)
+            continue
+        if not 0 <= time.time() - m['captured_at'] <= 1:
+            raise RuntimeError('Depth frame is stale')
+        return {'manifest': m, 'source': source, 'powered_depth_observer_ready': False,
+                'reason': 'RGB-depth registration, robot transform and physical depth commissioning remain unverified'}, [
+            {'camera_id': m['camera_id'] + ':depth', 'mime_type': 'image/png',
+             'captured_at': m['depth_captured_at'], 'received_at': None, 'stream_id': m['stream_id'],
+             'seq': m['seq'], 'sha256': m['depth_sha256'],
+             'data_base64': base64.b64encode(data).decode()}]
+    raise RuntimeError('Consistent depth snapshot unavailable')
+
+
+def validate_arguments(name, args):
+    if name not in SCHEMAS or not isinstance(args, dict):
+        raise ValueError('Unknown tool or invalid arguments')
+    schema = SCHEMAS[name]
+    if set(args) - set(schema['properties']) or set(schema['required']) - set(args):
+        raise ValueError('Unexpected or missing tool arguments')
+    for key, value in args.items():
+        if name == 'robot_plan_reach' and key == 'tool_poses':
+            validate_poses(value)
+            continue
+        spec = schema['properties'][key]
+        kind = spec['type']
+        if kind == 'boolean' and type(value) is not bool:
+            raise ValueError('Boolean argument required')
+        if kind == 'integer' and type(value) is not int:
+            raise ValueError('Integer ticks required')
+        if kind == 'number' and (type(value) not in (int, float) or not __import__('math').isfinite(value)):
+            raise ValueError('Finite numeric argument required')
+        if kind == 'number' and ('maximum' in spec and value > spec['maximum'] or 'exclusiveMinimum' in spec and value <= spec['exclusiveMinimum']):
+            raise ValueError('Numeric argument outside schema bounds')
+        if kind == 'string' and (not isinstance(value, str) or value not in spec.get('enum', [value])):
+            raise ValueError('Unsupported argument value')
+        if kind == 'object' and (not isinstance(value, dict) or not value or any(type(v) is not int for v in value.values())):
+            raise ValueError('Integer joint target object required')
+        if kind == 'array':
+            if not isinstance(value, list) or not spec.get('minItems',1) <= len(value) <= spec.get('maxItems',16) or any(not isinstance(v,str) for v in value) or len(set(value)) != len(value) or any(v not in spec['items']['enum'] for v in value):
+                raise ValueError('Select distinct supported argument names')
+
+
+def dispatch(name, args):
+    validate_arguments(name, args)
+    if name in ('robot_plan_reach', 'robot_get_arm_pose'):
+        return inspect_or_plan(args, execution(), CAL, calibration, camera_status(), plan=name == 'robot_plan_reach'), None
+    if name == 'robot_list_motors':
+        return {'state': state(not PASSIVE_RECOVERY), 'saved_calibration': CAL, 'commandable_ranges': commandable_ranges(), 'readiness': DIRECT_CLIENT.readiness()}, None
+    if name == 'robot_set_motor_enable':
+        return DIRECT_CLIENT.set_motor_enable(args['names'], args['enabled']), None
+    if name == 'robot_move_motor_targets':
+        return DIRECT_CLIENT.execute(normalize_targets(args['positions']), args['duration_s']), None
+    if name == 'robot_get_state':
+        return state(args.get('fresh', True)), None
+    if name == 'robot_get_cameras':
+        return cameras(args.get('cameras', ['oak', 'phone']))
+    if name == 'robot_get_capabilities':
+        return capabilities(), None
+    if name == 'robot_get_depth':
+        return depth_snapshot()
+    if name == 'robot_get_handoff':
+        return {'source': 'primary-saved Gemma-Paddle-Handoff.json (historical task)',
+                'current_user_scope': 'Verified physical pickup procedure for Qwen integration and scoped motion; query live readiness. Server recovery performs no movement test',
+                'handoff': bounded_json(ROOT / 'outputs/Gemma-Paddle-Handoff.json'),
+                'physical_pickup_handoff': bounded_json(ROOT / 'outputs/Qwen-Paddle-Success-Handoff.json'),
+                'integration_reference': 'https://github.com/RonTuretzky/xlerobot-farm/blob/main/software/docs/commissioning/2026-10-07-paddle-success/README.md',
+                'retrieved_at': time.time(), 'camera_status_now': camera_status(),
+                'saved_motor_readiness_now': saved_motor_readiness(),
+                'execution_binding_now': DIRECT_CLIENT.readiness(),
+                'certificate_renewal_preparation': bounded_json(ROOT / 'outputs/Gemma-Certificate-Renewal-Preparation.json'),
+                'existing_calibration_audit': bounded_json(ROOT / 'outputs/Gemma-Existing-Calibration-Audit.json'),
+                'delivery_confirmation': bounded_json(ROOT / 'outputs/Gemma-Handoff-Delivery-Confirmation.json'),
+                'context_transfer_arms_execution': False, 'motor_writes': 0}, None
+    if name == 'robot_get_readiness':
+        return readiness(), None
+    if name == 'robot_get_keyframes':
+        return keyframes(), None
+    if name == 'robot_get_skills':
+        return skills(), None
+    if name == 'robot_get_evidence':
+        return evidence(), None
+    if name == 'robot_get_execution':
+        return execution(), None
+    if name == 'robot_stop':
+        return DIRECT_CLIENT.stop(), None
+    # No model request can install/arm a binding, start an owner, alter safeguards or access serial.
+    if name in ('robot_move_joint_targets', 'robot_move_head'):
+        args = dict(args)
+        args['positions'] = normalize_targets(args['positions'], arm=args.get('arm'), head=name == 'robot_move_head')
+    if name == 'robot_set_gripper':
+        n = args['arm'] + '_arm_gripper'
+        if not CAL[n]['range_min'] + 4 <= args['position_ticks'] <= CAL[n]['range_max'] - 4:
+            b=commandable_ranges()[n]
+            raise ValueError(f"Gripper target out of bounds: {n}={args['position_ticks']}; valid inclusive range [{b['min_ticks']}, {b['max_ticks']}] ticks; readiness={json.dumps(DIRECT_CLIENT.readiness())}")
+    if name == 'robot_move_joint_targets':
+        return DIRECT_CLIENT.execute(args['positions'], args['duration_s']), None
+    if name == 'robot_move_head':
+        return DIRECT_CLIENT.execute(args['positions'], args.get('duration_s', 3)), None
+    if name == 'robot_set_gripper':
+        return DIRECT_CLIENT.set_gripper(args['arm'], args['position_ticks'], args.get('duration_s', 3)), None
+    return {'accepted': False, 'motor_writes': 0, 'reason': 'UNSUPPORTED_OWNER_SCOPE_OR_WHEELS_DISABLED',
+            'requested_tool': name, 'readiness': capabilities()}, None
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def peer_ok(self):
+        return hashlib.sha256(self.connection.getpeercert(binary_form=True) or b'').hexdigest() == PEER_SHA
+
+    def send_json(self, status, body):
+        data = json.dumps(body, allow_nan=False).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        if not self.peer_ok():
+            return self.send_json(403, {'ok': False, 'error': 'Unpinned mTLS client'})
+        if self.path == '/health':
+            return self.send_json(200, {'ok': True, 'service': 'xlerobot-private-tools', 'mode': 'direct_joint', 'control_mode': 'direct_joint',
+                                        'execution_adapter_bound': True, 'motion_ready': DIRECT_CLIENT.readiness()['motion_ready'],
+                                        'available_to_accept_authorized_command': DIRECT_CLIENT.readiness()['available_to_accept_authorized_command'],
+                                        'armed': DIRECT_CLIENT.readiness()['local_operator_gate'],
+                                        'execution_binding': DIRECT_CLIENT.readiness(),
+                                        'camera_status': camera_status(),
+                                        'client_certificate_pinned': True, 'motor_owner_active': execution()['active']})
+        if self.path == '/tools':
+            return self.send_json(200, {'ok': True, 'tools': TOOLS})
+        return self.send_json(404, {'ok': False, 'error': 'Unknown route'})
+
+    def do_POST(self):
+        if not self.peer_ok():
+            return self.send_json(403, {'ok': False, 'error': 'Unpinned mTLS client'})
+        if self.path != '/call':
+            return self.send_json(404, {'ok': False, 'error': 'Unknown route'})
+        request_id = None
+        fingerprint = None
+        reserved = False
+        try:
+            size = int(self.headers.get('Content-Length', '0'))
+            if not 0 < size <= 1024 * 1024:
+                raise ValueError('Invalid request size')
+            req = json.loads(self.rfile.read(size), parse_constant=lambda x: (_ for _ in ()).throw(ValueError('Nonfinite JSON')))
+            if set(req) != {'name', 'arguments', 'request_id'}:
+                raise ValueError('Expected name,arguments,request_id only')
+            request_id = req['request_id']
+            if not isinstance(request_id, str) or not 1 <= len(request_id) <= 128:
+                raise ValueError('Unique request_id string required')
+            fingerprint = hashlib.sha256(json.dumps(req, sort_keys=True).encode()).hexdigest()
+            with CACHE_LOCK:
+                if request_id in REQUESTS:
+                    old_hash, result = REQUESTS[request_id]
+                    if old_hash != fingerprint:
+                        raise ValueError('request_id reused for different request')
+                    return self.send_json(200, result)
+                REQUESTS[request_id] = (fingerprint, {'ok': False, 'result': {'reason': 'REQUEST_IN_PROGRESS'}})
+                reserved = True
+                while len(REQUESTS) > 64: REQUESTS.popitem(last=False)
+            result, images = dispatch(req['name'], req['arguments'])
+            body = {'ok': True, 'result': result}
+            if images is not None:
+                body['images'] = images
+            with CACHE_LOCK:
+                REQUESTS[request_id] = (fingerprint, body)
+                while len(REQUESTS) > 64:
+                    REQUESTS.popitem(last=False)
+            return self.send_json(200, body)
+        except (ValueError, KeyError, TypeError) as e:
+            body = {'ok': False, 'result': {'error': str(e)}}
+            if reserved:
+                with CACHE_LOCK: REQUESTS[request_id] = (fingerprint, body)
+            return self.send_json(400, body)
+        except Exception as e:
+            body = {'ok': False, 'result': {'error': str(e),
+                'motor_writes': ('not_observed_by_bridge' if reserved and req.get('name') in ('robot_move_joint_targets', 'robot_move_head', 'robot_set_gripper', 'robot_set_motor_enable', 'robot_move_motor_targets') else 0)}}
+            if reserved:
+                with CACHE_LOCK: REQUESTS[request_id] = (fingerprint, body)
+            return self.send_json(409, body)
+
 
 def main():
- old=Path('/Users/teachera/Documents/Codex/2026-10-02/set-this-up-x20');utility=old/'work/carton-visual-controller/software';root=Path('/Users/teachera/Documents/Codex/2026-10-05/m');folder=root/'work/gemma-hardware-session';folder.mkdir(exist_ok=True)
- os.environ.update(CARTON_LIVE_SOFTWARE=str(old/'xlerobot-farm/software'),CARTON_UTILITY_SOFTWARE=str(utility),CARTON_WORKSPACE_ROOT=str(root),CARTON_PROFILE='paper-tray-v0')
- sys.path.insert(0,str(utility/'scripts/carton_robot'))
- from carton_runtime import PROFILE
- from farm.config import load_profile
- from farm.adapters.robot_lerobot import LeRobotXLeRobot
- from servo_ownership import ServoOwnership
- from strict_servo_replies import guard_replies
- from coherent_servo_telemetry import decode_telemetry, ADDRESS, LENGTH
- def observed_telemetry(bus,name):
-  motor=bus.motors[name];started=time.time()
-  transaction={'motor':name,'servo_id':motor.id,'model':motor.model,'port':bus.port,'address':ADDRESS,'length':LENGTH,'started_at':started}
-  try:
-   data,communication,packet_error=bus.packet_handler.readTxRx(bus.port_handler,motor.id,ADDRESS,LENGTH)
-   transaction.update(communication=communication,packet_error=packet_error,payload_bytes=list(data),reply=getattr(bus,'last_reply_evidence',None),finished_at=time.time())
-   decoded=decode_telemetry(data,communication,packet_error);bus.last_telemetry_sample=transaction;return decoded
-  except Exception as exc:
-   transaction.update(finished_at=time.time(),error=str(exc));bus.last_telemetry_failure=transaction
-   raise RuntimeError(str(exc)+'; transaction='+json.dumps(transaction)) from exc
- r=LeRobotXLeRobot(load_profile(PROFILE).robot).robot;buses=[r.bus1,r.bus2];owner=None;ownership=None;stop=threading.Event()
- signal.signal(signal.SIGTERM,lambda *_:stop.set());signal.signal(signal.SIGINT,lambda *_:stop.set())
- last=None
- try:
-  ownership=ServoOwnership([b.port for b in buses]).acquire()
-  for b in buses:guard_replies(b);b.connect(handshake=False)
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv);owner.inspect();atomic(folder/'status.json',owner.state)
-  if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
-  print('Hardware owner ready:16 motor reads, all torque off.',flush=True)
-  while not stop.is_set():
-   try:owner.poll()
-   except RuntimeError as e:
-    owner.state['failed_command_id']=owner.current_command
-    if owner.engine:
-     owner.state['direct_fault_diagnostics']=owner.engine.diagnostics
-     owner.state['direct_fault_samples']=owner.engine.samples
-    owner.state['fault_active_rows']={n:dict(row) for n,row in owner.rows.items()}
-    owner.state['fault_at']=time.time()
-    owner.release_all(str(e))
-    print('Hardware command stopped: '+str(e),flush=True)
-   p=folder/'command.json'
-   if p.exists():
-    c=json.loads(p.read_text())
-    if c.get('id')!=last:
-     last=c.get('id')
-     try:owner.command(c)
-     except ValueError as e:owner.state['last_rejected']={'id':last,'reason':str(e)}
-   atomic(folder/'status.json',owner.state);time.sleep(.02)
- except BaseException as e:
-  print('Hardware owner stopped: '+str(e),flush=True)
-  if owner:
-   owner.state['root_failure']=str(e);owner.state['failed_command_id']=owner.current_command
-   owner.release_all(str(e))
- finally:
-  if owner:
-   owner.release_all('Hardware-owner exit');atomic(folder/'status.json',owner.state)
-  for b in buses:
-   if b.is_connected:b.disconnect(disable_torque=False)
-  if ownership:ownership.close()
-if __name__=='__main__':main()
+    (ROOT / 'outputs/Gemma-Tool-Schemas.json').write_text(json.dumps(TOOLS, indent=2))
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(str(TLS / 'robot-dual.pem'), str(TLS / 'robot-dual.key'))
+    ctx.load_verify_locations(cafile=str(TLS / 'gateway-server.pem'))
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    servers = []
+    for host in ('127.0.0.1',):
+        server = ThreadingHTTPServer((host, 1241), Handler)
+        server.daemon_threads = True
+        server.socket = ctx.wrap_socket(server.socket, server_side=True)
+        servers.append(server)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    print('mTLS tools ready: https://127.0.0.1:1241 via approved TCP relay; exact client certificate pinned; DIRECT_JOINT client installed; no owner started', flush=True)
+    try:
+        threading.Event().wait()
+    finally:
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+
+
+if __name__ == '__main__':
+    main()
