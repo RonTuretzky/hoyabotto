@@ -24,14 +24,14 @@ surface; separate contact-location and task checks remain necessary. Old qpos
 replays without applied solver samples return missing/incomplete evidence.
 Forces reconstructed from those positions are not executed-force measurements.
 
-Three full-prefix near-hold runs (seeds0–2) independently scored clear across
-35,531, 34,009 and 36,938 steps. Final near angles were91.86°,91.22°,90.67°;
-all other flaps remained open. Concurrent wall time was28.42seconds, with a
+Three full-prefix near-hold runs (seeds 0–2) independently scored clear across
+35,531, 34,009 and 36,938 steps. Final near angles were 91.86°, 91.22°, 90.67°;
+all other flaps remained open. Concurrent wall time was 28.42 seconds, with a
 2.90 worker overlap factor. This measures overlap, not controlled serial speedup.
 Exact report/log identities are in
 [evidence/carton-applied-contact-audit-20261007.json](evidence/carton-applied-contact-audit-20261007.json).
 
-Regression tests include a real0.001mm overlap carrying about2.7006N, which
+Regression tests include a real 0.001 mm overlap carrying about 2.7006 N, which
 must stop, and the same overlap with zero separating-contact force, which must
 not be misreported as loaded. Runtime integration verifies stopping after the
-first2ms step and preserving that step's evidence. No hardware was accessed.
+first 2 ms step and preserving that step's evidence. No hardware was accessed.

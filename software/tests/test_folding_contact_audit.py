@@ -235,3 +235,61 @@ def test_simulation_move_stops_on_loaded_non_jaw_contact_and_preserves_step_log(
         rows = [json.loads(line) for line in stream]
     assert len(rows) == 1
     assert score(rows)['loaded_pairs'][0]['max_resultant_force_N'] > 2.5
+
+
+@pytest.mark.parametrize('field,value', [
+    pytest.param('ctrl', None, id='ctrl-null'),
+    pytest.param('ctrl', {}, id='ctrl-object'),
+    pytest.param('ctrl', (), id='ctrl-not-list'),
+    pytest.param('ctrl', [True], id='ctrl-bool'),
+    pytest.param('ctrl', [None], id='ctrl-null-value'),
+    pytest.param('ctrl', ['0'], id='ctrl-string-value'),
+    pytest.param('ctrl', [[1.]], id='ctrl-nested-value'),
+    pytest.param('ctrl', [float('nan')], id='ctrl-nan'),
+    pytest.param('ctrl', [float('inf')], id='ctrl-infinity'),
+    pytest.param('qfrc_applied_nonzero', None, id='qfrc-null'),
+    pytest.param('qfrc_applied_nonzero', True, id='qfrc-bool'),
+    pytest.param('qfrc_applied_nonzero', [None], id='qfrc-null-row'),
+    pytest.param('qfrc_applied_nonzero', [[0]], id='qfrc-missing-value'),
+    pytest.param('qfrc_applied_nonzero', [[0, 1., 2.]], id='qfrc-extra-column'),
+    pytest.param('qfrc_applied_nonzero', [[False, 1.]], id='qfrc-bool-index'),
+    pytest.param('qfrc_applied_nonzero', [[0., 1.]], id='qfrc-float-index'),
+    pytest.param('qfrc_applied_nonzero', [[-1, 1.]], id='qfrc-negative-index'),
+    pytest.param('qfrc_applied_nonzero', [[0, True]], id='qfrc-bool-value'),
+    pytest.param('qfrc_applied_nonzero', [[0, None]], id='qfrc-null-value'),
+    pytest.param('qfrc_applied_nonzero', [[0, float('-inf')]], id='qfrc-infinity'),
+    pytest.param('qfrc_applied_nonzero', [[0, 1.], [0, 2.]], id='qfrc-duplicate-index'),
+    pytest.param('xfrc_applied_nonzero', None, id='xfrc-null'),
+    pytest.param('xfrc_applied_nonzero', [[True, [0.]*6]], id='xfrc-bool-index'),
+    pytest.param('xfrc_applied_nonzero', [[-1, [0.]*6]], id='xfrc-negative-index'),
+    pytest.param('xfrc_applied_nonzero', [[.5, [0.]*6]], id='xfrc-float-index'),
+    pytest.param('xfrc_applied_nonzero', [[0, [0.]*5]], id='xfrc-short-wrench'),
+    pytest.param('xfrc_applied_nonzero', [[0, [0.]*7]], id='xfrc-long-wrench'),
+    pytest.param('xfrc_applied_nonzero', [[0, (0.,)*6]], id='xfrc-wrench-not-list'),
+    pytest.param('xfrc_applied_nonzero', [[0, [True, 0., 0., 0., 0., 0.]]], id='xfrc-bool-component'),
+    pytest.param('xfrc_applied_nonzero', [[0, [0., 0., 0., 0., 0., float('nan')]]], id='xfrc-nan-component'),
+    pytest.param('xfrc_applied_nonzero', [[0, [0.]*6], [0, [1.]*6]], id='xfrc-duplicate-index'),
+    pytest.param('xfrc_applied_nonzero', [[0, None]], id='xfrc-null-wrench'),
+    pytest.param('xfrc_applied_nonzero', [[0, 1.]], id='xfrc-scalar-wrench'),
+])
+def test_invalid_applied_input_contents_cannot_certify_unloaded_contact(field, value):
+    model, data = scene(velocity=10., applied=0.)
+    record = step(model, data)
+    assert score([record])['passed']  # This one-step baseline is otherwise complete and clear.
+    record['applied_inputs'][field] = value
+    result = score([record])
+    assert result['status'] == 'CONTACT_AUDIT_INCOMPLETE'
+    assert not result['passed'] and not result['coverage_complete']
+    assert result['observed_steps'] == 0 and result['errors']
+
+
+def test_finite_controls_and_unique_signed_applied_forces_remain_valid():
+    model, data = scene(velocity=10., applied=0.)
+    record = step(model, data)
+    record['applied_inputs'] = {
+        'ctrl': [0, -.17, 1.5],
+        'qfrc_applied_nonzero': [[0, -3.], [2, .25]],
+        'xfrc_applied_nonzero': [[0, [0., -2., 3., -.5, 0., 1.]], [4, [1, 0, 0, 0, 0, -1]]],
+    }
+    result = score([record])
+    assert result['passed'] and result['coverage_complete']

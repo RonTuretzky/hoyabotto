@@ -120,9 +120,10 @@ def test_out_of_paddle_grasp_rejected(grasp):
     with pytest.raises(ValueError,match='grasp'):PaddleSpec(grasp_x_m=grasp)
 
 
-def test_motion_report_uses_tool_tangent_axis_instead_of_gripper_x(scene_factory):
+def test_motion_report_uses_tool_tangent_axis_instead_of_gripper_x(scene_factory, tmp_path):
     mj,make=scene_factory;m=make(CartonMaterial())
     sim=object.__new__(FoldingSimulation);sim.model=m;sim.data=mj.MjData(m)
+    sim.applied_contact_path=tmp_path/'applied-contact-steps.jsonl.gz'
     mj.mj_forward(m,sim.data)
     sim.arm_indices={'right':[m.joint('right_'+j).qposadr[0] for j in JOINTS]}
     sim.control_sites={'right':'right_tip'};sim.events=[];sim.stats={'max_bad_penetration_mm':0}
@@ -138,10 +139,11 @@ def test_motion_report_uses_tool_tangent_axis_instead_of_gripper_x(scene_factory
     assert event['orientation_error_degrees']['right']['tangent']==pytest.approx(0.,abs=1e-5)
 
 
-def test_motion_guard_measures_free_tool_instead_of_virtual_target(scene_factory):
+def test_motion_guard_measures_free_tool_instead_of_virtual_target(scene_factory, tmp_path):
     from tools.simulate_bimanual_folding import PixelPort
     mj,make=scene_factory;m=make(CartonMaterial(),paddle=PaddleSpec())
     sim=object.__new__(PaddleFoldingSimulation);sim.model=m;sim.data=mj.MjData(m)
+    sim.applied_contact_path=tmp_path/'applied-contact-steps.jsonl.gz'
     mj.mj_forward(m,sim.data)
     sim.arm_indices={'right':[m.joint('right_'+j).qposadr[0] for j in JOINTS]}
     sim.control_sites={'right':'right_paddle_observed_target'}
