@@ -760,3 +760,38 @@ Octree approximation and collision-search sensitivity remain unqualified.
 The exact frozen `pusher-transfer21/source` snapshot passes 127 focused G4
 software tests in 3.29 s, and every frozen hash remains unchanged. The artifact
 `software-tests-pusher21.json` records this separately from task outcomes.
+
+The exact source-triangle SDF (`planter/g4_exact_sdf/`, plugin `g4.exact_mesh_sdf.v2`)
+is now field-qualified. `g4-exact-sdf-audit-02` scores 772 holder and 777 guide
+predeclared points against an independent double/long-double reference from the
+original STLs: maximum distance error 1.6e-12 mm, unique-gradient error 2.2e-10, no
+wrong signs, and world-frame queries agree with local ones. The earlier skinny-triangle
+gradient problem only remains in `compiled_float32` mode, which is not used. At the
+recorded contact09 stop state the original guide and holder overlap by only 0.018 mm,
+and the exact field gives about 0.3 N guide/holder load, so the 27.27 N stop was a
+collision-model artefact.
+
+Collision search was the remaining gap. MuJoCo 3.14's `mjc_MeshSDF` keeps penetrating
+Frank-Wolfe starts in a 50-slot buffer filled in mesh-BVH order and stops looking when
+it is full, and `sdf_initpoints` is both its start count and the per-pair contact cap.
+`g4-exact-sdf-pairing-01/02` compare four pairings at the stop state and at -0.05,
++0.05 and +0.2 mm guide offsets against independent STL overlap: native SDF/SDF misses
+the 0.018 mm contact at the default 10:40 search and reports 0.027 mm for a true
+0.068 mm; explicit mesh/SDF pairs detect it but report 0.005 mm and 0.055 mm. The
+plugin now carries an opt-in exhaustive mesh/exact-SDF narrowphase
+(`g4_exact_sdf.set_collider`): exact Lipschitz face culling, exact corner values,
+Frank-Wolfe from Halton starts (config `starts`, default `sdf_initpoints`), the deepest
+point per face, and deepest-first farthest-point contact selection under MuJoCo's own
+cap. It reports 0.017920 and 0.067920 mm against independent 0.017921 and 0.067921 mm
+(float32 vertex rounding), no contact at either positive gap, and identical depths and
+forces within 0.07 N for 1 to 40 starts; 4 starts take about 0.6 s per station forward.
+
+`g4-exact-sdf-settle-01` holds the recorded stop-state controls for 0.3 s under each
+collider with the station's unchanged per-step gates. Both stock pairings complete
+(peak 4.40 N, 0.052 mm). The exact collider aborts on the first step at 12.08 N on the
+left moving jaw/guide pair: its 40 contacts per jaw inherit penetration depths created
+under a collider that saw one or two. This shows that recorded states cannot be
+transferred between colliders; it does not qualify or disqualify the grasp. The next
+step is one identical guide trajectory from its initial state with the exact collider
+on, unchanged 8 N and 0.2 mm gates. Nothing here is placement, release or assembly
+credit.

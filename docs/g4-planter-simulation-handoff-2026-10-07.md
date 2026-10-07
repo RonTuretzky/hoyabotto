@@ -109,6 +109,9 @@ Collision artifacts:
 - `/Users/wk/Documents/ChatGPT/Hackatuson/output/g4-assembly-next/rigid-flex3d-witnesses-01/occupancy-witnesses.json`
 - `/Users/wk/Documents/ChatGPT/Hackatuson/output/g4-native-sdf-01`
 - `/Users/wk/Documents/ChatGPT/Hackatuson/output/g4-exact-sdf-01`
+- `/Users/wk/Documents/ChatGPT/Hackatuson/output/g4-exact-sdf-audit-02` (field audit)
+- `/Users/wk/Documents/ChatGPT/Hackatuson/output/g4-exact-sdf-pairing-01`, `-02` (collider search comparison)
+- `/Users/wk/Documents/ChatGPT/Hackatuson/output/g4-exact-sdf-settle-01` (hold-settle per collider)
 
 ### Roller and software checks
 
@@ -141,7 +144,7 @@ G4 CAD and source parts:
 
 ## Next actions
 
-1. Finish the exact source-triangle SDF contact audit. Repair the documented skinny-triangle gradient issue, then independently check occupancy, signed distance, source normals, contact search sensitivity, and the exact contact09 state. Keep the original 8 N and 0.2 mm gates. Only after that should one identical guide trajectory be rerun.
+1. (Continued 2026-10-07, see the end of `software/docs/g4-planter-training.md`: field qualified, gradient fixed in source mode, exhaustive opt-in mesh/exact-SDF collider matches independent overlap to 2e-7 mm; recorded stop states do not transfer between colliders, so the rerun below must start from the initial state.) Finish the exact source-triangle SDF contact audit. Repair the documented skinny-triangle gradient issue, then independently check occupancy, signed distance, source normals, contact search sensitivity, and the exact contact09 state. Keep the original 8 N and 0.2 mm gates. Only after that should one identical guide trajectory be rerun.
 2. If guide seating becomes source-qualified, add and independently score guide release/withdrawal and hands-off retention. Do not infer placement from a commanded pose.
 3. Implement trough and holder robot placement instead of initialized poses, with the same original SO101 actuator limits and full contact audit.
 4. Obtain the required manual paper evidence: carrier fit, off-centre insertion, buckling, ledge catching, guide removal, and roller folding. The paper stage must model paper contact, bending/crease approximation, friction, damping, and release.
