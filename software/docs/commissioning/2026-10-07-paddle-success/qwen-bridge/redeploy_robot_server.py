@@ -29,7 +29,10 @@ sys.path.insert(0,str(BRIDGE))
 from wrist_cameras import WRIST_CAMERA_IDS,IDENTITY_VERIFIED,CONFIG as WRIST_CONFIG,select_wrist_manifest,wrist_dirs,resolve_ids,configure as configure_wrist_ids
 configure_wrist_ids(ROOT)
 
-def say(message):print('[redeploy] '+message,flush=True)
+CAMERA_REPORT=None  # list collecting camera-setup messages while setup_wrist_cameras runs
+def say(message):
+ print('[redeploy] '+message,flush=True)
+ if CAMERA_REPORT is not None:CAMERA_REPORT.append(message)
 def fail(message):say('ABORT: '+message);sys.exit(1)
 
 def processes(script):
@@ -82,6 +85,18 @@ def camera_processes(camera_id):
  return found
 
 def setup_wrist_cameras(dry_run):
+ global CAMERA_REPORT
+ CAMERA_REPORT=[]
+ try:return _setup_wrist_cameras(dry_run)
+ except Exception as e:say(f'WARNING wrist camera setup error: {type(e).__name__}: {e}');return False
+ finally:
+  report={'time':time.time(),'dry_run':dry_run,'messages':CAMERA_REPORT,'ids':dict(WRIST_CAMERA_IDS),'identity_verified':dict(IDENTITY_VERIFIED),'fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS}}
+  CAMERA_REPORT=None
+  if not dry_run:
+   try:(WORK/'wrist-camera-setup.json').write_text(json.dumps(report,indent=2))
+   except OSError:pass
+
+def _setup_wrist_cameras(dry_run):
  """Detect the wrist cameras, save their IDs for the API, and make sure each one is streaming.
  Returns True when the saved IDs changed (a running API must restart to pin them). Never fatal."""
  if not CAPTURE.exists():

@@ -33,7 +33,7 @@ from carton.servo.common import atomic_json
 from gemma_execution_binding import TrustedExecutionBinding
 from gemma_direct_client import DirectJointClient
 from paddle_segments import paddle_target_segments, expand_path
-from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED
+from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED, setup_report
 WRIST_DIRS = wrist_dirs(ROOT)
 configure_wrist_ids(ROOT)  # IDs detected by the restart script
 LEGACY_CONTINUOUS_BINDING = TrustedExecutionBinding(SESSION)
@@ -281,6 +281,7 @@ def camera_status():
         except (OSError, ValueError, KeyError, TypeError) as exc:
             result[name] = {'available': False, 'fresh': False, 'error': str(exc)}
     result.update(wrist_status(WRIST_DIRS))
+    result['wrist_camera_setup'] = setup_report(ROOT)
     result['continuous_visual_registration_ready'] = False
     return result
 

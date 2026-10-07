@@ -73,6 +73,12 @@ def select_wrist_manifest(name,dirs,now=None):
     return folder,meta
 
 
+def setup_report(root):
+    """Last wrist-camera setup result written by the restart script (messages, IDs, freshness), for remote diagnosis."""
+    try:return json.loads((Path(root)/'work'/'wrist-camera-setup.json').read_text())
+    except (OSError,ValueError):return {'available':False,'note':'restart script has not recorded a camera setup yet'}
+
+
 def wrist_status(dirs,now=None):
     now=time.time() if now is None else now;result={}
     for name in WRIST_CAMERA_IDS:
