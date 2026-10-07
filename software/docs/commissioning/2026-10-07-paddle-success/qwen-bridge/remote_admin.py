@@ -6,7 +6,7 @@ arbitrary shell or file upload. A restart runs ./restart-robot-server.sh detache
 replaces), refuses while motors are holding, and rolls back to the previous files if the new ones fail.
 Usage inside the robot work folder: python remote_admin.py run-job <job.json>
 """
-import json,os,re,subprocess,sys,time
+import json,os,re,signal,subprocess,sys,time
 from pathlib import Path
 
 REF=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$')
@@ -81,9 +81,8 @@ def start_deploy(root,ref,mode,python=sys.executable):
     checkout=record.get('checkout')
     if not checkout or not (Path(checkout)/'restart-robot-server.sh').exists():raise ValueError('Recorded checkout is missing restart-robot-server.sh')
     p['jobs'].mkdir(parents=True,exist_ok=True)
-    for j in p['jobs'].glob('*.json'):
-        job=json.loads(j.read_text())
-        if job.get('state')=='running' and _alive(job.get('pid')):raise ValueError('Another deploy job is running: '+j.stem)
+    busy=running_job(root)
+    if busy:raise ValueError(f"Another job is running: {busy['id']} ({busy.get('kind','deploy')})")
     job_id=time.strftime('%Y%m%d-%H%M%S-')+os.urandom(3).hex()
     job={'id':job_id,'ref':ref,'mode':mode,'checkout':checkout,'state':'running','created':time.time()}
     path=p['jobs']/(job_id+'.json');path.write_text(json.dumps(job,indent=2))
@@ -91,6 +90,43 @@ def start_deploy(root,ref,mode,python=sys.executable):
         proc=subprocess.Popen([python,str(Path(__file__).resolve()),'run-job',str(path)],cwd=str(root),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
     job['pid']=proc.pid;path.write_text(json.dumps(job,indent=2))
     return job
+
+
+def running_job(root):
+    p=paths(root)
+    for j in sorted(p['jobs'].glob('*.json')) if p['jobs'].exists() else []:
+        job=json.loads(j.read_text())
+        if job.get('state')=='running' and _alive(job.get('pid')):return job
+    return None
+
+
+def start_calibration(root,arm,velocity=300,python=sys.executable):
+    """Detached automatic calibration of one arm (calibration_job.py). The owner stops for its duration."""
+    p=paths(root)
+    if arm not in ('left','right'):raise ValueError('arm must be left or right')
+    if velocity not in (200,300):raise ValueError('velocity must be 200 or 300 (the speeds that have completed on this robot)')
+    try:record=json.loads(p['record'].read_text())
+    except (OSError,ValueError):raise ValueError('No deploy record yet: run ./restart-robot-server.sh once on the robot Mac with this version.')
+    busy=running_job(root)
+    if busy:raise ValueError(f"Another job is running: {busy['id']} ({busy.get('kind','deploy')})")
+    p['jobs'].mkdir(parents=True,exist_ok=True)
+    job_id=time.strftime('%Y%m%d-%H%M%S-')+os.urandom(3).hex()
+    job={'id':job_id,'kind':'calibration','arm':arm,'velocity':velocity,'checkout':record['checkout'],'work':str(p['work']),'state':'running','phase':'precheck','created':time.time()}
+    path=p['jobs']/(job_id+'.json');path.write_text(json.dumps(job,indent=2))
+    with open(p['jobs']/(job_id+'.log'),'ab') as log:
+        proc=subprocess.Popen([python,str(Path(__file__).resolve().with_name('calibration_job.py')),str(path)],cwd=str(root),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+    job['pid']=proc.pid;path.write_text(json.dumps(job,indent=2))
+    return job
+
+
+def interrupt_calibration(root):
+    """STOP during a calibration sweep: SIGINT the runner (upstream routine makes the motors limp, then cleans up)."""
+    job=running_job(root)
+    if not job or job.get('kind')!='calibration':return None
+    pid=job.get('runner_pid')
+    if _alive(pid):
+        os.killpg(pid,signal.SIGINT);return {'calibration_interrupted':True,'job':job['id']}
+    return {'calibration_interrupted':False,'job':job['id'],'phase':job.get('phase')}
 
 
 def _alive(pid):

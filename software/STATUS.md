@@ -1,3 +1,7 @@
+## Automatic calibration as a robot tool — 7 October 2026
+
+Software only; not yet run through the API. `robot_auto_calibrate` wraps the pinned PR #3282 runner as a background job: owner stops, sweep, validate/install, otherwise restore the previous servo registers, then the server restarts. STOP interrupts the sweep. It is the intended way to fix the left-arm mismatch from the chat. Prior runs on this robot hit the cart and produced short ranges, so the clearance checklist and someone watching are mandatory. Record each run's result and evidence folder here.
+
 ## Wrist cameras through the API — 7 October 2026, 16:59
 
 Deployed remotely with `/admin/deploy` (cameras-only, commit e7716dc); no motors involved.

@@ -1003,5 +1003,58 @@
         "additionalProperties": false
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_auto_calibrate",
+      "description": "Automatic calibration of ONE arm (LeRobot PR #3282, pinned runner): every joint of that arm is driven to both of its mechanical stops, then the result is validated and installed only if it passes; if not, the previous calibration is written back. Use ONLY when the user explicitly asks to calibrate an arm. Before calling, show the user this checklist and get an explicit yes: other arm folded and turned away; nothing on the tray near the arm (paddle, bottle out of reach); camera cables slack and out of the path; the cart front clear; someone watching the whole arm with the 12 V switch in reach. Requires all motors released and a fresh phone camera. The hardware owner stops for the run (other tools are unavailable, about 2-4 minutes); robot_stop interrupts the sweep (motors go limp). Poll robot_get_calibration_job.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "arm": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ]
+          },
+          "velocity": {
+            "type": "integer",
+            "enum": [
+              200,
+              300
+            ],
+            "description": "Limit-seeking speed; 300 default, 200 slower"
+          },
+          "user_confirmed_clearance": {
+            "type": "boolean",
+            "description": "true only after the user explicitly confirmed the checklist in this conversation"
+          }
+        },
+        "required": [
+          "arm",
+          "user_confirmed_clearance"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_calibration_job",
+      "description": "Progress and result of an automatic calibration job: phase, log tail, whether the result was validated/installed or the previous calibration restored, and evidence location. Without job_id, the latest job.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
   }
 ]

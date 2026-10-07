@@ -88,3 +88,18 @@ Exceptions:
 - A closed gripper also eases open, so a held object is still let go.
 - The client waits up to 6 s for a STOP to be confirmed.
 - The 12 V switch remains the hard stop.
+
+## Automatic calibration tool (2026-10-07)
+
+`robot_auto_calibrate(arm, velocity=300|200, user_confirmed_clearance)` runs LeRobot PR #3282 for one arm through the pinned runner `software/scripts/carton_robot/upstream_pr3282_calibration.py --execute --install` (the unchanged upstream sweep, then validation; see `software/docs/auto-calibration.md`). It runs as a detached job (`calibration_job.py`, started via `remote_admin.start_calibration`):
+
+1. Precheck: no motor enabled, no motion running, and a phone frame younger than 10 s.
+2. Stop the hardware owner so the runner can open the servo ports.
+3. Run the sweep.
+4. Handle the result:
+   - If it validated, it is installed.
+   - If it ran but was not installed, the previous offsets, limits and position mode are written back into the six servos with torque off and read back. Without this, a failed run leaves the servos disagreeing with the file, which is how the left-arm mismatch arose.
+   - If torque release could not be verified, stop and ask for 12 V off; the server is not restarted.
+5. Restart the robot server.
+
+`robot_stop` sends SIGINT to a running sweep; the upstream routine makes the motors limp. `robot_get_calibration_job` reports the phase, log and outcome. The tool refuses unless `user_confirmed_clearance` is true. Its description tells the pilot to show the clearance checklist and get an explicit yes. One job runs at a time, whether deploy or calibration. `test_calibration_job.py` covers it; it has not been run on hardware through the API.

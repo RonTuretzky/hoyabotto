@@ -20,8 +20,8 @@ OAK_RAW_DIR=os.environ.get('XLEROBOT_OAK_RAW_DIR','/Users/teachera/Documents/Cod
 WORK=ROOT/'work';SESSION=WORK/'gemma-hardware-session';STATUS=SESSION/'status.json'
 OWNER_RECORD=WORK/'gemma-hardware-owner-process.json';API_RECORD=WORK/'gemma-robot-tools-process.json'
 OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api.log'
-INSTALL=['remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
-TESTS=['test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
+INSTALL=['calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
+TESTS=['test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
 OWNER_ARGS=['--right-arm-only','--paddle-profile','--wheels'];API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
 CAPTURE_SOURCE=BRIDGE.parents[2]/'session-archive-2026-10-05/capture-single.swift'  # software/docs/session-archive-…
