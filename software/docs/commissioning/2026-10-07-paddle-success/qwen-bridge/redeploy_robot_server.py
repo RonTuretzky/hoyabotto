@@ -24,7 +24,7 @@ OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api
 API_ONLY=['gemma_robot_tools.py','wrist_cameras.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
 INSTALL=['calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
 TESTS=['test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
-OWNER_ARGS=['--both-arms','--paddle-profile','--wheels'];  # an arm whose calibration mismatches stays read-only
+OWNER_ARGS=['--both-arms','--paddle-profile','--wheels','--allow-missing-bus'];  # an arm whose calibration mismatches stays read-only
 API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
 CAPTURE_SOURCE=BRIDGE.parents[2]/'session-archive-2026-10-05/capture-single.swift'  # software/docs/session-archive-…
@@ -269,18 +269,24 @@ def main():
   say(f'installed {", ".join(changed)}; previous copies in {backup}')
  try:s,owner,api=bring_up(args)
  except SystemExit:
-  if not changed:raise
+  if not changed:
+   # Nothing to roll back, but never leave the robot without its API: remote diagnosis and redeploy need it.
+   if not processes('gemma_robot_tools.py'):say('the hardware owner did not start; starting the API anyway so the robot stays reachable');start_api()
+   raise
   say('ROLLBACK: the new version did not come up; restoring the previous files and restarting them')
   for pids,label in ((processes('gemma_robot_tools.py'),'API'),(processes('gemma_hardware_owner.py'),'hardware owner')):
    if stop(pids,label,20):fail(f'{label} did not exit during rollback; inspect before restarting')
   for name in INSTALL:
    if (backup/name).exists():shutil.copy2(backup/name,WORK/name)
-  s,owner,api=bring_up(args)
+  try:s,owner,api=bring_up(args)
+  except SystemExit:
+   if not processes('gemma_robot_tools.py'):say('the previous version did not start either; starting the API anyway so the robot stays reachable');start_api()
+   raise
   record_deploy('rolled-back')  # keep the checkout known so a fix can be deployed remotely
   say(f'ROLLBACK complete: the previous version is running again; the failed attempt is in {WORK/"redeploy.log"}');sys.exit(1)
  record_deploy('restart')
  print(json.dumps({'owner_pid':owner.pid,'owner_session_started':s['started'],'execution_profile':s['execution_profile'],'phase':s['phase'],
-                   'all16_released':True,'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
+                   'all_released':True,'motors':len(rows),'missing_buses':s.get('missing_buses'),'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
                    'relay':'unchanged','installed':changed,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
  say('done. Motors are released; enable all six right-arm joints explicitly before any pickup move.')
 
@@ -300,7 +306,7 @@ def bring_up(args):
   if time.time()>deadline:fail(f'no fresh owner status within 30 s; see {OWNER_LOG}')
   time.sleep(.1)
  rows=s.get('rows',{})
- if len(rows)!=16 or any(r.get('Torque_Enable')!=0 for r in rows.values()) or s.get('motor_writes')!=0 or s.get('stop_latched'):fail('fresh owner is not all-16 released with zero writes and STOP clear: '+json.dumps({k:s.get(k) for k in ('phase','motor_writes','stop_latched')}))
+ if not rows or len(rows)!=len(s.get('supported_motors') or rows) or any(r.get('Torque_Enable')!=0 for r in rows.values()) or s.get('motor_writes')!=0 or s.get('stop_latched'):fail('fresh owner is not all-16 released with zero writes and STOP clear: '+json.dumps({k:s.get(k) for k in ('phase','motor_writes','stop_latched')}))
  if s.get('execution_profile')!='paddle-success-v1':fail('fresh owner is not running the paddle-success-v1 profile')
  if s.get('base_drive_supported') is not ('--wheels' in OWNER_ARGS):fail('fresh owner base_drive_supported does not match the requested --wheels setting')
  if not args.no_wrist_cams:setup_wrist_cameras(False)  # before the API, which loads the detected IDs at startup

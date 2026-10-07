@@ -91,7 +91,7 @@ class DirectJointClient:
                 if 0<=latest['status_age_s']<=1 and latest.get('time',0)>=command['id']/1e9 and latest.get('completed')==command['id']:
                     if latest.get('release_errors'):
                         result.update(release_reason='Release failed; owner not healthy',release_errors=latest['release_errors']);return result
-                    if len(rows)==16 and not latest.get('enabled_motors') and all(r.get('Torque_Enable')==0 for r in rows.values()):
+                    if rows and len(rows)==len(latest.get('supported_motors') or rows) and not latest.get('enabled_motors') and all(r.get('Torque_Enable')==0 for r in rows.values()):
                         result.update(release_confirmed=True,release_owner_time=latest['time'],owner_started=latest['started'],owner_phase=latest.get('phase'));return result
             except (OSError,ValueError,KeyError,TypeError):pass
             self.sleep(.02)

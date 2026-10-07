@@ -1,3 +1,12 @@
+## Outage and right-arm calibration attempt — 7 October 2026, 18:19–18:35
+
+- **18:19, right-arm auto-calibration.** The pilot ran `robot_auto_calibrate` on the RIGHT arm at velocity 200, stopping the owner. The runner exited 2: the candidate was retained but not validated. Whether the job's register restore completed was not read before the API went down. Check `/admin/job?id=20261007-181916-761f48` and the right arm's calibration mismatches before any right-arm motion. The right arm's calibration was meant to stay frozen (pickup sequence, tag registration).
+- **18:19–18:29, left bus failures.** The left-arm bus (`/dev/cu.usbmodem5B790186401`) repeatedly failed servo reads (−6), and the owner exited.
+- **~18:33, server down.** A remote restart could not start the owner (the left bus did not answer) and aborted before starting the API, leaving the robot unreachable remotely. Fixed in code:
+  - The restart always starts the API even if the owner fails.
+  - With `--allow-missing-bus` (the default), the owner starts on the buses that answer, e.g. right arm and wheels, and reports `missing_buses`.
+- **Left wrist camera.** It fails with AVFoundation "Cannot Use USB2.0_CAM1 … stop any other actions using" it: another app holds it. The Codex app's video-capture service is a candidate.
+
 ## Cameras kept alive by the restart script — 7 October 2026, 18:10
 
 - **OAK.** It went stale because `farm.oak_camera stream` exits after `--seconds` and nothing restarted it. The camera step now restarts it when stale: a 24 h stream, `--usb2`, into the API's OAK folder, using a Python with depthai found under the Codex workspaces and remembered in `work/oak-python`.

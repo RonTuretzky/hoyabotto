@@ -321,10 +321,27 @@ def main():
  last=None
  try:
   ownership=ServoOwnership([b.port for b in buses]).acquire()
-  for b in buses:guard_replies(b);b.connect(handshake=False)
+  # A motor bus that does not connect or whose servos do not answer is left out (with --allow-missing-bus):
+  # the owner runs the other bus (e.g. right arm + wheels) and reports the missing one instead of refusing to start.
+  missing=[];live=[]
+  for b in buses:
+   try:
+    guard_replies(b);b.connect(handshake=False)
+    for n in b.motors:b.read('Torque_Enable',n,normalize=False,num_retry=2)
+    live.append(b)
+   except Exception as e:
+    if '--allow-missing-bus' not in sys.argv:raise
+    missing.append({'port':str(b.port),'motors':sorted(b.motors),'error':str(e)[:300]})
+    try:
+     if b.is_connected:b.disconnect(disable_torque=False)
+    except Exception:pass
+  if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
+  buses=live
   owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state)
+  owner.state['missing_buses']=missing
+  if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
-  print('Hardware owner ready:16 motor reads, all torque off.',flush=True)
+  print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)
   while not stop.is_set():
    try:owner.poll()
    except RuntimeError as e:
