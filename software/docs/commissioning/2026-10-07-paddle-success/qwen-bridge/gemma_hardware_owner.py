@@ -9,8 +9,9 @@ PHONE_CAMERA=Path('/Users/teachera/Documents/Codex/2026-10-05/m/work/phone_camer
 DIAGNOSTIC_REGISTERS=['Torque_Enable','Operating_Mode','Goal_Position','Goal_Time','Goal_Velocity','Acceleration','Torque_Limit','Max_Torque_Limit','Max_Temperature_Limit','P_Coefficient','I_Coefficient','D_Coefficient','CW_Dead_Zone','CCW_Dead_Zone','Minimum_Startup_Force','Protection_Current','Protective_Torque','Protection_Time','Overload_Torque','Over_Current_Protection_Time','Unloading_Condition','Lock']
 
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep):
   self.read_only=read_only
+  self.soft_release_s=soft_release_s;self.sleep=sleep  # >0: STOP/faults ease torque off over this many seconds
   self.paddle_profile=paddle_profile
   self.motion_count=0
   if camera_metadata is None:camera_metadata=lambda:json.loads(PHONE_CAMERA.read_text())
@@ -175,10 +176,32 @@ class HardwareOwner:
   if n in self.old:
    for f in ['Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient','Lock']:self.write(n,f,self.old[n][f])
    self.old.pop(n)
+ def soften(self):
+  """Hold every enabled joint where it is, then lower its torque limit to zero in steps, so a gravity-loaded
+  arm settles instead of dropping. Returns None, or the error that made it fall back to an immediate release."""
+  names=sorted(self.enabled)
+  try:
+   for n in names:
+    q=self.read(n,'Present_Position')
+    if n in self.ranges:lo,hi=self.ranges[n];q=max(lo+4,min(hi-4,q))
+    self.write(n,'Goal_Position',q);self.goals[n]=q
+   start={n:self.read(n,'Torque_Limit') for n in names};steps=10
+   for k in range(1,steps+1):
+    for n in names:self.write(n,'Torque_Limit',int(start[n]*(steps-k)/steps))
+    self.sleep(self.soft_release_s/steps)
+   return None
+  except Exception as e:return str(e)
  def release_all(self,reason,record=True):
   # Releases every enabled motor and cancels any move; nothing re-enables or resumes until an explicit enable_motors. No latch.
   errors=[]
   if isinstance(self.engine,WheelPulseExecutor) and (self.engine.active or self.engine.powered):errors+=self.engine.abort() # moving base first
+  if self.engine:self.engine.active=False  # stop advancing before easing off
+  # Ease torque off unless the bus itself failed (those writes would fail too).
+  soft=self.soft_release_s>0 and self.enabled and 'communication failure' not in reason
+  if soft:
+   problem=self.soften()
+   self.state['last_release_mode']='soft' if problem is None else 'immediate (soft release failed: '+problem+')'
+  elif self.enabled:self.state['last_release_mode']='immediate'
   for n in list(self.enabled):
    try:self.release(n)
    except Exception as e:errors.append(str(e))
@@ -285,7 +308,7 @@ def main():
  try:
   ownership=ServoOwnership([b.port for b in buses]).acquire()
   for b in buses:guard_replies(b);b.connect(handshake=False)
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv);owner.inspect();atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state)
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print('Hardware owner ready:16 motor reads, all torque off.',flush=True)
   while not stop.is_set():

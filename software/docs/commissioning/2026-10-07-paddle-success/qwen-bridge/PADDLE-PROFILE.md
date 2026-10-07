@@ -73,3 +73,18 @@ There is no self-collision model: per-joint calibration ranges cannot stop the a
 - **Trade-off.** If the high load was gravity rather than contact, the joint sags by its following error after the back-off.
 - **Corrections.** A joint at ≥ 600 load gets no settle correction. A joint that did not move after a correction gets no further ones, and is reported in `possible_contact_joints`.
 - The 800-load and 96-tick release limits are unchanged and still catch anything faster.
+
+## Soft release on STOP and faults (2026-10-07)
+
+`test_soft_release.py` covers this. STOP, and owner faults where the bus still answers, release in four steps:
+1. Every enabled joint's goal is set to its present position, so motion stops at once.
+2. Each joint's Torque_Limit is lowered to 0 in 10 steps over 2 s, so a gravity-loaded arm settles instead of dropping.
+3. Torque is turned off.
+4. Saved settings are restored.
+
+Exceptions:
+- Communication faults release immediately, as before, and so does any failure while easing; `last_release_mode` records which happened.
+- Wheels still stop and release immediately.
+- A closed gripper also eases open, so a held object is still let go.
+- The client waits up to 6 s for a STOP to be confirmed.
+- The 12 V switch remains the hard stop.

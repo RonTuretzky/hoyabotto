@@ -78,8 +78,8 @@ class DirectJointClient:
         command={'id':time.time_ns(),'op':'stop','session_started':state.get('started')}
         atomic_json(self.folder/'command.json',command)
         # No latch: STOP releases all motors, which stay released until an explicit enable; no owner restart needed.
-        result={'stop_requested':True,'command_id':command['id'],'release_confirmed':False,'stop_reset_supported':True,'stop_latched':False,'owner_restart_required':False,'motors_stay_released_until':'explicit robot_set_motor_enable'}
-        deadline=self.clock()+2
+        result={'stop_requested':True,'command_id':command['id'],'release':'torque eases off over about 2 s, then off','release_confirmed':False,'stop_reset_supported':True,'stop_latched':False,'owner_restart_required':False,'motors_stay_released_until':'explicit robot_set_motor_enable'}
+        deadline=self.clock()+6  # soft release eases torque off over ~2 s first
         while self.clock()<deadline:
             try:
                 latest=self.status()
