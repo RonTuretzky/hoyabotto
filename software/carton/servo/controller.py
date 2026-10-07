@@ -202,7 +202,8 @@ class Experiment:
                 column = j[:, k]
                 delta = int(np.rint(np.clip(-.7 * column.dot(error) / (column.dot(column)+1e-8),
                                             -self.limits.step_ticks, self.limits.step_ticks)))
-                if not delta:
+                # Owners reject sub-minimum targets (the pickup owner treats <=2 ticks as a no-op).
+                if abs(delta) < getattr(self.transport, "min_step_ticks", 1):
                     continue
                 future = q[joint] + delta
                 lo, hi = self.config["ranges"][joint]
