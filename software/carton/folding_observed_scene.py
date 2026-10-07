@@ -159,7 +159,10 @@ class ObservedScene:
         allowed = set(allowed_flaps)
         if not allowed <= {f'{name}_cardboard' for name in self.metadata['observed_flaps']}:
             raise ValueError('Only freshly observed flap faces may be allowed contacts')
-        clearance = self.required_robot_clearance_m + _finite(extra_clearance_m, 'extra clearance', maximum=.02)
+        # Preserve the existing 6 mm nominal transit gate even if upstream
+        # declares very small errors. This maximum is not an additive promise
+        # of 6 mm physical clearance after worst-case uncertainty displacement.
+        clearance = max(.006, self.required_robot_clearance_m) + _finite(extra_clearance_m, 'extra clearance', maximum=.02)
         if clearance > .02:
             raise ValueError('Combined uncertainty exceeds planner clearance capacity')
         from carton.folding_paths import JointPathPlanner

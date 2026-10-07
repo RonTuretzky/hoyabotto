@@ -171,8 +171,11 @@ chain and collision geometry. Each arm contributes its base-position error,
 geometry error, and reach times the sum of six encoder angular errors and
 base-rotation error. Both arms' bounds are summed to cover relative arm/arm
 uncertainty. Another 0.1 mm preserves the bound despite the existing planner's
-signed-distance tolerance. The wrapper requires this clearance and refuses
-combined clearance above the existing planner's 20 mm capacity.
+signed-distance tolerance. The wrapper uses the larger of this bound and the
+existing 6 mm nominal transit gate, then adds any explicit extra clearance.
+This preserves the nominal gate; it does not promise an additional 6 mm of
+physical separation after worst-case uncertainty displacement. Combined
+clearance above the existing planner's 20 mm capacity is refused.
 
 Only freshly observed flap faces may be nominated as allowed contacts. The
 existing planner's nominal 1 mm penetration gate remains unchanged. Its
@@ -200,7 +203,7 @@ Run from `software`:
 PYTHONPATH=. .venv/bin/python -m pytest tests/test_folding_observed_scene.py tests/test_folding_paths.py -q
 ```
 
-91 component and existing-planner tests pass. Negative cases include stale,
+92 component and existing-planner tests pass. Negative cases include stale,
 future, unsynchronized, mismatched-unit or identity data; missing error bounds;
 wrong flap tags; ambiguous required flaps; invalid transforms; unverified
 models/assets; missing encoders; suppressed collisions; and expiry. Tests

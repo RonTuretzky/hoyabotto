@@ -194,12 +194,13 @@ def test_conservative_sweep_rejects_space_that_a_guessed_open_flap_would_leave_f
 
 def test_both_arm_errors_are_reserved_in_arm_arm_clearance():
     robot,calibration,observation,encoders=inputs()
+    calibration=replace(calibration,base_position_error_m=.0033)
     calibration.world_from_robot_bases['left']=pose(-.05,-.4,.35)
-    calibration.world_from_robot_bases['right']=pose(-.008,-.4,.35)
+    calibration.world_from_robot_bases['right']=pose(-.003,-.4,.35)
     scene=ObservedSceneBuilder(robot,calibration).build(observation,encoders,now_s=10.01)
-    # Spheres have 2mm nominal separation, larger than either arm's own
-    # error, but smaller than their combined possible relative displacement.
-    assert scene.required_robot_clearance_m > .002
+    # Spheres have 7mm nominal separation, larger than the 6mm baseline and
+    # either arm's own error, but smaller than their combined displacement.
+    assert scene.required_robot_clearance_m > .007
     p=planner(scene)
     assert not p.valid(np.full(5,.01))
     assert all(name.endswith('_moving_jaw_fixture') for name in p.last_collision[:2])
@@ -255,11 +256,18 @@ def test_error_bounds_inflate_obstacles_and_mandatory_robot_clearance():
     assert near.size[1] > .0015 + scene.metadata['carton_pose_padding_m']
     assert scene.required_robot_clearance_m > .0007
     p=planner(scene)
-    assert p.clearance==scene.required_robot_clearance_m
-    assert np.all(p.model.geom_margin >= scene.required_robot_clearance_m)
+    assert p.clearance==max(.006,scene.required_robot_clearance_m)
+    assert np.all(p.model.geom_margin >= p.clearance)
     # Existing allowed-contact 1mm penetration gate is reused; unknown
     # obstacle names are never admitted into that exception list.
     with pytest.raises(ValueError,match='capacity'):planner(scene,extra_clearance_m=.02)
+
+
+def test_small_declared_uncertainty_cannot_lower_existing_nominal_transit_gate():
+    scene=build()
+    assert scene.required_robot_clearance_m < .006
+    assert planner(scene).clearance==.006
+    assert planner(scene,extra_clearance_m=.001).clearance==.007
 
 
 def test_scene_expiry_does_not_get_extended_by_planning():
