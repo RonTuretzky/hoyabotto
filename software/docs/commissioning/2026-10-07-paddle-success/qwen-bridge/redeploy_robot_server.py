@@ -170,10 +170,21 @@ def find_oak_python(software):
    return c
  return None
 
+def oak_processes():
+ """OAK stream processes only: `<python> -m farm.oak_camera stream ...` or the watchdog loop `bash -c "while true; do ..."`.
+ Matching on executable and argv (not a substring anywhere) so a shell that merely mentions the command is never touched."""
+ out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout;found=[]
+ for line in out.splitlines():
+  parts=line.split()
+  if len(parts)<4:continue
+  exe=Path(parts[1]).name.lower()
+  if exe.startswith('python') and parts[2:5]==['-m','farm.oak_camera','stream']:found.append(line.strip())
+  elif exe=='bash' and parts[2]=='-c' and parts[3]=='while' and 'farm.oak_camera' in line:found.append(line.strip())
+ return found
+
 def ensure_oak(dry_run):
  """Keep the OAK RGB/depth stream alive: farm.oak_camera stream exits after --seconds, so restart it when stale."""
- out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout
- streams=[l for l in out.splitlines() if 'farm.oak_camera' in l and ' stream' in l]
+ streams=oak_processes()
  narrow=[l for l in streams if '--wide' not in l]
  if oak_fresh() and not narrow:say('oak: already streaming');return
  if oak_fresh() and narrow:say('oak: streaming without --wide (undistortion crops the field of view); restarting it wide')
@@ -182,14 +193,21 @@ def ensure_oak(dry_run):
  python=find_oak_python(software)
  if dry_run:say(f'oak: stale; would stop {stale or "nothing"} and start a 24 h stream with {python or "NO PYTHON WITH depthai FOUND"}');return
  if not python:say('WARNING oak: stale, and no Python with depthai, numpy and cv2 was found under the Codex workspaces (set XLEROBOT_OAK_PYTHON)');return
- for pid in stale:say(f'oak: stopping stale stream {pid}');os.kill(pid,signal.SIGTERM)
+ for pid in stale:
+  say(f'oak: stopping stale stream {pid}')
+  try:os.killpg(pid,signal.SIGTERM)  # the watchdog loop and its stream share a process group
+  except OSError:
+   try:os.kill(pid,signal.SIGTERM)
+   except OSError:pass
  if stale:time.sleep(3)
  Path(OAK_RAW_DIR).mkdir(parents=True,exist_ok=True)
  with (WORK/'oak-stream.log').open('ab') as log:
-  proc=subprocess.Popen([python,'-m','farm.oak_camera','stream','--usb2','--wide','--seconds','86400','--output',OAK_RAW_DIR],cwd=str(software),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+  # Watchdog loop: the OAK can crash (X_LINK_ERROR / missed ping, usually USB power) or reach --seconds; restart it after 5 s.
+  loop=f'while true; do "{python}" -m farm.oak_camera stream --usb2 --wide --seconds 86400 --output "{OAK_RAW_DIR}"; echo "oak stream exited ($?); restarting in 5 s"; sleep 5; done'
+  proc=subprocess.Popen(['bash','-c',loop],cwd=str(software),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
  deadline=time.time()+25
  while time.time()<deadline and proc.poll() is None and not oak_fresh():time.sleep(.5)
- if oak_fresh():say(f'oak: streaming (pid {proc.pid}, 24 h) into {OAK_RAW_DIR}')
+ if oak_fresh():say(f'oak: streaming (watchdog pid {proc.pid}, restarts after crashes) into {OAK_RAW_DIR}')
  else:
   tail=(WORK/'oak-stream.log').read_text(errors='replace').strip().splitlines()[-3:]
   say(f'WARNING oak: no fresh frames after 25 s (exit code {proc.poll()}): {" | ".join(tail) or "no output"}')
