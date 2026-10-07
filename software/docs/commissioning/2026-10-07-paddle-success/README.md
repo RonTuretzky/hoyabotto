@@ -74,7 +74,7 @@ The archive contains the exact successful pilot source with only a default-off e
 - `success.json`: sequence, endpoints, calibration hash/right-arm entries, result, release checks, frame hashes, and limitations.
 - `telemetry.json.gz`: all ordered coherent samples and exact cleanup result. It has no per-sample timestamps; it is not a calibrated time-series training episode.
 - `guarded-paddle-pilot.py`: source used for the successful trial, default-off archive gate.
-- `drive-pulse.py`: guarded forward/backward pulse prototype; not the canonical owner's wheel implementation.
+- `drive-pulse.py`: guarded forward/backward pulse prototype; the owner's `qwen-bridge/wheel_pulse_executor.py` is ported from it.
 - `jaw-close-open-check.json.gz`, `camera-pause-checks.json`: measured jaw baseline and offline pause guard verification.
 - `qwen-bridge/`: the API, sole owner and pickup profile as deployed; `qwen-bridge/paddle-procedure.json` is the procedure served to Qwen as `physical_pickup_procedure`; `tool-schemas.json` lists the API tools; `server-recovery.json` is the 2026-10-07 recovery record.
 - `controller-provenance.json`: original/archived source hashes and private frame locations. Original camera frames remain on the robot Mac; their hashes are portable, but the raw people-containing scene frames are not published.
@@ -91,6 +91,6 @@ The pilot's close/hold/settings are integrated as owner profile `paddle-success-
 
 Suggested Qwen state machine: `inspect → verify station/calibration → establish empty guarded hold → visually align handle inside both jaws → bounded close until measured resistance → verify small lift and stable hold → place → open → withdraw → release`. On an empty miss, locally correct a healthy held pose; do not reset the entire arm as a reflex. Resistance, simulation, a plausible image description, and tool-call success alone are not verified pickup.
 
-Cartesian FK/reach tools remain read-only proposals until the missing model-zero/sign binding, camera-to-arm transform, and physical jaw/handle offsets are validated. They were not established by this one successful visual encoder trial. Base driving through the current arm-owner API remains unsupported. The requested 40 cm cart travel is outstanding and was not attempted during server recovery.
+Cartesian FK/reach tools remain read-only proposals until the missing model-zero/sign binding, camera-to-arm transform, and physical jaw/handle offsets are validated. They were not established by this one successful visual encoder trial. Base driving is available through `robot_move_base` as guarded pulses. It is the owner-side port of `drive-pulse.py` and has not yet run on hardware through the API (see [qwen-bridge/PADDLE-PROFILE.md](qwen-bridge/PADDLE-PROFILE.md)). The requested 40 cm cart travel is outstanding and was not attempted during server recovery.
 
 Large telemetry is losslessly compressed. Decode with `gzip -dc telemetry.json.gz > telemetry.json` and `gzip -dc jaw-close-open-check.json.gz > jaw-close-open-check.json`. Do not infer time-series timestamps from sample indices.

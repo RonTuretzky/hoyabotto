@@ -35,7 +35,7 @@ class DirectJointClient:
                 supported_motors=state.get('supported_motors',[]),enabled_motors=state.get('enabled_motors',[]),
                 operator_armed=state.get('operator_armed') is True,local_operator_gate=state.get('operator_armed') is True,
                 motor_owner_active=state.get('hardware_server') is True and 0<=state['status_age_s']<=1)
-            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}),last_stop=state.get('last_stop'),stop_count=state.get('stop_count',0),release_errors=state.get('release_errors',[]))
+            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),base_drive_supported=state.get('base_drive_supported') is True,base_drive_limits=state.get('base_drive_limits'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}),last_stop=state.get('last_stop'),stop_count=state.get('stop_count',0),release_errors=state.get('release_errors',[]))
             if state.get('read_only') is True:result['blockers'].append('READ_ONLY_OWNER: calibration mismatch blocks activation')
             if state.get('control_mode')!='direct_joint' or state.get('hardware_server') is not True:result['blockers'].append('HARDWARE_OWNER_PROTOCOL_UNAVAILABLE')
             if not 0<=state['status_age_s']<=1:result['blockers'].append('OWNER_STATUS_STALE')
@@ -103,7 +103,17 @@ class DirectJointClient:
         if type(duration_s) not in (int,float) or not math.isfinite(duration_s) or not 0<duration_s<=25:raise ValueError('Duration must be finite in (0,25]')
         if not isinstance(positions,dict) or not positions or any(type(q) is not int for q in positions.values()):raise ValueError('Nonempty integer encoder targets required')
         return self._command({'op':'direct_joint','positions':positions,'duration_s':duration_s})
+    def drive_base(self,linear_m_s,angular_rad_s,duration_s):
+        if any(type(v) not in (int,float) or not math.isfinite(v) for v in (linear_m_s,angular_rad_s,duration_s)) or not 0<duration_s<=3:raise ValueError('Finite linear_m_s, angular_rad_s and duration_s in (0,3] required')
+        return self._command({'op':'base_pulse','linear_m_s':linear_m_s,'angular_rad_s':angular_rad_s,'duration_s':duration_s})
     def _validate(self,request,state):
+        if request['op']=='base_pulse':
+            if state.get('base_drive_supported') is not True:raise ValueError('UNSUPPORTED_OWNER_SCOPE: owner started without --wheels; base drive disabled')
+            for n in ('base_left_wheel','base_right_wheel'):
+                if state.get('rows',{}).get(n,{}).get('Torque_Enable')!=0:raise ValueError('Wheel must be released before a base pulse: '+n)
+            from wheel_pulse_executor import WheelPulseExecutor
+            WheelPulseExecutor.check_request(request)
+            return
         if request['op']=='enable_motors':
             names=request['names']
             if not set(names)<=set(state.get('supported_motors',[])):raise ValueError('Unknown motor names')
@@ -214,7 +224,7 @@ class DirectJointClient:
                 if generation!=self.cancel_generation:raise RuntimeError('STOP interrupted dispatch')
                 if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:raise RuntimeError('Another writer changed command file')
                 atomic_json(command_file,command);dispatched=True
-                deadline=self.clock()+(90 if state.get('execution_profile')=='paddle-success-v1' and request['op'] in ('direct_joint','gripper_target') else 60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
+                deadline=self.clock()+(request['duration_s']+10 if request['op']=='base_pulse' else 90 if state.get('execution_profile')=='paddle-success-v1' and request['op'] in ('direct_joint','gripper_target') else 60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
                 while self.clock()<deadline:
                     if generation!=self.cancel_generation:raise RuntimeError('STOP cancelled goal; no automatic resume')
                     current=self.status()
@@ -226,6 +236,12 @@ class DirectJointClient:
                     if (current.get('last_rejected') or {}).get('id')==command_id:raise RuntimeError('Owner rejected: '+str(current['last_rejected'].get('reason')))
                     if json.loads(command_file.read_text()).get('id')!=command_id:raise RuntimeError('Command overwritten; cancelled')
                     if current.get('completed')==command_id and current.get('phase') in ('idle','holding'):
+                        if request['op']=='base_pulse':
+                            result=current.get('base_result') or {}
+                            if result.get('released') is not True or any(current['rows'][n].get('Torque_Enable')!=0 for n in ('base_left_wheel','base_right_wheel')):
+                                self.sleep(.02);continue
+                            return {'accepted':True,'completed':True,'command_id':command_id,'owner_started':started,'base_result':result,
+                                'owner_status_time':current['time'],'motor_writes':'canonical owner only','mode':'base_pulse'}
                         if request['op']=='enable_motors':
                             measured={n:current['rows'][n]['Torque_Enable'] for n in request['names']}
                             if any(v!=int(request['enabled']) for v in measured.values()):

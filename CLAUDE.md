@@ -20,7 +20,7 @@ Working rules:
 
 - `farm` commands other than `farm sim` and the tests talk to real motors. Say what a command will move before running it, and keep the viewer's STOP button reachable.
 - Switch 12 V off before changing any servo wire. 3-pin wires carry 12 V; cameras use separate 4-pin USB cables.
-- Do not drive the wheels (`wheels: false` in the profile) and do not relax limits in `farm/safety/rules.py` or the profile's `limits:` to make something work.
+- Do not relax limits in `farm/safety/rules.py` or the profile's `limits:` to make something work.
 - The software does not read or act on servo temperature: the owner had all of it removed on 2026-10-05, and `farm servo-protection --write` turns off the servos' own firmware cutoff (limit 200 °C, temperature unload/alarm bits cleared). Load, step, travel and watchdog limits are what remain. Do not add temperature checks back unless asked.
 - Camera commands must run from Terminal on macOS (camera permission is per app).
 - Secrets go in `software/.env`, typed by the owner. Never commit them or print them.

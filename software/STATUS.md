@@ -1,3 +1,15 @@
+## Qwen owner: no STOP latch, base drive — 7 October 2026
+
+Software only; not yet run on the robot. Fake-hardware tests pass.
+- **No STOP latch.** A STOP or owner fault still releases every motor, but a restart is no longer needed afterwards. Motors stay off until an explicit `robot_set_motor_enable`. If turning torque off fails, enable stays blocked until a later STOP confirms the release.
+- **Base drive.** `robot_move_base` runs guarded wheel pulses ported from the validated `drive-pulse.py`:
+  - each wheel at most 0.02 m/s, at most 3 s per call
+  - the wheels are released and their settings restored after every pulse
+  - a stale phone feed brakes the pulse early
+  - STOP or a fault stops the wheels first
+
+  The restart script starts the owner with `--wheels`. If the owner process is killed hard mid-pulse, the wheels keep turning until 12 V is cut. Record the first API base pulse here, with measured travel against the encoder estimate.
+
 ## Pickup owner: simultaneous joints, settle corrections, wrist cameras — 7 October 2026
 
 Software only; not yet run on the robot. The code was changed in [qwen-bridge](docs/commissioning/2026-10-07-paddle-success/qwen-bridge/PADDLE-PROFILE.md) and tested on fake hardware:

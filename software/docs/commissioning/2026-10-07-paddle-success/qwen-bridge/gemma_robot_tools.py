@@ -136,7 +136,7 @@ TOOLS = [
     tool('robot_move_joint_targets', 'Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'positions': ARM_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'positions', 'duration_s']),
     tool('robot_move_head', 'Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
     tool('robot_set_gripper', 'Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'position_ticks': {'type': 'integer'}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'position_ticks']),
-    tool('robot_move_base', 'Base drive request; currently unsupported by the parked arm owner. No wheel activation.', {'linear_m_s': {'type': 'number'}, 'angular_rad_s': {'type': 'number'}, 'duration_s': {'type': 'number'}}, ['linear_m_s', 'angular_rad_s', 'duration_s']),
+    tool('robot_move_base', 'One guarded base pulse through the sole owner (owner must be started with --wheels): both wheels switch to velocity mode, drive for duration_s, brake, settle, release torque and restore settings; wheels are never left powered. Each wheel is limited to 0.02 m/s (straight: |linear_m_s|<=0.02; turning in place: |angular_rad_s|<=0.16 rad/s, positive turns left), at most 3 s per call (about 6 cm). Requires a fresh phone feed; a stale feed brakes early. Wheel health (status, load<=500, velocity<=400, 10-14 V) is checked every sample; any failure or robot_stop stops the wheels and releases all motors. Allowed while the arm is released or holding, not while an arm move runs. Returns wheel encoder deltas only; slip and actual cart travel are unverified, so check cameras after each pulse.', {'linear_m_s': {'type': 'number', 'minimum': -0.02, 'maximum': 0.02}, 'angular_rad_s': {'type': 'number', 'minimum': -0.16, 'maximum': 0.16}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 3}}, ['linear_m_s', 'angular_rad_s', 'duration_s']),
 ]
 from gemma_reach_planner import POSE_SCHEMA, validate_poses, inspect_or_plan
 TOOLS.extend([
@@ -383,7 +383,7 @@ def capabilities():
             'continuous_profile_required_for_direct_joint': False,
             'cartesian_transform_required_for_direct_joint': False,
             'cartesian_pickup_additional_requirements': ['validated spatial target registration and actual tool/contact offset when requesting a Cartesian plan'],
-            'wheel_policy': 'enable/release position-mode hold at current encoder only; wheel motion unavailable', 'automatic_motor_activation': False, 'remote_owner_start_supported': False,
+            'wheel_policy': 'robot_move_base guarded velocity pulses (<=0.02 m/s per wheel, <=3 s, released between pulses) when the owner runs with --wheels; robot_set_motor_enable cannot power the wheels in the right-arm scope', 'base_drive_supported': ready.get('base_drive_supported') is True, 'automatic_motor_activation': False, 'remote_owner_start_supported': False,
             'stop_latch': False, 'owner_restart_required_after_stop': False,
             'stop_behavior': 'robot_stop and any owner fault release all motors and cancel the move in progress (never resumed). No STOP latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable, which repeats all health, range, camera and voltage checks. A failed release keeps the owner not healthy (OWNER_NOT_HEALTHY).',
             'blockers': ready['blockers']}
@@ -552,6 +552,8 @@ def dispatch(name, args):
         return execute_targets(args['positions'], args['duration_s']), None
     if name == 'robot_move_head':
         return DIRECT_CLIENT.execute(args['positions'], args.get('duration_s', 3)), None
+    if name == 'robot_move_base':
+        return DIRECT_CLIENT.drive_base(args['linear_m_s'], args['angular_rad_s'], args['duration_s']), None
     if name == 'robot_set_gripper':
         return DIRECT_CLIENT.set_gripper(args['arm'], args['position_ticks'], args.get('duration_s', 3)), None
     return {'accepted': False, 'motor_writes': 0, 'reason': 'UNSUPPORTED_OWNER_SCOPE_OR_WHEELS_DISABLED',

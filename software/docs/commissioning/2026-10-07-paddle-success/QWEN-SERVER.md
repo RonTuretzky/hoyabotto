@@ -36,7 +36,7 @@ Stop only its prior proxy listener before binding1242; do not create two proxies
 
 Using the chat Mac's existing paired credentials, verify `GET /health`, `GET /tools`, then read-only `POST /call` requests for `robot_get_state`, `robot_get_capabilities`, `robot_list_motors`, `robot_get_cameras`, `robot_get_depth` and `robot_get_handoff`. Envelope is `{"name":"tool_name","arguments":{},"request_id":"unique-id"}`. Every attempt needs a unique request ID; do not blindly retry an uncertain movement or use historical requests as new actions. Preserve returned image formats, timestamps and controller error details.
 
-Expected current health: active sole owner, motion-ready right scope, six supported right joints, all16 released. Activation is explicit; none occurs during health/discovery. Left/head/wheel activation is refused in this scope. `robot_move_base` accurately reports unsupported. FK/reach tools report missing actual model binding rather than manufacturing a Cartesian target.
+Expected current health: active sole owner, motion-ready right scope, six supported right joints, all16 released. Activation is explicit; none occurs during health/discovery. Left/head activation is refused in this scope, and `robot_set_motor_enable` cannot power the wheels. With `--wheels` (the restart script's default) `robot_move_base` drives guarded base pulses; without it, it reports unsupported. FK/reach tools report missing actual model binding rather than manufacturing a Cartesian target.
 
 ## Remaining blockers and Qwen pickup integration
 

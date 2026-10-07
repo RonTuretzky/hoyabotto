@@ -725,18 +725,24 @@
     "type": "function",
     "function": {
       "name": "robot_move_base",
-      "description": "Base drive request; currently unsupported by the parked arm owner. No wheel activation.",
+      "description": "One guarded base pulse through the sole owner (owner must be started with --wheels): both wheels switch to velocity mode, drive for duration_s, brake, settle, release torque and restore settings; wheels are never left powered. Each wheel is limited to 0.02 m/s (straight: |linear_m_s|<=0.02; turning in place: |angular_rad_s|<=0.16 rad/s, positive turns left), at most 3 s per call (about 6 cm). Requires a fresh phone feed; a stale feed brakes early. Wheel health (status, load<=500, velocity<=400, 10-14 V) is checked every sample; any failure or robot_stop stops the wheels and releases all motors. Allowed while the arm is released or holding, not while an arm move runs. Returns wheel encoder deltas only; slip and actual cart travel are unverified, so check cameras after each pulse.",
       "parameters": {
         "type": "object",
         "properties": {
           "linear_m_s": {
-            "type": "number"
+            "type": "number",
+            "minimum": -0.02,
+            "maximum": 0.02
           },
           "angular_rad_s": {
-            "type": "number"
+            "type": "number",
+            "minimum": -0.16,
+            "maximum": 0.16
           },
           "duration_s": {
-            "type": "number"
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 3
           }
         },
         "required": [

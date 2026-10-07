@@ -5,11 +5,12 @@
   "not_yet_physically_validated": [
     "Several joints moving together in one command",
     "Bounded settle corrections and the settled_short outcome",
-    "Wrist-camera snapshots through robot_get_cameras"
+    "Wrist-camera snapshots through robot_get_cameras",
+    "Base pulses through robot_move_base"
   ],
   "owner_preconditions": [
     "robot_get_execution shows execution_profile paddle-success-v1, phase idle or holding, ok true, status age under 1 s (stop_latched is always false: there is no STOP latch). After a STOP or fault the owner is already back to idle with every motor released; no restart is needed, enable explicitly. Only a wrong profile or a missing or stale owner needs a restart on the robot Mac with ./restart-robot-server.sh (motors released first).",
-    "Owner scope is the six right-arm joints only; left arm, head and wheels are read-only.",
+    "Owner scope is the six right-arm joints only; left arm and head are read-only; the wheels are driven only through robot_move_base pulses (owner started with --wheels).",
     "Phone side view fresh: work/phone_camera/latest.json received_at under 10 s old with a seq. Enable and every new target are refused otherwise. While holding, a stale feed pauses target advancement; after 20 s stale the owner releases torque and a held paddle drops.",
     "Every right-arm joint at least 40 ticks inside its saved range when enabling; a folded rest pose near a limit is refused.",
     "Supply voltage raw 100..140 on all six joints."
@@ -29,22 +30,108 @@
     "settled_short": "If a joint is still short at rest after corrections, the move returns completed=false, endpoint_reached=false, closure_outcome=settled_short, settle_residual_ticks per joint, motors holding (no STOP). Re-plan from the readbacks or call robot_stop.",
     "deadline_fault": "A joint that never comes to rest by the deadline still faults: all motors released and the move cancelled, never resumed. There is no latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable."
   },
-  "observed_start_pose_ticks": {"shoulder_pan": 2122, "shoulder_lift": 2781, "elbow_flex": 2798, "wrist_flex": 1579, "wrist_roll": 1242, "gripper": 1592},
+  "observed_start_pose_ticks": {
+    "shoulder_pan": 2122,
+    "shoulder_lift": 2781,
+    "elbow_flex": 2798,
+    "wrist_flex": 1579,
+    "wrist_roll": 1242,
+    "gripper": 1592
+  },
   "observed_start_pose_note": "Pan, lift, elbow and gripper are measured starts from the table; wrist flex and roll are the held targets. Re-measure before every move.",
   "observed_sequence": [
-    {"step": 1, "move": "elbow_flex +100", "start": 2798, "target": 2898, "endpoint": 2862},
-    {"step": 2, "move": "shoulder_lift -341", "start": 2781, "target": 2440, "endpoint": 2453},
-    {"step": 3, "move": "shoulder_lift -130", "start": 2453, "target": 2323, "endpoint": 2336},
-    {"step": 4, "move": "shoulder_pan +40", "start": 2122, "target": 2162, "endpoint": 2160},
-    {"step": 5, "move": "shoulder_pan +40", "start": 2160, "target": 2200, "endpoint": 2197},
-    {"step": 6, "move": "elbow_flex -114", "start": 2901, "target": 2787, "endpoint": 2796},
-    {"step": 7, "move": "CLOSE gripper to saved min+40", "start": 1592, "target": 1310, "endpoint": 1350, "note": "resistance stop, load 328; empty-jaw baseline endpoint 1331, load 176"},
-    {"step": 8, "move": "shoulder_lift -60 (lift)", "start": 2336, "target": 2276, "endpoint": 2296},
-    {"step": 9, "move": "shoulder_lift -60 (lift)", "start": 2296, "target": 2236, "endpoint": 2257},
-    {"step": 10, "move": "shoulder_lift +79 (lower)", "start": 2257, "target": 2336, "endpoint": 2336},
-    {"step": 11, "move": "gripper +260 (open)", "start": 1349, "target": 1609, "endpoint": 1586},
-    {"step": 12, "move": "elbow_flex +114 (withdraw)", "start": 2791, "target": 2905, "endpoint": 2903},
-    {"step": 13, "move": "shoulder_lift +341 (park)", "start": 2339, "target": 2680, "endpoint": 2681}
+    {
+      "step": 1,
+      "move": "elbow_flex +100",
+      "start": 2798,
+      "target": 2898,
+      "endpoint": 2862
+    },
+    {
+      "step": 2,
+      "move": "shoulder_lift -341",
+      "start": 2781,
+      "target": 2440,
+      "endpoint": 2453
+    },
+    {
+      "step": 3,
+      "move": "shoulder_lift -130",
+      "start": 2453,
+      "target": 2323,
+      "endpoint": 2336
+    },
+    {
+      "step": 4,
+      "move": "shoulder_pan +40",
+      "start": 2122,
+      "target": 2162,
+      "endpoint": 2160
+    },
+    {
+      "step": 5,
+      "move": "shoulder_pan +40",
+      "start": 2160,
+      "target": 2200,
+      "endpoint": 2197
+    },
+    {
+      "step": 6,
+      "move": "elbow_flex -114",
+      "start": 2901,
+      "target": 2787,
+      "endpoint": 2796
+    },
+    {
+      "step": 7,
+      "move": "CLOSE gripper to saved min+40",
+      "start": 1592,
+      "target": 1310,
+      "endpoint": 1350,
+      "note": "resistance stop, load 328; empty-jaw baseline endpoint 1331, load 176"
+    },
+    {
+      "step": 8,
+      "move": "shoulder_lift -60 (lift)",
+      "start": 2336,
+      "target": 2276,
+      "endpoint": 2296
+    },
+    {
+      "step": 9,
+      "move": "shoulder_lift -60 (lift)",
+      "start": 2296,
+      "target": 2236,
+      "endpoint": 2257
+    },
+    {
+      "step": 10,
+      "move": "shoulder_lift +79 (lower)",
+      "start": 2257,
+      "target": 2336,
+      "endpoint": 2336
+    },
+    {
+      "step": 11,
+      "move": "gripper +260 (open)",
+      "start": 1349,
+      "target": 1609,
+      "endpoint": 1586
+    },
+    {
+      "step": 12,
+      "move": "elbow_flex +114 (withdraw)",
+      "start": 2791,
+      "target": 2905,
+      "endpoint": 2903
+    },
+    {
+      "step": 13,
+      "move": "shoulder_lift +341 (park)",
+      "start": 2339,
+      "target": 2680,
+      "endpoint": 2681
+    }
   ],
   "sequence_note": "Commands were relative to fresh measured positions. Each pilot step is one segment (13 total, budget 20). Steps 12 and 13 can be one simultaneous call. Use robot_set_gripper or a lower gripper target for CLOSE. Check cameras after every segment; locally correct a healthy held pose on an empty miss instead of resetting the arm.",
   "cameras": {
@@ -60,6 +147,14 @@
     "Call robot_get_registered_tags as a prerequisite; tag registration is not part of this procedure.",
     "Replay the sequence blindly after power-off, manual arm movement or cart repositioning.",
     "Use Cartesian reach/FK proposals as motor targets.",
-    "Drive the base; robot_move_base is unsupported in this owner."
-  ]
+    "Drive the base while an arm move runs (refused), or chain base pulses without checking cameras between them."
+  ],
+  "base_drive": {
+    "tool": "robot_move_base(linear_m_s, angular_rad_s, duration_s)",
+    "limits": "Each wheel at most 0.02 m/s (straight |linear_m_s|<=0.02, in-place |angular_rad_s|<=0.16, positive turns left); duration at most 3 s per call (about 6 cm).",
+    "behavior": "Both wheels switch to velocity mode for the pulse, then brake, settle, release torque and restore settings. They are never left powered. A stale phone feed brakes early. Wheel status, load<=500, velocity<=400 and 10-14 V are checked every sample. Any failure or robot_stop stops the wheels and releases all motors.",
+    "arm": "Allowed with the arm released or holding; refused while an arm move runs. The original 5.43 cm approach used three 1 s pulses with the arm released.",
+    "result": "Wheel encoder deltas and an estimated travel in cm; slip and actual cart travel are unverified, so check cameras after each pulse.",
+    "validation": "Ported from the hardware-validated drive-pulse.py; not yet run through the API."
+  }
 }

@@ -30,3 +30,22 @@ Not yet run on hardware; fake-hardware tests only (`test_paddle_joint_executor.p
 
 The procedure Qwen receives is `paddle-procedure.json`, served by `robot_get_handoff` as `physical_pickup_procedure`.
 
+## Base drive (2026-10-07)
+
+Not yet run on hardware; `test_wheel_pulse.py` covers it on fake hardware. `wheel_pulse_executor.py` ports the hardware-validated `drive-pulse.py` into the sole owner. Start the owner with `--wheels`; `./restart-robot-server.sh` does this by default, and `--no-wheels` turns it off.
+
+- `robot_move_base(linear_m_s, angular_rad_s, duration_s)` runs one pulse:
+  1. Check both wheels are released, status 0 and 10–14 V, and that the phone feed is fresh.
+  2. Save Operating_Mode/Acceleration/Torque_Limit/Lock, then switch to velocity mode (Lock 0, mode 1, acceleration 10) and turn torque on.
+  3. Drive at the commanded wheel speeds, checking every sample.
+  4. Command zero velocity and require the wheels to settle within 0.9 s.
+  5. Turn torque off and require 5 still samples (not rolling).
+  6. Restore the saved settings.
+- The wheels never stay powered and never join the arm's enabled/hold set. `robot_set_motor_enable` still cannot power them in the right-arm scope.
+- Limits: each wheel at most 0.02 m/s, the validated 261 ticks/s, so |linear| ≤ 0.02 m/s or |angular| ≤ 0.16 rad/s. Duration is at most 3 s per call, up from the prototype's 1 s. Kinematics use the vendor wheel radius 0.05 m and wheelbase 0.25 m; the left wheel is mirrored, so forward is left −, right +, matching the prototype.
+- Checks every sample: Status 0, |load| ≤ 500, |velocity| ≤ 400, 10–14 V, telemetry gap ≤ 0.3 s. A stale phone feed (≥ 10 s) brakes the pulse early (`stopped_early`) instead of faulting.
+- Any other failure, `robot_stop` or owner exit runs the abort path first: Goal_Velocity 0 and torque off on both wheels, then restore. The arm is released after that.
+- Settle thresholds are new, because the prototype's `wheel_stop_check` module is not in the repo. Settled means |velocity| ≤ 5 and ≤ 3 ticks of movement over 2 samples; released means ≤ 5 ticks over 5 samples.
+- Allowed while the arm is released or holding; refused while an arm move runs, and an arm move is refused while the base drives. The prototype only drove with the arm released.
+- Risk to know: velocity mode keeps spinning until told to stop. If the owner process is killed hard (SIGKILL or power loss to the Mac) mid-pulse, the wheels keep turning at ≤ 0.02 m/s until the 12 V supply is cut. A normal exit, SIGTERM or fault stops them.
+- The result gives wheel encoder deltas and estimated travel. Slip and real cart motion are unverified, so check the cameras after each pulse.
