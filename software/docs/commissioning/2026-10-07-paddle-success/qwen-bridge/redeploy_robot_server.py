@@ -286,7 +286,7 @@ def main():
   say(f'ROLLBACK complete: the previous version is running again; the failed attempt is in {WORK/"redeploy.log"}');sys.exit(1)
  record_deploy('restart')
  print(json.dumps({'owner_pid':owner.pid,'owner_session_started':s['started'],'execution_profile':s['execution_profile'],'phase':s['phase'],
-                   'all_released':True,'motors':len(rows),'missing_buses':s.get('missing_buses'),'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
+                   'all_released':True,'motors':len(s.get('rows') or {}),'missing_buses':s.get('missing_buses'),'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
                    'relay':'unchanged','installed':changed,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
  say('done. Motors are released; enable all six right-arm joints explicitly before any pickup move.')
 
