@@ -183,7 +183,7 @@ def ensure_oak(dry_run):
  if stale:time.sleep(3)
  Path(OAK_RAW_DIR).mkdir(parents=True,exist_ok=True)
  with (WORK/'oak-stream.log').open('ab') as log:
-  proc=subprocess.Popen([python,'-m','farm.oak_camera','stream','--usb2','--seconds','86400','--output',OAK_RAW_DIR],cwd=str(software),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+  proc=subprocess.Popen([python,'-m','farm.oak_camera','stream','--usb2','--wide','--seconds','86400','--output',OAK_RAW_DIR],cwd=str(software),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
  deadline=time.time()+25
  while time.time()<deadline and proc.poll() is None and not oak_fresh():time.sleep(.5)
  if oak_fresh():say(f'oak: streaming (pid {proc.pid}, 24 h) into {OAK_RAW_DIR}')

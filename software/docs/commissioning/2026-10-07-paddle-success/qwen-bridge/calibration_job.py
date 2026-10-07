@@ -149,9 +149,11 @@ def _restore(software,arm,before):
     try:
         bus.connect(handshake=False);install_calibration_reply_guard(bus)
         return restore_registers(bus,arm,before or {})
-    except Exception as e:return {'restored':False,'error':f'{type(e).__name__}: {e}'}
+    except BaseException as e:return {'restored':False,'error':f'{type(e).__name__}: {e}'}  # CalibrationAbort is a BaseException
     finally:
-        if bus.is_connected:bus.disconnect(disable_torque=False)
+        try:
+            if bus.is_connected:bus.disconnect(disable_torque=False)
+        except BaseException:pass
         lock.close()
 
 

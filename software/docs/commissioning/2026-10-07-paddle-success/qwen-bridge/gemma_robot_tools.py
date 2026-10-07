@@ -156,7 +156,7 @@ TOOLS = [
     tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Wheel activation holds the current encoder in existing position mode0; no wheel movement/mode change. Never automatically activates at server startup.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}}, ['names', 'enabled']),
     tool('robot_move_motor_targets', 'Raw integer encoder targets for the14 arm/head/gripper position motors already enabled. Sole owner enforces ranges, rates, following, watchdog and measured completion. No wheel movement or automatic activation.', {'positions': TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions', 'duration_s']),
     tool('robot_get_state', 'Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.', {'fresh': {'type': 'boolean'}}),
-    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}}),
+    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}, 'revive': {'type': 'boolean', 'description': 'Restart a stalled wrist stream to get a frame (default true; previews pass false)'}}),
     tool('robot_get_capabilities', 'Report actual joint ranges, units, supported controller protocol and concrete motion blockers.'),
     tool('robot_get_depth', 'Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.'),
     tool('robot_get_handoff', 'Retrieve the user-authorized complete paddle-task handoff, historical evidence and guards, plus current camera and saved servo ages. Context transfer never arms or binds execution.'),
@@ -318,7 +318,7 @@ def manifest_image_path(folder, filename):
     return path
 
 
-def cameras_strict(names):
+def cameras_strict(names, allow_revive=True):
     images, metadata = [], {}
     for name in names:
         for _ in range(15):
@@ -350,6 +350,8 @@ def cameras_strict(names):
                     except RuntimeError as stale:
                         # The camera stopped sending frames (its process can still be alive). Restart its stream once and
                         # take the first fresh frame; the left wrist does this about 15 s after every start (USB fault).
+                        if not allow_revive:
+                            raise
                         if not revive(name, ROOT):
                             raise RuntimeError(f'{stale}. Its camera has stopped delivering frames and restarting the stream did not produce one within 8 s (or was tried <10 s ago): a camera/USB fault; the cable needs reseating. The age will not count down on its own.') from None
                         folder, m = select_wrist_manifest(name, WRIST_DIRS); revived = True
@@ -382,12 +384,12 @@ def cameras_strict(names):
 
 
 
-def cameras(names):
+def cameras(names, allow_revive=True):
     # One offline camera must not discard independently fresh other images.
     metadata, images, errors = {}, [], {}
     for name in names:
         try:
-            current, frames = cameras_strict([name])
+            current, frames = cameras_strict([name], allow_revive)
             metadata.update(current)
             images.extend(frames)
         except (OSError, ValueError, RuntimeError, KeyError, TypeError) as exc:
@@ -566,7 +568,7 @@ def dispatch(name, args):
     if name == 'robot_get_state':
         return state(args.get('fresh', True)), None
     if name == 'robot_get_cameras':
-        return cameras(args.get('cameras', ['oak', 'phone']))
+        return cameras(args.get('cameras', ['oak', 'phone']), args.get('revive', True))
     if name == 'robot_get_capabilities':
         return capabilities(), None
     if name == 'robot_get_depth':
