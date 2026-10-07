@@ -46,3 +46,47 @@ each across the 99 mm gap. That static observation does not demonstrate pickup,
 pressure, adhesive contact, release or retention against opening loads. A strip
 initialized already bonded across folded shorts cannot substitute for executing
 those actions. No physical hardware or camera was accessed.
+
+## Local overlap experiment: retention not established
+
+`tools/diagnose_extensible_tape_bond.py` lets an initially unbonded strip settle
+from an 80 µm gap onto an explicitly fixed laboratory substrate. Gravity forms
+contact; no executing strip pose, latch, equality or bond is prescribed. An
+external instrument then ramps a force at the free tail toward 0.6 N tangential
+and 0.06 N opening load. This fixture is not the free carton or robot application.
+
+The 180 mm strip curls around the fixture's lower rim and violates the unchanged
+50 µm penetration limit at both timesteps. Those invalid trajectories cannot
+establish bond strength. A separate 50 mm strip retains the same 5 mm cells,
+material and 40.5 mm overlap, with a short free tail to test only that local
+interface. Both timesteps form contact, then lose the interface before reaching
+the target, with successive empty returned-contact observations spanning 50 ms.
+A zero-adhesion control also
+separates. Maximum penetration in the two adhesive local cases is below 0.21 µm.
+
+Current `run-03` evidence bounds the transition using solver-call intervals:
+25 µs gives [0.231275, 0.231325] s; 10 µs gives [0.231430, 0.231450] s.
+The imposed force is approximately 0.14 N tangential / 0.014 N opening there.
+This is a negative outcome for the tested loading protocol, not calibrated
+failure strength: slip onset, transient reactions and work do not fully converge.
+No stronger tape law was substituted to make it pass.
+
+Raw contact arrays are recorded immediately after each `mj_step` and bound to
+that call's start/end interval. Their instantaneous evaluation time within the
+discrete integrator has not been certified. Returned-force, moment and impulse
+sums are diagnostic; the original robot contact scorer still refuses discrete.
+Earlier point-timestamp interpretations in `run-01`/`run-02` are superseded,
+while their raw evidence remains preserved.
+
+Evidence and frozen sources are under
+`/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/extensible-tape-bond-20261007/`.
+All 38 tape/extensible/bond tests pass. Reproduce the local adhesive case at
+both timesteps, each in a new directory:
+
+```sh
+PYTHONPATH=. .venv/bin/python -m tools.diagnose_extensible_tape_bond --strip-length .050 --dt .000025 --out /absolute/new/local-25us
+PYTHONPATH=. .venv/bin/python -m tools.diagnose_extensible_tape_bond --strip-length .050 --dt .000010 --out /absolute/new/local-10us
+```
+
+Early-tape carton retention remains unproven. The actual masking-tape product,
+width, substrate adhesion and application pressure still need appropriate data.

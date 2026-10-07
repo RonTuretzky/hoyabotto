@@ -140,7 +140,9 @@ original open-box prefixes match the baseline timestamped states exactly;
 `evidence/carton-short-prefix-replay-20261007.json` records that comparison.
 The offset view passed all 57 recorded moving-pose observations before this
 new dynamic batch, but that component did not cover its new primary-camera
-occlusions. Current composition requires both views to register the carton and
+marker-detection failures. The marker still has visible rendered pixels in
+those frames; arm occlusion has not been established as the cause. Current
+composition requires both views to register the carton and
 does not rescue the missing primary pose with the other camera. A future
 occlusion-handling architecture must preserve fresh source-bound geometry,
 startup housing checks and contradiction refusals; it is not implemented here.
