@@ -1,3 +1,12 @@
+## Left arm calibration restored; both arms movable — 7 October 2026, 17:45
+
+Done remotely from the chat Mac: `/admin/deploy` to 2e887dc, then the `robot_restore_calibration(left)` tool. No motion.
+- **Before.** The owner, now started `--both-arms --paddle-profile --wheels`, demoted the left arm to read-only for the 4 known mismatches (shoulder lift, wrist flex, wrist roll, gripper still holding the rejected 6 Oct upstream-300 candidate).
+- **Restore.** It wrote the saved file's validated velocity-200 values into all six left servos with torque off and read them back. All six match: pan −22/959..3135, lift 975/855..3239, elbow 107/942..3152, wrist flex −826/898..3196, roll 1318/115..3979, gripper 121/1275..2819, all in position mode 0.
+- **After the automatic restart.** There are no calibration mismatches and 12 arm motors are commandable. Left joints rest folded inside their ranges, with elbow 3128, gripper 1302 and lift 918 near their limits; enabling there is allowed and moves can only head inward.
+- **Not yet tested.** No left-arm motion has been run since. Validate with small moves while watching. Its last full-sweep travel (191/210/194/202/340/136°) is the reference.
+- **Wrist cameras.** Both streamed after the restart; the left wrist has frozen before.
+
 ## Automatic calibration as a robot tool — 7 October 2026
 
 Software only; not yet run through the API. `robot_auto_calibrate` wraps the pinned PR #3282 runner as a background job: owner stops, sweep, validate/install, otherwise restore the previous servo registers, then the server restarts. STOP interrupts the sweep. It is the intended way to fix the left-arm mismatch from the chat. Prior runs on this robot hit the cart and produced short ranges, so the clearance checklist and someone watching are mandatory. Record each run's result and evidence folder here.
