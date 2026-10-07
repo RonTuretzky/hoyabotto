@@ -79,6 +79,10 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
             command += ['--close-majors-after-open-claw', '--far-hold-degrees', str(job['majors_far_target'])]
         if job.get('extra_wall_markers'):
             command.append('--extra-wall-markers')
+        if job.get('left_pinch_opening') is not None:
+            command += ['--left-pinch-opening', str(job['left_pinch_opening'])]
+        if job.get('pinch_clearance') is not None:
+            command += ['--clearance', str(job['pinch_clearance'])]
     if job.get('base_height') is not None:
         command += ['--base-height', str(job['base_height'])]
     if job.get('far_open_degrees') is not None:
@@ -193,9 +197,14 @@ def main():
                         help='Require full fresh additional-view geometry when only primary carton identity is absent')
     parser.add_argument('--close-majors-after-open-claw', action='store_true',
                         help='After the open-claw short hold, close far then near majors over the shorts')
+    parser.add_argument('--pinch-clearance', type=float, default=None,
+                        help='Left-minor pinch tip offset from the panel midplane (m); default -.002. '
+                             '-.007 keeps the fixed jaw 8 mm clear of the panel instead of 3.5 mm')
+    parser.add_argument('--left-pinch-opening', type=float, default=None,
+                        help='Left claw opening (rad) while inserting around the left minor; default .6')
     parser.add_argument('--extra-wall-markers', action='store_true',
                         help='Add proposed printed carton markers 26/27 (near wall) and 28 (left wall)')
-    parser.add_argument('--majors-far-target', type=float, default=34.,
+    parser.add_argument('--majors-far-target', type=float, default=18.,
                         help='Far angle that pins the shorts before the right claw releases them')
     parser.add_argument('--base-height', type=float, default=.06,
                         help='Assumed arm-base origin height above the tabletop (m)')
@@ -269,11 +278,12 @@ def main():
     if args.close_majors_after_open_claw:
         if args.open_short_angles or args.near_release_angles:
             parser.error('Closing majors over shorts follows the open-claw short hold only')
-        if not 25 <= args.majors_far_target <= 45:
-            parser.error('Far pinning angle before releasing the shorts must be 25..45 degrees')
+        if not 15 <= args.majors_far_target <= 45:
+            parser.error('Far pinning angle before releasing the shorts must be 15..45 degrees')
         for job in jobs:
             job.update(close_majors_after_open_claw=True, majors_far_target=args.majors_far_target,
-                       extra_wall_markers=args.extra_wall_markers)
+                       extra_wall_markers=args.extra_wall_markers, left_pinch_opening=args.left_pinch_opening,
+                       pinch_clearance=args.pinch_clearance)
     for job in jobs:
         if args.base_height != .06:
             job['base_height'] = args.base_height

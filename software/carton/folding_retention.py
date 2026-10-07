@@ -171,7 +171,7 @@ def right_support_evidence(model, data):
 
 
 def transfer_to_open_claw(sim, controller, *, capture=False, observe_seconds=5.,
-                          support_height=.1094):
+                          support_height=.1094, fallback_support_heights=(), support_half_spans=(.052,)):
     """Attempt a two-finger bridge, then withdraw the left supporting hand.
 
     Joint targets are solved from fresh visual carton registration and original
@@ -180,8 +180,11 @@ def transfer_to_open_claw(sim, controller, *, capture=False, observe_seconds=5.,
     """
     if not math.isfinite(observe_seconds) or observe_seconds < 5:
         raise ValueError('At least five seconds of support observation required')
-    if not math.isfinite(support_height) or not .1085 <= support_height <= .120:
+    heights = (support_height, *fallback_support_heights)
+    if any(not math.isfinite(h) or not .1085 <= h <= .120 for h in heights):
         raise ValueError('Support height must be a declared box-local height of 108.5--120 mm')
+    if not support_half_spans or any(not math.isfinite(w) or not .052 <= w <= .065 for w in support_half_spans):
+        raise ValueError('Support half-span must be 52--65 mm (short edges at 49.5 mm)')
     c = controller
     reading = c.sense('Register both short flaps before open-claw support transfer')
     c.require_folded(reading, ['short_left', 'short_right'])
@@ -223,11 +226,6 @@ def transfer_to_open_claw(sim, controller, *, capture=False, observe_seconds=5.,
 
     start_q = sim.data.qpos[ix].copy()
     start_points = endpoints(start_q)
-    # This narrow candidate overlaps each inner edge by only 2.5 mm. It is
-    # intentionally a diagnostic: loaded contacts and the release test must
-    # establish whether that small margin actually retains the panels.
-    local_end = np.array([[-.052, -.04, support_height], [.052, -.04, support_height]])
-    end_points = local_end @ c.box[:3, :3].T + c.box[:3, 3]
     planner = JointPathPlanner(sim, 'right', clearance=.006,
                                allowed_flaps=('short_left_cardboard', 'short_right_cardboard'))
 
@@ -235,27 +233,50 @@ def transfer_to_open_claw(sim, controller, *, capture=False, observe_seconds=5.,
         planner.data.qpos[ix[5]] = q[5]
         return planner.valid(q[:5])
 
-    previous = start_q.copy()
-    planned = []
-    for u in np.linspace(0, 1, 81)[1:]:
-        target = (1-u)*start_points + u*end_points
-        target[0] += .010*math.sin(math.pi*u)*c.box[:3, 2]
-        solution = least_squares(lambda q: (endpoints(q)-target).ravel(),
-            np.clip(previous, limits[:, 0]+1e-8, limits[:, 1]-1e-8),
-            bounds=(limits[:, 0], limits[:, 1]), max_nfev=180,
-            ftol=1e-10, xtol=1e-10, gtol=1e-10)
-        q = solution.x
-        error = float(np.max(np.linalg.norm(endpoints(q)-target, axis=1)))
-        if error > .002:
-            raise ValueError(f'Open-claw support-point IK exceeds 2 mm: {error*1000:.2f}')
-        steps = max(1, math.ceil(float(np.max(np.abs(q-previous))) / .025))
-        clear = all(valid(previous+(q-previous)*v) for v in np.linspace(0, 1, steps+1))
-        report['planning'].append(dict(progress=float(u), error_mm=error*1000,
-                                       clear=clear, collision=planner.last_collision if not clear else None))
-        if not clear:
-            raise ValueError(f'Open-claw transfer sweep collides: {planner.last_collision}')
-        planned.append(q.copy())
-        previous = q.copy()
+    def plan_sweep(height, half_span):
+        # This narrow candidate overlaps each inner edge by only 2.5 mm. It is
+        # intentionally a diagnostic: loaded contacts and the release test must
+        # establish whether that small margin actually retains the panels.
+        local_end = np.array([[-half_span, -.04, height], [half_span, -.04, height]])
+        end_points = local_end @ c.box[:3, :3].T + c.box[:3, 3]
+        previous = start_q.copy()
+        planned = []
+        for u in np.linspace(0, 1, 81)[1:]:
+            target = (1-u)*start_points + u*end_points
+            target[0] += .010*math.sin(math.pi*u)*c.box[:3, 2]
+            solution = least_squares(lambda q: (endpoints(q)-target).ravel(),
+                np.clip(previous, limits[:, 0]+1e-8, limits[:, 1]-1e-8),
+                bounds=(limits[:, 0], limits[:, 1]), max_nfev=180,
+                ftol=1e-10, xtol=1e-10, gtol=1e-10)
+            q = solution.x
+            error = float(np.max(np.linalg.norm(endpoints(q)-target, axis=1)))
+            if error > .002:
+                raise ValueError(f'Open-claw support-point IK exceeds 2 mm: {error*1000:.2f}')
+            steps = max(1, math.ceil(float(np.max(np.abs(q-previous))) / .025))
+            clear = all(valid(previous+(q-previous)*v) for v in np.linspace(0, 1, steps+1))
+            report['planning'].append(dict(support_height_m=height, half_span_m=half_span, progress=float(u), error_mm=error*1000,
+                                           clear=clear, collision=planner.last_collision if not clear else None))
+            if not clear:
+                raise ValueError(f'Open-claw transfer sweep collides: {planner.last_collision}')
+            planned.append(q.copy())
+            previous = q.copy()
+        return planned
+
+    # The whole sweep is planned before any motion, so explicitly declared
+    # alternative spans and heights can be planned when one plan is refused.
+    # Wider spans overlap the shorts' free edges by more than the original
+    # 2.5 mm, which a few millimetres of carton motion could lose.
+    options = [(w, h) for w in support_half_spans for h in heights]
+    for index, (half_span, height) in enumerate(options):
+        try:
+            planned = plan_sweep(height, half_span)
+            break
+        except ValueError as exc:
+            report.setdefault('refused_support_heights', []).append(dict(support_height_m=height,
+                                                                         half_span_m=half_span, reason=str(exc)))
+            if index == len(options) - 1:
+                raise
+    report.update(support_height_m=height, support_half_span_m=half_span)
     report['planned_waypoints'] = len(planned)
     for index, q in enumerate(planned):
         duration = max(.18, float(np.max(np.abs(q-sim.data.qpos[ix]))) / .55)

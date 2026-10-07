@@ -8,13 +8,12 @@ Keep this distinction when handing the work to Gemma or the robot Mac.
 
 ### Latest update — all four flaps closed and held (shorts first)
 
-**All four flaps have been closed and held by the two bare claws in two
-executed simulation runs** (shorts 89.8°, majors 88–90°, carton motion
-≤1.6 mm, contact audits `CONTACT_ONLY_CLEAR`). It is **not reliable yet: 1/5
-seeds** with the current code, and it needs new station assumptions (arm bases
-120 mm above the table, far flap presented about 1° inward, three extra
-printed carton markers). No tape, hands-clear retention or hardware. The
-sequence, its rules, failures and assumptions are in
+**The two bare claws now close all four flaps and hold them in 14 of 20
+simulated seeds (70%)**: shorts 89.7–93°, majors 86.6–90.4°, carton motion
+≤ 9.7 mm, all 14 contact audits `CONTACT_ONLY_CLEAR`. It needs new station
+assumptions (arm bases 120 mm above the table, far flap presented about 1°
+inward, three extra printed carton markers). No tape, hands-clear retention
+or hardware. Sequence, rules, failures and assumptions:
 `carton-four-flap-shorts-first.md`.
 
 ### Earlier update — jaw-surface controller and major-pixel exclusion

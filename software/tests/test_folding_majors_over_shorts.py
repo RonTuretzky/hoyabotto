@@ -116,8 +116,18 @@ def test_push_planner_ignores_only_the_pushed_panel_in_a_model_copy():
     assert model.geom_contype[far] != 0
 
 
-@pytest.mark.parametrize('kwargs', [dict(far_pin_degrees=20.), dict(far_pin_degrees=50.),
+@pytest.mark.parametrize('kwargs', [dict(far_pin_degrees=10.), dict(far_pin_degrees=50.),
                                     dict(near_target_degrees=95.), dict(far_target_degrees=float('nan'))])
 def test_undeclared_targets_refuse_before_plant_access(kwargs):
     with pytest.raises(ValueError, match='Far pin'):
         close_majors_over_held_shorts(None, None, **kwargs)
+
+
+@pytest.mark.parametrize('kwargs, match', [
+    (dict(support_half_spans=(.05,)), 'half-span'), (dict(support_half_spans=()), 'half-span'),
+    (dict(support_half_spans=(.07,)), 'half-span'), (dict(fallback_support_heights=(.125,)), 'Support height'),
+])
+def test_open_claw_alternatives_are_declared_and_refused_before_plant_access(kwargs, match):
+    from carton.folding_retention import transfer_to_open_claw
+    with pytest.raises(ValueError, match=match):
+        transfer_to_open_claw(None, None, **kwargs)

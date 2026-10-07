@@ -128,7 +128,7 @@ def run(args):
         start = math.radians(reading['angles']['short_left']['degrees'])
         point, orientation = pose(start)
         pre = point + [0, 0, args.pre_height]
-        port.set_grippers({'left': .6}, .4, 'Open left claw above minor')
+        port.set_grippers({'left': args.left_pinch_opening}, .4, 'Open left claw above minor')
         world = controller.box[:3, :3]@pre + controller.box[:3, 3]
         ori = {k: (controller.box[:3, :3]@v).tolist() if k in ('direction','tangent') else v
                for k, v in orientation.items()}
@@ -274,7 +274,13 @@ def run(args):
                     from carton.folding_retention import transfer_to_open_claw
                     result['stage'] = 'Transfer both short-flap holds to one open right claw'
                     result['open_claw_transfer'] = transfer_to_open_claw(sim, controller,
-                        capture=True, support_height=args.support_height)
+                        capture=True, support_height=args.support_height,
+                        # Opt-in with the four-flap stage: alternative declared
+                        # heights are planned only if the first plan is refused.
+                        fallback_support_heights=tuple(h for h in (.115, .117) if h > args.support_height)
+                        if getattr(args, 'close_majors_after_open_claw', False) else (),
+                        support_half_spans=(.060, .056, .052) if getattr(args, 'close_majors_after_open_claw', False)
+                        else (.052,))
                     if getattr(args, 'close_majors_after_open_claw', False):
                         from carton.folding_majors_over_shorts import close_majors_over_held_shorts
                         if args.majors_view_camera != 'none':
@@ -430,6 +436,8 @@ if __name__ == '__main__':
                         help='Assumed arm-base origin line to near table edge (m); the cart front sits 115 mm ahead of it')
     parser.add_argument('--majors-view-camera', default='none', choices=('none', 'front', 'front_left_back', 'front_right_back'),
                         help='Explicit hypothetical additional camera for closing majors over held shorts')
+    parser.add_argument('--left-pinch-opening', type=float, default=.6,
+                        help='Left claw opening (rad) while inserting around the left minor')
     parser.add_argument('--extra-wall-markers', action='store_true',
                         help='Add proposed printed carton markers 26/27 (near wall) and 28 (left wall)')
     parser.add_argument('--close-majors-after-open-claw', action='store_true',
