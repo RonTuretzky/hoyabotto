@@ -90,3 +90,12 @@ PYTHONPATH=. .venv/bin/python -m tools.diagnose_extensible_tape_bond --strip-len
 
 Early-tape carton retention remains unproven. The actual masking-tape product,
 width, substrate adhesion and application pressure still need appropriate data.
+
+As an example of product-specific data, the manufacturer's
+[Scotch 2328 technical sheet, dated 04/01/2024](https://multimedia.3m.com/mws/media/1809252O/3m-scotch-tape-2328-masking-tape.pdf)
+lists 0.135 mm total thickness and adhesion to **steel** of 6.5 N/25 mm under
+AFERA 4001. That is not the user's identified tape or a cardboard result, and
+does not map directly to MuJoCo's force-per-contact parameter. No model value
+was changed from that example. A defensible update needs the actual product,
+substrate/loading protocol and a matched numerical coupon; tensile breaking
+strength likewise is not an elastic modulus.

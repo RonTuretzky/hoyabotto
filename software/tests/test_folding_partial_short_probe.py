@@ -9,6 +9,7 @@ from carton.folding_partial_short_probe import (
     _PanelStepAudit, _ShortStroke, _contact_reading, _bounded_contact_goals,
     probe_shorts_against_passive_majors,
 )
+from carton.folding_sim import JOINTS
 
 
 @pytest.mark.parametrize('target', [-1., 10.1, float('nan'), float('inf')])
@@ -20,6 +21,11 @@ def test_target_cannot_expand_the_bounded_probe(target):
 def test_prior_passive_stage_is_required_before_plant_access():
     with pytest.raises(ValueError, match='Verified both-hands'):
         probe_shorts_against_passive_majors(None, SimpleNamespace())
+
+
+def test_unknown_contact_policy_refuses_before_plant_access():
+    with pytest.raises(ValueError, match='contact policy'):
+        probe_shorts_against_passive_majors(None, None, contact_policy='unbounded')
 
 
 def test_missing_short_observation_stops_before_planning_and_cannot_be_retried():
@@ -150,6 +156,83 @@ def test_ik_error_cannot_turn_a_bounded_contact_step_into_a_larger_move():
     with pytest.raises(ValueError, match='CAD substep bound'):
         _bounded_contact_goals(sim, {a: LinearIK(.001) for a in ('left', 'right')},
                                {'left': [.003, 0., 0.], 'right': [.003, 0., 0.]})
+
+
+def feedback_sim():
+    names = [side+'_'+joint for side in ('left', 'right') for joint in JOINTS[:5]]
+    model = SimpleNamespace(
+        actuator=lambda name: SimpleNamespace(id=names.index(name)),
+        joint=lambda _: SimpleNamespace(range=np.array([-1., 1.])),
+        actuator_ctrlrange=np.tile([-1., 1.], (10, 1)))
+    return SimpleNamespace(model=model,
+        data=SimpleNamespace(qpos=np.zeros(10), ctrl=np.zeros(10)),
+        arm_indices={'left': list(range(5)), 'right': list(range(5, 10))})
+
+
+def test_setpoint_feedback_does_not_accumulate_constant_gravity_following_offset():
+    # Synthetic static following error tests the controller arithmetic only.
+    # It is neither a modified simulation actuator nor physical fold evidence.
+    sim = feedback_sim()
+    sim.data.qpos[[2, 7]] = -.001
+    ik = {a: LinearIK() for a in ('left', 'right')}
+    targets = {a: [0., 0., -.010] for a in ik}
+    previous = sim.data.qpos.copy()
+    for _ in range(25):
+        goals, _, details = _bounded_contact_goals(sim, ik, targets,
+                                                  contact_policy='setpoint_feedback_v3')
+        for a in ik:
+            ix = sim.arm_indices[a]
+            assert np.linalg.norm(goals[a][:3]-sim.data.ctrl[ix][:3]) <= .000500001
+            assert details[a]['actual_minus_setpoint_world'][2] == pytest.approx(-.001)
+            sim.data.ctrl[ix] = goals[a]
+            sim.data.qpos[ix] = goals[a] + [0., 0., -.001, 0., 0.]
+            assert np.linalg.norm(sim.data.qpos[ix][:3]-previous[ix][:3]) <= .000500001
+        previous = sim.data.qpos.copy()
+    assert sim.data.qpos[[2, 7]] == pytest.approx([-.010, -.010])
+    assert sim.data.ctrl[[2, 7]] == pytest.approx([-.009, -.009])
+
+
+def test_feedback_hold_preserves_setpoint_instead_of_resetting_to_sagged_joints():
+    sim = feedback_sim()
+    sim.data.qpos[[2, 7]] = -.001
+    goals, _, details = _bounded_contact_goals(sim,
+        {a: LinearIK() for a in ('left', 'right')},
+        {a: [0., 0., -.001] for a in ('left', 'right')}, contact_policy='setpoint_feedback_v3')
+    for a in goals:
+        assert goals[a] == pytest.approx(np.zeros(5))
+        assert details[a]['commanded_fk_increment_m'] == 0.
+        assert details[a]['actual_fk_step_m'] == pytest.approx(.001)
+
+
+@pytest.mark.parametrize('bad', [float('nan'), float('inf'), -1.001, 1.001])
+def test_invalid_current_setpoint_is_refused_without_clipping_or_plant_write(bad):
+    sim = feedback_sim()
+    sim.data.ctrl[0] = bad
+    before = sim.data.qpos.copy()
+    with pytest.raises(ValueError, match='original joint and control ranges'):
+        _bounded_contact_goals(sim, {a: LinearIK() for a in ('left', 'right')},
+                               {a: [0., 0., -.001] for a in ('left', 'right')},
+                               contact_policy='setpoint_feedback_v3')
+    assert np.array_equal(sim.data.qpos, before)
+    assert sim.data.ctrl[0] == bad or np.isnan(sim.data.ctrl[0])
+
+
+def test_control_range_remains_required_when_joint_range_is_wider():
+    sim = feedback_sim()
+    sim.model.actuator_ctrlrange[0] = [-.5, .5]
+    sim.data.ctrl[0] = .6
+    with pytest.raises(ValueError, match='original joint and control ranges'):
+        _bounded_contact_goals(sim, {a: LinearIK() for a in ('left', 'right')},
+                               {a: [0., 0., -.001] for a in ('left', 'right')},
+                               contact_policy='setpoint_feedback_v3')
+
+
+def test_feedback_still_refuses_ik_that_expands_the_command_increment():
+    sim = feedback_sim()
+    with pytest.raises(ValueError, match='CAD substep bound'):
+        _bounded_contact_goals(sim, {a: LinearIK(.001) for a in ('left', 'right')},
+                               {a: [.003, 0., 0.] for a in ('left', 'right')},
+                               contact_policy='setpoint_feedback_v3')
 
 
 def contact_sim(tmp_path, *, overlap, prior_fault=None):

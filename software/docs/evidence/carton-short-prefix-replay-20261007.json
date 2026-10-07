@@ -57,6 +57,60 @@
       "all_timestamped_states_equal": true,
       "baseline_frames_sha256": "c3b600babc977f31fc7f6d96dae4ef52518bae19c989956d1102f0827cfe44e3",
       "candidate_frames_sha256": "8db7c6a30ea9b7ca9a95283937706e66a460046206b5caa048f2a26d95ad9dc2"
+    },
+    {
+      "batch": "paired-short-fresh-view-fallback-04",
+      "seed": 0,
+      "partial_release_time_s": 106.99599999993204,
+      "compared_records": 836,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "abde2c5c2fb9977977fa54833bb38f917d9a0bfb1503972f7f7cecfb3af31f7d",
+      "candidate_frames_sha256": "4a9ce9d7ba32f285a72c9ad3ef5400bffe42c263f6203e80237ba5485c172481"
+    },
+    {
+      "batch": "paired-short-fresh-view-fallback-04",
+      "seed": 1,
+      "partial_release_time_s": 108.74999999992795,
+      "compared_records": 892,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "f5e06475d31b4d16adf67a0b641a6776c333907364c67bd4a89db871a6271d93",
+      "candidate_frames_sha256": "b4468f047b5bde2545f533900f256d17cb7d50f85d74f6c158ccf1b9750fc135"
+    },
+    {
+      "batch": "paired-short-fresh-view-fallback-04",
+      "seed": 2,
+      "partial_release_time_s": 113.11999999991777,
+      "compared_records": 905,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "c3b600babc977f31fc7f6d96dae4ef52518bae19c989956d1102f0827cfe44e3",
+      "candidate_frames_sha256": "98e585f63348317dd0bdbb9391370d492c57865eb93c2d58d0d737e4edb5bf2c"
+    },
+    {
+      "batch": "paired-short-setpoint-feedback-05",
+      "seed": 0,
+      "partial_release_time_s": 106.99599999993204,
+      "compared_records": 836,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "abde2c5c2fb9977977fa54833bb38f917d9a0bfb1503972f7f7cecfb3af31f7d",
+      "candidate_frames_sha256": "47cc2dcc20d41e613a61d6118edf40375052c0bee424ddb224e745c22a81581e"
+    },
+    {
+      "batch": "paired-short-setpoint-feedback-05",
+      "seed": 1,
+      "partial_release_time_s": 108.74999999992795,
+      "compared_records": 892,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "f5e06475d31b4d16adf67a0b641a6776c333907364c67bd4a89db871a6271d93",
+      "candidate_frames_sha256": "da05f1a5c4002bf777a9b04a9a4bddff4286885dbdffa45197853cf4ea09a59c"
+    },
+    {
+      "batch": "paired-short-setpoint-feedback-05",
+      "seed": 2,
+      "partial_release_time_s": 113.11999999991777,
+      "compared_records": 905,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "c3b600babc977f31fc7f6d96dae4ef52518bae19c989956d1102f0827cfe44e3",
+      "candidate_frames_sha256": "f0f76b45b6fd86d0ae905b5f1a8b1cdc8b1c8fd77c26d7a1aaa701d494ebfa01"
     }
   ]
 }

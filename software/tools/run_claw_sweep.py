@@ -86,7 +86,10 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
         if job.get('release_near_after_far'): command.append('--release-near-after-far')
         if job.get('probe_shorts_after_release'):
             command += ['--probe-shorts-after-release', '--short-view-camera',
-                        job.get('short_view_camera', 'front')]
+                        job.get('short_view_camera', 'front'), '--short-contact-policy',
+                        job.get('short_contact_policy', 'measured_v2')]
+            if job.get('allow_primary_carton_absence'):
+                command.append('--allow-primary-carton-absence')
     if video:
         command.append('--video')
     if job.get('privileged_near_angle'):
@@ -173,6 +176,10 @@ def main():
                         help='Bounded paired short probe with explicit additional front-camera assumption')
     parser.add_argument('--short-view-camera', choices=('front','front_left_back','front_right_back'),
                         default='front', help='Explicit hypothetical camera mount for the short probe only')
+    parser.add_argument('--allow-primary-carton-absence', action='store_true',
+                        help='Require full fresh additional-view geometry when only primary carton identity is absent')
+    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3'),
+                        default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
     parser.add_argument('--near-hold-degrees', type=float, nargs='+', default=[90.])
     parser.add_argument('--privileged-near-angle', action='store_true',
                         help='Explicit mechanics-only diagnostic; cannot verify perception or hardware readiness')
@@ -224,7 +231,9 @@ def main():
                        additional_far_view=args.additional_far_view,
                        release_near_after_far=args.release_near_after_far,
                        probe_shorts_after_release=args.probe_shorts_after_release,
-                       short_view_camera=args.short_view_camera)
+                       short_view_camera=args.short_view_camera,
+                       short_contact_policy=args.short_contact_policy,
+                       allow_primary_carton_absence=args.allow_primary_carton_absence)
     if not math.isfinite(args.far_hold_degrees) or not 20<=args.far_hold_degrees<=90:
         parser.error('Far hold target must be20..90 degrees')
     if args.release_far_after and (not args.far_after_near or not 20<=args.far_hold_degrees<=45):
@@ -235,6 +244,10 @@ def main():
         parser.error('Paired short probe requires the both-hands-parked partial release')
     if args.short_view_camera != 'front' and not args.probe_shorts_after_release:
         parser.error('Alternative short camera requires the explicit paired-short probe')
+    if args.allow_primary_carton_absence and not args.probe_shorts_after_release:
+        parser.error('Fresh-view fallback requires the explicit paired-short probe')
+    if args.short_contact_policy != 'measured_v2' and not args.probe_shorts_after_release:
+        parser.error('Alternative short contact policy requires the explicit paired-short probe')
     if args.far_contact_profile == 'central' and args.far_hold_degrees > 45:
         parser.error('Central contact profile is only proposed through45 degrees')
     if any(not math.isfinite(v) or not 0<=v<=.002 for v in args.far_normal_extra):

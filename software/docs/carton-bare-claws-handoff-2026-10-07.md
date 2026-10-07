@@ -38,7 +38,7 @@ Full experimental details and failures are in `carton-near-transfer.md` and
 `evidence/carton-near-transfer-20261007.json`. Newer partial-far batches are under
 `output/bimanual-fold-sim/major-first` in the Hackatuson workspace. Do not treat
 static reachability or a held flap as completion.
-The 39-trial partial-major and short-regrasp inventory is
+The 45-trial partial-major and short-regrasp inventory is
 `evidence/carton-partial-major-search-20261007.json`; the released-far batch is
 `partial-far-passive-release-02`. Every trial starts from the original open box.
 
@@ -140,12 +140,81 @@ original open-box prefixes match the baseline timestamped states exactly;
 `evidence/carton-short-prefix-replay-20261007.json` records that comparison.
 The offset view passed all 57 recorded moving-pose observations before this
 new dynamic batch, but that component did not cover its new primary-camera
-marker-detection failures. The marker still has visible rendered pixels in
-those frames; arm occlusion has not been established as the cause. Current
-composition requires both views to register the carton and
-does not rescue the missing primary pose with the other camera. A future
-occlusion-handling architecture must preserve fresh source-bound geometry,
-startup housing checks and contradiction refusals; it is not implemented here.
+marker-detection failures. Subsequent pixel diagnosis found both arm occlusion
+of wall marker 10 and an unobstructed but very oblique, narrow wall marker 21.
+Missing identity is therefore not synonymous with occlusion.
+
+The opt-in `--allow-primary-carton-absence` now permits fresh additional-view
+geometry only after normal primary startup, current primary anchor registration
+and visible housing/FK checks. No missing pose is copied from a prior. Both
+current poses, when present, must still pass the existing contradiction gates.
+Read `carton-primary-carton-fallback.md` for the exact packet contract and
+negative tests. The default still requires both carton registrations.
+
+The full-prefix `paired-short-fresh-view-fallback-04` batch uses that option
+with `--short-view-camera front_left_back`. All three partial-release prefixes
+remain exactly identical to baseline, and the fallback accepts five observations
+across the batch. Nevertheless **0/3 reaches the +10° short target**:
+
+- Seed 0 stops after 34 contact commands on fresh far-angle disagreement.
+- Seed 1 reaches the 80-command approach limit; the left short has moved
+  outward to −19.37°, so more approach commands are not established as useful.
+- Seed 2 executes 130 contact commands and reaches −6.23° / +1.20° shorts,
+  then loses a fresh left-short observation from both cameras. Maximum
+  horizontal carton displacement is 10.79 mm. Its reported negative bottom
+  corner clearance is an XY table-edge inset, not vertical penetration;
+  carton/table validity requires its own audit.
+
+All three executed robot and panel contact intervals independently pass their
+respective scoped checks. These do not certify table support or full-task
+success. The batch takes 62.85 wall seconds; worker overlap is 2.50, not a
+controlled speedup ratio. The broader software regression passes 808 tests
+with two optional skips. The missing-fold and physical-validation boundaries
+remain unchanged.
+
+The seed-1 approach trace identifies a controller problem, not an inadequate
+iteration budget. During its first nine commands, the left CAD point is asked
+to descend about 0.498 mm from measured FK but moves about 1.467 mm; a roughly
+0.969 mm steady servo following offset is repeatedly added by resetting the
+command from measured position. Across 80 commands the flap opens outward
+about 6.72°. No panel-to-panel contacts occur in that interval.
+
+The explicit `--short-contact-policy setpoint_feedback_v3` variant adds the
+bounded sensed-target-minus-actual-FK correction to current actuator-setpoint
+FK, then solves from the current actuator command. Its 0.5 mm limit describes
+the commanded setpoint increment, not guaranteed physical motion. Actual-to-goal
+collision planning and original actuator, joint, IK and runtime tracking gates
+remain unchanged. `measured_v2` remains the default and the approach geometry
+is unchanged. Reproduce with the same short-probe command and this extra flag;
+all trials still start from the original open box. Constant-offset component
+tests demonstrate convergence and holding, not successful folding.
+
+The full-prefix `paired-short-setpoint-feedback-05` batch completes in 44.50
+wall seconds with three workers. All three original partial-release prefixes
+again match baseline exactly. The following contact approach executes 35, 32
+and 35 commands, respectively; each next proposed command is refused for left
+wrist/short penetration of 1.0205, 1.0600 and 1.0210 mm. Those refused commands
+are recorded separately from completed commands. **0/3 short probes pass.**
+Maximum returned CAD endpoint displacement is approximately 0.5004 mm, while
+measured-to-goal FK distances can exceed 1 mm; this illustrates the distinction
+between the new command-increment bound and physical tracking. All executed
+robot and panel intervals pass their respective independent checks, without
+certifying carton/table contact or full success. The next mechanical issue is
+a clear claw approach/orientation, not a longer iteration budget.
+
+Both exact camera caches are present and hash-verified in all three refusals.
+These images precede geometry refusals and are not camera failures. A read-only
+check using the existing strict open-short estimator on primary pixels finds
+both shorts in all three, with maximum 0.275° disagreement against the current
+additional view; no production estimator change is implied. Current broad
+regression: **866 passed, two optional skips**. An independent V3 code audit
+finds no blocking variant-specific issue, but nonlinear dynamics, continuous
+setpoint-path bounds and physical portability remain unproven.
+
+Refused runs now retain exact exposed RGB-D arrays when current, with explicit
+unavailable entries otherwise. See `carton-primary-carton-fallback.md` for the
+cache provenance and shared failure-latch corrections. This is diagnostic
+evidence; no hardware adapter or physical readiness is enabled.
 
 Omit `--video` during searches: all timestamped qpos states are still recorded,
 while presentation rendering/compression is skipped. Perception still renders

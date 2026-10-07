@@ -1,5 +1,7 @@
 """Opt-in camera composition, synchronization and refusal tests; no robot action."""
 import copy
+import hashlib
+import json
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -485,3 +487,230 @@ def test_nominal_camera_profile_cannot_change_between_observations(rig):
 def test_named_view_packets_cannot_silently_borrow_front_identity():
     with pytest.raises(ValueError, match='view identities'):
         view._combine(packet(), packet('front'), replace(config(), camera='front_left_back'))
+
+
+def enable_absence(rig):
+    _, primary, controls = rig
+    primary.observe('normal startup completed')
+    primary.startup_registration_verified = True
+    primary.arm_tag_checks = []
+    controls.partial_mutation = lambda p: p
+    controls.primary_error = None
+    controls.primary_carton_present = False
+    controls.short_angles = {'short_left': short_plane(-12.), 'short_right': short_plane(-15.)}
+
+    def observe_partial(label):
+        if controls.primary_error:
+            raise ValueError(controls.primary_error)
+        reading = primary.observe(label)
+        if controls.primary_carton_present:
+            return reading
+        seq = reading['seq']
+        quality = dict(seq=seq, detected=[1, 2, 20], rejected={}, quality={},
+                       anchor_ids=[1, 20], stationary_camera=True, anchor_fit_rms_mm=.3)
+        primary.observer.history[-1] = quality
+        checks = [dict(seq=seq, arm='right', tag_id=2, encoder_fk_error_mm=.2)]
+        primary.arm_tag_checks.extend(checks)
+        calibration = dict(camera='station', intrinsics=np.eye(3).tolist(),
+                           anchor_poses={str(i): p.tolist() for i, p in primary.observer.anchors.items()})
+        partial = dict(seq=seq, label=label, camera='station', tags=[1, 2, 20],
+            packet_schema=view.PARTIAL_VIEW_SCHEMA, source=view.PARTIAL_VIEW_SOURCE,
+            carton_status='missing_carton_identity', startup_registration_sequence=1,
+            rgb_timestamp_s=primary.sim.data.time, depth_timestamp_s=primary.sim.data.time,
+            world_from_camera=np.eye(4).tolist(), observer_history=copy.deepcopy(quality),
+            calibration=calibration, housing_fk_checks=copy.deepcopy(checks),
+            calibration_sha256=hashlib.sha256(json.dumps(calibration, sort_keys=True).encode()).hexdigest(),
+            rgb_sha256='a'*64, exposed_depth_sha256='b'*64)
+        controls.partial_mutation(partial)
+        primary.readings[-1] = copy.deepcopy(partial)
+        return partial
+
+    primary.observe_with_carton_absence = observe_partial
+    return view.AdditionalViewPixelPort(primary, configuration=replace(open_config(),
+        allow_primary_carton_absence=True)), primary, controls
+
+
+def test_fresh_partial_primary_uses_complete_secondary_pose_and_angles(rig):
+    port, primary, controls = enable_absence(rig)
+    controls.box[0, 3] = .004
+    result = port.observe('explicit current primary carton absence')
+    assert result['pose_source_camera'] == result['camera'] == 'front'
+    assert result['world_from_box'] == controls.box.tolist()
+    assert 'packet_schema' not in result
+    assert all(row['source_camera'] == 'front' for row in result['angles'].values())
+    assert set(result['angles']) == set(view.MAJORS + view.SHORTS)
+    audit = result['additional_view']
+    assert audit['primary_carton_status'] == 'missing_carton_identity'
+    assert audit['pose_source_camera'] == 'front'
+    assert not {'world_from_box', 'angles', 'box_registration'} & audit['primary'].keys()
+    assert audit['comparison']['carton_translation_disagreement_mm'] is None
+    assert audit['comparison']['carton_comparison_status'] == 'primary_carton_unavailable'
+    assert len(port.readings) == 2 and port.readings[0]['seq'] == 1
+    assert len(primary.readings) == 2
+
+
+@pytest.mark.parametrize('change', [
+    {'packet_schema': 'other'}, {'source': 'calibrated_rgbd'},
+    {'carton_status': 'failed_anchor'}, {'world_from_box': np.eye(4).tolist()},
+    {'angles': {}}, {'box_registration': {}}, {'rgb_timestamp_s': 1.99},
+    {'depth_timestamp_s': 1.99}, {'startup_registration_sequence': 2},
+    {'calibration_sha256': 'a'*64}, {'exposed_depth_sha256': ''},
+    {'world_from_camera': (np.eye(4)*2).tolist()}, {'housing_fk_checks': []},
+    {'tags': [1, 2, 10, 20]}, {'observer_history': {'seq': 1}},
+])
+def test_stale_invalid_or_geometry_bearing_partial_packets_are_fatal(rig, change):
+    port, primary, controls = enable_absence(rig)
+    controls.partial_mutation = lambda p: p.update(copy.deepcopy(change))
+    with pytest.raises(ValueError): port.observe('invalid partial')
+    assert not primary.render_calls  # No second view rescues invalid metadata.
+    assert port._failed
+    with pytest.raises(ValueError, match='reconstruct'): port.observe('retry')
+
+
+@pytest.mark.parametrize('change', ['no_anchor', 'carton_rejected', 'housing_rejected', 'carton_present', 'bad_fk'])
+def test_partial_cannot_hide_failed_anchor_carton_quality_or_fk(rig, change):
+    port, primary, controls = enable_absence(rig)
+    def mutate(p):
+        if change == 'no_anchor': p['observer_history']['anchor_ids'] = []
+        elif change == 'carton_rejected': p['observer_history']['rejected'] = {21: 'bad depth'}
+        elif change == 'housing_rejected': p['observer_history']['rejected'] = {4: 'bad depth'}
+        elif change == 'carton_present':
+            p['tags'].append(21); p['observer_history']['detected'].append(21)
+        else:
+            p['housing_fk_checks'][0]['encoder_fk_error_mm'] = 12.01
+            primary.arm_tag_checks[-1]['encoder_fk_error_mm'] = 12.01
+        primary.observer.history[-1] = copy.deepcopy(p['observer_history'])
+    controls.partial_mutation = mutate
+    with pytest.raises(ValueError): port.observe('invalid current primary')
+    assert not primary.render_calls and port._failed
+
+
+@pytest.mark.parametrize('failure', ['fail_carton', 'fail_anchor'])
+def test_primary_absence_requires_fully_registered_secondary(rig, failure):
+    port, _, controls = enable_absence(rig); setattr(controls, failure, True)
+    with pytest.raises(ValueError, match='Fresh'): port.observe('no full current view')
+    assert port._failed
+
+
+@pytest.mark.parametrize('name', view.MAJORS + view.SHORTS)
+def test_primary_absence_needs_every_required_secondary_angle(rig, name):
+    port, _, controls = enable_absence(rig)
+    target = controls.short_angles if name in view.SHORTS else controls.angles
+    del target[name]
+    with pytest.raises(ValueError, match='required '+name+' missing'):
+        port.observe('cannot use prior angles')
+
+
+@pytest.mark.parametrize('failure', ['Gripper tag disagrees with calibrated encoder FK by over 12 mm',
+    'Fresh anchors disagree with stationary camera or surveyed geometry by over 6 mm',
+    'Fresh carton markers disagree with the declared rigid carton geometry'])
+def test_explicit_primary_errors_are_not_caught_as_absence(rig, failure):
+    port, primary, controls = enable_absence(rig); controls.primary_error = failure
+    with pytest.raises(ValueError, match=failure): port.observe('fatal primary check')
+    assert not primary.render_calls and not controls.calls
+
+
+@pytest.mark.parametrize('conflict', ['angle', 'pose'])
+def test_absence_opt_in_never_suppresses_current_cross_view_contradictions(rig, conflict):
+    port, _, controls = enable_absence(rig); controls.primary_carton_present = True
+    if conflict == 'angle': controls.angles['long_far']['degrees'] += 3.01
+    else: controls.box[0, 3] = .0121
+    with pytest.raises(ValueError, match='disagree'): port.observe('both views current')
+
+
+def test_fallback_requires_verified_normal_startup_and_explicit_boolean(rig):
+    _, primary, _ = rig
+    with pytest.raises(ValueError, match='Normal primary startup'):
+        view.AdditionalViewPixelPort(primary, configuration=replace(config(), allow_primary_carton_absence=True))
+    with pytest.raises(ValueError, match='boolean'):
+        replace(config(), allow_primary_carton_absence=1)
+
+
+def test_default_configuration_refuses_partial_source(rig):
+    port, _, _ = enable_absence(rig)
+    port.configuration = replace(port.configuration, allow_primary_carton_absence=False)
+    # Use an already prepared malformed source directly: no partial API is
+    # called under the default configuration.
+    with pytest.raises(ValueError, match='schema'):
+        view._combine(dict(seq=2, camera='station', tags=[1], source=view.PARTIAL_VIEW_SOURCE,
+            packet_schema=view.PARTIAL_VIEW_SCHEMA, carton_status='missing_carton_identity'),
+            dict(packet('front'), seq=2), port.configuration)
+
+
+def test_failed_primary_cannot_be_rewrapped_after_successful_startup(rig):
+    _, primary, _ = enable_absence(rig); primary._observation_failed = True
+    with pytest.raises(ValueError, match='Failed primary observation'):
+        view.AdditionalViewPixelPort(primary, configuration=config())
+
+
+def test_secondary_failure_latches_shared_primary_and_preexisting_wrappers(rig):
+    failed, primary, controls = enable_absence(rig)
+    alternate = view.AdditionalViewPixelPort(primary, configuration=failed.configuration)
+    controls.fail_anchor = True
+    with pytest.raises(ValueError, match='Fresh table tag'):
+        failed.observe('secondary failure')
+    assert failed._failed and primary._observation_failed
+    controls.fail_anchor = False
+    with pytest.raises(ValueError, match='Failed primary observation'):
+        view.AdditionalViewPixelPort(primary, configuration=failed.configuration)
+    with pytest.raises(ValueError, match='new primary startup'):
+        view.AdditionalViewPixelPort(failed, configuration=failed.configuration)
+    calls = primary.calls
+    with pytest.raises(ValueError, match='reconstruct'):
+        alternate.observe('old wrapper retry')
+    with pytest.raises(ValueError, match='reconstruction'):
+        alternate.move_arms({}, 1., 'old wrapper move', None)
+    with pytest.raises(ValueError, match='reconstruction'):
+        alternate.set_grippers({}, 1., 'old wrapper gripper')
+    assert primary.calls == calls and primary.motion_calls == []
+
+
+@pytest.mark.parametrize('kind', ['arms', 'grippers'])
+def test_command_failure_blocks_preexisting_wrapper_and_raw_primary_rewrap(rig, kind):
+    failed, primary, controls = enable_absence(rig)
+    alternate = view.AdditionalViewPixelPort(primary, configuration=failed.configuration)
+    def reject(*args, **kwargs):
+        primary.motion_calls.append('rejected command')
+        raise ValueError('Injected command fault')
+    primary.move_arms = primary.set_grippers = reject
+    with pytest.raises(ValueError, match='Injected command fault'):
+        if kind == 'arms': failed.move_arms({}, 1., 'fault', None)
+        else: failed.set_grippers({}, 1., 'fault')
+    assert failed._failed and primary._command_failed
+    with pytest.raises(ValueError, match='reconstruction'):
+        alternate.move_arms({}, 1., 'retry', None)
+    with pytest.raises(ValueError, match='reconstruction'):
+        alternate.set_grippers({}, 1., 'retry')
+    with pytest.raises(ValueError, match='reconstruct'):
+        alternate.observe('retry observation')
+    with pytest.raises(ValueError, match='Failed primary command'):
+        view.AdditionalViewPixelPort(primary, configuration=failed.configuration)
+    assert primary.motion_calls == ['rejected command']
+
+
+def test_secondary_cache_clears_before_early_primary_failure_without_new_render(rig):
+    port, primary, _ = rig
+    port.observe('first current pair')
+    cache = port.additional_rgbd_frame
+    assert cache.metadata['seq'] == 1 and cache.camera == 'front'
+    rendered = len(primary.render_calls)
+    primary.fail_primary = True
+    with pytest.raises(ValueError):
+        port.observe('primary fails before additional capture')
+    assert cache.metadata is None and cache.nbytes == 0
+    assert len(primary.render_calls) == rendered
+
+
+def test_new_clock_starts_empty_primary_cache_instead_of_relabeling_old_frame(rig):
+    from carton.folding_observation_recording import LastRGBDFrameCache
+
+    _, primary, _ = rig
+    old = LastRGBDFrameCache('station', clock_id='offline:previous-clock')
+    old.capture(np.zeros((2, 2, 3), np.uint8), np.ones((2, 2)), seq=1,
+                timestamp_s=2., intrinsics=np.eye(3))
+    primary.last_rgbd_frame = old
+    configured = config()
+    wrapper = view.AdditionalViewPixelPort(primary, configuration=configured)
+    assert primary.last_rgbd_frame is not old
+    assert primary.last_rgbd_frame.metadata is None
+    assert primary.last_rgbd_frame.clock_id == wrapper.additional_rgbd_frame.clock_id == configured.clock_id

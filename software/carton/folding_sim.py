@@ -260,6 +260,9 @@ class FoldingSimulation:
         vertical=float((pose.xpos-self.box_origin)[2]*1000)
         angle=math.degrees(math.acos(float(np.clip((np.trace(self.box_rotation.T@r)-1)/2,-1,1))))
         corners=np.array([[x,y,0.] for x in (-L/2,L/2) for y in (-W/2,W/2)])@r.T+pose.xpos
+        # Horizontal footprint inset: a negative value means edge overhang,
+        # not downward penetration. Keep the historical key as an alias so
+        # old reports/consumers remain readable; name its meaning explicitly.
         clearance=float(min(np.min(corners[:,0]+.55),np.min(.55-corners[:,0]),
                             np.min(corners[:,1]-self.station.table_edge_y),np.min(self.station.table_edge_y+1.1-corners[:,1]))*1000)
         self.motion_stats['max_translation_mm']=max(self.motion_stats['max_translation_mm'],distance)
@@ -267,9 +270,11 @@ class FoldingSimulation:
         self.motion_stats['max_absolute_vertical_translation_mm']=max(self.motion_stats.get('max_absolute_vertical_translation_mm',0.),abs(vertical))
         self.motion_stats['max_rotation_degrees']=max(self.motion_stats['max_rotation_degrees'],angle)
         self.motion_stats['minimum_bottom_corner_table_clearance_mm']=min(self.motion_stats['minimum_bottom_corner_table_clearance_mm'],clearance)
+        self.motion_stats['minimum_bottom_corner_table_edge_inset_mm']=self.motion_stats['minimum_bottom_corner_table_clearance_mm']
         return {'translation_mm':distance,'horizontal_translation_mm':horizontal,
                 'vertical_translation_mm':vertical,'rotation_degrees':angle,
-                'minimum_bottom_corner_table_clearance_mm':clearance}
+                'minimum_bottom_corner_table_clearance_mm':clearance,
+                'minimum_bottom_corner_table_edge_inset_mm':clearance}
 
     def ik(self,side,target,orientation=None):
         ix=self.arm_indices[side][:5];site=self.model.site(self.control_sites[side]).id

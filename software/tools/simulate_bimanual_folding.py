@@ -1,6 +1,7 @@
 """Rendered tag/depth -> paired robot joints -> passive carton contact, offline."""
 from __future__ import annotations
 import argparse
+import copy
 import hashlib
 import inspect
 import json
@@ -17,7 +18,11 @@ from carton.folding_diagonal import DiagonalFoldingController
 from carton.folding_station import FoldingStation
 from carton.folding_material import CartonMaterial
 from carton.folding_solver import FoldingSolver
-from carton.folding_markers import carton_pose_from_tags
+from carton.folding_markers import BOX_MARKERS,carton_pose_from_tags
+from carton.folding_observation_status import (
+    CartonAvailability,PARTIAL_VIEW_SCHEMA,PARTIAL_VIEW_SOURCE,
+)
+from carton.folding_observation_recording import LastRGBDFrameCache
 from carton.folding_tool_tags import paddle_pose_from_tags
 
 
@@ -46,8 +51,43 @@ class PixelPort:
         self.observer=RGBDTagObserver(anchor,additional_anchors=additional,stationary_camera=bool(additional));self.seq=0;self.readings=[];self.record=record
         self.box=None;self.angle_priors={}
         self.arm_tag_checks=[]
+        self.startup_registration_verified=False
+        self._observation_failed=False
+        self._command_failed=False
+        self._command_failure_reason=None
+        self.last_rgbd_frame=LastRGBDFrameCache(camera,clock_id='offline:simulation')
 
     def observe(self,label):
+        return self._checked_observe(label,allow_carton_absence=False)
+
+    def observe_with_carton_absence(self,label):
+        """Explicit post-startup partial capture; no cached carton geometry.
+
+        Only absent carton identity can produce a partial packet. Fresh anchor
+        registration and every visible housing/FK check still run first.
+        """
+        self.last_rgbd_frame.clear()
+        if not self.startup_registration_verified:
+            raise ValueError('Normal initial registration must succeed before partial observations')
+        return self._checked_observe(label,allow_carton_absence=True)
+
+    def _checked_observe(self,label,*,allow_carton_absence):
+        self.last_rgbd_frame.clear()
+        if getattr(self,'_command_failed',False):
+            raise ValueError('Pixel command failed; reconstruct and repeat startup checks')
+        if self._observation_failed:
+            raise ValueError('Pixel observation failed; reconstruct and repeat startup checks')
+        completed=False
+        try:
+            reading=self._observe(label,allow_carton_absence=allow_carton_absence)
+            completed=True
+            return reading
+        finally:
+            # No exception is converted into missing data. Every unexpected or
+            # invalid observation remains fatal, including a failed startup.
+            if not completed:self._observation_failed=True
+
+    def _observe(self,label,*,allow_carton_absence):
         rgb=self.sim.render(self.camera);depth=self.sim.render(self.camera,True)
         depth+=self.rng.normal(0,self.noise,depth.shape)
         depth[self.rng.random(depth.shape)<self.dropout]=0
@@ -56,7 +96,12 @@ class PixelPort:
         h,w=depth.shape;f=h/(2*math.tan(math.radians(float(self.sim.model.camera(self.camera).fovy[0]))/2))
         k=np.array([[f,0,w/2],[0,f,h/2],[0,0,1]])
         self.seq+=1;t=float(self.sim.data.time)
+        self.last_rgbd_frame.capture(rgb,depth,seq=self.seq,timestamp_s=t,intrinsics=k)
         tags=self.observer.observe(rgb,depth,k,seq=self.seq,timestamp=t,depth_timestamp=t)
+        quality=self.observer.history[-1]
+        rejected_housing=set(quality['rejected'])&{2,4}
+        if rejected_housing:
+            raise ValueError(f'Decoded housing tag has invalid aligned depth: {sorted(rejected_housing)}')
         if self.seq==1 and not {2,4}.issubset(tags):raise ValueError('Both housing tags required for initial arm registration check')
         for side,tag_id in [('left',4),('right',2)]:
             if tag_id in tags:
@@ -65,6 +110,29 @@ class PixelPort:
                 error=float(np.linalg.norm(tags[tag_id][:3,3]-expected))
                 self.arm_tag_checks.append({'seq':self.seq,'arm':side,'tag_id':tag_id,'encoder_fk_error_mm':error*1000})
                 if error>.012:raise ValueError('Gripper tag disagrees with calibrated encoder FK by over 12 mm')
+        missing_identity=not (set(tags)&set(BOX_MARKERS)) and not {11,12}.issubset(tags)
+        rejected_carton=set(quality['rejected'])&(set(BOX_MARKERS)|{11,12})
+        if allow_carton_absence and missing_identity and not rejected_carton:
+            if self.seq<=1 or not self.startup_registration_verified:
+                raise ValueError('Normal initial registration must succeed before partial observations')
+            self.box=None
+            calibration=dict(camera=self.camera,intrinsics=k.tolist(),
+                anchor_poses={str(i):np.asarray(p).tolist() for i,p in self.observer.anchors.items()})
+            reading=dict(packet_schema=PARTIAL_VIEW_SCHEMA,source=PARTIAL_VIEW_SOURCE,
+                carton_status=CartonAvailability.MISSING_IDENTITY.value,
+                seq=self.seq,label=label,camera=self.camera,tags=sorted(tags),
+                rgb_timestamp_s=t,depth_timestamp_s=t,
+                world_from_camera=np.asarray(self.observer.world_from_camera).tolist(),
+                calibration=calibration,
+                calibration_sha256=hashlib.sha256(json.dumps(calibration,sort_keys=True,allow_nan=False).encode()).hexdigest(),
+                observer_history=copy.deepcopy(quality),
+                housing_fk_checks=copy.deepcopy([r for r in self.arm_tag_checks if r['seq']==self.seq]),
+                startup_registration_sequence=1,
+                rgb_sha256=hashlib.sha256(rgb.tobytes()).hexdigest(),
+                exposed_depth_sha256=hashlib.sha256(depth.tobytes()).hexdigest())
+            self.readings.append(reading)
+            if self.record:self.sim.capture(label)
+            return reading
         self.box,box_registration=carton_pose_from_tags(tags,self.observer.history[-1]['quality'])
         angles=depth_flap_angles(rgb,depth,k,self.observer.world_from_camera,self.box,self.angle_priors)
         # Omission is meaningful: never fall back to a legacy major estimate
@@ -87,9 +155,23 @@ class PixelPort:
         reading['paddle']=paddle_pose_from_tags(tags,self.observer.history[-1]['quality'])
         self.readings.append(reading)
         if self.record:self.sim.capture(label)
+        if self.seq==1:self.startup_registration_verified=True
         return reading
 
+    def _checked_command(self,command,*args):
+        if getattr(self,'_observation_failed',False):raise ValueError('Pixel observation failed; reconstruct before motion')
+        if getattr(self,'_command_failed',False):raise ValueError('Pixel command failed; reconstruct before motion')
+        try:
+            return command(*args)
+        except Exception as exc:
+            self._command_failed=True
+            self._command_failure_reason=str(exc)
+            raise
+
     def move_arms(self,targets,seconds,label,orientation):
+        return self._checked_command(self._move_arms,targets,seconds,label,orientation)
+
+    def _move_arms(self,targets,seconds,label,orientation):
         if self.fault=='right_arm_disabled':targets={k:v for k,v in targets.items() if k!='right'}
         event=self.sim.move(targets,seconds,label,orientation,capture=self.record)
         if event.get('step_error'):raise ValueError(event['step_error'])
@@ -99,6 +181,9 @@ class PixelPort:
         return {'joint_positions':{s:self.sim.data.qpos[ix].tolist() for s,ix in self.sim.arm_indices.items()}}
 
     def set_grippers(self,openings,seconds,label):
+        return self._checked_command(self._set_grippers,openings,seconds,label)
+
+    def _set_grippers(self,openings,seconds,label):
         if hasattr(self.sim,'paddle_spec'):
             # Retain the paddle when releasing carton contact. Tool release
             # would require a separate supported placement, outside this test.

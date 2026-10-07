@@ -34,6 +34,26 @@ view. The new stops are missing primary carton registration or cross-view
 angle disagreement; all six executed contact intervals pass both audits.
 No full fold is inferred from the improved geometry or camera components.
 
+The explicit primary-carton-absence fallback now accepts fresh secondary
+geometry after verified startup, current primary anchors and visible housing/FK
+checks. Its next full-prefix batch still completes 0/3 short probes: fresh
+far-angle disagreement, an 80-command approach limit, and missing left-short
+geometry. Five partial observations use the fallback; all three original
+partial-release prefixes remain exactly identical. Executed robot and panel
+contacts pass their scoped audits. Seed 2 shifts the carton 10.79 mm and reports
+9.68 mm of XY table-edge overhang; the legacy clearance field is not a vertical
+penetration measurement. Broader software regression: 808 passed, two optional
+skips. No full closure, taping, or robot execution is established.
+
+The explicit setpoint-feedback V3 variant removes repeated measured-position
+servo-offset accumulation. Its three full-prefix trials finish in 44.50 wall
+seconds and preserve the exact partial-release prefix, but all stop on the
+unchanged predicted left-wrist/short penetration gate before reaching the short
+target. Executed robot/panel contacts pass their scoped audits. Actual refusal
+RGB-D is now saved and byte-verified for both views in all three runs. Current
+regression: 866 passed, two optional skips. The next geometric task is a clear
+claw approach/orientation; full folding and retention remain incomplete.
+
 The fixed station camera loses far-plane visibility around 39°; successful
 partial release at 35° does not establish continued visibility or closure.
 Actual station/material/camera calibration and deployment remain unverified.

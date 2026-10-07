@@ -185,11 +185,14 @@ def run(args):
                         configuration=AdditionalViewConfiguration(
                             assumption_id='offline:front-open-short-regrasp-v1', clock_id='offline:simulation',
                             required_flaps=('long_near','long_far','short_left','short_right'),
-                            observe_open_shorts=True, camera=short_camera), seed=args.seed)
+                            observe_open_shorts=True, camera=short_camera,
+                            allow_primary_carton_absence=getattr(args, 'allow_primary_carton_absence', False)),
+                        seed=args.seed)
                     controller.port = port
                     result['stage'] = 'Probe paired short folds against freely passive majors'
                     result['partial_short_probe'] = probe_shorts_against_passive_majors(
-                        sim, controller, capture=True, target_degrees=10.)
+                        sim, controller, capture=True, target_degrees=10.,
+                        contact_policy=getattr(args, 'short_contact_policy', 'measured_v2'))
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -314,6 +317,27 @@ def run(args):
                   additional_view_assumptions_sha256=getattr(port, 'assumptions_sha256', None),
                   source_sha256={p: hashlib.sha256(b).hexdigest() for p, b in snapshots.items()})
     result['controller'] = {'error': result.get('error', 'Partial sequence; full closure untested')}
+    if result.get('error'):
+        # Persist existing exposed arrays only. A stale frame is explicitly
+        # unavailable; saving evidence never re-renders or resumes the run.
+        from carton.folding_observation_recording import save_refusal_rgbd
+        raw_primary = getattr(port, 'primary', port)
+        cache = getattr(raw_primary, 'last_rgbd_frame', None)
+        try:
+            evidence = save_refusal_rgbd(out/'refusal-rgbd',
+                caches={'primary': cache, 'additional': getattr(port, 'additional_rgbd_frame', None)},
+                expected_seq=raw_primary.seq, timestamp_s=float(sim.data.time),
+                clock_id=cache.clock_id if cache is not None else 'offline:simulation',
+                refusal=result['error'], source_sha256=result['source_sha256'],
+                assumptions_sha256=getattr(port, 'assumptions_sha256', None))
+            manifest_path = out/'refusal-rgbd/manifest.json'
+            result['refusal_rgbd'] = dict(path='refusal-rgbd/manifest.json',
+                sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                views={key: row['status'] for key, row in evidence['views'].items()})
+        except Exception as exc:
+            # Preserve the original run refusal even if evidence persistence
+            # fails, including a failure before the first observation sequence.
+            result['refusal_rgbd'] = dict(status='unavailable', error=str(exc))
     (out/'result.json').write_text(json.dumps(result, indent=2, allow_nan=False))
     print(json.dumps({k: result.get(k) for k in ('stage', 'error', 'angles', 'motion', 'time')}, indent=2))
     return result
@@ -342,6 +366,10 @@ if __name__ == '__main__':
                         help='Bounded paired short probe with explicit additional front-camera assumption')
     parser.add_argument('--short-view-camera', choices=('front','front_left_back','front_right_back'),
                         default='front', help='Explicit hypothetical camera mount for the short probe only')
+    parser.add_argument('--allow-primary-carton-absence', action='store_true',
+                        help='Opt in to fully fresh additional-view geometry when only the primary carton identity is absent')
+    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3'),
+                        default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
     parser.add_argument('--open-short-angle', type=float, default=-15.)
     parser.add_argument('--along', type=float, default=-.10)
     parser.add_argument('--radius', type=float, default=.125)
@@ -413,6 +441,10 @@ if __name__ == '__main__':
         parser.error('Paired short probe requires the both-hands-parked partial release')
     if args.short_view_camera != 'front' and not args.probe_shorts_after_release:
         parser.error('Alternative short camera requires the explicit paired-short probe')
+    if args.allow_primary_carton_absence and not args.probe_shorts_after_release:
+        parser.error('Fresh-view fallback requires the explicit paired-short probe')
+    if args.short_contact_policy != 'measured_v2' and not args.probe_shorts_after_release:
+        parser.error('Alternative short contact policy requires the explicit paired-short probe')
     if args.center_floor_marker and args.floor_marker_x is not None and abs(args.floor_marker_x)<.057:
         parser.error('Declared floor markers would overlap')
     run(args)
