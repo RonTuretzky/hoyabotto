@@ -441,6 +441,11 @@ _FAR_HOOK_OFFSET_SCHEDULE = np.array([
 _FAR_HOOK_VERTEX = np.array([-.010900730,-.006113951,-.094425959])
 _FAR_HOOK_SEED = np.array([0.10047303510419783, 0.93061275394957, -1.2177548644221954, 0.3666092395378051, -1.9085400298207411])
 _FAR_HOOK_INITIAL_ALONG = .180
+_FAR_CENTRAL_SEED = np.array([.00022363205779444336,.9251958583590277,
+                            -1.2213298141077216,.3512059366144624,-1.4290197909639648])
+_FAR_CENTRAL_OFFSET_SCHEDULE = np.array([
+    [-15.,.0015], [15.423456405996326,.0015], [15.951608970174963,.002], [45.,.002],
+])
 
 
 class RobotVertexIK:
@@ -470,8 +475,50 @@ class RobotVertexIK:
         return solution.x,error
 
 
-def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08):
-    """Physical right-claw far-edge attempt after a visually held near closure.
+def _verify_target_angle(reading, flap, target):
+    """Require a finite observed hold within the declared five-degree band."""
+    observation=reading.get('angles',{}).get(flap)
+    degrees=None if observation is None else observation.get('degrees')
+    if degrees is None or not math.isfinite(degrees) or abs(degrees-target)>5:
+        raise ValueError(f'Fresh {flap} angle within 5 degrees of {target:g} required')
+    return float(degrees)
+
+
+class _MeasuredFarStroke:
+    """Bound visual angle advances and stop repeated ineffective commands."""
+    def __init__(self, degrees, target):
+        if (not all(math.isfinite(v) for v in (degrees,target))
+                or not -15<=degrees<=target+5):
+            raise ValueError('Fresh far angle outside the declared contact stroke')
+        self.target=float(target)
+        self.history=[float(degrees)]
+        self.commands=0
+
+    def next_angle(self):
+        if self.history[-1]>=self.target-1:
+            return None
+        if self.commands>=240:
+            raise ValueError('Far contact stroke exceeded 240 bounded commands')
+        self.commands+=1
+        return min(self.target,self.history[-1]+1.)
+
+    def observe(self,degrees):
+        if not math.isfinite(degrees) or not -15<=degrees<=self.target+5:
+            raise ValueError('Observed far angle left the declared contact stroke')
+        self.history.append(float(degrees))
+        # The original twelve-degree command guard remains active. A stalled
+        # measured-angle controller never accumulates twelve commanded degrees,
+        # so additionally stop after twelve ineffective physical commands.
+        if (len(self.history)>12 and degrees<self.target-1
+                and degrees-self.history[-13]<2.):
+            raise ValueError('Far fold stalled: twelve bounded commands produced less than 2 degrees')
+
+
+def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08,
+                       expected_near_degrees=90.,target_degrees=90.,release_after=False,
+                       contact_profile='edge',central_normal_extra_m=0.,gripper_opening=-.17,
+                       central_startup_lift_m=0.):
+    """Physical right-claw far-edge attempt after a declared visual near hold.
 
     The known narrow CAD hook/drag path is only a proposal. It is generated
     from current rendered RGB-D box registration and then commanded through
@@ -482,12 +529,43 @@ def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08):
     from carton.folding_progress import ContactProgressGuard
     from carton.folding_paths import execute_path
     c=controller
+    if (not all(math.isfinite(value) for value in (expected_near_degrees,target_degrees))
+            or not 30<=expected_near_degrees<=90 or not 20<=target_degrees<=90):
+        raise ValueError('Near target must be 30--90 and far target 20--90 degrees')
+    if contact_profile not in ('edge','central'):
+        raise ValueError('Far contact profile must be edge or central')
+    if contact_profile=='central' and target_degrees>45:
+        raise ValueError('Central far contact proposal is only validated through 45 degrees')
+    if (not math.isfinite(central_normal_extra_m) or not 0<=central_normal_extra_m<=.002
+            or (contact_profile!='central' and central_normal_extra_m!=0)):
+        raise ValueError('Central normal extra must be 0--2 mm and requires the central profile')
+    if (not math.isfinite(central_startup_lift_m) or not 0<=central_startup_lift_m<=.002
+            or (contact_profile!='central' and central_startup_lift_m!=0)):
+        raise ValueError('Central startup lift must be 0--2 mm and requires the central profile')
+    if not math.isfinite(gripper_opening) or gripper_opening not in (-.17,.6,1.4):
+        raise ValueError('Far gripper opening must be the declared -0.17, 0.6 or 1.4 rad proposal')
+    initial_along=.14 if contact_profile=='central' else _FAR_HOOK_INITIAL_ALONG
+    seed=_FAR_CENTRAL_SEED if contact_profile=='central' else _FAR_HOOK_SEED
+    schedule=_FAR_CENTRAL_OFFSET_SCHEDULE if contact_profile=='central' else _FAR_HOOK_OFFSET_SCHEDULE
     if slide_left_to is not None and (not math.isfinite(slide_left_to) or not -.12<=slide_left_to<=-.04):
         raise ValueError('Left near hold slide must be between -120 and -40 mm')
+    if slide_left_to is not None and expected_near_degrees!=90:
+        raise ValueError('Partial near holds require slide_left_to=None')
+    if release_after and target_degrees>45:
+        raise ValueError('Declared passive-release proposal is limited to far targets 20--45 degrees')
     report=dict(simulation_only=True,hardware_commands=0,full_task_complete=False,
                 held_only=True,stage='register far flap',joint_driven_physics=True,
+                expected_near_degrees=expected_near_degrees,target_far_degrees=target_degrees,
+                release_after=bool(release_after),passive_retention_only=False,
+                contact_profile=contact_profile,initial_contact_along_m=initial_along,
+                central_normal_extra_m=central_normal_extra_m,gripper_opening_radians=gripper_opening,
+                central_startup_lift=dict(maximum_m=central_startup_lift_m,
+                    direction_box=[0.,0.,1.],full_through_degrees=0.,zero_from_degrees=15.,
+                    formula='maximum_m * clip((15 - commanded_degrees) / 15, 0, 1)',
+                    purpose='initial hook approach clearance; contact and progress remain unproven'),
+                contact_seed_radians=seed.tolist(),
                 target_source='fresh RGB-D box pose and far angle plus declared CAD contact proposal',
-                contact_offset_schedule=_FAR_HOOK_OFFSET_SCHEDULE.tolist(),checks=[])
+                contact_offset_schedule=schedule.tolist(),checks=[])
     c.far_edge_attempt=report
 
     def settle_soft_joint_overshoot(side):
@@ -508,8 +586,8 @@ def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08):
             if event.get('max_joint_tracking_error_radians',0)>.08:
                 raise ValueError('Bounded joint settle tracking exceeds 0.08 rad')
 
-    reading=c.sense('Register far flap after physical near closure')
-    c.require_folded(reading,['long_near'])
+    reading=c.sense('Register far flap after physical near hold')
+    _verify_target_angle(reading,'long_near',expected_near_degrees)
     if slide_left_to is not None:
         if not 85<=reading['angles']['long_near']['degrees']<=95:
             raise ValueError('Fresh near closure within 85--95 degrees required before hold slide')
@@ -536,7 +614,7 @@ def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08):
             if not 85<=reading['angles']['long_near']['degrees']<=95:
                 raise ValueError('Near closure left 85--95 degree band during hold slide')
         reading=c.sense('Re-register far flap after physical left near-hold slide')
-        c.require_folded(reading,['long_near'])
+        _verify_target_angle(reading,'long_near',expected_near_degrees)
     observed=reading['angles'].get('long_far')
     if observed is None or not -15<=observed['degrees']<=15:
         raise ValueError('Fresh far angle in -15 to 15 degrees required for the declared edge hook')
@@ -548,15 +626,20 @@ def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08):
     if np.linalg.norm(np.asarray(vertex['local'])-_FAR_HOOK_VERTEX)>1e-6:
         raise ValueError('Declared hook vertex is absent from original SO101 CAD collision meshes')
     report['actual_cad_vertex']=vertex
-    c.port.set_grippers({'right':-.17},.4,'Close parked right claw before far-edge approach')
+    c.port.set_grippers({'right':gripper_opening},.4,'Configure parked right claw before far-edge approach')
     ik=RobotVertexIK(sim,'right',vertex)
 
     def target_at(degrees):
-        along=_FAR_HOOK_INITIAL_ALONG+(.12-_FAR_HOOK_INITIAL_ALONG)*np.clip((degrees-10)/50,0,1)
+        along=initial_along+(.12-initial_along)*np.clip((degrees-10)/50,0,1)
         radius=.14+(.115-.14)*np.clip((degrees-60)/30,0,1)
-        clearance=float(np.interp(degrees,_FAR_HOOK_OFFSET_SCHEDULE[:,0],
-                                   _FAR_HOOK_OFFSET_SCHEDULE[:,1]))
-        return far_contact_target(c.box,degrees,along,radius,clearance)
+        clearance=float(np.interp(degrees,schedule[:,0],schedule[:,1]))+central_normal_extra_m
+        point=far_contact_target(c.box,degrees,along,radius,clearance)
+        # The initially outward flap has a downward-pointing outside normal.
+        # Additional normal offset cannot clear a finger lip above its edge.
+        # This explicit approach lift fades onto the original contact proposal;
+        # it never changes panel dimensions or counts clearance as contact.
+        lift=central_startup_lift_m*float(np.clip((15.-degrees)/15.,0.,1.))
+        return point+c.box[:3,:3]@np.array([0.,0.,lift])
 
     def command(q,point,seconds,label):
         event=sim.move({},seconds,label,capture=capture,joint_targets={'right':q})
@@ -574,15 +657,16 @@ def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08):
             max_robot_flap_penetration_mm=event['max_robot_flap_penetration_mm']))
 
     point=target_at(start)
-    q_contact,error=ik.solve(point,_FAR_HOOK_SEED)
+    q_contact,error=ik.solve(point,seed)
     pre=point+[0,0,.020]
     q_pre,error=ik.solve(pre,q_contact)
     settle_soft_joint_overshoot('right')
     path=JointPathPlanner(sim,'right',clearance=.006).plan(q_pre)
     report['stage']='collision-checked free far-edge approach'
-    execute_path(sim,'right',path,'Reach 20 mm above far edge with closed right claw',capture=capture)
+    execute_path(sim,'right',path,'Reach 20 mm above far edge with configured right claw',capture=capture)
     reading=c.sense('Verify carton after free far-edge transit')
     guard.check(reading,start)
+    _verify_target_angle(reading,'long_near',expected_near_degrees)
     previous=q_pre
     for u in np.linspace(.1,1,10):
         goal=(1-u)*pre+u*point
@@ -592,20 +676,72 @@ def fold_far_from_edge(sim,controller,*,capture=False,slide_left_to=-.08):
         execute_path(sim,'right',path,'Approach actual CAD hook at far edge',capture=capture)
         command(q,goal,.20,'Settle actual CAD hook at far edge')
         previous=q
-        guard.check(c.sense('Observe far edge during contact approach'),start)
+        reading=c.sense('Observe far edge during contact approach')
+        guard.check(reading,start)
+        _verify_target_angle(reading,'long_near',expected_near_degrees)
     report['stage']='joint-driven far-edge fold attempt'
-    for theta in np.linspace(start,90.,max(2,math.ceil(90-start)+1))[1:]:
+    # The approach may already move the flap. Begin the angle stroke from its
+    # latest checked pixels, retaining the original free-carton drift origin.
+    guard.begin_stroke(reading)
+    stroke=_MeasuredFarStroke(reading['angles']['long_far']['degrees'],target_degrees)
+    report['measured_angle_stroke']=dict(start_degrees=stroke.history[0],
+        max_advance_degrees=1.,max_commands=240,stall_window_commands=12,
+        minimum_window_progress_degrees=2.,observed_degrees=stroke.history)
+    while (theta:=stroke.next_angle()) is not None:
         goal=target_at(float(theta))
         q,error=ik.solve(goal,previous)
         command(q,goal,.25,f'Physically move far-edge contact toward {theta:.1f} degrees')
         previous=q
         reading=c.sense('Observe far-flap progress and free carton during contact')
         guard.check(reading,float(theta))
-        c.require_folded(reading,['long_near'])
-    c.port.move_arms({},2.,'Hold physically folded far flap',None)
-    reading=c.sense('Verify visible far and near major holds')
-    c.require_folded(reading,['long_far','long_near'])
-    report.update(stage='far and near majors visually held',visual_angles=reading['angles'],
+        _verify_target_angle(reading,'long_near',expected_near_degrees)
+        stroke.observe(reading['angles']['long_far']['degrees'])
+    report['measured_angle_stroke']['command_count']=stroke.commands
+    c.port.move_arms({},2.,'Hold far flap at declared target angle',None)
+    reading=c.sense('Verify visible declared far and near holds')
+    guard.check(reading,target_degrees)
+    _verify_target_angle(reading,'long_far',target_degrees)
+    _verify_target_angle(reading,'long_near',expected_near_degrees)
+    report.update(stage='declared far and near angles visually held',visual_angles=reading['angles'],
                   independent_final_angles=sim.truth_angles(),motion=dict(sim.motion_stats),
-                  physical_far_fold_verified=True)
+                  physical_far_target_verified=True,physical_far_fold_verified=target_degrees==90,
+                  both_majors_closed=target_degrees==90 and expected_near_degrees==90)
+    if release_after:
+        report['stage']='physically release partial far hold'
+        report['passive_release']=dict(lift_m=.020,hold_seconds=5.,checks=[])
+        release_checks=report['passive_release']['checks']
+        body=sim.data.body(vertex['body'])
+        actual=body.xpos+body.xmat.reshape(3,3)@vertex['local']
+        # Lift from the actual encoder/FK contact point, then park through the
+        # ordinary obstacle planner. The executing carton remains untouched.
+        goal=actual+np.array([0.,0.,.020])
+        q,error=ik.solve(goal,previous)
+        settle_soft_joint_overshoot('right')
+        planner=JointPathPlanner(sim,'right',clearance=.006,allowed_flaps=('long_far_cardboard',))
+        execute_path(sim,'right',planner.plan(q),'Physically lift claw clear of partial far fold',capture=capture)
+        command(q,goal,.20,'Settle claw above released far flap')
+        reading=c.sense('Observe far angle after physical release')
+        guard.check(reading,target_degrees)
+        _verify_target_angle(reading,'long_far',target_degrees)
+        _verify_target_angle(reading,'long_near',expected_near_degrees)
+        release_checks.append(dict(time=float(sim.data.time),visual_angles=reading['angles']))
+        q,error=sim.ik('right',np.array([.20,-.18,.30]),None)
+        if error>.008:
+            raise ValueError('Released far-hand park IK exceeds 8 mm')
+        path=JointPathPlanner(sim,'right',clearance=.006).plan(q)
+        execute_path(sim,'right',path,'Park right hand after partial far release',capture=capture)
+        # Repeated fresh frames make the five-second passive hold observable;
+        # no simulation hinge angle is used as a controller target or reading.
+        for _ in range(10):
+            c.port.move_arms({},.5,'Observe original passive far-flap retention',None)
+            reading=c.sense('Verify passive far retention with right hand parked')
+            guard.check(reading,target_degrees)
+            _verify_target_angle(reading,'long_far',target_degrees)
+            _verify_target_angle(reading,'long_near',expected_near_degrees)
+            release_checks.append(dict(time=float(sim.data.time),visual_angles=reading['angles']))
+        report.update(stage='partial far angle passively retained for five seconds',
+                      held_only=False,passive_retention_only=True,
+                      right_hand_parked=True,near_still_actively_held=True,
+                      visual_angles=reading['angles'],independent_final_angles=sim.truth_angles(),
+                      motion=dict(sim.motion_stats))
     return report

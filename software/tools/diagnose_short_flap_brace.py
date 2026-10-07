@@ -143,13 +143,20 @@ def run(args):
             result['short_opening'] = open_shorts_before_majors(sim, controller,
                 capture=True, target_degrees=args.open_short_angle)
             result['stage'] = 'Fold near major with shorts physically opened outward'
-            result['near_major_transfer'] = press_near_over_short(sim, controller,
-                capture=True, majors_first=True, along=args.near_press_along,
+            near_key = 'near_major_transfer' if args.near_hold_degrees == 90 else 'near_major_clearance'
+            result[near_key] = press_near_over_short(sim, controller,
+                target_degrees=args.near_hold_degrees, capture=True, majors_first=True, along=args.near_press_along,
                 pre_out=args.near_pre_out, pre_up=args.near_pre_up)
             if getattr(args, 'far_after_near', False):
                 from carton.folding_far_contact import fold_far_from_edge
                 result['stage'] = 'Fold far major while left claw retains near major'
-                result['far_major_transfer'] = fold_far_from_edge(sim, controller, capture=True)
+                far_key = 'far_major_transfer' if args.far_hold_degrees == 90 else 'far_major_clearance'
+                result[far_key] = fold_far_from_edge(sim, controller, capture=True,
+                    expected_near_degrees=args.near_hold_degrees, target_degrees=args.far_hold_degrees,
+                    slide_left_to=-.08 if args.near_hold_degrees == 90 else None,
+                    release_after=args.release_far_after, contact_profile=args.far_contact_profile,
+                    central_normal_extra_m=args.far_normal_extra, gripper_opening=args.far_gripper_opening,
+                    central_startup_lift_m=args.far_startup_lift)
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -261,7 +268,8 @@ def run(args):
         result['error'] = str(exc)
     sim.capture('End of left-minor brace diagnostic')
     result.update(angles=sim.truth_angles(), motion=dict(sim.motion_stats), time=float(sim.data.time),
-                  readings=port.readings, physics=sim.save('folding'), material=sim.material.report(),
+                  readings=port.readings, perception_quality=port.observer.history,
+                  physics=sim.save('folding'), material=sim.material.report(),
                   contact_progress_checks=getattr(controller, 'contact_progress_checks', []),
                   open_claw_transfer=getattr(controller, 'open_claw_transfer', None),
                   short_opening=getattr(controller, 'short_opening', None),
@@ -283,6 +291,12 @@ if __name__ == '__main__':
     parser.add_argument('--fold-right', action='store_true')
     parser.add_argument('--open-shorts-first', action='store_true')
     parser.add_argument('--far-after-near', action='store_true')
+    parser.add_argument('--far-hold-degrees', type=float, default=90.)
+    parser.add_argument('--far-contact-profile', choices=['edge','central'], default='edge')
+    parser.add_argument('--far-normal-extra', type=float, default=0.)
+    parser.add_argument('--far-startup-lift', type=float, default=0.)
+    parser.add_argument('--far-gripper-opening', type=float, default=-.17)
+    parser.add_argument('--release-far-after', action='store_true')
     parser.add_argument('--open-short-angle', type=float, default=-15.)
     parser.add_argument('--along', type=float, default=-.10)
     parser.add_argument('--radius', type=float, default=.125)
@@ -325,6 +339,7 @@ if __name__ == '__main__':
     parser.add_argument('--near-press-along', type=float, default=-.13)
     parser.add_argument('--near-pre-out', type=float, default=.055)
     parser.add_argument('--near-pre-up', type=float, default=.040)
+    parser.add_argument('--near-hold-degrees', type=float, default=90.)
     parser.add_argument('--release-right-before-near', action='store_true')
     args=parser.parse_args()
     if not (320<=args.width<=1280 and 240<=args.height<=960):

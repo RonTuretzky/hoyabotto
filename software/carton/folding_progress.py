@@ -35,6 +35,7 @@ class ContactProgressGuard:
     command_window_degrees: float = 12.
     min_progress_degrees: float = 2.
     checks: list = field(default_factory=list, init=False)
+    fault: str | None = field(default=None, init=False)
 
     def __post_init__(self):
         values = (self.max_translation_m, self.max_rotation_degrees,
@@ -44,7 +45,35 @@ class ContactProgressGuard:
         self.origin, angle, self.last_seq = _observation(self.initial_reading, self.flap)
         self.history = [(angle, angle)]
 
+    def begin_stroke(self, reading):
+        """Start an angle-command stroke at the last checked contact observation.
+
+        Contact approach can already move the panel while its commanded angle
+        remains constant. Rebase only the progress window for the new sweep;
+        keep the original carton pose, all checks, freshness and stop limits.
+        A failed check cannot be cleared by this method.
+        """
+        _, angle, seq = _observation(reading, self.flap)
+        if (self.fault or not self.checks or any(row['stop_reason'] for row in self.checks)
+                or seq != self.last_seq or seq != self.checks[-1]['seq']
+                or angle != self.checks[-1]['flap_degrees']):
+            raise ValueError('Stroke transition requires the latest successful checked observation')
+        self.history = [(angle, angle)]
+        self.checks[-1]['starts_new_angle_stroke'] = True
+
     def check(self, reading, command_degrees):
+        if self.fault:
+            raise ValueError('Contact progress fault remains latched: ' + self.fault)
+        try:
+            return self._check(reading, command_degrees)
+        except (ValueError, TypeError) as exc:
+            # Missing/invalid/stale frames fail before a numeric check row is
+            # recorded. They must still prevent a previous good frame from
+            # being reused to reset the stroke and continue contact motion.
+            self.fault = str(exc)
+            raise
+
+    def _check(self, reading, command_degrees):
         if not math.isfinite(command_degrees):
             raise ValueError('Finite commanded fold angle required')
         pose, angle, seq = _observation(reading, self.flap)

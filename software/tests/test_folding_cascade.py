@@ -33,6 +33,9 @@ class Scene:
     def move_arms(self, targets, seconds, label, orientation):
         self.log.append(label)
 
+    def set_grippers(self, openings, seconds, label):
+        self.log.append(label)
+
     def actual_control_position(self, side):
         return np.array([.1, -.04, .111])
 
@@ -75,3 +78,24 @@ def test_failed_withdrawal_prevents_further_contact_sweep(monkeypatch):
         press_near_over_short(scene, scene, from_open_claw=True,
                               release_right_at_degrees=-10.)
     assert not any(label.startswith('Press near major') for label in scene.log)
+
+
+def test_partial_near_hold_never_reports_major_closure(monkeypatch):
+    scene = Scene()
+    monkeypatch.setattr('carton.folding_cascade.JointPathPlanner',
+                        lambda *a, **kw: SimpleNamespace(plan=lambda q: [q]))
+    monkeypatch.setattr('carton.folding_cascade.execute_path',
+                        lambda sim, side, path, label, **kw: sim.log.append(label))
+    def no_closure_claim(*args):
+        raise AssertionError('Partial hold must not enter closed-flap verification')
+    scene.require_folded = no_closure_claim
+    result = press_near_over_short(scene, scene, majors_first=True, target_degrees=55.)
+    assert scene.angle == 55.
+    assert result['target_degrees'] == 55.
+    assert result['near_major_closure_verified'] is False
+    assert result['full_task_complete'] is False
+
+
+def test_partial_near_hold_requires_its_explicit_preparation_mode():
+    with pytest.raises(ValueError, match='major-first'):
+        press_near_over_short(None, None, target_degrees=55.)

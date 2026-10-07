@@ -70,12 +70,18 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
                '--carton-offset-x', str(job['carton_offset_x']), '--seed', str(job['seed'])]
     if job.get('open_short_angle') is not None:
         command += ['--open-shorts-first','--open-short-angle',str(job['open_short_angle']),
+                    '--near-hold-degrees',str(job.get('near_hold_degrees',90.)),
                     '--near-press-along',str(job.get('near_press_along',0.)),
                     '--near-pre-out',str(job.get('near_pre_out',.02)),'--near-pre-up',str(job.get('near_pre_up',0.))]
     else:
         command += ['--fold-right','--press-left','--open-claw-transfer']
     if job.get('far_after_near'):
-        command.append('--far-after-near')
+        command += ['--far-after-near','--far-hold-degrees',str(job.get('far_hold_degrees',90.)),
+                    '--far-contact-profile',job.get('far_contact_profile','edge'),
+                    '--far-normal-extra',str(job.get('far_normal_extra',0.)),
+                    '--far-startup-lift',str(job.get('far_startup_lift',0.)),
+                    '--far-gripper-opening',str(job.get('far_gripper_opening',-.17))]
+        if job.get('release_far_after'): command.append('--release-far-after')
     if video:
         command.append('--video')
     if job.get('privileged_near_angle'):
@@ -107,7 +113,9 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
                       physics_seconds=result.get('time'), result_path=str(result_path),
                       completed_without_error=record.get('exit_code') == 0 and not result.get('error'),
                       near_major_held=bool(result.get('near_major_transfer')),
+                      near_clearance_held=bool(result.get('near_major_clearance')),
                       far_major_held=bool(result.get('far_major_transfer')),
+                      far_clearance_held=bool(result.get('far_major_clearance')),
                       shorts_opened=bool((result.get('short_opening') or {}).get('physically_opened_and_released')),
                       partial_support_passed=bool(record.get('exit_code') == 0
                           and (result.get('open_claw_transfer') or {}).get(
@@ -119,7 +127,8 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
     record['end_utc'] = datetime.now(timezone.utc).isoformat()
     atomic_json(work / 'worker.json', record)
     print(json.dumps({key: record.get(key) for key in (
-        'id', 'partial_support_passed', 'error', 'worker_error', 'wall_seconds')}), flush=True)
+        'id', 'partial_support_passed', 'near_major_held', 'near_clearance_held', 'far_major_held',
+        'far_clearance_held', 'error', 'worker_error', 'wall_seconds')}), flush=True)
     return record
 
 
@@ -140,6 +149,13 @@ def main():
     parser.add_argument('--near-pre-out', type=float, default=.02)
     parser.add_argument('--near-pre-up', type=float, default=0.)
     parser.add_argument('--far-after-near', action='store_true')
+    parser.add_argument('--far-hold-degrees', type=float, default=90.)
+    parser.add_argument('--far-contact-profile', choices=['edge','central'], default='edge')
+    parser.add_argument('--far-normal-extra', type=float, nargs='+', default=[0.])
+    parser.add_argument('--far-startup-lift', type=float, nargs='+', default=[0.])
+    parser.add_argument('--far-gripper-openings', type=float, nargs='+', default=[-.17])
+    parser.add_argument('--release-far-after', action='store_true')
+    parser.add_argument('--near-hold-degrees', type=float, nargs='+', default=[90.])
     parser.add_argument('--privileged-near-angle', action='store_true',
                         help='Explicit mechanics-only diagnostic; cannot verify perception or hardware readiness')
     parser.add_argument('--video', action='store_true')
@@ -156,6 +172,13 @@ def main():
         jobs=[dict(job,open_short_angle=angle,near_press_along=args.near_press_along)
               for job in jobs for angle in args.open_short_angles]
         for i,job in enumerate(jobs):job['id']=f'trial-{i:03d}'
+    if any(not math.isfinite(d) or not 40<=d<=90 for d in args.near_hold_degrees):
+        parser.error('Near hold targets must be 40..90 degrees')
+    if args.near_hold_degrees != [90.] and not args.open_short_angles:
+        parser.error('Partial near holds require physically opened shorts')
+    if args.open_short_angles:
+        jobs=[dict(job, near_hold_degrees=angle) for job in jobs for angle in args.near_hold_degrees]
+        for i,job in enumerate(jobs): job['id']=f'trial-{i:03d}'
     if args.privileged_near_angle:
         if not args.near_release_angles:
             parser.error('Privileged near-angle probing requires a near-major attempt')
@@ -176,7 +199,26 @@ def main():
     if args.near_release_angles or args.open_short_angles:
         for job in jobs:
             job.update(near_pre_out=args.near_pre_out,near_pre_up=args.near_pre_up,
-                       far_after_near=args.far_after_near)
+                       far_after_near=args.far_after_near, far_hold_degrees=args.far_hold_degrees,
+                       release_far_after=args.release_far_after, far_contact_profile=args.far_contact_profile)
+    if not math.isfinite(args.far_hold_degrees) or not 20<=args.far_hold_degrees<=90:
+        parser.error('Far hold target must be20..90 degrees')
+    if args.release_far_after and (not args.far_after_near or not 20<=args.far_hold_degrees<=45):
+        parser.error('Far release requires a far-after-near target20..45 degrees')
+    if args.far_contact_profile == 'central' and args.far_hold_degrees > 45:
+        parser.error('Central contact profile is only proposed through45 degrees')
+    if any(not math.isfinite(v) or not 0<=v<=.002 for v in args.far_normal_extra):
+        parser.error('Far normal offsets must be 0..2 mm')
+    if (any(not math.isfinite(v) or not 0<=v<=.002 for v in args.far_startup_lift)
+            or (args.far_contact_profile != 'central' and any(args.far_startup_lift))):
+        parser.error('Far startup lift must be 0..2 mm and nonzero only for central contact')
+    if any(v not in (-.17,.6,1.4) for v in args.far_gripper_openings):
+        parser.error('Choose one of the statically tested far gripper openings')
+    if args.far_after_near:
+        jobs=[dict(job,far_normal_extra=extra,far_gripper_opening=opening,far_startup_lift=lift)
+              for job in jobs for extra in args.far_normal_extra for opening in args.far_gripper_openings
+              for lift in args.far_startup_lift]
+        for i,job in enumerate(jobs):job['id']=f'trial-{i:03d}'
     root = args.out.resolve()
     root.mkdir(parents=True, exist_ok=False)
     software = Path(__file__).resolve().parents[1]
@@ -207,13 +249,17 @@ def main():
                     partial_support_passes=sum(r['partial_support_passed'] for r in manifest['results']),
                     completed_trials=len(manifest['results']),
                     shorts_opened=sum(bool(r.get('shorts_opened')) for r in manifest['results']),
-                    near_major_holds=sum(bool(r.get('near_major_held')) for r in manifest['results']))
+                    near_major_holds=sum(bool(r.get('near_major_held')) for r in manifest['results']),
+                    near_clearance_holds=sum(bool(r.get('near_clearance_held')) for r in manifest['results']),
+                    far_major_holds=sum(bool(r.get('far_major_held')) for r in manifest['results']),
+                    far_clearance_holds=sum(bool(r.get('far_clearance_held')) for r in manifest['results']))
     # This is measured worker overlap, not a benchmarked sequential speedup.
     manifest['worker_overlap_factor'] = (sum(r.get('wall_seconds', 0) for r in manifest['results'])
                                          / manifest['wall_seconds'])
     atomic_json(root / 'sweep.json', manifest)
     print(json.dumps({key: manifest[key] for key in (
-        'completed_trials', 'partial_support_passes', 'wall_seconds', 'worker_overlap_factor')}), flush=True)
+        'completed_trials', 'partial_support_passes', 'near_major_holds', 'near_clearance_holds',
+        'far_major_holds', 'far_clearance_holds', 'wall_seconds', 'worker_overlap_factor')}), flush=True)
 
 
 if __name__ == '__main__':

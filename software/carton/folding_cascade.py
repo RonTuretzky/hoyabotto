@@ -18,7 +18,8 @@ def press_near_over_short(sim, controller, *, capture=False, from_minor=False,
                           along=-.13, radius=.105, tilt=-.65,
                           pre_out=.055, pre_up=.040, release_right=False,
                           right_park_joints=None, from_open_claw=False,
-                          release_right_at_degrees=None, majors_first=False):
+                          release_right_at_degrees=None, majors_first=False,
+                          target_degrees=90.):
     if (not all(math.isfinite(v) for v in (along, radius, tilt, pre_out, pre_up))
             or not -.18 <= along <= .18 or not .02 <= radius <= .14
             or not -3 <= tilt <= 3 or not 0 <= pre_out <= .10
@@ -32,6 +33,9 @@ def press_near_over_short(sim, controller, *, capture=False, from_minor=False,
         raise ValueError('A visual withdrawal angle from -10 to 60 degrees requires an open-claw hold')
     if majors_first and (from_minor or from_open_claw or release_right or release_right_at_degrees is not None):
         raise ValueError('Major-first mode starts from parked hands without a short-flap hold')
+    if (not math.isfinite(target_degrees) or not 40 <= target_degrees <= 90
+            or (target_degrees != 90 and not majors_first)):
+        raise ValueError('Partial near hold requires major-first mode and target 40..90 degrees')
     c = controller
     port = c.port
     c.sense('Register carton before transferring support to near major')
@@ -133,7 +137,8 @@ def press_near_over_short(sim, controller, *, capture=False, from_minor=False,
     start = math.radians(observed['angles']['long_near']['degrees'])
     if not -math.pi / 2 < start < math.pi / 2:
         raise ValueError('Near flap outside the proposed press sweep')
-    for theta in np.linspace(start, math.pi / 2, 51):
+    guard.begin_stroke(observed)
+    for theta in np.linspace(start, math.radians(target_degrees), 51):
         point, orientation = contact_point(theta, 1, -1, along, radius, tilt, .010)
         c.move({'left': point}, .3,
                (f'Press near major first {math.degrees(theta):.1f}' if majors_first else
@@ -151,11 +156,17 @@ def press_near_over_short(sim, controller, *, capture=False, from_minor=False,
     port.move_arms({}, 2., 'Hold near major' if majors_first else 'Hold near major and right short', None)
     reading = c.sense('Verify near major remains held' if majors_first else
                       'Verify near major and right short remain held')
-    c.require_folded(reading, ['long_near'] if majors_first else
-                     (['long_near', 'short_left', 'short_right'] if right_released
-                      else ['long_near', 'short_right']))
+    if target_degrees == 90:
+        c.require_folded(reading, ['long_near'] if majors_first else
+                         (['long_near', 'short_left', 'short_right'] if right_released
+                          else ['long_near', 'short_right']))
+    else:
+        observed = reading['angles'].get('long_near')
+        if observed is None or abs(observed['degrees']-target_degrees) > 5:
+            raise ValueError('Near clearance angle was not held within five degrees')
     return {'angles': sim.truth_angles(), 'motion': dict(sim.motion_stats),
             'visual_angles': reading['angles'], 'checks': checks,
             'contact_progress_checks': guard.checks,
             'right_released_after_visual_handoff': right_released and from_open_claw,
-            'held_only': True, 'full_task_complete': False}
+            'held_only': True, 'target_degrees': target_degrees,
+            'near_major_closure_verified': target_degrees == 90, 'full_task_complete': False}

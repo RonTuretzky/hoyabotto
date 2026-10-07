@@ -52,3 +52,44 @@ def test_stale_pose_cannot_authorize_more_contact_motion():
 def test_missing_or_invalid_observation_is_rejected(bad):
     with pytest.raises(ValueError):
         ContactProgressGuard('long_near', bad)
+
+
+def test_new_stroke_rebases_angle_progress_but_keeps_original_drift_bound():
+    guard = ContactProgressGuard('long_near', reading(1, -15))
+    contact = reading(2, 5, .010)
+    guard.check(contact, -15)
+    guard.begin_stroke(contact)
+    assert guard.check(reading(3, 5, .010), 5)['stop_reason'] is None
+    with pytest.raises(ValueError, match='moved'):
+        guard.check(reading(4, 20, .016), 20)
+    with pytest.raises(ValueError, match='successful'):
+        guard.begin_stroke(reading(4, 20, .016))
+
+
+def test_rebased_stroke_still_rejects_no_progress():
+    guard = ContactProgressGuard('long_near', reading(1, -15))
+    contact = reading(2, 5)
+    guard.check(contact, -15)
+    guard.begin_stroke(contact)
+    with pytest.raises(ValueError, match='stalled'):
+        guard.check(reading(3, 5.1), 17)
+
+
+def test_stroke_transition_cannot_use_unchecked_angle():
+    guard = ContactProgressGuard('long_near', reading(1, -15))
+    guard.check(reading(2, 5), -15)
+    with pytest.raises(ValueError, match='checked'):
+        guard.begin_stroke(reading(2, 30))
+
+
+@pytest.mark.parametrize('bad', [None, {}, reading(2, 5), reading(3, np.nan)])
+def test_missing_invalid_or_stale_check_cannot_be_cleared_by_prior_good_frame(bad):
+    guard = ContactProgressGuard('long_near', reading(1, 0))
+    last_good = reading(2, 5)
+    guard.check(last_good, 5)
+    with pytest.raises(ValueError):
+        guard.check(bad, 6)
+    with pytest.raises(ValueError, match='successful'):
+        guard.begin_stroke(last_good)
+    with pytest.raises(ValueError, match='latched'):
+        guard.check(reading(4, 10), 10)
