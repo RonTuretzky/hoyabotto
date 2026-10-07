@@ -11,6 +11,7 @@ import mujoco
 
 from carton.folding_sim import FoldingSimulation,FLAPS,TAG_IDS,W,H
 from carton.folding_vision import RGBDTagObserver,depth_flap_angles
+from carton.folding_hinge_vision import depth_major_flap_angles
 from carton.folding_controller import FoldingController
 from carton.folding_diagonal import DiagonalFoldingController
 from carton.folding_station import FoldingStation
@@ -66,6 +67,12 @@ class PixelPort:
                 if error>.012:raise ValueError('Gripper tag disagrees with calibrated encoder FK by over 12 mm')
         self.box,box_registration=carton_pose_from_tags(tags,self.observer.history[-1]['quality'])
         angles=depth_flap_angles(rgb,depth,k,self.observer.world_from_camera,self.box,self.angle_priors)
+        # Omission is meaningful: never fall back to a legacy major estimate
+        # when the hinge-consistent observer cannot identify a visible panel.
+        for name in ('long_near', 'long_far'):
+            angles.pop(name, None)
+        angles.update(depth_major_flap_angles(rgb,depth,k,
+            self.observer.world_from_camera,self.box,self.angle_priors))
         outward={'short_left':np.array([-1,0,0]),'short_right':np.array([1,0,0]),'long_far':np.array([0,1,0]),'long_near':np.array([0,-1,0])}
         for flap,tid in TAG_IDS.items():
             if tid in tags:
