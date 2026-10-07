@@ -56,7 +56,7 @@ def main():
             draw = ImageDraw.Draw(frame)
             draw.text((14, 10), 'BARE CLAWS | OFFLINE PHYSICS | COMPLETE RECORDED ATTEMPT',
                       font=title_font, fill='#111')
-            draw.text((14, 43), 'PARTIAL: both long flaps and hands-off closure are unfinished.',
+            draw.text((14, 43), 'PARTIAL: full four-flap closure and hands-off retention remain unverified.',
                       font=body_font, fill='#111')
             renderer.update_scene(data, camera=whole, scene_option=option)
             frame.paste(Image.fromarray(renderer.render().copy()), (0, 76))
@@ -72,8 +72,10 @@ def main():
             ended = t >= times[-1] - 1e-6
             verified_support = bool((result.get('open_claw_transfer') or {}).get(
                 'both_shorts_retained_by_right_claw'))
-            conclusion = ('Both shorts supported by one claw; other hand withdrawn.' if verified_support
-                          else 'Partial sequence finished; full closure incomplete.')
+            conclusion = ('Near long flap folded and held; three other flaps remain open.'
+                          if result.get('near_major_transfer') and result.get('short_opening')
+                          else ('Both shorts supported by one claw; other hand withdrawn.' if verified_support
+                          else 'Partial sequence finished; full closure incomplete.'))
             message = (result.get('error') or conclusion) if ended else state['label']
             draw.text((500, 405), 'STOPPED / PARTIAL' if ended else 'CURRENT ACTION', font=body_font, fill='#111')
             for i, line in enumerate(textwrap.wrap(message, width=46)):

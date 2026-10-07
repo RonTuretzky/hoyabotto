@@ -44,3 +44,28 @@ sys.exit(2 if a.seed==1 else 0)
         saved=json.loads((root/f'seed-{i}'/'worker.json').read_text())
         assert saved['seed']==i and saved['hardware_commands'] is False
     assert not (root/'MUJOCO_LOG.TXT').exists()
+
+
+def test_major_first_worker_does_not_execute_short_hold_prefix(tmp_path):
+    software = tmp_path/'software'
+    (software/'tools').mkdir(parents=True)
+    (software/'tools/diagnose_short_flap_brace.py').write_text('''import argparse,json,sys
+from pathlib import Path
+p=argparse.ArgumentParser();p.add_argument('--out',type=Path)
+a,_=p.parse_known_args()
+assert '--open-shorts-first' in sys.argv
+assert not {'--fold-right','--press-left','--open-claw-transfer'} & set(sys.argv)
+a.out.mkdir()
+(a.out/'result.json').write_text(json.dumps({
+ 'short_opening':{'physically_opened_and_released':True},
+ 'near_major_transfer':{'held_only':True,'full_task_complete':False}}))
+''')
+    snapshot = tmp_path/'source-snapshot'
+    snapshot_sources(software,snapshot)
+    root = tmp_path/'runs';root.mkdir()
+    record = run_trial(dict(id='major',seed=0,carton_offset_x=0.,prepare_near_degrees=-15.,
+        support_height=.111,open_short_angle=-15.,near_pre_out=.03),
+        root=root,snapshot=snapshot,simulation_root=tmp_path,python=Path(sys.executable),video=False,timeout=10.)
+    assert record['exit_code'] == 0
+    assert record['shorts_opened'] and record['near_major_held']
+    assert not record['partial_support_passed'] and not record['full_task_complete']

@@ -61,19 +61,29 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
     out = work / 'run'
     command = [str(python), '-B', str(snapshot / 'tools/diagnose_short_flap_brace.py'),
                '--simulation-root', str(simulation_root), '--out', str(out),
-               '--tool', 'claws', '--fold-right', '--press-left', '--radius', '.115',
+               '--tool', 'claws', '--radius', '.115',
                '--carton-yaw-degrees', '0', '--park-back', '--normal-only',
                '--floor-marker-x', '.08', '--center-floor-marker',
-               '--width', '1280', '--height', '720', '--open-claw-transfer',
+               '--width', '1280', '--height', '720',
                '--prepare-near-degrees', str(job['prepare_near_degrees']),
                '--support-height', str(job['support_height']),
                '--carton-offset-x', str(job['carton_offset_x']), '--seed', str(job['seed'])]
+    if job.get('open_short_angle') is not None:
+        command += ['--open-shorts-first','--open-short-angle',str(job['open_short_angle']),
+                    '--near-press-along',str(job.get('near_press_along',0.)),
+                    '--near-pre-out',str(job.get('near_pre_out',.02)),'--near-pre-up',str(job.get('near_pre_up',0.))]
+    else:
+        command += ['--fold-right','--press-left','--open-claw-transfer']
+    if job.get('far_after_near'):
+        command.append('--far-after-near')
     if video:
         command.append('--video')
+    if job.get('privileged_near_angle'):
+        command.append('--privileged-near-angle')
     if job.get('near_release_angle') is not None:
         command += ['--near-after-open-claw', '--near-release-angle',str(job['near_release_angle']),
                     '--near-press-along',str(job.get('near_press_along',0.)),
-                    '--near-pre-out','.02','--near-pre-up','0']
+                    '--near-pre-out',str(job.get('near_pre_out',.02)),'--near-pre-up',str(job.get('near_pre_up',0.))]
     env = dict(os.environ, PYTHONPATH=str(snapshot), PYTHONDONTWRITEBYTECODE='1',
                OMP_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1', MKL_NUM_THREADS='1',
                VECLIB_MAXIMUM_THREADS='1', NUMEXPR_NUM_THREADS='1', PYTHONUNBUFFERED='1')
@@ -97,6 +107,8 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
                       physics_seconds=result.get('time'), result_path=str(result_path),
                       completed_without_error=record.get('exit_code') == 0 and not result.get('error'),
                       near_major_held=bool(result.get('near_major_transfer')),
+                      far_major_held=bool(result.get('far_major_transfer')),
+                      shorts_opened=bool((result.get('short_opening') or {}).get('physically_opened_and_released')),
                       partial_support_passed=bool(record.get('exit_code') == 0
                           and (result.get('open_claw_transfer') or {}).get(
                               'both_shorts_retained_by_right_claw')))
@@ -122,13 +134,32 @@ def main():
     parser.add_argument('--support-heights', type=float, nargs='+', default=[.1094])
     parser.add_argument('--near-release-angles', type=float, nargs='+',
                         help='Attempt a major fold after the verified short-flap handoff')
+    parser.add_argument('--open-short-angles', type=float, nargs='+',
+                        help='Try physically opening shorts before a major-first fold')
     parser.add_argument('--near-press-along', type=float, default=0.)
+    parser.add_argument('--near-pre-out', type=float, default=.02)
+    parser.add_argument('--near-pre-up', type=float, default=0.)
+    parser.add_argument('--far-after-near', action='store_true')
+    parser.add_argument('--privileged-near-angle', action='store_true',
+                        help='Explicit mechanics-only diagnostic; cannot verify perception or hardware readiness')
     parser.add_argument('--video', action='store_true')
     parser.add_argument('--timeout', type=float, default=1200.)
     args = parser.parse_args()
     if not 1 <= args.workers <= 4 or not math.isfinite(args.timeout) or args.timeout <= 0:
         parser.error('Use 1..4 workers and a positive finite timeout')
     jobs = make_jobs(args.seeds, args.offsets, args.near_targets, args.support_heights)
+    if args.open_short_angles and (args.near_release_angles or args.privileged_near_angle):
+        parser.error('Major-first opening cannot be combined with the short-hold release profile')
+    if args.open_short_angles:
+        if any(not math.isfinite(d) or not -35<=d<=-10 for d in args.open_short_angles):
+            parser.error('Short opening must be between -35 and -10 degrees')
+        jobs=[dict(job,open_short_angle=angle,near_press_along=args.near_press_along)
+              for job in jobs for angle in args.open_short_angles]
+        for i,job in enumerate(jobs):job['id']=f'trial-{i:03d}'
+    if args.privileged_near_angle:
+        if not args.near_release_angles:
+            parser.error('Privileged near-angle probing requires a near-major attempt')
+        for job in jobs:job['privileged_near_angle']=True
     if args.near_release_angles:
         if any(not math.isfinite(d) or not -10<=d<=60 for d in args.near_release_angles):
             parser.error('Near release angle must be between -10 and 60 degrees')
@@ -137,12 +168,22 @@ def main():
         jobs=[dict(job,near_release_angle=angle,near_press_along=args.near_press_along)
               for job in jobs for angle in args.near_release_angles]
         for i,job in enumerate(jobs):job['id']=f'trial-{i:03d}'
+    if (not math.isfinite(args.near_press_along) or abs(args.near_press_along)>.18
+            or any(not math.isfinite(v) or not 0<=v<=.1 for v in (args.near_pre_out,args.near_pre_up))):
+        parser.error('Invalid major-flap contact approach geometry')
+    if args.far_after_near and not args.open_short_angles:
+        parser.error('Far-after-near currently requires the physically opened short-flap profile')
+    if args.near_release_angles or args.open_short_angles:
+        for job in jobs:
+            job.update(near_pre_out=args.near_pre_out,near_pre_up=args.near_pre_up,
+                       far_after_near=args.far_after_near)
     root = args.out.resolve()
     root.mkdir(parents=True, exist_ok=False)
     software = Path(__file__).resolve().parents[1]
     snapshot = root / 'source-snapshot'
     hashes = snapshot_sources(software, snapshot)
     manifest = dict(simulation_only=True, neural_network_training=False, hardware_commands=False,
+                    privileged_mechanics_probe=args.privileged_near_angle,
                     workers=args.workers, jobs=jobs, source_sha256=hashes,
                     source_root=str(software), python=sys.executable,
                     simulation_root=str(args.simulation_root.resolve()),
@@ -164,7 +205,9 @@ def main():
             atomic_json(root / 'sweep.json', manifest)
     manifest.update(wall_seconds=time.monotonic() - started,
                     partial_support_passes=sum(r['partial_support_passed'] for r in manifest['results']),
-                    completed_trials=len(manifest['results']))
+                    completed_trials=len(manifest['results']),
+                    shorts_opened=sum(bool(r.get('shorts_opened')) for r in manifest['results']),
+                    near_major_holds=sum(bool(r.get('near_major_held')) for r in manifest['results']))
     # This is measured worker overlap, not a benchmarked sequential speedup.
     manifest['worker_overlap_factor'] = (sum(r.get('wall_seconds', 0) for r in manifest['results'])
                                          / manifest['wall_seconds'])

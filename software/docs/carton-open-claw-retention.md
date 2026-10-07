@@ -9,6 +9,11 @@ folding cycle, a trained neural policy, or a hardware result.
 
 ![One claw retains both short flaps; long flaps remain open](assets/carton-open-claw-retention.png)
 
+> Later experiments fix the major-flap observer and physically open the shorts
+> outward before achieving a partial near-major hold. See the
+> [near-major follow-up](carton-near-transfer.md). This page preserves the
+> earlier short-first experiment and its failures.
+
 ## Physical changes to the sequence
 
 The left claw initially pinches the left short flap to brace the free carton.

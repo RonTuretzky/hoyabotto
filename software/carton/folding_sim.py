@@ -399,6 +399,10 @@ class FoldingSimulation:
 
     def capture(self,label):
         self.frame_states.append({'time':float(self.data.time),'label':label,'qpos':self.data.qpos.tolist()})
+        # Search workers can retain a complete replay without rendering and
+        # compressing hundreds of duplicate presentation frames.
+        if not getattr(self, 'capture_images', True):
+            return
         im=Image.fromarray(self.render());draw=ImageDraw.Draw(im)
         draw.rectangle((0,0,self.width,44),fill='white');draw.text((10,6),'SIMULATION | ASSUMED STATION | NO PHYSICAL REGISTRATION',fill='black');draw.text((10,25),label,fill='black')
         draw.rectangle((8,49,82,66),fill='white');draw.text((12,51),'LEFT ARM',fill='black')

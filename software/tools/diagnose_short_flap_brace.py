@@ -55,6 +55,9 @@ def run(args):
         from carton.folding_markers import BOX_MARKERS
         BOX_MARKERS[25]=('box_tag_floor_center',[0,0,.0038],[1,0,0,0,1,0])
     from tools.simulate_bimanual_folding import PixelPort
+    if getattr(args, 'privileged_near_angle', False):
+        from carton.folding_mechanics_probe import PrivilegedNearAngleProbe
+        PixelPort = PrivilegedNearAngleProbe
     cls = PinchPaddleSimulation if args.tool == 'paddle' else PinchSimulation
     options = {'paddle': PaddleSpec(grasp_x_m=.12276625897181499,
                 grasp_yaw_degrees=22.54998861948059)} if args.tool == 'paddle' else {}
@@ -70,10 +73,14 @@ def run(args):
         initial_flaps={'short_left':.1,'short_right':.1,'long_far':-.1,
                        'long_near':math.radians(args.near_open_degrees)},
         solver=FoldingSolver.friction(), **options)
-    port = PixelPort(sim, record=args.video, camera='station', seed=args.seed)
+    sim.capture_images = args.video
+    # Always preserve full timestamped states; --video additionally renders images.
+    port = PixelPort(sim, record=True, camera='station', seed=args.seed)
     initial_right_joints=sim.data.qpos[sim.arm_indices['right'][:5]].copy()
     controller = DiagonalFoldingController(port, rear_cart=True)
     result = {'simulation_only': True, 'full_task_complete': False, 'success': False,
+              'privileged_mechanics_probe':getattr(args, 'privileged_near_angle', False),
+              'end_to_end_perception_validated':False,
               'hardware_commands': False, 'configuration': vars(args), 'grasp_checks': [],
               'near_flap_initialization_is_preparation':True,'near_opening_action_executed':False,
               'proposed_tool_tag_x_m': .180 if args.tool == 'paddle' else None,
@@ -113,7 +120,7 @@ def run(args):
         planner = JointPathPlanner(sim, 'left', clearance=.006,
                                    allowed_flaps=('short_left_cardboard',))
         path = planner.plan(q)
-        execute_path(sim, 'left', path, 'Approach over left minor', capture=args.video)
+        execute_path(sim, 'left', path, 'Approach over left minor', capture=True)
         for u in np.linspace(.05, 1, 20):
             controller.move({'left': (1-u)*pre+u*point}, .15,
                             'Insert left claw around minor', orientation)
@@ -125,8 +132,24 @@ def run(args):
             from carton.folding_retention import open_near_for_transfer
             result['stage'] = 'Physically open near flap before minor folds'
             result['near_preparation'] = open_near_for_transfer(sim, controller,
-                args.prepare_near_degrees, capture=args.video)
+                args.prepare_near_degrees, capture=True)
             result['near_opening_action_executed'] = True
+        if getattr(args, 'open_shorts_first', False):
+            if args.tool != 'claws' or args.prepare_near_degrees is None or args.fold_right:
+                raise ValueError('Major-first opening requires bare claws, prepared near flap and no short-fold prefix')
+            from carton.folding_short_opening import open_shorts_before_majors
+            from carton.folding_cascade import press_near_over_short
+            result['stage'] = 'Physically open short flaps before folding near major'
+            result['short_opening'] = open_shorts_before_majors(sim, controller,
+                capture=True, target_degrees=args.open_short_angle)
+            result['stage'] = 'Fold near major with shorts physically opened outward'
+            result['near_major_transfer'] = press_near_over_short(sim, controller,
+                capture=True, majors_first=True, along=args.near_press_along,
+                pre_out=args.near_pre_out, pre_up=args.near_pre_up)
+            if getattr(args, 'far_after_near', False):
+                from carton.folding_far_contact import fold_far_from_edge
+                result['stage'] = 'Fold far major while left claw retains near major'
+                result['far_major_transfer'] = fold_far_from_edge(sim, controller, capture=True)
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -143,7 +166,7 @@ def run(args):
                         except ValueError as exc:
                             result['tool_view_attempts'].append({'roll_delta':delta,'planning_error':str(exc)})
                             continue
-                        execute_path(sim,'right',path,'Turn paddle to observe its markers',capture=args.video)
+                        execute_path(sim,'right',path,'Turn paddle to observe its markers',capture=True)
                         grasp()
                         reading=controller.sense('Observe paddle after wrist turn')
                         visible=reading.get('paddle') is not None
@@ -151,7 +174,7 @@ def run(args):
                         if visible:break
                     else:raise ValueError('No fresh paddle marker after collision-checked wrist views')
                 result['right_partial'] = fold_right_partial(sim, controller,
-                    capture=args.video, brace_flap='short_left',
+                    capture=True, brace_flap='short_left',
                     contact_x=.208 if args.paddle_contact=='tip' else .060,
                     axis_yaw_degrees=args.paddle_axis_yaw,axis_mode=args.paddle_axis_mode,
                     normal_offset=args.normal_offset,along_travel=args.paddle_along_travel,
@@ -172,7 +195,7 @@ def run(args):
                             raise ValueError(f'Right-minor pregrasp IK misses {error*1000:.2f} mm')
                         path = JointPathPlanner(sim, 'right', clearance=.006,
                             allowed_flaps=('short_right_cardboard',)).plan(q)
-                        execute_path(sim, 'right', path, 'Approach right minor', capture=args.video)
+                        execute_path(sim, 'right', path, 'Approach right minor', capture=True)
                         grasp()
                         for u in np.linspace(.1, 1, 10):
                             controller.move({'right': (1-u)*outside+u*p}, .15, 'Contact right minor', ori)
@@ -185,19 +208,19 @@ def run(args):
             if args.press_left:
                 from carton.folding_transfers import fold_second_short
                 result['stage']='Release minor pinch and press left short'
-                result['both_shorts_held']=fold_second_short(sim,controller,capture=args.video,
+                result['both_shorts_held']=fold_second_short(sim,controller,capture=True,
                     retreat_box=(-.04,0,.04),brace_label='left minor',
                     right_min_degrees=args.right_hold_min_degrees)
                 if args.open_claw_transfer:
                     from carton.folding_retention import transfer_to_open_claw
                     result['stage'] = 'Transfer both short-flap holds to one open right claw'
                     result['open_claw_transfer'] = transfer_to_open_claw(sim, controller,
-                        capture=args.video, support_height=args.support_height)
+                        capture=True, support_height=args.support_height)
                     if args.near_after_open_claw:
                         from carton.folding_cascade import press_near_over_short
                         result['stage'] = 'Transfer open-claw support to near major'
                         result['near_major_transfer'] = press_near_over_short(sim, controller,
-                            capture=args.video, from_open_claw=True,
+                            capture=True, from_open_claw=True,
                             along=args.near_press_along, pre_out=args.near_pre_out,
                             pre_up=args.near_pre_up, release_right_at_degrees=args.near_release_angle)
                 if args.release_left_minor:
@@ -208,7 +231,7 @@ def run(args):
                     from carton.folding_cascade import press_near_over_short
                     result['stage']='Transfer left short hold to near major'
                     result['near_major_transfer']=press_near_over_short(sim,controller,
-                        capture=args.video,from_minor=True,along=args.near_press_along,
+                        capture=True,from_minor=True,along=args.near_press_along,
                         pre_out=args.near_pre_out,pre_up=args.near_pre_up,
                         release_right=args.release_right_before_near,
                         right_park_joints=initial_right_joints if args.tool=='paddle' else None)
@@ -241,6 +264,8 @@ def run(args):
                   readings=port.readings, physics=sim.save('folding'), material=sim.material.report(),
                   contact_progress_checks=getattr(controller, 'contact_progress_checks', []),
                   open_claw_transfer=getattr(controller, 'open_claw_transfer', None),
+                  short_opening=getattr(controller, 'short_opening', None),
+                  far_edge_attempt=getattr(controller, 'far_edge_attempt', None),
                   source_sha256={p: hashlib.sha256(b).hexdigest() for p, b in snapshots.items()})
     result['controller'] = {'error': result.get('error', 'Partial sequence; full closure untested')}
     (out/'result.json').write_text(json.dumps(result, indent=2, allow_nan=False))
@@ -256,6 +281,9 @@ if __name__ == '__main__':
     parser.add_argument('--video', action='store_true')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--fold-right', action='store_true')
+    parser.add_argument('--open-shorts-first', action='store_true')
+    parser.add_argument('--far-after-near', action='store_true')
+    parser.add_argument('--open-short-angle', type=float, default=-15.)
     parser.add_argument('--along', type=float, default=-.10)
     parser.add_argument('--radius', type=float, default=.125)
     parser.add_argument('--clearance', type=float, default=-.002)
@@ -274,6 +302,8 @@ if __name__ == '__main__':
     parser.add_argument('--support-height', type=float, default=.1094)
     parser.add_argument('--near-after-open-claw', action='store_true')
     parser.add_argument('--near-release-angle', type=float, default=15.)
+    parser.add_argument('--privileged-near-angle', action='store_true',
+                        help='Mechanics diagnostic only: replace near angle with simulator truth after the short-flap prefix')
     parser.add_argument('--right-pre-out', type=float, default=.045)
     parser.add_argument('--right-pre-up', type=float, default=0.)
     parser.add_argument('--normal-offset', action='store_true')
