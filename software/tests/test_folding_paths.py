@@ -141,9 +141,10 @@ def test_initialization_rejects_contact_that_is_permitted_later():
     FoldingSimulation.validate_initial_robot_clearance(sim)
 
 
-def test_dynamic_contact_stops_at_first_excessive_flap_penetration():
+def test_dynamic_contact_stops_at_first_excessive_flap_penetration(tmp_path):
     from carton.folding_sim import FoldingSimulation,FLAPS
     sim=_contact_probe(.003)
+    sim.applied_contact_path=tmp_path/'applied-contact-steps.jsonl.gz'
     sim.events=[];sim.stats={'max_bad_penetration_mm':0.}
     sim.truth_angles=lambda:dict.fromkeys(FLAPS,0.)
     sim.measure_carton_motion=lambda:{}

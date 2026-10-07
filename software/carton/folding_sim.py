@@ -5,6 +5,8 @@ exposed to the independent evaluator, never to the visual controller.
 """
 from __future__ import annotations
 import copy
+import gzip
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -22,6 +24,7 @@ from carton.folding_material import CartonMaterial
 from carton.folding_solver import FoldingSolver,solver_report
 from carton.folding_markers import BOX_MARKERS,BOX_TAG_SIZE
 from carton.folding_cart import cart_boxes,table_overlap,report as cart_report
+from carton.folding_contact_audit import sample_applied_contacts, score_applied_contacts
 
 JOINTS = ('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper')
 FLAPS = ('short_left','short_right','long_far','long_near')
@@ -194,6 +197,9 @@ class FoldingSimulation:
         self.material=kwargs.get('material') or CartonMaterial(hinge_stiffness=kwargs.get('stiffness',.018))
         self.out=Path(out);self.model=build_scene(Path(source),self.out,**kwargs)
         self.data=mujoco.MjData(self.model);self.kin=mujoco.MjData(self.model)
+        self.applied_contact_path = self.out / 'applied-contact-steps.jsonl.gz'
+        if self.applied_contact_path.exists():
+            raise ValueError('Preserve applied contact evidence; use a new simulation directory')
         self.arm_indices={s:[self.model.jnt_qposadr[self.model.joint(s+'_'+n).id] for n in JOINTS] for s in ('left','right')}
         self.control_sites={s:s+'_tip' for s in self.arm_indices}
         self.seeds={s:np.radians([0,50,-30,-20,0]) for s in self.arm_indices}
@@ -316,9 +322,16 @@ class FoldingSimulation:
         start=self.data.ctrl.copy();n=max(1,round(seconds/self.model.opt.timestep))
         contact_names=set();bad_pairs=set();bad=0.;flap_penetration=0.
         extrema={f:[float('inf'),float('-inf')] for f in FLAPS}
+        audit_start = float(self.data.time)
+        contact_samples = []
         for i in range(n):
             t=min(1,(i+1)/(n*.8));self.data.ctrl[:]=start+(ctrl-start)*(t*t*(3-2*t))
+            step_started = float(self.data.time)
             mujoco.mj_step(self.model,self.data)
+            # Read the actual applied solve before any geometry refresh/render.
+            contact_row = sample_applied_contacts(self.model, self.data,
+                step_started_at=step_started, forbidden_contact=self.forbidden_contact)
+            contact_samples.append(contact_row)
             motion=self.measure_carton_motion()
             for c in self.data.contact:
                 a,b=self.model.geom(c.geom1).name,self.model.geom(c.geom2).name
@@ -333,8 +346,9 @@ class FoldingSimulation:
                     if c.dist<-.001:bad_pairs.add((a,b))
             for flap,value in self.truth_angles().items():
                 extrema[flap][0]=min(extrema[flap][0],value);extrema[flap][1]=max(extrema[flap][1],value)
-            step_error=('Robot/flap penetration exceeded 1 mm' if flap_penetration>1.
-                        else self.step_diagnostic())
+            step_error=(contact_row['refusal_reason'] or
+                        ('Robot/flap penetration exceeded 1 mm' if flap_penetration>1.
+                        else self.step_diagnostic()))
             if capture and i%100==0:self.capture(label)
             if bad>1. or step_error:
                 # End this offline motion at the first forbidden contact,
@@ -344,6 +358,14 @@ class FoldingSimulation:
         self.stats['max_bad_penetration_mm']=max(self.stats['max_bad_penetration_mm'],bad)
         self.stats['max_robot_flap_penetration_mm']=max(self.stats.get('max_robot_flap_penetration_mm',0.),flap_penetration)
         event={'label':label,'duration_s':(i+1)*self.model.opt.timestep,'requested_duration_s':seconds,'stopped_early':i<n-1,'flap_angle_extrema_degrees':extrema,'time':float(self.data.time),'ik_error_m':errors,'flap_degrees':self.truth_angles(),'contact_pairs':sorted(contact_names),'bad_penetration_mm':bad,'max_target_tracking_error_m':max([0.]+[float(np.linalg.norm(self.actual_control_position(a)-np.asarray(p))) for a,p in targets.items()]),'tip_m':{s:self.actual_control_position(s).tolist() for s in self.arm_indices},'step_error':step_error}
+        event['contact_audit'] = score_applied_contacts(contact_samples,
+            expected_start_time=audit_start, expected_end_time=float(self.data.time),
+            forbidden_contact=self.forbidden_contact)
+        # Buffered compressed records keep search memory/report size bounded.
+        # Every executed step remains independently rescorable, including zero loads.
+        with gzip.open(self.applied_contact_path, 'at', encoding='utf-8', compresslevel=1) as stream:
+            for sample in contact_samples:
+                stream.write(json.dumps(sample, separators=(',', ':'), allow_nan=False)+'\n')
         self.events.append(event)
         event['max_robot_flap_penetration_mm']=flap_penetration
         event['forbidden_contact_pairs']=sorted(bad_pairs)
@@ -411,6 +433,14 @@ class FoldingSimulation:
 
     def save(self,name='trial'):
         report={'simulation_only':True,'hardware_commands':0,'actuated_carton_joints':0,'engine':mujoco.__version__,'solver':solver_report(self.model),'initial_flaps_degrees':self.initial_flaps_degrees,'events':self.events,'stats':self.stats,'carton_motion':self.motion_stats,'material':self.material.report(),'final_angles':self.truth_angles()}
+        report['final_time_s'] = float(self.data.time)
+        if self.applied_contact_path.exists():
+            report['applied_contact_evidence'] = {
+                'path': self.applied_contact_path.name,
+                'sha256': hashlib.sha256(self.applied_contact_path.read_bytes()).hexdigest(),
+                'format': 'gzip_jsonl', 'expected_start_time': 0.,
+                'expected_end_time': float(self.data.time),
+                'note': 'Applied solver contacts, not forces reconstructed from qpos replay.'}
         (self.out/(name+'.json')).write_text(json.dumps(report,indent=2))
         (self.out/(name+'-frames.json')).write_text(json.dumps(self.frame_states))
         if self.frames:

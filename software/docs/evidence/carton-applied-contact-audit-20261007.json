@@ -1,0 +1,45 @@
+{
+  "scope": "three near-held partial trials, applied-contact evidence only",
+  "hardware_commands": false,
+  "full_task_complete": false,
+  "wall_seconds": 28.42305241699796,
+  "worker_overlap_factor": 2.9040611647546375,
+  "trials": [
+    {
+      "run": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/near-contact-audit-01/trial-000/run",
+      "score_sha256": "2a62a0fc66bed9be9be1cbe6122e2bf62b2c10f5691a3d657e8c128bd8f43bcb",
+      "folding_report_sha256": "ce70a10f25efa941644a61c7f272cc1e39fe8c7b2dab8e3e86607be1e27a4847",
+      "contact_log_sha256": "facf7fc5b833d0b3df295f34e79f28dcd6fe785b57d5735d48ae6bb0a53899ca",
+      "status": "CONTACT_ONLY_CLEAR",
+      "steps": 35531,
+      "time_s": 71.06200000001579,
+      "near_angle_degrees": 91.85939559193925,
+      "max_horizontal_carton_motion_mm": 0.020211972054913895,
+      "full_task_complete": false
+    },
+    {
+      "run": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/near-contact-audit-01/trial-001/run",
+      "score_sha256": "2cb06e184291eeca2a6e340a2bda1d58a33b7995eb6dbd373c8d79e081643acc",
+      "folding_report_sha256": "23098dd04649ef5ec474935ad9307c3888603d09838712b271bd2649d4c6eaae",
+      "contact_log_sha256": "e058a19c691e45877a666e7a5bdd5b31e479614756d82761104f3d6d4170b02f",
+      "status": "CONTACT_ONLY_CLEAR",
+      "steps": 34009,
+      "time_s": 68.01800000002288,
+      "near_angle_degrees": 91.21859964023778,
+      "max_horizontal_carton_motion_mm": 0.018087249577230863,
+      "full_task_complete": false
+    },
+    {
+      "run": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/near-contact-audit-01/trial-002/run",
+      "score_sha256": "3ad8e217c801ffcccf072e4a39b9018363d4a497b10d637e721cba248ab383fc",
+      "folding_report_sha256": "3990522d069c1ea3745fa65eea0dece845a97917125f3d6e69af24532d502533",
+      "contact_log_sha256": "fc8c2a18d29e8ed17e6f5fbbcd11dacd4e757a9c2db7dfc8456dfd43df850e46",
+      "status": "CONTACT_ONLY_CLEAR",
+      "steps": 36938,
+      "time_s": 73.87600000000923,
+      "near_angle_degrees": 90.66725071306982,
+      "max_horizontal_carton_motion_mm": 0.017552823468916283,
+      "full_task_complete": false
+    }
+  ]
+}
