@@ -24,7 +24,7 @@ INSTALL=['remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py',
 TESTS=['test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
 OWNER_ARGS=['--right-arm-only','--paddle-profile','--wheels'];API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
-CAPTURE_SOURCE=BRIDGE.parents[1]/'session-archive-2026-10-05/capture-single.swift'
+CAPTURE_SOURCE=BRIDGE.parents[2]/'session-archive-2026-10-05/capture-single.swift'  # software/docs/session-archive-…
 sys.path.insert(0,str(BRIDGE))
 from wrist_cameras import WRIST_CAMERA_IDS,IDENTITY_VERIFIED,CONFIG as WRIST_CONFIG,select_wrist_manifest,wrist_dirs,resolve_ids,configure as configure_wrist_ids
 configure_wrist_ids(ROOT)
