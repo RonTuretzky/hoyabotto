@@ -42,6 +42,14 @@ def _exact(value, names, label):
         raise Refused(f"{label} must cover exactly {', '.join(names)}")
 
 
+def _session_identity(value):
+    if isinstance(value, str):
+        if not value.strip():
+            raise Refused("Owner session identity needs a nonempty nonce")
+    elif finite(value, "owner session identity") <= 0:
+        raise Refused("Owner session identity needs a positive finite timestamp")
+
+
 def validate_profile(profile, bindings):
     """Validate independently loaded owner configuration, never client limits.
 
@@ -143,6 +151,7 @@ class BimanualTrajectoryOwner:
     def _context(self, context, command, *, new_scene=False):
         if not isinstance(context, dict):
             raise Refused("Independent owner context must be an object")
+        _session_identity(context.get("owner_started"))
         if (context.get("owner_started") != command["session_started"]
                 or context.get("bindings") != self._bindings):
             raise Refused("Current owner/calibration/registration/station bindings changed")
@@ -241,10 +250,12 @@ class BimanualTrajectoryOwner:
     def start(self, command, rows, telemetry_at, context, *, session_started, lease_remaining):
         try:
             self._local_guard()
+            _session_identity(session_started)
             if self.active:
                 raise Refused("A paired trajectory is already active")
             if not isinstance(command, dict):
                 raise Refused("Paired command must be an object")
+            _session_identity(command.get("session_started"))
             if (command.get("protocol") != PROTOCOL or command.get("schema") != VERSION
                     or command.get("op") != "bimanual_trajectory"
                     or type(command.get("id")) is not int or command["id"] <= self.last_command_id

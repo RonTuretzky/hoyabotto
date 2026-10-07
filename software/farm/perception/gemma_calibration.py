@@ -24,6 +24,7 @@ class CalibrationRobot:
         self.last_catalog = None
         self.clock = clock
         self.registration_path = self.config_path.with_name('tag-registration.json')
+        self.folding_path = self.config_path.with_name('folding-readiness.json')
 
     def settings(self):
         cfg = json.loads(self.config_path.read_text())
@@ -65,10 +66,30 @@ class CalibrationRobot:
                  {'type': 'object', 'properties': {'mode': {'type': 'string', 'enum': ['local_model', 'registration']}},
                   'required': ['mode'], 'additionalProperties': False})]:
                 catalog['tools'].append({'type': 'function', 'function': {'name': name, 'description': description, 'parameters': parameters}})
+        if self.folding_path.exists():
+            from carton.servo.folding_readiness import tool_definitions
+            additions = tool_definitions()
+            names = {t['function']['name'] for t in catalog['tools']}
+            if any(t['function']['name'] in names for t in additions):
+                raise Refused('Folding tool name is already supplied by the server')
+            catalog['tools'].extend(additions)
         self.last_catalog = catalog
         return catalog
 
     def call(self, name, args, request_id=None):
+        if name in ('robot_folding_status', 'robot_folding_proposal'):
+            from carton.servo.folding_readiness import FoldingReadiness, STATUS as FOLDING_STATUS
+            try:
+                if not self.folding_path.exists():
+                    raise Refused('Local folding-readiness.json is not configured')
+                if name == FOLDING_STATUS and args != {}:
+                    raise Refused('Unexpected folding status arguments')
+                folding = FoldingReadiness(self.robot, self.folding_path, clock=self.clock)
+                outcome = folding.status() if name == FOLDING_STATUS else folding.proposal(args)
+                return {'ok': True, 'result': outcome, 'motor_writes': 0}
+            except (Refused, ValueError, OSError, KeyError, TypeError) as exc:
+                return {'ok': False, 'result': {'error': str(exc), 'motion_ready': False,
+                        'execution_available': False, 'motor_writes': 0, 'automatic_retry': False}}
         if name in (STATUS, RUN, REGISTERED):
             try:
                 cfg = self.settings()

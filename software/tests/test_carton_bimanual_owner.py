@@ -419,3 +419,45 @@ def test_slow_right_release_does_not_hide_stale_left_release_confirmation():
     assert rig.stops == list(ARMS)
     assert not result["released"]
     assert any("left: release evidence stale" in e for e in result["release_errors"])
+
+
+@pytest.mark.parametrize('identity', [None, '', '   ', True, False, 0, -1, float('inf'), float('-inf'), float('nan'), [], {}])
+def test_missing_or_invalid_owner_session_identity_is_refused_before_goals(identity):
+    rig = Rig()
+    owner = rig.create()
+    command = rig.command(owner)
+    command['session_started'] = identity
+    context = rig.context(command)
+    context['owner_started'] = identity
+    with pytest.raises(Refused, match='session identity'):
+        owner.start(command, rig.rows(), rig.stamps, context, session_started=identity, lease_remaining=10)
+    assert rig.writes == [] and rig.stops == list(ARMS) and owner.fault_latched
+
+
+@pytest.mark.parametrize('identity', [900., 'owner-process-random-nonce'])
+def test_positive_timestamp_or_nonempty_nonce_owner_identity_is_accepted_without_goals(identity):
+    rig = Rig()
+    owner = rig.create()
+    command = rig.command(owner)
+    command['session_started'] = identity
+    context = rig.context(command)
+    context['owner_started'] = identity
+    result = owner.start(command, rig.rows(), rig.stamps, context, session_started=identity, lease_remaining=10)
+    assert result['accepted'] == 1 and rig.writes == [] and rig.stops == []
+
+
+@pytest.mark.parametrize('field', ['command', 'context'])
+def test_boolean_owner_identity_cannot_alias_numeric_timestamp(field):
+    rig = Rig()
+    owner = rig.create()
+    command = rig.command(owner)
+    command['session_started'] = 1
+    context = rig.context(command)
+    context['owner_started'] = 1
+    if field == 'command':
+        command['session_started'] = True
+    else:
+        context['owner_started'] = True
+    with pytest.raises(Refused, match='session identity'):
+        owner.start(command, rig.rows(), rig.stamps, context, session_started=1, lease_remaining=10)
+    assert rig.writes == [] and rig.stops == list(ARMS)

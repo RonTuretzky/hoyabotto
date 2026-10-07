@@ -128,6 +128,11 @@ increasing integer `id`, `session_started`, owner-published `profile_sha256`
 and `bindings_sha256`, `scene_revision`, `scene_sha256`, the two current
 `gripper_release_generation` counters, and `waypoints`.
 
+`session_started` and independently supplied `context.owner_started` must match
+the containing owner's identity: either a positive finite timestamp or a
+nonempty string nonce. Missing, blank, boolean, zero and nonfinite identities
+are refused, including when all three inputs repeat the same invalid value.
+
 Every waypoint contains increasing `time_s` (the first is zero) and all twelve
 raw `positions`. There are 2–100 waypoints. Existing `JointTrajectory` checks
 the whole corridor and analytically retimes interpolation to the measured
