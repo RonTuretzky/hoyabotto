@@ -35,7 +35,7 @@ class DirectJointClient:
                 supported_motors=state.get('supported_motors',[]),enabled_motors=state.get('enabled_motors',[]),
                 operator_armed=state.get('operator_armed') is True,local_operator_gate=state.get('operator_armed') is True,
                 motor_owner_active=state.get('hardware_server') is True and 0<=state['status_age_s']<=1)
-            result.update(read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}))
+            result.update(execution_profile=state.get('execution_profile','legacy-direct'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}))
             if state.get('read_only') is True:result['blockers'].append('READ_ONLY_OWNER: calibration mismatch blocks activation')
             if state.get('control_mode')!='direct_joint' or state.get('hardware_server') is not True:result['blockers'].append('HARDWARE_OWNER_PROTOCOL_UNAVAILABLE')
             if not 0<=state['status_age_s']<=1:result['blockers'].append('OWNER_STATUS_STALE')
@@ -146,7 +146,10 @@ class DirectJointClient:
             self._validate(request,prospective)
             from direct_joint_executor import DirectJointExecutor
             executor=DirectJointExecutor
-            if arm=='right':
+            if state.get('execution_profile')=='paddle-success-v1':
+                from paddle_joint_executor import PaddleJointExecutor
+                executor=PaddleJointExecutor
+            elif arm=='right':
                 from gripper_waypoint_executor import GripperWaypointExecutor
                 executor=GripperWaypointExecutor
             dry=executor([name],{name:state['ranges'][name]},lambda _: (_ for _ in ()).throw(AssertionError('Validation wrote')))
@@ -195,7 +198,7 @@ class DirectJointClient:
                 if generation!=self.cancel_generation:raise RuntimeError('STOP interrupted dispatch')
                 if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:raise RuntimeError('Another writer changed command file')
                 atomic_json(command_file,command);dispatched=True
-                deadline=self.clock()+(60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
+                deadline=self.clock()+(60 if request['op']=='gripper_target' or state.get('execution_profile')=='paddle-success-v1' and request['op']=='direct_joint' else 30 if request['op']=='direct_joint' else 5)
                 while self.clock()<deadline:
                     if generation!=self.cancel_generation:raise RuntimeError('STOP cancelled goal; no automatic resume')
                     current=self.status()
@@ -214,9 +217,14 @@ class DirectJointClient:
                                 continue
                         else:
                             measured={n:current['rows'][n]['Present_Position'] for n in request['positions']}
-                            if any(abs(measured[n]-request['positions'][n])>(20 if request['op']=='gripper_target' else 5) for n in measured):raise RuntimeError('Completion contradicts measured endpoint')
+                            if current.get('execution_profile')=='paddle-success-v1':
+                                for n,q in measured.items():
+                                    tolerance=30 if n.endswith('gripper') else 57
+                                    contact=n.endswith('gripper') and current.get('closure_outcome')=='stationary_closure_unverified'
+                                    if abs(q-request['positions'][n])>(96 if contact else tolerance):raise RuntimeError('Pickup completion contradicts measured endpoint')
+                            elif any(abs(measured[n]-request['positions'][n])>(20 if request['op']=='gripper_target' else 5) for n in measured):raise RuntimeError('Completion contradicts measured endpoint')
                         return {'accepted':True,'completed':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
-                            'gripper_result':current.get('gripper_result'),'owner_status_time':current['time'],'duration_s_actual':current.get('direct_duration_s'),
+                            'execution_profile':current.get('execution_profile'),'grasp_verified':current.get('grasp_verified',False),'closure_outcome':current.get('closure_outcome'),'gripper_result':current.get('gripper_result'),'owner_status_time':current['time'],'duration_s_actual':current.get('direct_duration_s'),
                             'motor_writes':'canonical owner only','mode':'direct_joint'}
                     self.sleep(.02)
                 raise RuntimeError('Owner completion timed out')

@@ -1,0 +1,11 @@
+# Sole-owner pickup profile
+
+Start with `--right-arm-only --paddle-profile` using restart_gemma_owner_released.py after the previous owner exits. Motors remain released at startup. Runtime profile is paddle-success-v1. Existing API tool names are unchanged. Fetch fresh readiness/state after restart; never replay a stale owner session.
+
+The profile mirrors the observed successful encoder pilot: one right-arm joint per command, 3..341 ticks, saved-range margin 40, 40-tick steps no faster than every 0.4 seconds, tracking envelope 96 ticks. Motor velocity 100 (gripper 200), acceleration 5; torque ceilings 800 (elbow 400, gripper 500), capped by previous settings; shoulder-lift and elbow P gain 32. Saved settings restore on release. Three fresh quiet samples are required, Moving=0, velocity magnitude below 3, position change at most 3, endpoint tolerance 57 (gripper 30).
+
+Decreasing right-gripper targets use 10-tick contact steps, stationary for 0.3 seconds, maximum 1.5 seconds per step. Resistance at least 40 ticks stops further closure and returns stationary_closure_unverified, grasp_verified=false. Camera evidence is still required to establish pickup. Supply, load, travel, readbacks, stale telemetry, watchdog, STOP, session ownership and existing legacy temperature protections remain. The profile does not establish camera transforms or add autonomous camera interpretation. Existing API camera behavior remains; this change does not port the standalone pilot camera-pause loop.
+
+Client completion checks and deadlines use the named profile; the legacy executor remains unchanged. New fake tests cover 25-tick lag acceptance, 96-tick rejection, ramp, margins, segment bound, quiet settling, contact stop and client endpoint acceptance. Existing owner and legacy executor tests pass. Older test_gemma_direct_client.py fixtures do not match the current owner protocol; that suite is not claimed passing.
+
+Installed on the robot Mac with motors released, zero startup motor writes, all 16 responding, stop_latched=false and motion_ready=true. No physical movement test was performed in this update; prior physical pickup evidence does not validate the new integration. Qwen must inspect fresh cameras/readiness and correct its approach using current encoder positions.
