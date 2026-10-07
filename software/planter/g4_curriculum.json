@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "design": "G4 shared funnel and seam roller; original trough and holder",
+  "hardware_execution_released": false,
+  "full_task_success": false,
+  "training_method": "Begin with parameter search over a visually targeted joint-actuated pusher pickup controller. Collect successful demonstrations only after independent complete-sequence scoring and negative controls. No neural policy trained yet.",
+  "stages": [
+    {
+      "id": "M0",
+      "task": "Measure station and validate printed fits manually",
+      "depends_on": [],
+      "status": "required_for_physical_transfer",
+      "done_when": [
+        "Recorded base origins, table height/edge, camera intrinsics/extrinsics, staging locations and uncertainty",
+        "Carrier slides through G4 guide into original holder without force",
+        "Actual paper offset/yaw feeding, withdrawal and dry/damp folding tests logged",
+        "Measured grasp, insertion and stopping limits exist"
+      ]
+    },
+    {
+      "id": "S0",
+      "task": "Visual registration and G4 pusher contact pickup, lift, hold, lower, release",
+      "depends_on": [],
+      "status": "simulated_primitive_passed_declared_benchmark",
+      "latest_evidence": "Repaired pusher controller passes nine development placements, six fresh confirmations and eighteen solver repeats; matched nominal passes and all eight faults fail. Independent raw rescoring agrees. Historical v3 passes with late capture remain invalid for clean retention. No policy export or physical qualification.",
+      "done_when": [
+        "8 fitting and 3 independent validation poses pass; absolute simulator errors separately reported",
+        "No initial intersection; all commands through original SO101 joints/limits",
+        "Opposed loaded grip established before lift and retained through lift, hold and lowering until intended support",
+        "Whole-tool slip measured from established grasp; no unintended loaded arm/fixture collisions",
+        "Continuous two-jaw retention and clearance over 2 seconds; release free on rest for 1 second",
+        "Held-out offsets/noise and all negative controls discriminate success/failure",
+        "1ms/2ms and NoSlip on/off sensitivity reported"
+      ],
+      "limits": [
+        "One-arm isolated bench; not full cart",
+        "Yaw-fixed staging with tested xy offsets through plus/minus 8mm; no claim over all intervening poses or arbitrary orientation",
+        "40mm raised staging rest with near edge389mm; physical fixture unvalidated",
+        "Tag31 hypothetical 18mm black square on pusher",
+        "1920x1440 rectified rendering and0.8mm depth noise are benchmark assumptions, not an actual-camera accuracy claim",
+        "Ground-truth contact aborts are diagnostic, not deployable sensing"
+      ]
+    },
+    {
+      "id": "S1",
+      "task": "Trough, holder and shared-guide placement",
+      "depends_on": [
+        "M0",
+        "S0"
+      ],
+      "status": "dual_arm_rigid_station_implemented_manipulation_in_development",
+      "done_when": [
+        "Both SO101 arms and actual station geometry included",
+        "Free rigid parts held only by jaw contacts",
+        "Fixture explicitly modeled and anchored as built",
+        "Original part seats and remains after complete release; no convex hull closes a cavity"
+      ],
+      "latest_evidence": "A full rigid station now compiles both SO101 arm hierarchies and free original trough/holder/guide, four carriers, pusher and passive roller. Current diagnostic starts with human-prepared holder in trough, so it earns no credit for robot trough or holder placement. Guide transfer is under development. Station dimensions and printed material properties remain explicit assumptions."
+    },
+    {
+      "id": "S2",
+      "task": "Four empty carriers through shared guide",
+      "depends_on": [
+        "S1"
+      ],
+      "status": "passive_seating_diagnostic_unqualified",
+      "latest_evidence": "A source-derived continuous holder-wall cover removes large artificial partition contacts. Conditional near-seat release cases pass, but the corrected model fails half-timestep, height, strong-friction and full-funnel-release checks under unchanged gates. Contact-normal approximation limits remain documented. No robot insertion or four-carrier success.",
+      "done_when": [
+        "Collision decomposition preserves all four guide holes and 0.4mm carrier rims",
+        "Contact surfaces and normals agree with source exterior within declared tested numerical bounds, beyond global volume and opening probes",
+        "Gravity seats each carrier without snapping, forcing or object-pose actions",
+        "Offset/yaw/friction sensitivity and initial intersections audited",
+        "All four seated after release"
+      ],
+      "diagnostic_limits": [
+        "Only first funnel corridor has static collision geometry",
+        "Guide and original holder fixed by hypothetical fixture",
+        "Carrier reset pose and evaluator use privileged geometry",
+        "No robot, grasp/release, perception, trough or paper in this diagnostic",
+        "Audited hollow CAD alone does not establish gravity seating"
+      ],
+      "full_station_geometry_evidence": "New reusable full collision bundle covers all four guide and holder corridors, audited against original source and local probes. It remains distinct from the previous single-corridor diagnostic; full-scene dynamics and all-four robot insertion are not yet established."
+    },
+    {
+      "id": "S3",
+      "task": "Feed four real-paper strips and withdraw pusher",
+      "depends_on": [
+        "M0",
+        "S2"
+      ],
+      "status": "blocked_on_material_and_manual_tests",
+      "done_when": [
+        "Measured thickness, bending, friction, damping and dry/damp response",
+        "Passive deformable-paper approximation has manual-test agreement",
+        "Rim catches, buckling and resistance cause stop",
+        "Pusher withdrawal does not drag paper or lift carrier"
+      ],
+      "paper_assumptions_mm": {
+        "strips_count": 4,
+        "strip": [
+          46,
+          42
+        ],
+        "thickness": 0.3
+      }
+    },
+    {
+      "id": "S4",
+      "task": "Lift shared guide at least 28mm and park",
+      "depends_on": [
+        "S3"
+      ],
+      "status": "not_implemented",
+      "done_when": [
+        "Actual joint trajectories, both grips, 28mm vertical clearance",
+        "All four paper tails and carriers retained after release and parking"
+      ]
+    },
+    {
+      "id": "S5",
+      "task": "Seam roller folds four strips toward +X, rightmost first",
+      "depends_on": [
+        "S4"
+      ],
+      "status": "blocked_on_roller_and_material_tests",
+      "done_when": [
+        "Purchased M5 axle/retention modeled and wheel rotates freely",
+        "Passive wheel driven only by contact, not a folding actuator",
+        "Lift between strips, proceed leftwards",
+        "No tear, wrap, tail extraction or forced jam",
+        "Hands-off retention under stronger springback and timestep/solver changes",
+        "Matched claw/pusher/roller comparison uses same paper, station and scoring"
+      ],
+      "mechanism_evidence": "Actual G4 wheel/fork CAD and a passive ideal-axle hinge are implemented. A constrained mechanism bench rolls over a rigid 46mm coupon at both tested timesteps; zero friction, locked bearing and disabled initial motion reject. Earlier 0.4mm drop fails penetration gate. This is not robot rolling, paper folding, or validated axle hardware."
+    },
+    {
+      "id": "S6",
+      "task": "Place plain 146x76mm rectangular growing sheet",
+      "depends_on": [
+        "S5"
+      ],
+      "status": "not_implemented",
+      "done_when": [
+        "Validated paper grasp/release method",
+        "Full rectangle without notches",
+        "Paper-to-paper contact retained over all four flaps after release"
+      ]
+    },
+    {
+      "id": "P0",
+      "task": "Human-supervised water test before seeds",
+      "depends_on": [
+        "M0",
+        "S6"
+      ],
+      "status": "physical_test_required",
+      "done_when": [
+        "Paper tails, not plastic carriers, contact water",
+        "Moisture reaches whole sheet including far corners at low reservoir level",
+        "Paper material, water level and elapsed wetting times recorded",
+        "Poor purchased capillary material is not assumed to work"
+      ]
+    }
+  ],
+  "promotion_rules": [
+    "Software tests, simulated task success and physical success are distinct",
+    "No neural imitation export from failed, privileged-target or incomplete episodes",
+    "Never train the robot to force a jam",
+    "Blender poses are illustrations only",
+    "No use of R3.x, G3 paper liner, snap fits, or printed supports"
+  ],
+  "objective": "Make the simulation where the robot assembles and does all G4 planter stages succeed, with independently verified contact-driven motion and complete release/retention."
+}
