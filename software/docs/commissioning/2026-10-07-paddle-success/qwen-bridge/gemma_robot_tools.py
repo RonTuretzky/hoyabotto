@@ -473,7 +473,7 @@ def dispatch(name, args):
         return depth_snapshot()
     if name == 'robot_get_handoff':
         return {'source': 'primary-saved Gemma-Paddle-Handoff.json (historical task)',
-                'current_user_scope': 'Verified physical pickup procedure for Qwen integration; current server recovery is read-only, with no movement test',
+                'current_user_scope': 'Verified physical pickup procedure for Qwen integration and scoped motion; query live readiness. Server recovery performs no movement test',
                 'handoff': bounded_json(ROOT / 'outputs/Gemma-Paddle-Handoff.json'),
                 'physical_pickup_handoff': bounded_json(ROOT / 'outputs/Qwen-Paddle-Success-Handoff.json'),
                 'integration_reference': 'https://github.com/RonTuretzky/xlerobot-farm/blob/main/software/docs/commissioning/2026-10-07-paddle-success/README.md',

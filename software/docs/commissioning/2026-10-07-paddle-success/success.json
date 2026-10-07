@@ -377,6 +377,6 @@
     "OAK depth/RGB pixel registration remains uncommissioned",
     "Successful report contains ordered telemetry but no per-sample timestamps",
     "Camera-pause recovery tested with mocks; not exercised in this successful run",
-    "Existing sole-owner API controller differs from this local pilot and is currently read-only"
+    "Existing sole-owner API controller differs from this local pilot; profile/contact skill integration is required. Query live readiness rather than inferring availability from this record"
   ]
 }
