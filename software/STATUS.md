@@ -1,3 +1,21 @@
+## Bare-claw parallel simulation progress — 7 October 2026
+
+Offline only; no physical camera or robot accessed. Three isolated workers now
+search frozen controller variants and noise seeds concurrently while recording
+all state samples and every applied contact step. The latest fixed profile
+folds the near major to about 40°, folds the far major to 35°, withdraws the
+right hand, and observes five seconds of passive far-flap retention in 3/3 seeds.
+All three full intervals pass independent applied-contact scoring. Both shorts
+remain open and the near flap remains actively held. **Full four-flap closure,
+tape application and hands-clear retention are incomplete.**
+
+The fixed station camera loses far-plane visibility around 39°; successful
+partial release at 35° does not establish continued visibility or closure.
+Actual station/material/camera calibration and deployment remain unverified.
+Read [the current carton handoff](docs/carton-bare-claws-handoff-2026-10-07.md)
+for reproducible commands, preserved failures, robot/Gemma software boundaries
+and the distinction from published historical hardware calibration below.
+
 ## Left retry05: short shoulder and elbow ranges — 6 October 2026
 
 User confirmed stepped out of frame. Fresh feed showed clear sweep; guarded left retry05 ran atvelocity100 with outward swivel retained. Measured shoulder47.1 degrees (raw endpoints3685..125 wrapping), elbow57.5 degrees (1784..2439); routine rejected shoulder below120 and elbow below115. All six left releases verified. No definite cart strike identified in sampled fresh phone frames; actual cause remains unproven. No completed calibration saved. Added load/voltage/current fields from the existing coherent15-byte sample to limit-wait trace for later diagnosis; no new writes, additional motor reads or threshold changes. Evidence at current task outputs/auto-calibration-left-retry5-2026-10-06.
