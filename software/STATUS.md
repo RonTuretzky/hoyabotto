@@ -1,3 +1,22 @@
+## Tag software deployed (right-arm planner, binding, mover, paddle target) — 7 October 2026, 20:42
+
+Merged tags/right-arm-config, tags/binding-robustness, tags/paddle-target and tags/mover-contract into main
+(95e14e0). qwen-bridge: 20/20 tests pass, including the tag-registration contract. software: 1841 pass; the one failure
+is the order-dependent test_diagnose_folding_observed_scene, which also fails on unmodified main.
+
+- Robot: API-only deploy (job at 20:42; owner and motors untouched). Installed gemma_reach_planner.py (19 changed
+  lines, so no drift) and right-arm-kinematics.json. work/so101-model was copied from the left config's model and
+  verified at revision 5f6d2b8, with no download.
+- Chat Mac: the chat imports farm/carton through `.venv/.../xlerobot_apriltags.pth`. That file used to point at the
+  minsk research checkout (old main 0d80a64, also used for G4 work). It now points at a dedicated worktree,
+  `gemma-xlerobot/farm-live` (detached at 95e14e0); the old .pth is in `pilot/.private/`. To update the chat's
+  tag code: `git -C <farm-live> checkout --detach origin/main` after a fetch, then restart the chat while idle.
+- Live read-only check: robot_calibration_status blockers are "Need table tag 1 and gripper tag 2 in the same view"
+  and "Need confirmed matching fixed gripper-tag mounting". robot_get_paddle_target refuses because there is no
+  tag-registration.json yet.
+- test_tag_registration_contract.py is not in the deploy's TESTS: it needs numpy/OpenCV (XLEROBOT_CONTRACT_PYTHON)
+  and runs for a long time. Run it on the chat Mac before changing the mover.
+
 ## Left bus stuck "port busy"; owner now recovers it — 7 October 2026, 20:09–20:12
 
 At 20:09:33 the left bus (`/dev/cu.usbmodem5B790186401`) stopped answering. From then on every owner
