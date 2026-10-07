@@ -11,7 +11,7 @@ import time
 import numpy as np
 
 from .common import Limits, Observation, Refused, atomic_json, finite
-from farm.perception.tag_sampling import ARM_JOINTS, HEAD_JOINTS, stationary_sample
+from farm.perception.tag_sampling import ARM_JOINTS, HEAD_JOINTS, gripper_tag_for_arm, stationary_sample
 
 
 def result(payload, tool):
@@ -213,15 +213,16 @@ class GemmaTransport:
 
 class GemmaTagObserver:
     """Expose decoded tag corners to Experiment; save same-frame encoder brackets."""
-    def __init__(self, robot, transport, camera='oak', *, clock=time.time):
+    def __init__(self, robot, transport, camera='oak', *, gripper_tag_id=None, clock=time.time):
         self.robot, self.transport, self.camera, self.clock = robot, transport, camera, clock
+        self.gripper_tag_id = gripper_tag_for_arm(transport.arm, gripper_tag_id)
         self.last = self.anchor = self.identity = None
         self.capture = self.payload = None
         self.count = 0
 
     def observe(self, after=0.0):
         before, _ = self.transport.read_state()
-        payload = self.robot.call('robot_get_tags', {'cameras': [self.camera], 'tag_ids': [1, 2]})
+        payload = self.robot.call('robot_get_tags', {'cameras': [self.camera], 'tag_ids': [1, self.gripper_tag_id]})
         row = result(payload, 'robot_get_tags').get('observations', {}).get(self.camera, {})
         following, _ = self.transport.read_state()
         frame = row.get('frame', {})
@@ -232,17 +233,17 @@ class GemmaTagObserver:
         if self.last is not None and (frame['seq'] <= self.last['seq'] or stamp <= self.last['captured_at']):
             raise Refused('Camera frame did not advance')
         tags = {t['tag_id']: t for t in row.get('tags', []) if t.get('status') == 'DETECTED'}
-        if not {1, 2} <= set(tags):
-            raise Refused('Need visible table tag 1 and gripper tag 2')
+        if not {1, self.gripper_tag_id} <= set(tags):
+            raise Refused(f'Need visible table tag 1 and gripper tag {self.gripper_tag_id}')
         geometry = row.get('pose_3d') or {}
-        mount = next((t.get('mount') for t in geometry.get('tags', []) if t.get('tag_id') == 2), None)
+        mount = next((t.get('mount') for t in geometry.get('tags', []) if t.get('tag_id') == self.gripper_tag_id), None)
         if not mount or mount.get('arm') != self.transport.arm or mount.get('body') != 'fixed_gripper_housing' or not mount.get('source'):
-            raise Refused('Tag 2 lacks matching confirmed fixed-housing mounting')
-        identity = (frame['camera_id'], frame['stream_id'], geometry.get('geometry_config_sha256'), geometry.get('calibration_sha256'), row.get('image_size_px'))
+            raise Refused(f'Tag {self.gripper_tag_id} lacks matching confirmed fixed-housing mounting')
+        identity = (frame['camera_id'], frame['stream_id'], geometry.get('geometry_config_sha256'), geometry.get('calibration_sha256'), row.get('image_size_px'), self.transport.arm, self.gripper_tag_id, dict(mount))
         if self.identity is not None and identity != self.identity:
             raise Refused('Camera stream, geometry or intrinsics changed')
         anchor = np.asarray(tags[1]['corners_px'], dtype=float)
-        corners = np.asarray(tags[2]['corners_px'], dtype=float)
+        corners = np.asarray(tags[self.gripper_tag_id]['corners_px'], dtype=float)
         if anchor.shape != (4, 2) or corners.shape != (4, 2) or not np.isfinite([anchor, corners]).all():
             raise Refused('Invalid tag corners')
         if self.anchor is not None and np.max(np.linalg.norm(anchor-self.anchor, axis=1)) > 2:
@@ -252,7 +253,7 @@ class GemmaTagObserver:
             self.anchor = anchor.copy()
         # The pixel controller can work without an unambiguous 3D orientation.
         try:
-            sample = stationary_sample(before, following, row, self.transport.arm)
+            sample = stationary_sample(before, following, row, self.transport.arm, gripper_tag_id=self.gripper_tag_id)
             rejection = None
         except ValueError as exc:
             sample, rejection = None, str(exc)

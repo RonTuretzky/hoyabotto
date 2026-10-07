@@ -11,6 +11,7 @@ from .common import Limits, Refused, Trace, atomic_json, digest
 from .controller import Experiment
 from .gemma import GemmaTagObserver, GemmaTransport, result
 from farm.kinematics.tag_registration import assemble_dataset, fit_registration
+from farm.perception.tag_sampling import gripper_tag_for_arm
 
 
 @contextmanager
@@ -55,29 +56,31 @@ def registration_offsets(joints, limits):
 
 def readiness(robot, config, *, clock=time.time):
     """Live read-only report; collect vision even when motor readiness fails."""
+    tag_id = gripper_tag_for_arm(config['arm'], config.get('gripper_tag_id'))
     limits = Limits(**config.get('limits', {}))
     transport = GemmaTransport(robot, config['arm'], config['joints'], limits, clock=clock)
-    report = {'arm': config['arm'], 'joints': transport.joints, 'motor_writes': 0,
+    report = {'arm': config['arm'], 'gripper_tag_id': tag_id, 'joints': transport.joints, 'motor_writes': 0,
               'blockers': [], 'physical_registration_validated': False}
     try:
         report['owner'] = transport.preflight()
     except (Refused, ValueError, OSError) as exc:
         report['blockers'].append(str(exc))
-    tags = result(robot.call('robot_get_tags', {'cameras': [config.get('camera', 'oak')], 'tag_ids': [1, 2]}), 'robot_get_tags')
+    tags = result(robot.call('robot_get_tags', {'cameras': [config.get('camera', 'oak')], 'tag_ids': [1, tag_id]}), 'robot_get_tags')
     row = tags.get('observations', {}).get(config.get('camera', 'oak'), {})
     accepted = {t['tag_id']: t for t in row.get('tags', []) if t.get('status') == 'DETECTED'}
     report['detected_tag_ids'] = sorted(accepted)
     report['frame'] = row.get('frame')
-    if not {1, 2} <= set(accepted):
-        report['blockers'].append('Need table tag 1 and gripper tag 2 in the same view')
+    if not {1, tag_id} <= set(accepted):
+        report['blockers'].append(f'Need table tag 1 and gripper tag {tag_id} in the same view')
     else:
         width, height = row['image_size_px']
-        corners = accepted[2]['corners_px']
-        report['tag_2_border_clearance_px'] = min(min(x, y, width-1-x, height-1-y) for x, y in corners)
+        corners = accepted[tag_id]['corners_px']
+        report['gripper_tag_border_clearance_px'] = min(min(x, y, width-1-x, height-1-y) for x, y in corners)
+        report[f'tag_{tag_id}_border_clearance_px'] = report['gripper_tag_border_clearance_px']
     metric = row.get('pose_3d') or {}
-    mount = next((t.get('mount') for t in metric.get('tags', []) if t.get('tag_id') == 2), None)
-    report['tag_2_mount'] = mount
-    if not mount or mount.get('arm') != config['arm'] or mount.get('body') != 'fixed_gripper_housing':
+    mount = next((t.get('mount') for t in metric.get('tags', []) if t.get('tag_id') == tag_id), None)
+    report['gripper_tag_mount'] = report[f'tag_{tag_id}_mount'] = mount
+    if not mount or mount.get('arm') != config['arm'] or mount.get('body') != 'fixed_gripper_housing' or not mount.get('source'):
         report['blockers'].append('Need confirmed matching fixed gripper-tag mounting')
     report['arm_geometry'] = robot.call('robot_get_arm_pose', {'arm': config['arm']})
     report['status'] = 'BLOCKED' if report['blockers'] else 'READY_FOR_LOCAL_PROBES'
@@ -106,6 +109,7 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
     """Explicit execution entrypoint; there is no automatic startup/resume path."""
     if mode not in ('local_model', 'registration'):
         raise Refused('Unknown calibration mode')
+    tag_id = gripper_tag_for_arm(config['arm'], config.get('gripper_tag_id'))
     output = Path(output)
     if output.exists():
         raise Refused('Choose a new evidence directory')
@@ -117,7 +121,7 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
         released = False
         try:
             settings = transport.preflight()
-            observer = GemmaTagObserver(robot, transport, config.get('camera', 'oak'), clock=clock)
+            observer = GemmaTagObserver(robot, transport, config.get('camera', 'oak'), gripper_tag_id=tag_id, clock=clock)
             baseline = observer.observe()
             observer.evidence(output/'baseline', baseline)
             plan, arm_status = None, None
@@ -167,7 +171,7 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
                 outcome = fit_registration(dataset)
             if 'motor_writes' in outcome:
                 outcome['fitter_motor_writes'] = outcome.pop('motor_writes')
-            outcome.update(calibration_commands_sent=transport.commands_sent, commanded_path_ticks=transport.path_ticks,
+            outcome.update(gripper_tag_id=tag_id, calibration_commands_sent=transport.commands_sent, commanded_path_ticks=transport.path_ticks,
                            cleanup=transport.cleanup, output=str(output))
             atomic_json(output/'result.json', outcome)
             return outcome

@@ -11,8 +11,8 @@ from farm.perception.tag_geometry import fingerprint
 from test_gemma_calibration import Owner
 
 
-def fixture():
-    owner = Owner()
+def fixture(arm='right'):
+    owner = Owner(arm)
     before = owner.call('robot_get_state', {'fresh':True})
     row = owner.call('robot_get_tags', {'cameras':['oak']})['result']['observations']['oak']
     after = owner.call('robot_get_state', {'fresh':True})
@@ -23,28 +23,54 @@ def fixture():
     row['pose_3d']['tags'].append(dict(tag_id=3, center_camera_mm=[300,100,500],
                                      camera_from_tag=paddle.tolist(),orientation_ambiguous=False))
     ranges = before['result']['raw_calibration_ranges']
-    selected = {n:ranges[n] for n in ranges if n.startswith('right_arm_') and not n.endswith('gripper')}
-    reg = dict(status='REGISTRATION_VALIDATED',binding=dict(arm='right',camera_id='oak-test',stream_id='one',
-        camera_calibration_sha256='K',tag_geometry_sha256='geometry',gripper_tag_id=2,
+    selected = {n:ranges[n] for n in ranges if n.startswith(f'{arm}_arm_') and not n.endswith('gripper')}
+    reg = dict(status='REGISTRATION_VALIDATED',binding=dict(arm=arm,camera_id='oak-test',stream_id='one',
+        camera_calibration_sha256='K',tag_geometry_sha256='geometry',gripper_tag_id=owner.tag_id,
         gripper_tag_mount=owner.mount,robot_model_sha256='model',motor_calibration_sha256='motors',
         raw_arm_ranges_sha256=fingerprint(selected)),
         residuals={s:dict(count=n,position_rms_mm=.1,position_max_mm=.2,orientation_max_degrees=.1)
                    for s,n in [('train',8),('validation',3)]},base_from_camera=camera.tolist(),
         gripper_from_tag=np.eye(4).tolist(),head_ticks_reference=[2000,2000],
         anchor_center_camera_mm_reference=[0,0,600],anchor_corners_px_reference=row['tags'][0]['corners_px'])
-    status = dict(ok=True,result=dict(configuration=dict(config=dict(arm='right',mapping='feetech_degrees_v1',calibration_sha256='motors'))))
+    status = dict(ok=True,result=dict(configuration=dict(config=dict(arm=arm,mapping='feetech_degrees_v1',calibration_sha256='motors'))))
     args=[before,after,row,reg,status,'model',camera@owner.pose()]
     return owner,args
 
 
-def test_transforms_decoded_pose_and_marker_center_without_motor_targets():
-    owner,args=fixture()
+@pytest.mark.parametrize('arm', ['right', 'left'])
+def test_transforms_decoded_pose_and_marker_center_without_motor_targets(arm):
+    owner,args=fixture(arm)
     result=registered_observation(*args)
     paddle=next(t for t in result['tags'] if t['tag_id']==3)
     assert paddle['center_arm_base_mm']==pytest.approx([400,300,800])
     assert np.array(paddle['arm_base_from_tag'])[:3,3]==pytest.approx([.4,.3,.8])
     assert result['motor_writes']==0 and not result['robot_motion_target']
     assert not owner.writes
+    assert result['arm'] == arm
+
+
+@pytest.mark.parametrize('arm', ['right', 'left'])
+def test_registered_read_requests_the_bound_gripper_and_keeps_no_motion_semantics(arm, monkeypatch):
+    owner, args = fixture(arm)
+    reg, base_from_gripper = args[3], args[6]
+    def assemble(captures, model):
+        assert captures[0]['sample']['gripper_tag_id'] == owner.tag_id
+        return {'binding': {'robot_model_sha256': 'model'},
+                'samples': [{'base_from_gripper': base_from_gripper.tolist()}]}
+    monkeypatch.setattr('farm.perception.registered_tags.assemble_dataset', assemble)
+    result = read_registered_tags(owner, {'arm': arm, 'camera': 'oak', 'model_directory': 'fake'}, reg, clock=owner.clock)
+    assert result['ok'] and result['motor_writes'] == 0 and not owner.writes
+    assert result['result']['robot_motion_target'] is False
+    assert owner.calls[-3][0] == 'robot_get_tags'
+    assert owner.calls[-3][1]['tag_ids'] == [1, owner.tag_id, 3]
+
+
+@pytest.mark.parametrize('arm,tag', [('right', 4), ('left', 2)])
+def test_registered_read_rejects_crossed_registration_before_owner_access(arm, tag):
+    owner = Owner(arm)
+    with pytest.raises(ValueError, match='requires gripper tag'):
+        read_registered_tags(owner, {'arm': arm}, {'binding': {'arm': arm, 'gripper_tag_id': tag}}, clock=owner.clock)
+    assert owner.calls == []
 
 
 @pytest.mark.parametrize('fault',['stream','head','anchor','mapping','model','geometry','raw_ranges',

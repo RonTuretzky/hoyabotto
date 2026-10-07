@@ -14,7 +14,7 @@ import sys
 
 from farm.kinematics.tag_registration import fit_registration, assemble_dataset
 from farm.perception.gemma_tags import TagObserver, TagRobot
-from farm.perception.tag_sampling import stationary_sample
+from farm.perception.tag_sampling import gripper_tag_for_arm, stationary_sample
 
 
 def save(path, value):
@@ -64,7 +64,10 @@ def main():
     robot.catalog()
     args.out.mkdir(parents=True)
     before = client.call("robot_get_state", {"fresh": True}) if args.command == "capture" else None
-    observation = robot.call("robot_get_tags", {"cameras": [args.camera]})
+    tag_request = {"cameras": [args.camera]}
+    if args.command == "capture":
+        tag_request["tag_ids"] = [1, gripper_tag_for_arm(args.arm), 3]
+    observation = robot.call("robot_get_tags", tag_request)
     after = client.call("robot_get_state", {"fresh": True}) if args.command == "capture" else None
     save(args.out / "observation.json", {k: v for k, v in observation.items() if k != "images"})
     for i, image in enumerate(observation.get("images", [])):

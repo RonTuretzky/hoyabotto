@@ -9,6 +9,7 @@ import time
 from carton.servo.common import Refused, atomic_json
 from carton.servo.tag_calibration import motion_lock, readiness, run_calibration
 from farm.perception.registered_tags import read_registered_tags
+from farm.perception.tag_sampling import gripper_tag_for_arm
 
 STATUS = 'robot_calibration_status'
 RUN = 'robot_calibrate_tags'
@@ -28,6 +29,7 @@ class CalibrationRobot:
         cfg = json.loads(self.config_path.read_text())
         if cfg.get('schema') != 1 or cfg.get('arm') not in ('left', 'right') or not cfg.get('joints'):
             raise Refused('Need a local calibration config with explicit arm and positioning joints')
+        cfg['gripper_tag_id'] = gripper_tag_for_arm(cfg['arm'], cfg.get('gripper_tag_id'))
         cfg['lock_file'] = str(self.config_path.with_name('tag-calibration.lock'))
         cfg['output_root'] = str(self.config_path.parent.parent/'tag-calibration-runs')
         return cfg
@@ -44,7 +46,7 @@ class CalibrationRobot:
                 raise Refused('Calibration tool name is already supplied by the server')
             for name, description, parameters in [
                 (STATUS, 'Read current tag-calibration readiness and tag visibility. No motor commands. '
-                 'Reports exact blockers and tag-2 border clearance; a small margin is not proof of clipping.',
+                 'Reports exact blockers and the configured gripper tag border clearance; a small margin is not proof of clipping.',
                  {'type': 'object', 'properties': {}, 'additionalProperties': False}),
                 (REGISTERED, 'Read fresh AprilTag poses in the configured arm base using a passing registration. '
                  'Rechecks camera stream, table anchor, fixed gripper mount, model, motor mapping and current '

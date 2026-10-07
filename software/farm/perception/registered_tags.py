@@ -11,7 +11,7 @@ import time
 from farm.kinematics.lerobot import pose_error, transform
 from farm.kinematics.tag_registration import assemble_dataset
 from farm.perception.tag_geometry import fingerprint
-from farm.perception.tag_sampling import stationary_sample
+from farm.perception.tag_sampling import gripper_tag_for_arm, stationary_sample
 
 
 def registered_observation(before, after, observation, registration, arm_status,
@@ -20,7 +20,8 @@ def registered_observation(before, after, observation, registration, arm_status,
         raise ValueError('No independently validated registration is installed')
     binding = registration.get('binding', {})
     arm = binding.get('arm')
-    sample = stationary_sample(before, after, observation, arm)
+    tag_id = gripper_tag_for_arm(arm, binding.get('gripper_tag_id'))
+    sample = stationary_sample(before, after, observation, arm, gripper_tag_id=tag_id)
     frame = sample['frame']
     ranges = before['result'].get('raw_calibration_ranges', {})
     if ranges != after['result'].get('raw_calibration_ranges'):
@@ -80,8 +81,11 @@ def read_registered_tags(robot, config, registration, *, clock=time.time):
     """Fresh rendered/live tags through the existing owner; never enables motors."""
     if registration.get('binding', {}).get('arm') != config['arm']:
         raise ValueError('Installed registration belongs to a different arm')
+    tag_id = gripper_tag_for_arm(config['arm'], config.get('gripper_tag_id'))
+    if gripper_tag_for_arm(config['arm'], registration['binding'].get('gripper_tag_id')) != tag_id:
+        raise ValueError('Installed registration belongs to a different gripper tag')
     before = robot.call('robot_get_state', {'fresh': True})
-    payload = robot.call('robot_get_tags', {'cameras': [config.get('camera', 'oak')]})
+    payload = robot.call('robot_get_tags', {'cameras': [config.get('camera', 'oak')], 'tag_ids': [1, tag_id, 3]})
     after = robot.call('robot_get_state', {'fresh': True})
     if payload.get('ok') is not True:
         raise ValueError('Fresh tag observation failed')
@@ -90,7 +94,7 @@ def read_registered_tags(robot, config, registration, *, clock=time.time):
     age = clock() - frame.get('captured_at', float('-inf'))
     if frame.get('timestamp_basis') != 'capture' or not 0 <= age <= 3:
         raise ValueError('Need a fresh capture timestamp for registered coordinates')
-    sample = stationary_sample(before, after, row, config['arm'])
+    sample = stationary_sample(before, after, row, config['arm'], gripper_tag_id=tag_id)
     status = robot.call('robot_get_arm_pose', {'arm': config['arm']})
     dataset = assemble_dataset([{'before':before, 'after':after, 'sample':sample,
                                  'arm_geometry_status':status}], config['model_directory'])

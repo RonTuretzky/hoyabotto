@@ -16,7 +16,9 @@ from tools.install_gemma_calibration import patch_source, IMPORT, ANCHOR, BEFORE
 
 
 class Owner:
-    def __init__(self):
+    def __init__(self, arm='right'):
+        self.arm = arm
+        self.tag_id = 2 if arm == 'right' else 4
         self.now = 1000.
         self.started = 900.
         self.names = [f'{arm}_arm_{n}' for arm in ('left', 'right') for n in ARM_JOINTS]
@@ -30,7 +32,7 @@ class Owner:
         self.after_move = None
         self.phase = 'idle'
         self.lease = 15
-        self.mount = dict(arm='right', body='fixed_gripper_housing', source='fixture confirmation')
+        self.mount = dict(arm=arm, body='fixed_gripper_housing', source='fixture confirmation')
         self.config = Path('/tmp/fake-pilot/.private/robot.json')
 
     def clock(self):
@@ -40,7 +42,7 @@ class Owner:
         return {'tools': []}
 
     def pose(self):
-        a, b = (self.q[n]-2000 for n in ('right_arm_shoulder_pan', 'right_arm_wrist_flex'))
+        a, b = (self.q[f'{self.arm}_arm_{n}']-2000 for n in ('shoulder_pan', 'wrist_flex'))
         out = np.eye(4)
         out[:3, :3] = cv2.Rodrigues(np.array([0., b, 0.])*np.pi/2048)[0] @ cv2.Rodrigues(np.array([0., 0., a])*np.pi/2048)[0]
         out[:3, 3] = [.2+a*.0003, .02+b*.0003, .3]
@@ -67,22 +69,23 @@ class Owner:
                      Present_Velocity=0, Present_Load=0, Moving=0, Status=0, Torque_Enable=int(n in self.enabled),
                      captured_at=self.now-.001) for n, q in self.q.items()])
         elif name == 'robot_get_arm_pose':
-            r = {'status': 'CANDIDATE', 'configuration': {'config': {'arm': 'right'}}}
+            r = {'status': 'CANDIDATE', 'configuration': {'config': {'arm': self.arm,
+                 'mapping': 'feetech_degrees_v1', 'calibration_sha256': 'motors'}}}
         elif name == 'robot_get_tags':
             self.seq += 1
-            a, b = (self.q[n]-2000 for n in ('right_arm_shoulder_pan', 'right_arm_wrist_flex'))
+            a, b = (self.q[f'{self.arm}_arm_{n}']-2000 for n in ('shoulder_pan', 'wrist_flex'))
             corners = (np.array([[300, 220], [340, 220], [340, 260], [300, 260]], float)
                        + np.array([a*.3, b*.3]))
             table = [[100, 100], [140, 100], [140, 140], [100, 140]]
             tags = [dict(tag_id=1, status='DETECTED', corners_px=table),
-                    dict(tag_id=2, status='DETECTED', corners_px=corners.tolist())]
+                    dict(tag_id=self.tag_id, status='DETECTED', corners_px=corners.tolist())]
             if self.missing_tag:
                 tags.pop()
             row = dict(frame=dict(camera_id='oak-test', stream_id='one', seq=self.seq,
                 sha256=digest(self.seq), captured_at=self.now, timestamp_basis='capture'), image_size_px=[640, 480],
                 tags=tags, pose_3d=dict(status='CAMERA_RELATIVE_ESTIMATE', calibration_sha256='K',
                 geometry_config_sha256='geometry', tags=[dict(tag_id=1, center_camera_mm=[0, 0, 600]),
-                dict(tag_id=2, center_camera_mm=[0, 0, 300], mount=self.mount, camera_from_tag=self.pose().tolist(),
+                dict(tag_id=self.tag_id, center_camera_mm=[0, 0, 300], mount=self.mount, camera_from_tag=self.pose().tolist(),
                      orientation_ambiguous=self.ambiguous, reprojection_rms_px=.1)]))
             r = {'observations': {'oak': row}}
         elif name == 'robot_set_motor_enable':
@@ -125,6 +128,46 @@ def test_readiness_reports_visibility_without_any_write(rig):
     assert r['detected_tag_ids'] == [1, 2] and r['tag_2_border_clearance_px'] > 0
     assert not owner.writes
     assert all(n.startswith('robot_get_') for n, _ in owner.calls)
+    assert r['gripper_tag_id'] == 2
+    assert r['gripper_tag_mount'] == r['tag_2_mount']
+    assert r['gripper_tag_border_clearance_px'] == r['tag_2_border_clearance_px']
+
+
+def test_left_tag_readiness_and_local_probe_use_only_left_binding(rig, tmp_path):
+    _, cfg = rig
+    owner = Owner('left')
+    cfg.update(arm='left', gripper_tag_id=4)
+    report = readiness(owner, cfg, clock=owner.clock)
+    assert report['status'] == 'READY_FOR_LOCAL_PROBES'
+    assert report['gripper_tag_id'] == 4 and report['tag_4_mount']['arm'] == 'left'
+    assert 'tag_2_mount' not in report
+    outcome = run_calibration(owner, cfg, 'local_model', tmp_path/'left', clock=owner.clock)
+    assert outcome['status'] == 'LOCAL_MODEL_VALIDATED' and outcome['gripper_tag_id'] == 4
+    assert outcome['cleanup']['release_confirmed'] and not owner.enabled
+    assert all(args['tag_ids'] == [1, 4] for name, args in owner.calls if name == 'robot_get_tags')
+    enabled = [args for name, args in owner.calls if name == 'robot_set_motor_enable' and args['enabled']]
+    assert enabled and all(n.startswith('left_arm_') and not n.endswith('gripper') for n in enabled[0]['names'])
+    sample = json.loads((tmp_path/'left/baseline/sample.json').read_text())
+    assert sample['arm'] == 'left' and sample['gripper_tag_id'] == 4
+
+
+@pytest.mark.parametrize('arm,tag', [('right', 4), ('left', 2), ('right', True)])
+def test_wrong_explicit_tag_refused_before_any_owner_call(rig, tmp_path, arm, tag):
+    owner, cfg = rig
+    cfg.update(arm=arm, gripper_tag_id=tag)
+    with pytest.raises(ValueError, match='requires gripper tag'):
+        run_calibration(owner, cfg, 'local_model', tmp_path/'wrong-tag', clock=owner.clock)
+    assert owner.calls == []
+
+
+def test_left_tag_with_right_mount_never_enables(rig, tmp_path):
+    _, cfg = rig
+    owner = Owner('left')
+    owner.mount['arm'] = 'right'
+    cfg.update(arm='left', gripper_tag_id=4)
+    with pytest.raises(Refused, match='mounting'):
+        run_calibration(owner, cfg, 'local_model', tmp_path/'wrong-mount', clock=owner.clock)
+    assert owner.writes == 0 and not owner.stopped
 
 
 def test_existing_experiment_runs_bidirectional_probes_and_independent_holdouts(rig, tmp_path):
@@ -188,8 +231,11 @@ def test_ambiguous_orientation_allows_pixels_but_blocks_registration_before_enab
     assert r['status'] == 'LOCAL_MODEL_VALIDATED'
 
 
-def test_registration_automatically_collects_and_fits_held_out_poses(rig, tmp_path, monkeypatch):
-    owner, cfg = rig
+@pytest.mark.parametrize('arm', ['right', 'left'])
+def test_registration_automatically_collects_and_fits_held_out_poses(rig, tmp_path, monkeypatch, arm):
+    _, cfg = rig
+    owner = Owner(arm)
+    cfg.update(arm=arm)
     # Substitute only encoder-to-FK mapping, retaining sampler, API movement
     # adapter and OpenCV fitter. This is not a physical/collision simulation.
     def assemble(captures, directory):
@@ -197,13 +243,13 @@ def test_registration_automatically_collects_and_fits_held_out_poses(rig, tmp_pa
         binding = None
         for capture in captures:
             s = copy.deepcopy(capture['sample'])
-            a, b = (s['joint_ticks'][n]-2000 for n in ('right_arm_shoulder_pan', 'right_arm_wrist_flex'))
+            a, b = (s['joint_ticks'][f'{arm}_arm_{n}']-2000 for n in ('shoulder_pan', 'wrist_flex'))
             pose = np.eye(4)
             pose[:3, :3] = cv2.Rodrigues(np.array([0., b, 0.])*np.pi/2048)[0] @ cv2.Rodrigues(np.array([0., 0., a])*np.pi/2048)[0]
             pose[:3, 3] = [.2+a*.0003, .02+b*.0003, .3]
             s['base_from_gripper'] = pose.tolist()
             samples.append(s)
-            binding = dict(arm='right', gripper_tag_id=2, gripper_tag_mount=owner.mount,
+            binding = dict(arm=arm, gripper_tag_id=owner.tag_id, gripper_tag_mount=owner.mount,
                            camera_id='oak-test', stream_id='one', camera_calibration_sha256='K',
                            tag_geometry_sha256='geometry', robot_model_sha256='model',
                            motor_calibration_sha256='motors', encoder_mapping_source='synthetic known FK')
@@ -222,6 +268,7 @@ def test_registration_automatically_collects_and_fits_held_out_poses(rig, tmp_pa
     assert set(owner.q.values()) == {2000} and not owner.enabled
     assert r['commanded_path_ticks'] <= 1500
     assert 'motor_writes' not in r and r['fitter_motor_writes'] == 0
+    assert r['binding']['gripper_tag_id'] == owner.tag_id and r['binding']['arm'] == arm
 
 
 def test_plan_cannot_exceed_budget_or_include_wrong_axis_count():

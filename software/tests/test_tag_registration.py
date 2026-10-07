@@ -21,13 +21,13 @@ def dataset():
     tag = pose([.1, -.2, .3], [.015, .006, -.04])
     binding = dict(arm='left', camera_id='test', stream_id='one', camera_calibration_sha256='K',
                    tag_geometry_sha256='sizes', robot_model_sha256='model', motor_calibration_sha256='motors',
-                   encoder_mapping_source='synthetic known mapping', gripper_tag_id=2)
+                   encoder_mapping_source='synthetic known mapping', gripper_tag_id=4)
     binding['gripper_tag_mount'] = dict(arm='left', body='fixed_gripper_housing', source='test fixture')
     samples = []
     for i in range(15):
         gripper = pose(rng.uniform(-.7, .7, 3), rng.uniform([.15, -.1, .1], [.4, .15, .4]))
         observed = np.linalg.inv(camera) @ gripper @ tag
-        samples.append(dict(arm='left', gripper_tag_id=2, frame=dict(camera_id='test', stream_id='one', seq=i,
+        samples.append(dict(arm='left', gripper_tag_id=4, frame=dict(camera_id='test', stream_id='one', seq=i,
             sha256=hashlib.sha256(str(i).encode()).hexdigest()),
             camera_calibration_sha256='K', tag_geometry_sha256='sizes', head_ticks=[2000, 2400],
             gripper_tag_mount=copy.deepcopy(binding['gripper_tag_mount']),
@@ -54,6 +54,15 @@ def test_held_out_bad_pose_rejects_transform_instead_of_fitting_it_away():
     assert result['status'] == 'REGISTRATION_REJECTED'
     assert result['base_from_camera'] is None and result['gripper_from_tag'] is None
     assert result['residuals']['validation']['position_max_mm'] > 20
+
+
+def test_consistently_relabeling_right_tag_as_left_cannot_validate_a_fit():
+    data, _, _ = dataset()
+    data['binding']['gripper_tag_id'] = 2
+    for sample in data['samples']:
+        sample['gripper_tag_id'] = 2
+    with pytest.raises(ValueError, match='Selected arm left requires gripper tag 4'):
+        fit_registration(data)
 
 
 @pytest.mark.parametrize('change', [

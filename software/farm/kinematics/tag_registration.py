@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from .lerobot import transform, pose_error, LeRobotSO101
 from .assets import verified_model
 from farm.perception.tag_geometry import fingerprint
+from farm.perception.tag_sampling import gripper_tag_for_arm
 
 
 def _average(poses):
@@ -66,6 +67,7 @@ def assemble_dataset(captures, model_directory):
     reference_ranges = None
     for capture in captures:
         sample = dict(capture["sample"])
+        gripper_tag_for_arm(sample.get("arm"), sample.get("gripper_tag_id"))
         mount = sample.get("gripper_tag_mount") or {}
         if (mount.get("arm") != sample.get("arm") or mount.get("body") != "fixed_gripper_housing"
                 or not mount.get("source")):
@@ -115,6 +117,7 @@ def fit_registration(dataset):
                 "robot_model_sha256", "motor_calibration_sha256", "encoder_mapping_source", "gripper_tag_id")
     if any(not binding.get(k) for k in required) or binding["arm"] not in ("left", "right"):
         raise ValueError("Bind the dataset to one arm, camera, tag, model, mapping and calibration")
+    gripper_tag_for_arm(binding["arm"], binding["gripper_tag_id"])
     mount = binding.get("gripper_tag_mount") or {}
     if mount.get("arm") != binding["arm"] or mount.get("body") != "fixed_gripper_housing" or not mount.get("source"):
         raise ValueError("Registration requires confirmed arm and fixed gripper-tag mounting")
