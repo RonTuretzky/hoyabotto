@@ -115,3 +115,13 @@ An earlier replay did not match the saved image hashes and remains explicitly
 a restored-state diagnostic, not an exact replay. Evidence and limitations:
 `output/bimanual-fold-sim/short-fallback-dynamic-diagnosis-2026-10-07-02/REPORT.md`
 and `output/bimanual-fold-sim/fallback-contract-audit-20261007/README.md`.
+
+The subsequent `paired-short-setpoint-feedback-05` batch verifies this raw
+recording path on all three runs: result-to-manifest, archive and per-array
+hashes match; both cameras' current sequence/time/clock match; and the exposed
+additional arrays match the original observation packet hashes exactly. The
+runs stop on predicted wrist geometry, not invalid observations. A separate
+read-only reuse of the strict open-short estimator finds both shorts in the
+saved primary pixels in all three cases, with maximum 0.275° current-view
+disagreement. That analysis does not change the production observer or cure the
+claw approach. See `exact-cache-v3-summary.json` beside the diagnosis report.

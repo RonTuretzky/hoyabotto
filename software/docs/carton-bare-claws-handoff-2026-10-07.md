@@ -323,7 +323,19 @@ encoder-estimated 20 cm cart advance. Thus old image-derived station placement
 and earlier registrations must not be assumed to match the physical setup.
 See `paddle-apriltag-pickup-handoff.md` and
 `commissioning/2026-10-07-paddle/README.md`; these are published historical
-records, not a fresh live status check. Actual tag widths/mount transforms,
+records, not a fresh live status check.
+
+Main also includes the newer published right-arm pickup archive at `294f419`
+and server-readiness clarification at `3f69297`. That archive records an
+operator-confirmed paddle lift, placement, release and cleanup using bounded
+camera-guided encoder commands, plus an earlier 5.43 cm cart reposition. The
+reported server scope is right-arm only: four left-arm calibration mismatches
+still prevent full-scope startup. This is neither a two-arm carton test nor a
+validated Cartesian mapping. Read
+`commissioning/2026-10-07-paddle-success/README.md` and `QWEN-SERVER.md` in that
+directory. This task did not refresh the live service or change its protections.
+
+Actual tag widths/mount transforms,
 both-arm zero/sign/tool calibration,
 independent registration validation, current homing/limit-register readbacks,
 station geometry and camera/depth accuracy still need verified measurements.
