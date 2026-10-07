@@ -75,6 +75,14 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
                     '--near-pre-out',str(job.get('near_pre_out',.02)),'--near-pre-up',str(job.get('near_pre_up',0.))]
     else:
         command += ['--fold-right','--press-left','--open-claw-transfer']
+        if job.get('close_majors_after_open_claw'):
+            command += ['--close-majors-after-open-claw', '--far-hold-degrees', str(job['majors_far_target'])]
+        if job.get('extra_wall_markers'):
+            command.append('--extra-wall-markers')
+    if job.get('base_height') is not None:
+        command += ['--base-height', str(job['base_height'])]
+    if job.get('far_open_degrees') is not None:
+        command += ['--far-open-degrees', str(job['far_open_degrees'])]
     if job.get('far_after_near'):
         command += ['--far-after-near','--far-hold-degrees',str(job.get('far_hold_degrees',90.)),
                     '--far-contact-profile',job.get('far_contact_profile','edge'),
@@ -134,6 +142,7 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
                           'bounded_target_verified')
                           and not (result.get('partial_short_probe') or {}).get('fault')),
                       shorts_opened=bool((result.get('short_opening') or {}).get('physically_opened_and_released')),
+                      four_flaps_closed_and_held=bool((result.get('majors_over_shorts') or {}).get('four_flaps_closed_and_held')),
                       partial_support_passed=bool(record.get('exit_code') == 0
                           and (result.get('open_claw_transfer') or {}).get(
                               'both_shorts_retained_by_right_claw')))
@@ -182,6 +191,16 @@ def main():
                         default='front', help='Explicit hypothetical camera mount for the short probe only')
     parser.add_argument('--allow-primary-carton-absence', action='store_true',
                         help='Require full fresh additional-view geometry when only primary carton identity is absent')
+    parser.add_argument('--close-majors-after-open-claw', action='store_true',
+                        help='After the open-claw short hold, close far then near majors over the shorts')
+    parser.add_argument('--extra-wall-markers', action='store_true',
+                        help='Add proposed printed carton markers 26/27 (near wall) and 28 (left wall)')
+    parser.add_argument('--majors-far-target', type=float, default=34.,
+                        help='Far angle that pins the shorts before the right claw releases them')
+    parser.add_argument('--base-height', type=float, default=.06,
+                        help='Assumed arm-base origin height above the tabletop (m)')
+    parser.add_argument('--far-open-degrees', type=float, default=None,
+                        help='Initial far-flap presentation angle; default keeps the original -5.73 degrees')
     parser.add_argument('--short-stroke-step-degrees', type=float, choices=(.25, .5, 1.), default=.25,
                         help='Declared measured-angle advance per bounded short stroke command')
     parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4','jaw_surface_v5'),
@@ -247,6 +266,19 @@ def main():
                        short_stroke_step_degrees=args.short_stroke_step_degrees,
                        observe_primary_open_shorts=args.observe_primary_open_shorts,
                        allow_primary_carton_absence=args.allow_primary_carton_absence)
+    if args.close_majors_after_open_claw:
+        if args.open_short_angles or args.near_release_angles:
+            parser.error('Closing majors over shorts follows the open-claw short hold only')
+        if not 25 <= args.majors_far_target <= 45:
+            parser.error('Far pinning angle before releasing the shorts must be 25..45 degrees')
+        for job in jobs:
+            job.update(close_majors_after_open_claw=True, majors_far_target=args.majors_far_target,
+                       extra_wall_markers=args.extra_wall_markers)
+    for job in jobs:
+        if args.base_height != .06:
+            job['base_height'] = args.base_height
+        if args.far_open_degrees is not None:
+            job['far_open_degrees'] = args.far_open_degrees
     if not math.isfinite(args.far_hold_degrees) or not 20<=args.far_hold_degrees<=90:
         parser.error('Far hold target must be20..90 degrees')
     if args.release_far_after and (not args.far_after_near or not 20<=args.far_hold_degrees<=45):
@@ -316,7 +348,8 @@ def main():
                     far_major_holds=sum(bool(r.get('far_major_held')) for r in manifest['results']),
                     far_clearance_holds=sum(bool(r.get('far_clearance_held')) for r in manifest['results']),
                     both_partial_major_releases=sum(bool(r.get('both_partial_majors_released')) for r in manifest['results']),
-                    bounded_short_probe_holds=sum(bool(r.get('bounded_short_probe_held')) for r in manifest['results']))
+                    bounded_short_probe_holds=sum(bool(r.get('bounded_short_probe_held')) for r in manifest['results']),
+                    four_flap_holds=sum(bool(r.get('four_flaps_closed_and_held')) for r in manifest['results']))
     # This is measured worker overlap, not a benchmarked sequential speedup.
     manifest['worker_overlap_factor'] = (sum(r.get('wall_seconds', 0) for r in manifest['results'])
                                          / manifest['wall_seconds'])
@@ -324,7 +357,7 @@ def main():
     print(json.dumps({key: manifest[key] for key in (
         'completed_trials', 'partial_support_passes', 'near_major_holds', 'near_clearance_holds',
         'far_major_holds', 'far_clearance_holds', 'both_partial_major_releases', 'bounded_short_probe_holds',
-        'wall_seconds', 'worker_overlap_factor')}), flush=True)
+        'four_flap_holds', 'wall_seconds', 'worker_overlap_factor')}), flush=True)
 
 
 if __name__ == '__main__':

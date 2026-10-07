@@ -6,7 +6,18 @@
 hands-clear retention has passed. No robot or physical camera was accessed.**
 Keep this distinction when handing the work to Gemma or the robot Mac.
 
-### Latest update — jaw-surface controller and major-pixel exclusion
+### Latest update — all four flaps closed and held (shorts first)
+
+**All four flaps have been closed and held by the two bare claws in two
+executed simulation runs** (shorts 89.8°, majors 88–90°, carton motion
+≤1.6 mm, contact audits `CONTACT_ONLY_CLEAR`). It is **not reliable yet: 1/5
+seeds** with the current code, and it needs new station assumptions (arm bases
+120 mm above the table, far flap presented about 1° inward, three extra
+printed carton markers). No tape, hands-clear retention or hardware. The
+sequence, its rules, failures and assumptions are in
+`carton-four-flap-shorts-first.md`.
+
+### Earlier update — jaw-surface controller and major-pixel exclusion
 
 **Both shorts now fold from about −13° to just past upright (+1.0° to +1.5°)
 in two of three seeds**, then stop where the shorts meet the partially closed
