@@ -4,7 +4,7 @@ class PaddleJointExecutor:
  def __init__(self,joints,ranges,write,clock=time.monotonic,wall=time.time):
   self.joints=joints;self.ranges=ranges;self.write=write;self.clock=clock;self.wall=wall
   self.active=False;self.samples=[];self.diagnostics={}
- def start(self,c,current,session_started):
+ def start(self,c,current,session_started,held_goals=None):
   p=c.get('positions');duration=c.get('duration_s')
   if type(c.get('id')) is not int or c['id']<=0 or c.get('session_started')!=session_started:raise ValueError('Bound-session command required')
   if not isinstance(p,dict) or len(p)!=1 or set(p)!=set(self.joints):raise ValueError('Pickup profile requires one joint per command')
@@ -18,7 +18,9 @@ class PaddleJointExecutor:
   self.deadline=math.ceil(abs(target-q)/self.step)*self.interval+3
   if self.deadline>(55 if self.contact else 28):raise ValueError('Pickup segment exceeds API completion deadline; shorten segment/duration')
   self.duration=self.deadline-3
-  self.target=target;self.goal=q;self.start_q=q;self.started=self.last_tick=self.last_write=self.clock();self.last_q=q;self.stable=0;self.quiet_since=None;self.last_sample=None;self.command_id=c['id'];self.active=True
+  self.target=target;self.goal=(held_goals or {}).get(self.n,q);
+  if type(self.goal)is not int or abs(self.goal-q)>96 or not lo+40<=self.goal<=hi-40:raise ValueError('Pickup previous held goal outside envelope')
+  self.first_step=True;self.start_q=q;self.started=self.last_tick=self.last_write=self.clock();self.last_q=q;self.stable=0;self.quiet_since=None;self.last_sample=None;self.command_id=c['id'];self.active=True
   self.progress_q=q;self.progress_at=self.started
   return {'accepted':c['id'],'phase':'moving','execution_profile':'paddle-success-v1','direct_start_positions':{self.n:q},'direct_requested_targets':p,'direct_deadline_s':self.deadline,'direct_duration_s':self.deadline-3,'grasp_verified':False}
  def tick(self,current,telemetry_at,rows=None):
@@ -36,13 +38,19 @@ class PaddleJointExecutor:
   contact_stop=self.contact and self.quiet_since is not None and now-self.quiet_since>=.3 and q-self.goal>=40
   self.diagnostics={'goal_ticks':self.goal,'current_ticks':q,'target_ticks':self.target,'following_error_ticks':q-self.goal,'stable_samples':self.stable,'contact_stop':contact_stop}
   self.samples.append(dict(self.diagnostics));self.samples=self.samples[-128:]
-  if contact_stop or (self.stable>=3 and (not self.contact or self.quiet_since is not None and now-self.quiet_since>=.3)):
+  if contact_stop or (self.stable>=3 and (now-self.last_write>=self.interval if not self.contact else self.quiet_since is not None and now-self.quiet_since>=.3)):
    self.active=False
    return {'completed':self.command_id,'phase':'holding','direct_actual_positions':current,'grasp_verified':False,'closure_outcome':'stationary_closure_unverified' if contact_stop else 'endpoint_settled','direct_settle_diagnostics':self.diagnostics}
   if abs(q-self.progress_q)>=8:self.progress_q=q;self.progress_at=now
   if self.n.endswith('gripper') and not self.contact and abs(q-self.goal)>30 and now-self.progress_at>1:raise RuntimeError('Pickup gripper no-progress guard')
-  advance=self.goal!=self.target and (self.goal==self.start_q or (self.contact and self.quiet_since is not None and now-self.quiet_since>=.3) or (not self.contact and now-self.last_write>=self.interval))
-  if self.contact and self.goal!=self.start_q and not advance and now-self.last_write>1.5:raise RuntimeError('Pickup closure did not become stationary')
+  advance=self.goal!=self.target and (self.first_step or (self.contact and self.quiet_since is not None and now-self.quiet_since>=.3) or (not self.contact and now-self.last_write>=self.interval))
+  if self.contact and not self.first_step and not advance and now-self.last_write>1.5:raise RuntimeError('Pickup closure did not become stationary')
   if advance:
-   delta=self.target-self.goal;self.goal+=max(-self.step,min(self.step,delta));self.write({self.n:self.goal});self.last_write=now;self.quiet_since=None;self.stable=0
+   delta=self.target-self.goal;self.goal+=max(-self.step,min(self.step,delta));self.write({self.n:self.goal});self.last_write=now;self.first_step=False;self.quiet_since=None;self.stable=0
   return {'phase':'moving','direct_settle_diagnostics':self.diagnostics}
+
+ def pause(self,seconds):
+  for field in ['started','last_write','progress_at','quiet_since']:
+   value=getattr(self,field,None)
+   if value is not None:setattr(self,field,value+seconds)
+  self.last_tick=self.clock();self.stable=0;self.last_sample=None

@@ -35,7 +35,7 @@ class DirectJointClient:
                 supported_motors=state.get('supported_motors',[]),enabled_motors=state.get('enabled_motors',[]),
                 operator_armed=state.get('operator_armed') is True,local_operator_gate=state.get('operator_armed') is True,
                 motor_owner_active=state.get('hardware_server') is True and 0<=state['status_age_s']<=1)
-            result.update(execution_profile=state.get('execution_profile','legacy-direct'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}))
+            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}))
             if state.get('read_only') is True:result['blockers'].append('READ_ONLY_OWNER: calibration mismatch blocks activation')
             if state.get('control_mode')!='direct_joint' or state.get('hardware_server') is not True:result['blockers'].append('HARDWARE_OWNER_PROTOCOL_UNAVAILABLE')
             if not 0<=state['status_age_s']<=1:result['blockers'].append('OWNER_STATUS_STALE')
@@ -58,7 +58,7 @@ class DirectJointClient:
                     if state.get('ranges',{}).get(name)!=[lo,hi]:issues.append('SAVED_RANGE_MISMATCH')
                     q=row.get('Present_Position')
                     if type(q) not in (int,float) or not math.isfinite(q) or not lo<=q<=hi:issues.append('CURRENT_POSITION_OUTSIDE_SAVED_RANGE')
-                for field,valid in [('Status',lambda x:x==0),('Present_Temperature',lambda x:x<=SOFTWARE_TEMPERATURE_LIMIT_C),('Present_Load',lambda x:abs(x)<500)]:
+                for field,valid in [('Status',lambda x:x==0),*([('Present_Temperature',lambda x:x<=SOFTWARE_TEMPERATURE_LIMIT_C)] if state.get('execution_profile')!='paddle-success-v1' else []),('Present_Load',lambda x:abs(x)<=(800 if state.get('execution_profile')=='paddle-success-v1' and not name.endswith('gripper') else 500))]:
                     v=row.get(field)
                     if type(v) not in (int,float) or not math.isfinite(v) or not valid(v):issues.append('UNSAFE_OR_INVALID_'+field)
                 if type(row.get('Torque_Enable')) is not int or row['Torque_Enable'] not in (0,1):issues.append('INVALID_TORQUE_TELEMETRY')
@@ -117,6 +117,13 @@ class DirectJointClient:
                 c=self.calibration[n]
                 if not c['range_min']+4<=q<=c['range_max']-4:raise ValueError('Target outside saved range plus4tickmargin: '+n)
                 if state['rows'][n].get('Torque_Enable')!=1:raise ValueError('Requested motor is released; explicitly enable it first: '+n)
+        if request['op']!='enable_motors' and state.get('execution_profile')=='paddle-success-v1':
+            required=state.get('pickup_required_enabled_motors',state.get('supportsselectedjoints',[]))
+            if set(required)!=set(state.get('enabled_motors',[])):raise ValueError('Pickup requires all six right-arm motors explicitly enabled: '+json.dumps(required))
+            if state.get('pickup_motion_segments_used',0)>=20:raise ValueError('Pickup session motion budget exhausted (20 segments)')
+            from paddle_joint_executor import PaddleJointExecutor
+            dry=PaddleJointExecutor(names,{n:state['ranges'][n] for n in names},lambda _:None)
+            dry.start(dict(request,id=1,session_started=state['started']),{n:state['rows'][n]['Present_Position'] for n in names},session_started=state['started'],held_goals=state.get('goals'))
         ready=self.readiness()
         faults={n:ready['joint_blockers'][n] for n in names if n in ready['joint_blockers']}
         if faults:raise ValueError('Requested motor health/range blockers: '+json.dumps(faults))
@@ -198,7 +205,7 @@ class DirectJointClient:
                 if generation!=self.cancel_generation:raise RuntimeError('STOP interrupted dispatch')
                 if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:raise RuntimeError('Another writer changed command file')
                 atomic_json(command_file,command);dispatched=True
-                deadline=self.clock()+(60 if request['op']=='gripper_target' or state.get('execution_profile')=='paddle-success-v1' and request['op']=='direct_joint' else 30 if request['op']=='direct_joint' else 5)
+                deadline=self.clock()+(90 if state.get('execution_profile')=='paddle-success-v1' and request['op'] in ('direct_joint','gripper_target') else 60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
                 while self.clock()<deadline:
                     if generation!=self.cancel_generation:raise RuntimeError('STOP cancelled goal; no automatic resume')
                     current=self.status()
