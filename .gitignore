@@ -18,3 +18,6 @@ software/parts/out/
 software/data-train/
 software/data-carton/
 software/profiles/carton-local.yaml
+
+# MuJoCo writes this warning log into the working directory of simulation runs.
+MUJOCO_LOG.TXT
