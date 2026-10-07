@@ -13,15 +13,14 @@ A. the left jaw tip presses on the far top edge, located from the far flap's
    flap is outward, and registration-placed contacts slid off the 3 mm edge;
 B. the right claw lifts off both shorts and parks; the far major alone keeps
    them closed;
-C. the left jaw releases the far major and parks. Held near 34 degrees its
-   forearm lies in the near flap's sweep, and held near 60 degrees the far
-   panel blocks the right claw's release. The released far springs back but
-   still bounds the shorts' far corners;
-D. the right jaw pushes the near outer face, 25 mm below its tip, to 90
-   degrees (at the tip a few millimetres of registration error loaded the
-   hinge axially);
-E. with the near flap closed nothing blocks the left arm: it pushes the far
-   outer face the same way to 90 degrees while the right jaw holds the near.
+C. the left jaw never lets go of the far major (a real crease would spring
+   it open and release the shorts): with the right claw gone it pushes it on
+   to 70 degrees, where its forearm clears the near flap's sweep;
+D. the right jaw pushes the near outer face, 25 mm below its tip, to 88
+   degrees while the left keeps the far (at the tip a few millimetres of
+   registration error loaded the near hinge axially);
+E. the left jaw closes the far major with the same contact, sliding down its
+   outer face away from the centre seam, while the right jaw holds the near.
 """
 import math
 
@@ -73,6 +72,10 @@ _FINAL_SHORTS_BAND = (85., 110.)
 # The friction drag regrips the freshly measured far edge when it slips; if
 # that does not reach the pin, a hook behind the edge takes over.
 _DRAG_ATTEMPTS = 4
+# The left jaw keeps the far flap after the right claw leaves: it pushes it
+# on to this angle, which clears the near flap's sweep, then finishes after
+# the near flap is closed; past 70 degrees its tip slides down to this radius.
+_FAR_HOLD_DEGREES, _FAR_FINAL_RADIUS = 70., .115
 # A first contact can push the nearly upright far flap outward; regrip from
 # there rather than stopping (the outward near flap is at -15 degrees).
 _FAR_DRAG_LOW = -12.
@@ -204,7 +207,8 @@ def _observed(reading, flap, low, high):
 
 
 def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_degrees=18.,
-                                  near_target_degrees=88., far_target_degrees=88., max_commands=160):
+                                  near_target_degrees=88., far_target_degrees=88., max_commands=160,
+                                  release_far=False):
     # Targets stop 2 degrees short of flat: a push that reaches 90 degrees
     # presses the shorts below flat into the empty carton (98.6 degrees seen).
     # 88 degrees is inside the original 85--95 degree visual closure band.
@@ -498,75 +502,97 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
         report.setdefault('far_pin_angle_sources', []).extend(bridge.rows)
         bridge.rows = report['far_pin_angle_sources']
         history, press = [far], _PRESS_START_M
-        while far < far_pin_degrees - 1:
-            if len(report['far_pin_commands']) >= max_commands:
-                raise ValueError('Far top-edge drag exceeded its command budget')
-            # Seed from the actual encoder pose; sub-millimetre margins make the
-            # IK branch matter. Try a shorter lead or lighter press before refusing.
-            actual_q = sim.data.qpos[sim.arm_indices['left'][:5]].copy()
-            planner = _push_planner(sim, 'left', 'long_far_cardboard')
-            for lead, lighter in ((1., 0.), (.5, 0.), (1., .0005), (.5, .0005)):
-                theta, depth = min(far_pin_degrees, far + lead), max(0., press - lighter)
-                # Hooked: keep the tip 4 mm below the top, just behind the outer
-                # face; the lead along the arc pushes the face toward the robot.
-                goal = (edge_point(theta, choice['along'], hook_depth[0], _EDGE_HOOKED_OUT_M) if hooked
-                        else edge_point(theta, choice['along'], depth))
-                try:
-                    q, _ = ik.solve(goal, actual_q)
-                except ValueError:
-                    continue
-                if planner.edge(actual_q, q):
-                    break
-            else:
-                return far, 'refused'
-            drive('left', q, goal, ik, f'Drag far top edge toward {theta:.1f} degrees (press {depth*1000:.1f} mm)',
-                  .25, pushed='long_far_cardboard')
-            reading = c.sense('Observe far angle during top-edge drag')
-            box = np.asarray(reading['world_from_box'], dtype=float)
-            before = far
-            try:
-                far = bridge.update(reading, theta, _kinematic_angle(ik, sim, 'left', box, 'long_far',
-                                                                   edge['midplane_offset_mm']/1000),
-                                    _FAR_DRAG_LOW, far_pin_degrees + 5)
-            except ValueError as exc:
-                if 'disagrees with contact kinematics' not in str(exc) and 'Fold stalled' not in str(exc):
-                    raise
-                latest = reading['angles'].get('long_far') or {}
-                return float(latest.get('degrees', far)), 'slipped'
-            latest = reading['angles'].get('long_far') or {}
-            if latest.get('free_edge_radius_mm') is not None and latest.get('midplane_offset_mm') is not None:
-                edge = dict(free_edge_radius_mm=latest['free_edge_radius_mm'],
-                            midplane_offset_mm=latest['midplane_offset_mm'])
-            history.append(far)
-            report['far_pin_commands'].append(dict(commanded_degrees=theta, observed_degrees=far, press_m=depth,
-                                                   outward_m=outward, source=bridge.rows[-1]['source'],
-                                                   edge_measurement=dict(edge)))
-            slipped = None
-            if far < before - .2:
-                # The flap moved outward: the tip is on the inner corner. Move the
-                # contact outward and restart the press instead of pressing harder.
-                if hooked or outward >= _EDGE_OUTWARD_MAX_M:
-                    slipped = 'moved outward'
+        state = dict(far=far, edge=edge, outward=outward, hooked=hooked, press=press, history=history, q=previous)
+
+        def run(target, commands, keep=None):
+            """Advance this same contact to ``target`` degrees without letting go."""
+            nonlocal edge, outward, hooked
+            far, press, history = state['far'], state['press'], state['history']
+            q = state['q']
+            while far < target - 1:
+                if len(commands) >= max_commands:
+                    raise ValueError('Far top-edge drag exceeded its command budget')
+                # Seed from the actual encoder pose; sub-millimetre margins make the
+                # IK branch matter. Try a shorter lead or lighter press before refusing.
+                actual_q = sim.data.qpos[sim.arm_indices['left'][:5]].copy()
+                planner = _push_planner(sim, 'left', 'long_far_cardboard')
+                for lead, lighter in ((1., 0.), (.5, 0.), (1., .0005), (.5, .0005)):
+                    theta, depth = min(target, far + lead), max(0., press - lighter)
+                    # Hooked: keep the tip 4 mm below the top, just behind the outer
+                    # face; the lead along the arc pushes the face toward the robot.
+                    goal = (edge_point(theta, choice['along'], hooked_depth(theta), _EDGE_HOOKED_OUT_M) if hooked
+                            else edge_point(theta, choice['along'], depth))
+                    try:
+                        q, _ = ik.solve(goal, actual_q)
+                    except ValueError:
+                        continue
+                    if planner.edge(actual_q, q):
+                        break
                 else:
-                    outward, press = min(_EDGE_OUTWARD_MAX_M, outward + .001), _PRESS_START_M
-            elif far - before < .3:
-                if hooked or press >= _PRESS_MAX_M:
-                    slipped = 'did not follow' if not hooked or far - before < 0 else None
-                else:
-                    press = min(_PRESS_MAX_M, press + .0005)
-            if len(history) > 12 and far - history[-13] < 2.:
-                slipped = 'stalled'
-            if slipped:
-                if hooked or far < _HOOK_FROM_DEGREES:
-                    return far, 'slipped'
+                    state.update(far=far, press=press, history=history, q=q); return far, 'refused'
+                drive('left', q, goal, ik, f'Drag far top edge toward {theta:.1f} degrees (press {depth*1000:.1f} mm)',
+                      .25, pushed='long_far_cardboard')
+                reading = c.sense('Observe far angle during top-edge drag')
+                box = np.asarray(reading['world_from_box'], dtype=float)
+                before = far
                 try:
-                    lifted = q.copy()
-                    previous = hook(far, choice['along'], lifted)
-                    hooked, history = True, [far]
+                    far = bridge.update(reading, theta, _kinematic_angle(ik, sim, 'left', box, 'long_far',
+                                                                       edge['midplane_offset_mm']/1000),
+                                        _FAR_DRAG_LOW, target + 5)
                 except ValueError as exc:
-                    report.setdefault('far_hook_refusals', []).append(dict(degrees=far, reason=str(exc)))
-                    return far, 'slipped'
-        return far, 'pinned'
+                    if 'disagrees with contact kinematics' not in str(exc) and 'Fold stalled' not in str(exc):
+                        raise
+                    latest = reading['angles'].get('long_far') or {}
+                    state.update(far=far, press=press, history=history, q=q); return float(latest.get('degrees', far)), 'slipped'
+                if keep is not None:
+                    keep(reading)
+                latest = reading['angles'].get('long_far') or {}
+                if latest.get('free_edge_radius_mm') is not None and latest.get('midplane_offset_mm') is not None:
+                    edge = dict(free_edge_radius_mm=latest['free_edge_radius_mm'],
+                                midplane_offset_mm=latest['midplane_offset_mm'])
+                history.append(far)
+                commands.append(dict(commanded_degrees=theta, observed_degrees=far, press_m=depth,
+                                                       outward_m=outward, source=bridge.rows[-1]['source'],
+                                                       edge_measurement=dict(edge)))
+                slipped = None
+                if far < before - .2:
+                    # The flap moved outward: the tip is on the inner corner. Move the
+                    # contact outward and restart the press instead of pressing harder.
+                    if hooked or outward >= _EDGE_OUTWARD_MAX_M:
+                        slipped = 'moved outward'
+                    else:
+                        outward, press = min(_EDGE_OUTWARD_MAX_M, outward + .001), _PRESS_START_M
+                elif far - before < .3:
+                    if hooked or press >= _PRESS_MAX_M:
+                        slipped = 'did not follow' if not hooked or far - before < 0 else None
+                    else:
+                        press = min(_PRESS_MAX_M, press + .0005)
+                if len(history) > 12 and far - history[-13] < 2.:
+                    slipped = 'stalled'
+                if slipped:
+                    if hooked or far < _HOOK_FROM_DEGREES:
+                        state.update(far=far, press=press, history=history, q=q); return far, 'slipped'
+                    try:
+                        lifted = q.copy()
+                        previous = hook(far, choice['along'], lifted)
+                        hooked, history = True, [far]
+                    except ValueError as exc:
+                        report.setdefault('far_hook_refusals', []).append(dict(degrees=far, reason=str(exc)))
+                        state.update(far=far, press=press, history=history, q=q); return far, 'slipped'
+            state.update(far=far, press=press, history=history, q=q)
+            return far, 'pinned'
+
+        def hooked_depth(theta):
+            # Past 70 degrees the hooked tip slides down the outer face (at most
+            # 5 mm per command) toward 25 mm below the tip: at the edge it would
+            # reach the centre seam where the closed near flap lies.
+            final = max(hook_depth[0], edge['free_edge_radius_mm']/1000 - _FAR_FINAL_RADIUS)
+            wanted = hook_depth[0] + (final - hook_depth[0])*float(np.clip((theta - 70.)/12., 0., 1.))
+            state['depth'] = min(wanted, state.get('depth', hook_depth[0]) + .005)
+            return state['depth']
+
+        far, outcome = run(far_pin_degrees, report['far_pin_commands'])
+        return far, outcome, (run if outcome == 'pinned' else None)
 
     # Register: shorts held by the right claw, far near upright, near outward.
     reading = c.sense('Register held shorts and free majors before closing majors')
@@ -581,6 +607,7 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
     register = reading
     c.port.set_grippers({'left': -.17}, .4, 'Close left claw before far top-edge contact')
     report['far_drag_attempts'] = []
+    far_hold = [None]
     for attempt in range(_DRAG_ATTEMPTS):
         if attempt:
             t = math.radians(far)
@@ -589,7 +616,7 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
             reading = c.sense('Re-measure far top edge before regrip')
             far = _observed(reading, 'long_far', _FAR_DRAG_LOW, far_pin_degrees + 5)
         start = far
-        far, outcome = drag_far_edge(reading, register, far)
+        far, outcome, far_hold[0] = drag_far_edge(reading, register, far)
         report['far_drag_attempts'].append(dict(attempt=attempt, start_degrees=start, end_degrees=far,
                                                 outcome=outcome))
         if outcome == 'pinned':
@@ -601,6 +628,7 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
         t = math.radians(far)
         radial = c.box[:3, :3] @ np.array([0., -math.sin(t), math.cos(t)])
         report['left_edge_lift_m'] = lift_clear('left', radial, 'Lift left claw off far top edge')
+        far_hold[0] = None
         push_major('long_far', far_pin_degrees, report['far_pin_commands'], lambda reading: None, radii=_HOOK_RADII)
     c.port.move_arms({}, 1., 'Hold far major over shorts', None)
     gates(sim.events[-1], 'far pin hold')
@@ -625,34 +653,71 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
         _verify_target_angle(reading, 'long_far', far_pin_degrees)
     report['shorts_retained_by_far_major'] = True
 
-    # C. Left jaw leaves the far major; its forearm would otherwise lie in the
-    # near flap's sweep. The released far still bounds the shorts' corners.
-    report['stage'] = 'left releases far major'
-    t = math.radians(far_pin_degrees)
-    radial = c.box[:3, :3] @ np.array([0., -math.sin(t), math.cos(t)])
-    report['left_release_lift_m'] = lift_clear('left', radial, 'Lift left claw off far top edge')
-    park('left', 'Park left hand after far pin')
-    for _ in range(4):
-        c.port.move_arms({}, .5, 'Observe released far major and shorts', None)
-        gates(sim.events[-1], 'released far major')
-    reading = c.sense('Verify shorts and released far major')
-    c.require_folded(reading, ['short_left', 'short_right'])
-    report['released_far_visual_degrees'] = _observed(reading, 'long_far', _FAR_DRAG_LOW, far_pin_degrees + 5)
+    # C. The left jaw keeps the far major: a real crease springs it open when
+    # released, letting the shorts rise. With the right claw gone it pushes on
+    # to 70 degrees, where its forearm clears the near flap's sweep (held near
+    # 34 degrees the forearm lay in it; near 60 the panel blocked the right
+    # claw's release, which is why the pin comes first).
+    report['far_released_before_near'] = bool(release_far)
+    if release_far:
+        # Comparison variant: the left lets go and parks. It relies on crease
+        # friction holding the far flap; a stiffer real crease springs it open.
+        report['stage'] = 'left releases far major'
+        t = math.radians(far_pin_degrees)
+        radial = c.box[:3, :3] @ np.array([0., -math.sin(t), math.cos(t)])
+        report['left_release_lift_m'] = lift_clear('left', radial, 'Lift left claw off far top edge')
+        park('left', 'Park left hand after far pin')
+        for _ in range(4):
+            c.port.move_arms({}, .5, 'Observe released far major and shorts', None)
+            gates(sim.events[-1], 'released far major')
+        reading = c.sense('Verify shorts and released far major')
+        c.require_folded(reading, ['short_left', 'short_right'])
+        report['released_far_visual_degrees'] = _observed(reading, 'long_far', _FAR_DRAG_LOW, far_pin_degrees + 5)
+        far_hold[0] = None
+    report['stage'] = 'left keeps and advances far major'
+    report['far_hold_commands'] = []
+    if release_far:
+        pass
+    elif far_hold[0] is not None:
+        far, outcome = far_hold[0](_FAR_HOLD_DEGREES, report['far_hold_commands'])
+        if outcome != 'pinned':
+            raise ValueError(f'Held far major did not reach {_FAR_HOLD_DEGREES:g} degrees: {outcome}')
+    else:
+        report['far_hold_released_for_recontact'] = True
+        push_major('long_far', _FAR_HOLD_DEGREES, report['far_hold_commands'], lambda reading: None)
+    c.port.move_arms({}, .5, 'Hold far major clear of the near sweep', None)
+    gates(sim.events[-1], 'far hold')
+    reading = c.sense('Verify held far major before closing near')
+    report['far_hold_visual_degrees'] = _verify_target_angle(reading, 'long_far', _FAR_HOLD_DEGREES)
 
-    # D. Right jaw closes the near major; the far major is free. Close the
-    # right claw first: left open from the open-claw hold, its moving jaw
-    # stood in the closing far flap's sweep (contact near 62 degrees).
-    report['stage'] = 'right outer-face push of near major'
-    push_major('long_near', near_target_degrees, report['near_commands'], lambda reading: None)
+    # D. Right jaw closes the near major while the left keeps the far.
+    report['stage'] = 'right outer-face push of near major' + ('' if release_far else ' with far held')
+    push_major('long_near', near_target_degrees, report['near_commands'],
+               (lambda reading: None) if release_far else
+               (lambda reading: _verify_target_angle(reading, 'long_far', _FAR_HOLD_DEGREES)))
     c.port.move_arms({}, .5, 'Hold near major closed', None)
     gates(sim.events[-1], 'near hold')
     reading = c.sense('Verify held near major')
     report['near_hold_visual_degrees'] = _verify_target_angle(reading, 'long_near', near_target_degrees)
 
-    # E. Left jaw closes the far major while the right jaw holds the near.
-    report['stage'] = 'left outer-face push of far major with near held'
-    push_major('long_far', far_target_degrees, report['far_commands'],
-               lambda reading: _verify_target_angle(reading, 'long_near', near_target_degrees))
+    # E. Left jaw finishes the far major with the same contact while the right
+    # jaw holds the near.
+    report['stage'] = 'left closes far major with near held'
+    keep_near = lambda reading: _verify_target_angle(reading, 'long_near', near_target_degrees)
+    if far_hold[0] is not None and not release_far:
+        far, outcome = far_hold[0](far_target_degrees, report['far_commands'], keep_near)
+        # Near flat, the last small step can be refused before execution (the
+        # jaw nears the closed near flap); within 3 degrees the final visual
+        # 85--95 degree check below decides.
+        if outcome != 'pinned' and not (outcome == 'refused' and far >= far_target_degrees - 3):
+            raise ValueError(f'Held far major did not close: {outcome} at {far:.1f} degrees')
+        report['far_close_outcome'] = outcome
+    else:
+        if not release_far:
+            t = math.radians(_FAR_HOLD_DEGREES)
+            radial = c.box[:3, :3] @ np.array([0., -math.sin(t), math.cos(t)])
+            lift_clear('left', radial, 'Lift left claw off far major to recontact')
+        push_major('long_far', far_target_degrees, report['far_commands'], keep_near)
     c.port.move_arms({}, 2., 'Hold both majors closed over shorts', None)
     event = sim.events[-1]
     gates(event, 'final two-major hold')

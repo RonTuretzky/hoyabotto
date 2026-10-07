@@ -79,12 +79,17 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
             command += ['--close-majors-after-open-claw', '--far-hold-degrees', str(job['majors_far_target'])]
         if job.get('extra_wall_markers'):
             command.append('--extra-wall-markers')
+        if job.get('release_far'):
+            command.append('--release-far')
         if job.get('left_pinch_opening') is not None:
             command += ['--left-pinch-opening', str(job['left_pinch_opening'])]
         if job.get('pinch_clearance') is not None:
             command += ['--clearance', str(job['pinch_clearance'])]
     if job.get('base_height') is not None:
         command += ['--base-height', str(job['base_height'])]
+    for key in ('hinge_stiffness', 'hinge_friction'):
+        if job.get(key) is not None:
+            command += ['--'+key.replace('_', '-'), str(job[key])]
     if job.get('far_open_degrees') is not None:
         command += ['--far-open-degrees', str(job['far_open_degrees'])]
     if job.get('far_after_near'):
@@ -206,6 +211,12 @@ def main():
                         help='Add proposed printed carton markers 26/27 (near wall) and 28 (left wall)')
     parser.add_argument('--majors-far-target', type=float, default=18.,
                         help='Far angle that pins the shorts before the right claw releases them')
+    parser.add_argument('--release-far', action='store_true',
+                        help='Comparison variant: let go of the far major before closing the near one')
+    parser.add_argument('--hinge-stiffness', type=float, default=None,
+                        help='Assumed crease stiffness (N m/rad); default .018')
+    parser.add_argument('--hinge-friction', type=float, default=None,
+                        help='Assumed crease dry friction (N m); default .004')
     parser.add_argument('--base-height', type=float, default=.06,
                         help='Assumed arm-base origin height above the tabletop (m)')
     parser.add_argument('--far-open-degrees', type=float, default=None,
@@ -283,8 +294,9 @@ def main():
         for job in jobs:
             job.update(close_majors_after_open_claw=True, majors_far_target=args.majors_far_target,
                        extra_wall_markers=args.extra_wall_markers, left_pinch_opening=args.left_pinch_opening,
-                       pinch_clearance=args.pinch_clearance)
+                       pinch_clearance=args.pinch_clearance, release_far=args.release_far)
     for job in jobs:
+        job.update(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction)
         if args.base_height != .06:
             job['base_height'] = args.base_height
         if args.far_open_degrees is not None:

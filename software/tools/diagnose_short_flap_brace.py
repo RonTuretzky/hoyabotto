@@ -85,7 +85,8 @@ def run(args):
     sim = cls(Path(args.simulation_root), out,
         station=FoldingStation(args.base_height, args.base_to_table_edge, .01, table_marker_xy=(-.5, .55),
                                backup_table_marker_xy=(.45, .70)),
-        material=CartonMaterial(), width=args.width, height=args.height,
+        material=CartonMaterial(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction),
+        width=args.width, height=args.height,
         offset=(args.carton_offset_x, offset_y), yaw=yaw, initial_right_roll=1.5,
         initial_flaps={'short_left':.1,'short_right':.1,'long_far':math.radians(args.far_open_degrees),
                        'long_near':math.radians(args.near_open_degrees)},
@@ -298,7 +299,8 @@ def run(args):
                             controller.port = port
                         result['stage'] = 'Close both majors over shorts held by the open right claw'
                         result['majors_over_shorts'] = close_majors_over_held_shorts(sim, controller,
-                            capture=True, far_pin_degrees=args.far_hold_degrees if args.far_hold_degrees <= 45 else 34.)
+                            capture=True, far_pin_degrees=args.far_hold_degrees if args.far_hold_degrees <= 45 else 34.,
+                            release_far=args.release_far)
                     if args.near_after_open_claw:
                         from carton.folding_cascade import press_near_over_short
                         result['stage'] = 'Transfer open-claw support to near major'
@@ -437,6 +439,12 @@ if __name__ == '__main__':
                         help='Assumed arm-base origin line to near table edge (m); the cart front sits 115 mm ahead of it')
     parser.add_argument('--majors-view-camera', default='none', choices=('none', 'front', 'front_left_back', 'front_right_back'),
                         help='Explicit hypothetical additional camera for closing majors over held shorts')
+    parser.add_argument('--release-far', action='store_true',
+                        help='Comparison variant: let go of the far major before closing the near one')
+    parser.add_argument('--hinge-stiffness', type=float, default=.018,
+                        help='Assumed crease stiffness (N m/rad) for all four flaps')
+    parser.add_argument('--hinge-friction', type=float, default=.004,
+                        help='Assumed crease dry friction (N m) for all four flaps')
     parser.add_argument('--left-pinch-opening', type=float, default=.6,
                         help='Left claw opening (rad) while inserting around the left minor')
     parser.add_argument('--extra-wall-markers', action='store_true',

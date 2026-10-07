@@ -32,6 +32,28 @@ regrips and hooks on the far edge, closing the right claw in the air, near
 contacts in the gap between the shorts, and wider pre-contact searches.
 Holding the near flap at −17° instead of −15° drops the rate to 9/20.
 
+## Keep holding the far flap (default since this revision)
+
+A real crease resists more than the assumed hinge, so the far flap cannot be
+let go while the right arm closes the near flap (owner's review). The left jaw
+now keeps the far flap from the pin to the end: after the right claw leaves
+the shorts it pushes the far flap on to 70°, where its forearm clears the near
+flap's sweep, holds it there while the right jaw closes the near flap, then
+finishes the far flap with the same contact. `--release-far` keeps the older
+release-and-recontact sequence for comparison.
+
+| crease stiffness | release far (old) | keep holding (default) |
+|---|---|---|
+| 0.018 N·m/rad (assumed) | 24/30 (`four-flap-close-28`) | 17/30 (`four-flap-hold-01`) |
+| 0.036 N·m/rad (2×) | **0/20** (`stiff2x-release`): in 17 seeds the shorts spring to 50–60° as the left lets go | **12/20** (`stiff2x-hold`) |
+
+The released sequence only worked because the assumed crease friction held a
+free far flap at 33°. Keeping hold is the sequence to develop. Its failures at
+2× stiffness: the outward near flap creeps back into the right forearm holding
+the shorts (3; a stiffer crease creeps toward about 6° from upright instead of
+13°), the held far flap slips or leaves the camera's view before 70° (3), and
+the first far-edge contact (2).
+
 ## Sequence
 
 `--fold-right --press-left --open-claw-transfer --close-majors-after-open-claw`
