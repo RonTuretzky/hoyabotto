@@ -1,3 +1,11 @@
+## Wrist cameras through the API — 7 October 2026, 16:59
+
+Deployed remotely with `/admin/deploy` (cameras-only, commit e7716dc); no motors involved.
+- **Cause of "no publisher output".** The restart script pointed at the wrong source path for `capture-single`, so the build failed. Fixed in e7716dc.
+- **Camera IDs.** They are unchanged: right `0x12200005a39230`, left `0x12140005a39230`, head USB `0x12400005a39230`. The Mac also lists its built-in camera.
+- **Right wrist.** Streams 640×480 through `robot_get_cameras` (identity verified). The frame shows the white claw jaw, the cart basket and the floor.
+- **Left wrist.** It started, then stopped delivering frames within about 5 s (stale 18–28 s on later reads). This is the same freeze as `docs/Left-Wrist-Camera-Diagnosis.md`: reseat its USB cable or connect it directly to the Mac, then run `--cameras-only` again.
+
 ## Remote administration of the robot server — 7 October 2026
 
 After the next manual `./restart-robot-server.sh` (motors released), the robot API exposes `/admin/logs`, `/admin/deploy` and `/admin/job` behind the pinned client certificate. The chat Mac can then read the restart, owner, API and camera logs, and deploy a pushed branch or commit with a restart, without anyone at the robot. A restart that fails to come up rolls back to the previous files. Remote restarts still refuse while motors are holding.
