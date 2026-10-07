@@ -1,3 +1,21 @@
+## Left arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:43–19:46
+
+Job 20261007-194349-22d282 ran pinned PR #3282 at velocity 200, started by the owner from the chat. Evidence is in `work/calibration-runs/left-20261007-194349` on the robot Mac.
+- **Outcome.** The routine completed, release was verified, the range was validated with no problems, and the result was installed into the saved file. The job's server restart then loaded it, and the owner's servo-versus-file check passed (no mismatches).
+- **New left values** (homing / range, travel):
+
+  | Joint | Homing | Range | Travel |
+  |---|---|---|---|
+  | Pan | −49 | 690..3404 | 238.5° |
+  | Lift | 969 | 847..3247 | 210.9° |
+  | Elbow | 109 | 944..3150 | 193.9° |
+  | Wrist flex | −819 | 901..3193 | 201.4° |
+  | Roll | 1319 | 111..3983 | 340.3° |
+  | Gripper | 119 | 1273..2821 | 136.1° |
+
+  These are consistent with the previous verified run, and pan now matches the right arm (about 240°).
+- **Not yet confirmed.** Whether the values persist across a left-side 12 V power cycle. Earlier today left homing offsets read 0 after a bus/power event that interrupted a restore. Confirm by power-cycling the left side and checking for mismatches at the next owner start.
+
 ## Outage and right-arm calibration attempt — 7 October 2026, 18:19–18:35
 
 - **18:19, right-arm auto-calibration.** The pilot ran `robot_auto_calibrate` on the RIGHT arm at velocity 200, stopping the owner. The runner exited 2: the candidate was retained but not validated. Whether the job's register restore completed was not read before the API went down. Check `/admin/job?id=20261007-181916-761f48` and the right arm's calibration mismatches before any right-arm motion. The right arm's calibration was meant to stay frozen (pickup sequence, tag registration).
