@@ -20,6 +20,8 @@ OAK_RAW_DIR=os.environ.get('XLEROBOT_OAK_RAW_DIR','/Users/teachera/Documents/Cod
 WORK=ROOT/'work';SESSION=WORK/'gemma-hardware-session';STATUS=SESSION/'status.json'
 OWNER_RECORD=WORK/'gemma-hardware-owner-process.json';API_RECORD=WORK/'gemma-robot-tools-process.json'
 OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api.log'
+# Files only the API process loads: these can be replaced by restarting the API alone, with motors untouched.
+API_ONLY=['gemma_robot_tools.py','wrist_cameras.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
 INSTALL=['calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
 TESTS=['test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
 OWNER_ARGS=['--both-arms','--paddle-profile','--wheels'];  # an arm whose calibration mismatches stays read-only
@@ -207,6 +209,7 @@ def start_api():
 def main():
  parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
  parser.add_argument('--dry-run',action='store_true',help='run tests and show what would change; stop nothing')
+ parser.add_argument('--api-only',action='store_true',help='install API-side files and restart only the API (safe while motors hold); refuses if owner-side files changed')
  parser.add_argument('--cameras-only',action='store_true',help='only start missing wrist-camera publishers (run from Terminal); the server is not touched')
  parser.add_argument('--right-arm-only',action='store_true',help='only the right arm is movable (the left stays read-only)')
  parser.add_argument('--no-wheels',action='store_true',help='start the owner without base drive (robot_move_base refused)')
@@ -225,6 +228,17 @@ def main():
   print(json.dumps({'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_camera_ids':WRIST_CAMERA_IDS,'identity_verified':IDENTITY_VERIFIED},indent=2));return
  if not Path(PYTHON).exists():fail(f'{PYTHON} not found; set XLEROBOT_PYTHON')
  run_tests();changed=show_changes()
+ if args.api_only:
+  owner_side=[n for n in changed if n not in API_ONLY]
+  if owner_side:fail('these changes need a full restart (motors released first): '+', '.join(owner_side))
+  if changed:
+   backup=WORK/'backups'/time.strftime('qwen-bridge-%Y%m%d-%H%M%S');backup.mkdir(parents=True)
+   for name in changed:
+    if (WORK/name).exists():shutil.copy2(WORK/name,backup/name)
+    shutil.copy2(BRIDGE/name,WORK/name)
+   say(f'installed {", ".join(changed)} (API only); previous copies in {backup}')
+  if stop(processes('gemma_robot_tools.py'),'API',10):fail('API did not exit')
+  api=start_api();record_deploy('api-only');say(f'API restarted (pid {api.pid}); hardware owner and motors untouched');return
  owners=processes('gemma_hardware_owner.py');apis=processes('gemma_robot_tools.py');status=read_status()
  say(f'running owner pids {owners or "none"}, API pids {apis or "none"}')
  if status:

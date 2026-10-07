@@ -10,7 +10,7 @@ import json,os,re,signal,subprocess,sys,time
 from pathlib import Path
 
 REF=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$')
-MODES={'restart':[],'cameras-only':['--cameras-only'],'dry-run':['--dry-run'],'checkout-only':None}
+MODES={'restart':[],'api-only':['--api-only'],'cameras-only':['--cameras-only'],'dry-run':['--dry-run'],'checkout-only':None}
 MAX_LOG_BYTES=64*1024
 
 
