@@ -1,3 +1,22 @@
+## Left bus stuck "port busy"; owner now recovers it — 7 October 2026, 20:09–20:12
+
+At 20:09:33 the left bus (`/dev/cu.usbmodem5B790186401`) stopped answering. From then on every owner
+poll failed instantly on left shoulder_pan with `Coherent servo read communication failure: -1` (Feetech SDK
+COMM_PORT_BUSY, about 20 µs, nothing sent on the wire). The owner soft-released and retried about 35 times per
+second (3,300 stops), and the telemetry of all 16 motors stayed frozen. Power-cycling the left arm did not help.
+Every motor was already released and no bus was missing. A remote restart at the same commit (d8a4432,
+job 20261007-201121-bc01a0) brought all 16 motors back, 12 of them commandable, with fresh telemetry and no errors.
+
+Cause: the SDK sets `port.is_using` at the start of a transaction and clears it only on a normal return. A serial
+exception in between (a USB glitch) leaves it set, so every later transaction returns -1 forever. The original
+exception had already scrolled out of the log tail that `/admin/logs` returns.
+
+Fix: in `gemma_hardware_owner.py`, `recover_ports` runs after a -1 failure. It clears the stale flag (and reopens
+the port if its buffer cannot be reset), releases any motor still powered, and records `port_recoveries` and
+`port_recovery_count` in status. `strict_servo_replies.guard_replies` also clears the flag when a write or read
+raises. The owner loads that module from the utility checkout, so on the robot the owner-level recovery is what
+applies.
+
 ## Right arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:50
 
 Job 20261007-195000-fd5abb validated and installed; the owner's servo-versus-file check shows no mismatches. The 18:19 attempt had failed validation only because left/right pan travel differed by 48.9°, against the old 191° left pan; after the left recalibration (238.5°) the right run validated.

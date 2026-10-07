@@ -8,6 +8,25 @@ PHONE_CAMERA=Path('/Users/teachera/Documents/Codex/2026-10-05/m/work/phone_camer
 
 DIAGNOSTIC_REGISTERS=['Torque_Enable','Operating_Mode','Goal_Position','Goal_Time','Goal_Velocity','Acceleration','Torque_Limit','Max_Torque_Limit','Max_Temperature_Limit','P_Coefficient','I_Coefficient','D_Coefficient','CW_Dead_Zone','CCW_Dead_Zone','Minimum_Startup_Force','Protection_Current','Protective_Torque','Protection_Time','Overload_Torque','Over_Current_Protection_Time','Unloading_Condition','Lock']
 
+def recover_ports(buses,reason,state,now):
+ """This owner is the only, single-threaded user of its ports, so a port-busy reply (-1) can only be a flag the SDK
+ left set when a serial error interrupted a transaction. Clear it (reopening the port if its buffer cannot be reset)
+ so the next poll talks to the servos again instead of failing forever. Returns True if any port was recovered."""
+ if 'communication failure: -1' not in reason:return False
+ events=state.setdefault('port_recoveries',[]);recovered=False
+ for b in buses:
+  ph=getattr(b,'port_handler',None)
+  if ph is None or not getattr(ph,'is_using',False):continue
+  ph.is_using=False;recovered=True;outcome='cleared stale busy flag'
+  try:ph.ser.reset_input_buffer()
+  except Exception as e:
+   try:ph.ser.close();ph.ser.open();outcome=f'reopened port (buffer reset failed: {e})'
+   except Exception as e2:outcome=f'busy flag cleared; reopen failed: {e2}'
+  events.append({'time':now,'port':str(b.port),'outcome':outcome})
+ del events[:-16]
+ if recovered:state['port_recovery_count']=state.get('port_recovery_count',0)+1
+ return recovered
+
 class HardwareOwner:
  def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep):
   self.read_only=read_only
@@ -353,6 +372,9 @@ def main():
     owner.state['fault_at']=time.time()
     owner.release_all(str(e))
     print('Hardware command stopped: '+str(e),flush=True)
+    if recover_ports(buses,str(e),owner.state,time.time()):
+     print('Hardware owner: cleared a servo port left busy by an interrupted transaction',flush=True)
+     if owner.enabled:owner.release_all('Releasing motors left powered while the servo port was stuck')
    p=folder/'command.json'
    if p.exists():
     c=json.loads(p.read_text())

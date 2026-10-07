@@ -84,3 +84,24 @@ def test_sdk_failures_record_bounded_bytes_without_changing_failure_result():
     assert events[-1]['packet'] == raw
     assert events[-1]['communication'] == COMM_RX_CORRUPT
     assert events[-1]['expected_payload_length'] == 2
+
+
+@pytest.mark.parametrize("side", ["tx", "rx"])
+def test_serial_exception_does_not_leave_port_busy(side):
+    """A USB glitch raising mid-transaction must not leave is_using set (every later read would be -1)."""
+    ph = PacketHandler(0)
+    def tx(port, request):
+        port.is_using = True
+        if side == "tx":
+            raise OSError("write failed: [Errno 6] Device not configured")
+        return COMM_SUCCESS
+    def rx(port):
+        raise OSError("device reports readiness to read but returned no data")
+    ph.txPacket, ph.rxPacket = tx, rx
+    bus = SimpleNamespace(packet_handler=ph)
+    guard_replies(bus)
+    port = Port()
+    with pytest.raises(OSError):
+        ph.read2ByteTxRx(port, 9, 56)
+    assert port.is_using is False
+    assert bus.reply_validation_events[-1]["reason"].startswith("serial exception during")
