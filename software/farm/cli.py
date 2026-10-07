@@ -159,6 +159,71 @@ def cmd_robot_test(a):
     sys.exit(0 if res["ok"] else 1)
 
 
+def cmd_dance(a):
+    """Hold a Joy-Con button to dance (head, wrists, grippers; small moves). Release to stop and go back."""
+    import time
+    from pathlib import Path
+    from .config import load_profile
+    from .safety.rules import SafetyStop
+    from .skills.dance import dance
+    from .skills.keyframes import KeyframeStore
+    from .skills.runner import SkillRunner
+    p = load_profile("sim" if a.sim else a.profile)
+    if a.sim or p.robot.kind == "sim" or p.simulated:
+        from .adapters.sim import FakeRobot
+        r = FakeRobot()
+    else:
+        from .adapters.robot_lerobot import LeRobotXLeRobot
+        r = LeRobotXLeRobot(p.robot)
+    runner = SkillRunner(r, p.limits, p.arms, KeyframeStore(Path(p.data_dir) / "keyframes.yaml"))
+
+    hold = None
+    if a.sim:
+        until = time.monotonic() + a.seconds
+        keep_going = lambda: time.monotonic() < until  # noqa: E731
+    else:
+        from .adapters.joycon import JoyConHold
+        reader = Path(a.reader) if a.reader else Path(__file__).resolve().parent.parent / "tools/mac-joycon-reader/run.command"
+        if not reader.exists():
+            sys.exit(f"Joy-Con reader not found at {reader}. Build it from PR #2 (tools/mac-joycon-reader) and pass --reader.")
+        hold = JoyConHold(a.button)
+        hold.start([str(reader), "--json", "--hz", "30"])
+        print("Waiting for the Joy-Con reader (first launch compiles it)...")
+        t0 = time.monotonic()
+        while not hold.seen_buttons and not hold.ended and time.monotonic() - t0 < 120:
+            time.sleep(0.2)
+        if not hold.seen_buttons:
+            hold.close()
+            sys.exit("No live Joy-Con seen. Pair Joy-Con (L) and (R) in System Settings > Bluetooth, then try again.")
+        if not any(b.lower() == a.button.lower() for b in hold.seen_buttons):
+            print(f"Note: no button named {a.button!r} reported yet. Seen: {', '.join(sorted(hold.seen_buttons))}")
+        keep_going = hold.is_held
+
+    print("Only the head, wrists and grippers move, a little, around where they are now. Shoulders, elbows and wheels never move.")
+    print("Start with the arms folded at rest and nothing in the grippers. When you quit, the motors go limp.")
+    r.connect()
+    try:
+        if a.sim:
+            res = dance(runner, keep_going)
+            print(f"dance: {res.note}")
+        else:
+            print(f"Hold {a.button!r} to dance; release to stop. Ctrl-C to quit.")
+            while not hold.ended:
+                if hold.is_held():
+                    res = dance(runner, keep_going)
+                    print(f"dance: {res.note}")
+                time.sleep(0.05)
+    except SafetyStop as e:
+        print(f"stopped: {e}")
+    except KeyboardInterrupt:
+        r.stop()
+        print("\nstopped")
+    finally:
+        if hold:
+            hold.close()
+        r.disconnect()
+
+
 def _needed_keyframes(s):
     t = s.profile.trays
     need = [("bottle_rest_above", s.profile.arms.bottle, "Position the gripper 6 cm directly above the bottle standing in its rest, fingers open, tool pitch level, ready to descend and grasp."),
@@ -607,6 +672,7 @@ def main(argv=None):
         ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
         ("servo-protection", cmd_servo_protection, [("--write", {"action": "store_true"}), ("--limit", {"type": int, "default": 200}), ("--yes", {"action": "store_true"}), ("--only", {"choices": ["head", "left", "right"]})]),
+        ("dance", cmd_dance, [("--button", {"default": "Right Trigger"}), ("--reader", {"default": ""}), ("--sim", {"action": "store_true"}), ("--seconds", {"type": float, "default": 4.0})]),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
         ("mcp", cmd_mcp, []),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),
