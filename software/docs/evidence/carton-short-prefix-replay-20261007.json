@@ -1,0 +1,62 @@
+{
+  "simulation_only": true,
+  "scope": "original open-box prefix strictly before bounded short phase",
+  "baseline_batch": "paired-short-passive-majors-01",
+  "all_prefixes_exact": true,
+  "rows": [
+    {
+      "batch": "paired-short-coherent-front-02",
+      "seed": 0,
+      "partial_release_time_s": 106.99599999993204,
+      "compared_records": 836,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "abde2c5c2fb9977977fa54833bb38f917d9a0bfb1503972f7f7cecfb3af31f7d",
+      "candidate_frames_sha256": "f15e833d37baaf1958e76fc9a57409575c1e2228ecf8a624c4668cc3051618a6"
+    },
+    {
+      "batch": "paired-short-coherent-front-02",
+      "seed": 1,
+      "partial_release_time_s": 108.74999999992795,
+      "compared_records": 892,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "f5e06475d31b4d16adf67a0b641a6776c333907364c67bd4a89db871a6271d93",
+      "candidate_frames_sha256": "bf91cac9b17e50e36549aff418f8c3c0dfc9bba212954f3a67fec07323efb73c"
+    },
+    {
+      "batch": "paired-short-coherent-front-02",
+      "seed": 2,
+      "partial_release_time_s": 113.11999999991777,
+      "compared_records": 905,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "c3b600babc977f31fc7f6d96dae4ef52518bae19c989956d1102f0827cfe44e3",
+      "candidate_frames_sha256": "212e60b635194049ffd78c021d022666bcfb31424dae3f9813edb54bf1035375"
+    },
+    {
+      "batch": "paired-short-coherent-left-view-03",
+      "seed": 0,
+      "partial_release_time_s": 106.99599999993204,
+      "compared_records": 836,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "abde2c5c2fb9977977fa54833bb38f917d9a0bfb1503972f7f7cecfb3af31f7d",
+      "candidate_frames_sha256": "47dd013c57db976cfb66c51d2137c853615c60e66abb50a8eac806be562af497"
+    },
+    {
+      "batch": "paired-short-coherent-left-view-03",
+      "seed": 1,
+      "partial_release_time_s": 108.74999999992795,
+      "compared_records": 892,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "f5e06475d31b4d16adf67a0b641a6776c333907364c67bd4a89db871a6271d93",
+      "candidate_frames_sha256": "90b7236664fc7b244449d17bc44a6e1c68951aff75c6e375108f38ab6c1072e1"
+    },
+    {
+      "batch": "paired-short-coherent-left-view-03",
+      "seed": 2,
+      "partial_release_time_s": 113.11999999991777,
+      "compared_records": 905,
+      "all_timestamped_states_equal": true,
+      "baseline_frames_sha256": "c3b600babc977f31fc7f6d96dae4ef52518bae19c989956d1102f0827cfe44e3",
+      "candidate_frames_sha256": "8db7c6a30ea9b7ca9a95283937706e66a460046206b5caa048f2a26d95ad9dc2"
+    }
+  ]
+}

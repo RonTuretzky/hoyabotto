@@ -77,7 +77,7 @@ def marker(parent,name,tag_id,size,pos,xyaxes=None):
     return b
 
 
-def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0., paddle=None, solver=None):
+def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0., paddle=None, solver=None, additional_view_camera=None):
     material=material or CartonMaterial(hinge_stiffness=stiffness)
     if not station.carton_footprint(offset,yaw)['fully_on_table']:
         raise ValueError('Initial carton bottom extends beyond the tabletop')
@@ -182,6 +182,11 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
         right=np.cross([0,1,0] if name=='overhead' else [0,0,1],back);right/=np.linalg.norm(right)
         up=np.cross(back,right)
         E.SubElement(world,'camera',name=name,pos=words(pos),xyaxes=words(np.r_[right,up]),fovy='48')
+    if additional_view_camera is not None:
+        # An explicitly selected optical mount hypothesis only. Keep every
+        # original camera for exact replay of earlier observation phases.
+        from carton.folding_additional_view_profiles import add_additional_view_camera
+        add_additional_view_camera(root, additional_view_camera)
     if paddle is not None:
         from carton.folding_paddle import add_paddle
         add_paddle(root, paddle)

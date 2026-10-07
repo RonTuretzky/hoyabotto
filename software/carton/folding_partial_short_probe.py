@@ -20,6 +20,7 @@ from carton.folding_diagonal import contact_point
 from carton.folding_far_contact import RobotVertexIK, mesh_contact_vertices, _verify_target_angle
 from carton.folding_paths import JointPathPlanner, execute_path
 from carton.folding_progress import ContactProgressGuard
+from carton.folding_hinge_vision import _rigid
 from carton.folding_panel_audit import (
     PANEL_SCHEMA, PANEL_SOURCE, PANEL_LOG_NAME, INTEGRATORS, event_digest,
 )
@@ -126,8 +127,15 @@ class _PanelStepAudit(AbstractContextManager):
 
 
 class _ShortStroke:
-    def __init__(self, angles, target):
+    def __init__(self, angles, target, *, step_degrees=.25):
+        if not math.isfinite(step_degrees) or step_degrees not in (.25, .5, 1.):
+            raise ValueError('Declared short stroke increment must be 0.25, 0.5 or 1 degree')
         self.target = target
+        self.step_degrees = step_degrees
+        # Keep the previous 12-degree attempted-command budget and 80-degree
+        # total budget explicit when smaller observed-angle increments are used.
+        self.stall_window = int(math.ceil(12./step_degrees))
+        self.max_commands = int(math.ceil(80./step_degrees))
         self.history = {side: [float(angles[side])] for side in _SIDES}
         self.commands = 0
 
@@ -135,10 +143,10 @@ class _ShortStroke:
         latest = {a: self.history[a][-1] for a in _SIDES}
         if all(value >= self.target-1 for value in latest.values()):
             return None
-        if self.commands >= 80:
-            raise ValueError('Paired short probe exceeded 80 bounded commands')
+        if self.commands >= self.max_commands:
+            raise ValueError(f'Paired short probe exceeded {self.max_commands} bounded commands')
         self.commands += 1
-        return {a: min(self.target, value+1.) for a, value in latest.items()}
+        return {a: min(self.target, value+self.step_degrees) for a, value in latest.items()}
 
     def observe(self, angles):
         for a in _SIDES:
@@ -146,9 +154,65 @@ class _ShortStroke:
             if not math.isfinite(value) or not -25 <= value <= self.target+5:
                 raise ValueError('Observed short angle left bounded probe range')
             self.history[a].append(value)
-            if (len(self.history[a]) > 12 and value < self.target-1
-                    and value-self.history[a][-13] < 2.):
-                raise ValueError(a+' short stalled over twelve bounded commands')
+            if (len(self.history[a]) > self.stall_window and value < self.target-1
+                    and value-self.history[a][-self.stall_window-1] < 2.):
+                raise ValueError(a+f' short stalled over {self.stall_window} bounded commands')
+
+
+def _contact_reading(reading, side):
+    """Keep a flap angle paired with its own current raw camera registration."""
+    flap = 'short_'+side
+    angle = reading.get('angles', {}).get(flap)
+    audit = reading.get('additional_view')
+    seq = reading.get('seq')
+    if (not isinstance(angle, dict) or not isinstance(audit, dict)
+            or audit.get('status') != 'accepted' or audit.get('seq') != seq
+            or angle.get('observed_seq') != seq):
+        raise ValueError('Fresh source-bound short angle and accepted independent views required')
+    camera = angle.get('source_camera')
+    packets = [audit.get(key) for key in ('primary', 'additional')]
+    packets = [packet for packet in packets if isinstance(packet, dict)
+               and packet.get('camera') == camera]
+    if len(packets) != 1 or packets[0].get('seq') != seq:
+        raise ValueError('Short contact pose must come from the angle source camera and sequence')
+    packet = packets[0]
+    source_angle = packet.get('angles', {}).get(flap, {}).get('degrees')
+    if (not isinstance(source_angle, (float, int)) or isinstance(source_angle, bool)
+            or not math.isfinite(source_angle) or source_angle != angle.get('degrees')):
+        raise ValueError('Merged short angle differs from its raw source-camera observation')
+    timestamp = audit.get('synchronized_simulation_time_s')
+    if (not isinstance(timestamp, (float, int)) or isinstance(timestamp, bool)
+            or not math.isfinite(timestamp)
+            or any(packet.get(key) != timestamp for key in ('rgb_timestamp_s', 'depth_timestamp_s'))):
+        raise ValueError('Current synchronized RGB-D source timestamps required for short contact')
+    pose = _rigid(packet.get('world_from_box'), 'Short source-camera carton pose')
+    # The wrapper has already checked independent station/additional agreement.
+    # Keep both original packets intact; never average, extrapolate, or replace
+    # the primary registration used by the existing global drift guards.
+    coherent = dict(reading, world_from_box=pose.tolist())
+    return coherent, dict(camera=camera, seq=seq, world_from_box=pose.tolist(),
+                          measured_degrees=source_angle, timestamp_s=timestamp)
+
+
+def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005):
+    """Limit each actual CAD point's next displacement before checked execution."""
+    if not math.isfinite(max_step_m) or not 0 < max_step_m <= .0005:
+        raise ValueError('Contact CAD substep must be positive and no greater than 0.5 mm')
+    goals, points, details = {}, {}, {}
+    for side in _SIDES:
+        actual_q = sim.data.qpos[sim.arm_indices[side][:5]].copy()
+        actual = ik[side].point(actual_q).copy()
+        delta = np.asarray(targets[side])-actual
+        distance = float(np.linalg.norm(delta))
+        points[side] = actual + delta*min(1., max_step_m/max(distance, 1e-12))
+        goals[side], error = ik[side].solve(points[side], actual_q)
+        fk_step = float(np.linalg.norm(ik[side].point(goals[side])-actual))
+        if fk_step > max_step_m+1e-6:
+            raise ValueError('Short contact IK did not preserve the conservative CAD substep bound')
+        details[side] = dict(actual_point_world=actual.tolist(), sensor_target_world=np.asarray(targets[side]).tolist(),
+                             command_point_world=points[side].tolist(), requested_distance_m=distance,
+                             actual_fk_step_m=fk_step, ik_error_m=error)
+    return goals, points, details
 
 
 def _point(box, profile, side, degrees):
@@ -173,7 +237,7 @@ def _paired_edge(sim, goals):
                 raise ValueError('Paired '+a+' path collides: '+str(planner.last_collision))
 
 
-def _preflight(sim, box, angles, profile, vertices):
+def _preflight(sim, boxes, angles, profile, vertices):
     # Explicit offline obstacle/robot copy. Only robot joints in this copy are
     # assigned. Even the planning flap configuration stays as currently seen
     # by the simulator; its truth is not a control target or success reading.
@@ -181,7 +245,7 @@ def _preflight(sim, box, angles, profile, vertices):
                            arm_indices=sim.arm_indices, forbidden_contact=sim.forbidden_contact)
     copy.data.qpos[:] = sim.data.qpos
     ik = {a: RobotVertexIK(copy, a, vertices[a]) for a in _SIDES}
-    points = {a: _point(box, profile, a, angles[a]) for a in _SIDES}
+    points = {a: _point(boxes[a], profile, a, angles[a]) for a in _SIDES}
     contact = {a: ik[a].solve(points[a], profile[a][1])[0] for a in _SIDES}
     pre = {a: ik[a].solve(points[a]+[0., 0., .020], contact[a])[0] for a in _SIDES}
     paths = {}
@@ -190,7 +254,10 @@ def _preflight(sim, box, angles, profile, vertices):
         copy.data.qpos[copy.arm_indices[a][:5]] = pre[a]
     previous = pre
     for u in np.linspace(.05, 1., 20):
-        goals = {a: ik[a].solve(points[a]+[0., 0., .020*(1-u)], previous[a])[0] for a in _SIDES}
+        # Preflight the complete free transit and a 5 mm elevated standoff.
+        # The remaining contact descent is replanned against the physically
+        # responding panels after every <=0.5 mm joint-driven CAD substep.
+        goals = {a: ik[a].solve(points[a]+[0., 0., .020-.015*u], previous[a])[0] for a in _SIDES}
         _paired_edge(copy, goals)
         for a in _SIDES:
             copy.data.qpos[copy.arm_indices[a][:5]] = goals[a]
@@ -218,6 +285,13 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                   stage='require fresh four-flap entry', fault=None, target_short_degrees=target_degrees,
                   majors_remain_free=True, target_source='fresh RGB-D short angles and carton pose',
                   contact_radius_m=.14, normal_offset_m=.0015, candidates=[], checks=[])
+    report.update(trajectory_policy='source_coherent_0p5mm_0p25deg_v2', baseline_commit='ecbbb00',
+                  target_source='current raw source-camera carton pose paired with its own RGB-D short angle',
+                  max_contact_point_step_m=.0005, max_contact_approach_commands=80,
+                  contact_approach_endpoint_tolerance_m=.00075,
+                  contact_approach_observed_advance_transition_degrees=1.,
+                  preflight_scope='free transit and 5 mm elevated standoff; each subsequent contact substep checked at execution',
+                  contact_commands=[])
     c.partial_short_probe = report
     try:
         reading = c.sense('Register both shorts and passive majors before bounded paired probe')
@@ -234,6 +308,10 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             if np.linalg.norm(sim.actual_control_position(a)-park) > .035:
                 raise ValueError(a+' hand is not within original park tracking bound')
         report['visual_checks'] = {f: g.checks for f, g in guards.items()}
+        coherent = {a: _contact_reading(reading, a) for a in _SIDES}
+        contact_guards = {a: ContactProgressGuard('short_'+a, coherent[a][0]) for a in _SIDES}
+        report['source_contact_visual_checks'] = {a: g.checks for a, g in contact_guards.items()}
+        report['initial_contact_sources'] = {a: coherent[a][1] for a in _SIDES}
         major_commands = {f: reading['angles'][f]['degrees'] for f in ('long_near', 'long_far')}
         major_limits = {f: np.degrees(sim.model.joint(f+'_hinge').range) for f in major_commands}
         chosen = None
@@ -245,12 +323,13 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                 if np.linalg.norm(np.asarray(vertices[a]['local'])-profile[a][0]) > 1e-6:
                     raise ValueError('Declared short contact vertex absent from original CAD')
             try:
-                paths = _preflight(sim, np.asarray(reading['world_from_box']), angles, profile, vertices)
+                boxes = {a: np.asarray(coherent[a][0]['world_from_box']) for a in _SIDES}
+                paths = _preflight(sim, boxes, angles, profile, vertices)
                 chosen = (name, profile, vertices, paths)
-                report['candidates'].append(dict(profile=name, complete_approach_clear=True))
+                report['candidates'].append(dict(profile=name, free_and_elevated_standoff_clear=True))
                 break
             except ValueError as exc:
-                report['candidates'].append(dict(profile=name, complete_approach_clear=False, refusal=str(exc)))
+                report['candidates'].append(dict(profile=name, free_and_elevated_standoff_clear=False, refusal=str(exc)))
         if chosen is None:
             raise ValueError('Neither declared paired short approach passes original clearance gates')
         name, profile, vertices, paths = chosen
@@ -261,6 +340,9 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             current = c.sense(label)
             for f, guard in guards.items():
                 guard.check(current, commands[f[6:]] if f.startswith('short_') else major_commands[f])
+            for a in _SIDES:
+                source_reading, _ = _contact_reading(current, a)
+                contact_guards[a].check(source_reading, commands[a])
             observed = {a: current['angles']['short_'+a]['degrees'] for a in _SIDES}
             if not all(-25 <= value <= target_degrees+5 for value in observed.values()):
                 raise ValueError('Observed short angle left bounded probe range')
@@ -294,28 +376,44 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                 execute_path(sim, a, current_path, 'Reach above '+a+' outward short edge', capture=capture)
                 reading, angles = observe('Check all four flaps after short free transit', angles,
                                           require_partial_majors=True)
-            start_points = {a: ik[a].point(sim.data.qpos[sim.arm_indices[a][:5]]).copy() for a in _SIDES}
-            previous = {a: sim.data.qpos[sim.arm_indices[a][:5]].copy() for a in _SIDES}
             report['stage'] = 'checked paired short contact approach'
-            for u in np.linspace(.05, 1., 20):
-                box = np.asarray(reading['world_from_box'])
-                points = {a: (1-u)*start_points[a]+u*_point(box, profile, a, angles[a]) for a in _SIDES}
-                goals = {a: ik[a].solve(points[a], previous[a])[0] for a in _SIDES}
+            approach_angles = dict(angles)
+            for _ in range(80):
+                sources = {a: _contact_reading(reading, a)[1] for a in _SIDES}
+                targets = {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, angles[a]) for a in _SIDES}
+                goals, points, details = _bounded_contact_goals(sim, ik, targets)
+                if all(row['requested_distance_m'] <= .00075 for row in details.values()):
+                    report['contact_approach_transition'] = 'CAD points near fresh sensed targets; contact not asserted'
+                    break
+                if any(angles[a]-approach_angles[a] >= 1. for a in _SIDES):
+                    # A small pose bias can leave a sensed endpoint inside a
+                    # responding panel. Do not chase it through further folds:
+                    # switch to the bounded angle probe after visible response.
+                    report['contact_approach_transition'] = 'fresh short advance reached 1 degree; switch to bounded angle commands'
+                    break
                 command(goals, points, 'Approach both outward shorts using actual CAD fingers')
-                previous = goals
+                report['contact_commands'].append(dict(stage='approach', seq=reading['seq'],
+                    sources=sources, command_degrees=dict(angles), robot_substeps=details))
                 reading, angles = observe('Check both shorts and free majors during contact approach', angles)
+            else:
+                raise ValueError('Short contact approach exceeded 80 conservative CAD substeps')
             for a in _SIDES:
                 guards['short_'+a].begin_stroke(reading)
+                contact_guards[a].begin_stroke(_contact_reading(reading, a)[0])
             stroke = _ShortStroke(angles, target_degrees)
-            report['measured_stroke'] = dict(max_advance_degrees=1., max_commands=80,
+            report['measured_stroke'] = dict(max_advance_degrees=stroke.step_degrees, max_commands=stroke.max_commands,
+                                             stall_window_commands=stroke.stall_window,
+                                             minimum_window_progress_degrees=2.,
+                                             attempted_advance_window_degrees=12.,
                                              observed_degrees=stroke.history)
             report['stage'] = 'bounded simultaneous short-fold probe'
             while (commands := stroke.next_angles()) is not None:
-                box = np.asarray(reading['world_from_box'])
-                points = {a: _point(box, profile, a, commands[a]) for a in _SIDES}
-                goals = {a: ik[a].solve(points[a], previous[a])[0] for a in _SIDES}
+                sources = {a: _contact_reading(reading, a)[1] for a in _SIDES}
+                targets = {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, commands[a]) for a in _SIDES}
+                goals, points, details = _bounded_contact_goals(sim, ik, targets)
                 command(goals, points, 'Probe simultaneous short folding toward at most +10 degrees')
-                previous = goals
+                report['contact_commands'].append(dict(stage='stroke', seq=reading['seq'],
+                    sources=sources, command_degrees=commands, robot_substeps=details))
                 reading, angles = observe('Observe whether free majors move during bounded short probe', commands)
                 stroke.observe(angles)
             c.port.move_arms({}, .5, 'Hold bounded short probe for fresh verification', None)

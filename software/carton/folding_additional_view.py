@@ -20,6 +20,9 @@ from carton.folding_short_hinge_vision import (
     OPEN_SHORT_ANGLE_BOUNDS_DEGREES, depth_open_short_flap_angles,
 )
 from carton.folding_vision import RGBDTagObserver
+from carton.folding_additional_view_profiles import (
+    ADDITIONAL_VIEW_CAMERAS, verify_additional_view_camera,
+)
 
 
 MAJORS = ('long_near', 'long_far')
@@ -46,8 +49,8 @@ class AdditionalViewConfiguration:
             value = getattr(self, field)
             if not isinstance(value, str) or not value.startswith('offline:') or len(value) <= 8:
                 raise ValueError('Explicit offline assumption and simulation clock identities required')
-        if self.camera != 'front' or self.primary_camera != 'station':
-            raise ValueError('Only the declared station primary plus hypothetical front view is supported')
+        if self.camera not in ADDITIONAL_VIEW_CAMERAS or self.primary_camera != 'station':
+            raise ValueError('Only declared additional views with station primary are supported')
         if not isinstance(self.observe_open_shorts, bool):
             raise ValueError('Explicit boolean open-short opt-in required')
         supported = MAJORS + SHORTS if self.observe_open_shorts else MAJORS
@@ -108,7 +111,8 @@ def _angle(row, name, tags, seq):
 def _combine(primary, secondary, configuration):
     """Combine two current pixel packets; unavailable views are never priors."""
     seq = primary['seq']
-    if secondary['seq'] != seq or primary['camera'] != 'station' or secondary['camera'] != 'front':
+    if (secondary['seq'] != seq or primary['camera'] != 'station'
+            or secondary['camera'] != configuration.camera):
         raise ValueError('Matching sequence and explicitly declared view identities required')
     p = _rigid(primary['world_from_box'], 'Primary pixel carton pose')
     s = _rigid(secondary['world_from_box'], 'Additional pixel carton pose')
@@ -140,7 +144,7 @@ def _combine(primary, secondary, configuration):
             angles[name]['observed_seq'] = seq
         elif b is not None:
             angles[name] = copy.deepcopy(second)
-            angles[name].update(source_camera='front', observed_seq=seq,
+            angles[name].update(source_camera=configuration.camera, observed_seq=seq,
                                 source_method=second['method'],
                                 method=('additional_view_open_short_hinge_consistent_plane'
                                         if name in SHORTS else 'additional_view_hinge_consistent_plane'))
@@ -184,6 +188,8 @@ class AdditionalViewPixelPort:
             raise ValueError('Finite nonnegative simulated depth noise and dropout below one required')
         self.primary = primary
         self.configuration = configuration
+        self.renderer_camera_declaration = verify_additional_view_camera(
+            configuration.camera, primary.sim.model.camera(configuration.camera))
         self.rng = np.random.default_rng(seed)
         self.noise, self.dropout = float(noise), float(dropout)
         anchors = copy.deepcopy(primary.observer.anchors)
@@ -202,6 +208,7 @@ class AdditionalViewPixelPort:
         self._last_seq = self.readings[-1]['seq'] if self.readings else 0
         self._failed = False
         declaration = dict(configuration=asdict(configuration),
+            renderer_camera=copy.deepcopy(self.renderer_camera_declaration),
             activation_after_primary_sequence=self.readings[-1]['seq'] if self.readings else 0,
             preserved_primary_reading_count=len(self.readings),
             world_anchor_poses={str(i): np.asarray(p).tolist()
@@ -248,7 +255,7 @@ class AdditionalViewPixelPort:
         audit = dict(assumption_id=self.configuration.assumption_id,
             assumptions_sha256=self.assumptions_sha256, clock_id=self.configuration.clock_id,
             simulation_only=True, physical_camera_verified=False, hardware_commands=False,
-            additional_camera='front', primary_camera='station',
+            additional_camera=self.configuration.camera, primary_camera='station',
             fresh_independent_camera_registration=True,
             required_flaps=list(self.configuration.required_flaps), status='pending')
         try:
@@ -270,11 +277,14 @@ class AdditionalViewPixelPort:
             audit['primary'].update(rgb_timestamp_s=timestamp, depth_timestamp_s=timestamp,
                 world_from_camera=np.asarray(self.primary.observer.world_from_camera).tolist(),
                 observer_history=copy.deepcopy(self.primary.observer.history[-1]))
-            rgb = self.primary.sim.render('front').copy()
+            camera = self.configuration.camera
+            if verify_additional_view_camera(camera, self.primary.sim.model.camera(camera)) != self.renderer_camera_declaration:
+                raise ValueError('Additional camera declaration changed during observation')
+            rgb = self.primary.sim.render(camera).copy()
             self._same_time(timestamp)
-            depth = self.primary.sim.render('front', True).copy()
+            depth = self.primary.sim.render(camera, True).copy()
             self._same_time(timestamp)
-            fovy = float(self.primary.sim.model.camera('front').fovy[0])
+            fovy = float(self.primary.sim.model.camera(camera).fovy[0])
             if fovy != self.configuration.camera_fovy_degrees:
                 raise ValueError('Additional camera intrinsics do not match the explicit setup declaration')
             depth += self.rng.normal(0, self.noise, depth.shape)
@@ -291,7 +301,7 @@ class AdditionalViewPixelPort:
             if self.configuration.observe_open_shorts:
                 angles.update(depth_open_short_flap_angles(rgb, depth, k,
                     self.additional_observer.world_from_camera, box, self.additional_priors))
-            secondary = dict(seq=seq, camera='front', tags=sorted(tags),
+            secondary = dict(seq=seq, camera=camera, tags=sorted(tags),
                 world_from_box=box.tolist(), box_registration=registration, angles=angles,
                 world_from_camera=self.additional_observer.world_from_camera.tolist(),
                 observer_history=copy.deepcopy(quality), rgb_timestamp_s=timestamp,

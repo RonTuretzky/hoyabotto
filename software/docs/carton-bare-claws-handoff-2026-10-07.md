@@ -38,7 +38,7 @@ Full experimental details and failures are in `carton-near-transfer.md` and
 `evidence/carton-near-transfer-20261007.json`. Newer partial-far batches are under
 `output/bimanual-fold-sim/major-first` in the Hackatuson workspace. Do not treat
 static reachability or a held flap as completion.
-The 33-trial partial-major and short-regrasp inventory is
+The 39-trial partial-major and short-regrasp inventory is
 `evidence/carton-partial-major-search-20261007.json`; the released-far batch is
 `partial-far-passive-release-02`. Every trial starts from the original open box.
 
@@ -120,6 +120,30 @@ source-event interval, every original solver step and the unchanged 1 mm
 panel penetration criterion. Missing, position-only, replayed or incomplete
 logs cannot pass. Panel-to-panel contact forces are recorded; the criterion is
 penetration, not proof of measured cardboard deformation or retention strength.
+
+The subsequent `source_coherent_0p5mm_0p25deg_v2` policy pairs every short angle
+with that same camera's current carton registration. Actual CAD-point commands
+are capped at 0.5 mm, with 0.25° measured-angle advances and the same attempted
+advance budget. Free transit/standoff preflight no longer implies that a future
+contact stroke is clear. Each contact substep is checked again before execution.
+
+Both newer three-seed batches still finish **0/3 short probes**:
+
+- `paired-short-coherent-front-02`: one current-view far-angle disagreement,
+  two missing primary-camera carton registrations.
+- `paired-short-coherent-left-view-03`: three missing primary-camera carton
+  registrations. This opt-in mount is selected with
+  `--short-view-camera front_left_back`; read `carton-additional-view-placement.md`.
+
+All six executed robot/panel contact intervals independently pass. The full
+original open-box prefixes match the baseline timestamped states exactly;
+`evidence/carton-short-prefix-replay-20261007.json` records that comparison.
+The offset view passed all 57 recorded moving-pose observations before this
+new dynamic batch, but that component did not cover its new primary-camera
+occlusions. Current composition requires both views to register the carton and
+does not rescue the missing primary pose with the other camera. A future
+occlusion-handling architecture must preserve fresh source-bound geometry,
+startup housing checks and contradiction refusals; it is not implemented here.
 
 Omit `--video` during searches: all timestamped qpos states are still recorded,
 while presentation rendering/compression is skipped. Perception still renders
@@ -205,6 +229,10 @@ support, release and regrasp that preserves all four flap states.
 - Passive tape coupon: a converged component exists at 25 microsecond discrete
   steps. The normal 2 ms folding step is unsuitable for that strip. Coupon
   retention is neither robotic tape application nor proof it holds all creases.
+- A separate 180 mm tape model now has finite passive axial extension; its
+  contact-free material tests do not prove adhesion. See
+  `carton-extensible-tape.md`. The early-short tape-retention idea remains
+  unproven, and the actual masking-tape product/strength is not established.
 
 Read `carton-folding-readiness.md`, `carton-bimanual-owner-protocol.md`,
 `carton-observed-scene.md`, `carton-observed-adapter.md`,

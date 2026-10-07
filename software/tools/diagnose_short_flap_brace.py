@@ -61,6 +61,11 @@ def run(args):
     cls = PinchPaddleSimulation if args.tool == 'paddle' else PinchSimulation
     options = {'paddle': PaddleSpec(grasp_x_m=.12276625897181499,
                 grasp_yaw_degrees=22.54998861948059)} if args.tool == 'paddle' else {}
+    short_camera = getattr(args, 'short_view_camera', 'front')
+    if short_camera != 'front':
+        if not getattr(args, 'probe_shorts_after_release', False):
+            raise ValueError('Alternative short camera requires the explicit paired-short probe')
+        options['additional_view_camera'] = short_camera
     yaw=math.radians(args.carton_yaw_degrees)
     offset_y=-.1515+.01+.379/2*abs(math.sin(yaw))+.283/2*abs(math.cos(yaw))
     if args.park_back:
@@ -180,7 +185,7 @@ def run(args):
                         configuration=AdditionalViewConfiguration(
                             assumption_id='offline:front-open-short-regrasp-v1', clock_id='offline:simulation',
                             required_flaps=('long_near','long_far','short_left','short_right'),
-                            observe_open_shorts=True), seed=args.seed)
+                            observe_open_shorts=True, camera=short_camera), seed=args.seed)
                     controller.port = port
                     result['stage'] = 'Probe paired short folds against freely passive majors'
                     result['partial_short_probe'] = probe_shorts_against_passive_majors(
@@ -335,6 +340,8 @@ if __name__ == '__main__':
     parser.add_argument('--release-near-after-far', action='store_true')
     parser.add_argument('--probe-shorts-after-release', action='store_true',
                         help='Bounded paired short probe with explicit additional front-camera assumption')
+    parser.add_argument('--short-view-camera', choices=('front','front_left_back','front_right_back'),
+                        default='front', help='Explicit hypothetical camera mount for the short probe only')
     parser.add_argument('--open-short-angle', type=float, default=-15.)
     parser.add_argument('--along', type=float, default=-.10)
     parser.add_argument('--radius', type=float, default=.125)
@@ -404,6 +411,8 @@ if __name__ == '__main__':
         parser.error('Near release requires the verified near40/far35 passive far-release profile')
     if args.probe_shorts_after_release and not args.release_near_after_far:
         parser.error('Paired short probe requires the both-hands-parked partial release')
+    if args.short_view_camera != 'front' and not args.probe_shorts_after_release:
+        parser.error('Alternative short camera requires the explicit paired-short probe')
     if args.center_floor_marker and args.floor_marker_x is not None and abs(args.floor_marker_x)<.057:
         parser.error('Declared floor markers would overlap')
     run(args)

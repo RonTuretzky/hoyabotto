@@ -20,6 +20,12 @@ stroke. The explicit additional-view open-short observer passes 15/15 frozen
 pixel replays and refuses 3/3 current-surface occlusion negatives. See
 [the observer scope](docs/carton-open-short-vision.md).
 
+The source-coherent 0.5 mm / 0.25° contact variant also completes 0/3 short
+probes with the original front camera and 0/3 with the hypothetical left/back
+view. The new stops are missing primary carton registration or cross-view
+angle disagreement; all six executed contact intervals pass both audits.
+No full fold is inferred from the improved geometry or camera components.
+
 The fixed station camera loses far-plane visibility around 39°; successful
 partial release at 35° does not establish continued visibility or closure.
 Actual station/material/camera calibration and deployment remain unverified.

@@ -446,3 +446,42 @@ def test_rewrapping_failed_view_cannot_bypass_failure_latch(rig):
     with pytest.raises(ValueError): previous.observe('failed phase')
     with pytest.raises(ValueError, match='new primary startup'):
         view.AdditionalViewPixelPort(previous, configuration=open_config())
+
+
+@pytest.mark.parametrize('camera', ['front_left_back', 'front_right_back'])
+def test_named_camera_keeps_profile_provenance_and_pixel_solved_transform(rig, camera):
+    from test_folding_additional_view_profiles import model_camera
+    _, primary, controls = rig
+    metadata = model_camera(camera)
+    primary.sim.model.camera = lambda name: metadata
+    del primary.reading['angles']['long_far']
+    controls.short_angles = {'short_left': short_plane(-12.), 'short_right': short_plane(-15.)}
+    port = view.AdditionalViewPixelPort(primary, configuration=replace(open_config(), camera=camera))
+    result = port.observe('explicit camera variant')
+    assert primary.render_calls == [(camera, False), (camera, True)]
+    assert result['angles']['long_far']['source_camera'] == camera
+    assert result['angles']['short_left']['source_camera'] == camera
+    assert result['additional_view']['additional']['camera'] == camera
+    assert result['additional_view']['additional_camera'] == camera
+    # Fake pixel registration returns identity: nominal renderer extrinsics
+    # are never substituted into that independent observation.
+    assert result['additional_view']['additional']['world_from_camera'] == np.eye(4).tolist()
+    assert port.declaration['renderer_camera']['optical_center_m'] != [0., 0., 0.]
+
+
+def test_nominal_camera_profile_cannot_change_between_observations(rig):
+    from test_folding_additional_view_profiles import model_camera
+    _, primary, _ = rig
+    metadata = model_camera('front_left_back')
+    primary.sim.model.camera = lambda name: metadata
+    port = view.AdditionalViewPixelPort(primary, configuration=replace(config(), camera='front_left_back'))
+    port.observe('declared pose')
+    metadata.pos[0] += .001
+    with pytest.raises(ValueError, match='differs from declaration'):
+        port.observe('moved camera without matching declaration')
+    assert port.additional_view_history[-1]['status'] == 'refused'
+
+
+def test_named_view_packets_cannot_silently_borrow_front_identity():
+    with pytest.raises(ValueError, match='view identities'):
+        view._combine(packet(), packet('front'), replace(config(), camera='front_left_back'))
