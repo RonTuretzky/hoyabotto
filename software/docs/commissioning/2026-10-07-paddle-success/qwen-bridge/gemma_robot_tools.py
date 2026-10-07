@@ -80,8 +80,12 @@ def execute_targets(positions, duration_s):
     if not segments:
         return {'accepted': True, 'completed': True, 'no_op': True, 'endpoint_reached': True, 'motor_writes': 0,
                 'reason': 'Every requested joint is already within 2 ticks of its target'}
+    # No owner STOP latch: a STOP between segments must end the sequence here, never continue it.
+    generation = DIRECT_CLIENT.cancel_generation
     results = []
     for segment in segments:
+        if DIRECT_CLIENT.cancel_generation != generation:
+            raise RuntimeError(f'STOP cancelled remaining pickup segments after {len(results)} of {len(segments)}; motors released, no automatic resume')
         result = DIRECT_CLIENT.execute(segment, max(.4, duration_s / len(segments)))
         results.append(result)
         # settled_short holds where it stopped; a closure that met resistance must not keep closing.
@@ -128,7 +132,7 @@ TOOLS = [
     tool('robot_get_skills', 'Inventory validated physical visual skills and source implementations. Does not execute skills.'),
     tool('robot_get_evidence', 'Read bounded deployment evidence and recording metadata without arbitrary filesystem access.'),
     tool('robot_get_execution', 'Read the bound sole-owner execution status; no motor connection.'),
-    tool('robot_stop', 'Independent STOP for the current bound owner; never enables motors, clears STOP, or restarts an owner.'),
+    tool('robot_stop', 'Independent STOP for the current bound owner: releases all motors and cancels any move in progress, which is never resumed. There is no STOP latch and no owner restart is needed; motors stay released until an explicit robot_set_motor_enable. Never enables motors or restarts an owner.'),
     tool('robot_move_joint_targets', 'Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'positions': ARM_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'positions', 'duration_s']),
     tool('robot_move_head', 'Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
     tool('robot_set_gripper', 'Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'position_ticks': {'type': 'integer'}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'position_ticks']),
@@ -379,7 +383,9 @@ def capabilities():
             'continuous_profile_required_for_direct_joint': False,
             'cartesian_transform_required_for_direct_joint': False,
             'cartesian_pickup_additional_requirements': ['validated spatial target registration and actual tool/contact offset when requesting a Cartesian plan'],
-            'wheel_policy': 'enable/release position-mode hold at current encoder only; wheel motion unavailable', 'automatic_motor_activation': False, 'remote_start_or_stop_reset_supported': False,
+            'wheel_policy': 'enable/release position-mode hold at current encoder only; wheel motion unavailable', 'automatic_motor_activation': False, 'remote_owner_start_supported': False,
+            'stop_latch': False, 'owner_restart_required_after_stop': False,
+            'stop_behavior': 'robot_stop and any owner fault release all motors and cancel the move in progress (never resumed). No STOP latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable, which repeats all health, range, camera and voltage checks. A failed release keeps the owner not healthy (OWNER_NOT_HEALTHY).',
             'blockers': ready['blockers']}
 
 

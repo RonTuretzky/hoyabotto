@@ -312,7 +312,7 @@
     "type": "function",
     "function": {
       "name": "robot_stop",
-      "description": "Independent STOP for the current bound owner; never enables motors, clears STOP, or restarts an owner.",
+      "description": "Independent STOP for the current bound owner: releases all motors and cancels any move in progress, which is never resumed. There is no STOP latch and no owner restart is needed; motors stay released until an explicit robot_set_motor_enable. Never enables motors or restarts an owner.",
       "parameters": {
         "type": "object",
         "properties": {},

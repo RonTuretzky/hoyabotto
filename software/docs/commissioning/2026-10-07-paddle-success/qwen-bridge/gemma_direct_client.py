@@ -26,7 +26,7 @@ class DirectJointClient:
             'motion_ready':False,'available_to_accept_authorized_command':False,
             'operator_armed':False,'local_operator_gate':False,'motor_owner_active':False,
             'supported_joints':[],'supported_motors':[],'joint_blockers':{},'blockers':[],
-            'remote_owner_start_or_stop_reset':False,'continuous_profile_required':False,
+            'remote_owner_start':False,'stop_latched':False,'owner_restart_required_after_stop':False,'continuous_profile_required':False,
             'cartesian_transform_required':False,'camera_gate_required':False,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
         try:
             state=self.status();selected=state.get('supportsselectedjoints',[])
@@ -35,12 +35,13 @@ class DirectJointClient:
                 supported_motors=state.get('supported_motors',[]),enabled_motors=state.get('enabled_motors',[]),
                 operator_armed=state.get('operator_armed') is True,local_operator_gate=state.get('operator_armed') is True,
                 motor_owner_active=state.get('hardware_server') is True and 0<=state['status_age_s']<=1)
-            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}))
+            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}),last_stop=state.get('last_stop'),stop_count=state.get('stop_count',0),release_errors=state.get('release_errors',[]))
             if state.get('read_only') is True:result['blockers'].append('READ_ONLY_OWNER: calibration mismatch blocks activation')
             if state.get('control_mode')!='direct_joint' or state.get('hardware_server') is not True:result['blockers'].append('HARDWARE_OWNER_PROTOCOL_UNAVAILABLE')
             if not 0<=state['status_age_s']<=1:result['blockers'].append('OWNER_STATUS_STALE')
-            if state.get('phase') not in ('idle','holding'):result['blockers'].append('OWNER_BUSY_OR_STOP_LATCHED: '+str(state.get('phase')))
-            if state.get('ok') is not True:result['blockers'].append('OWNER_NOT_HEALTHY')
+            if state.get('phase') not in ('idle','holding'):result['blockers'].append('OWNER_BUSY: '+str(state.get('phase')))
+            # No STOP latch; ok is false only when a torque-off release failed (hardware problem).
+            if state.get('ok') is not True:result['blockers'].append('OWNER_NOT_HEALTHY'+(': release failed '+json.dumps(state['release_errors']) if state.get('release_errors') else ''))
             if state.get('operator_armed') is not True:result['blockers'].append('AUTHORIZED_INTERFACE_NOT_AVAILABLE')
             if type(state.get('started')) not in (int,float) or not math.isfinite(state['started']):result['blockers'].append('OWNER_IDENTITY_MISSING')
             if not isinstance(selected,list) or not selected or len(set(selected))!=len(selected):result['blockers'].append('POSITION_SCOPE_INVALID');selected=[]
@@ -76,16 +77,22 @@ class DirectJointClient:
         if expected_started is not None and state.get('started')!=expected_started:return {'stop_requested':False,'reason':'BOUND_OWNER_CHANGED'}
         command={'id':time.time_ns(),'op':'stop','session_started':state.get('started')}
         atomic_json(self.folder/'command.json',command)
-        result={'stop_requested':True,'command_id':command['id'],'release_confirmed':False,'stop_reset_supported':False}
+        # No latch: STOP releases all motors, which stay released until an explicit enable; no owner restart needed.
+        result={'stop_requested':True,'command_id':command['id'],'release_confirmed':False,'stop_reset_supported':True,'stop_latched':False,'owner_restart_required':False,'motors_stay_released_until':'explicit robot_set_motor_enable'}
         deadline=self.clock()+2
         while self.clock()<deadline:
             try:
                 latest=self.status()
                 if latest.get('started')!=state.get('started'):
                     result['release_reason']='BOUND_OWNER_CHANGED';return result
+                if (latest.get('last_rejected') or {}).get('id')==command['id']:
+                    result['release_reason']='Owner rejected STOP: '+str(latest['last_rejected'].get('reason'));return result
                 rows=latest.get('rows',{})
-                if 0<=latest['status_age_s']<=1 and latest.get('time',0)>=command['id']/1e9 and len(rows)==16 and latest.get('phase')=='stopped' and not latest.get('enabled_motors') and all(r.get('Torque_Enable')==0 for r in rows.values()):
-                    result.update(release_confirmed=True,release_owner_time=latest['time'],owner_started=latest['started']);return result
+                if 0<=latest['status_age_s']<=1 and latest.get('time',0)>=command['id']/1e9 and latest.get('completed')==command['id']:
+                    if latest.get('release_errors'):
+                        result.update(release_reason='Release failed; owner not healthy',release_errors=latest['release_errors']);return result
+                    if len(rows)==16 and not latest.get('enabled_motors') and all(r.get('Torque_Enable')==0 for r in rows.values()):
+                        result.update(release_confirmed=True,release_owner_time=latest['time'],owner_started=latest['started'],owner_phase=latest.get('phase'));return result
             except (OSError,ValueError,KeyError,TypeError):pass
             self.sleep(.02)
         result['release_reason']='Fresh same-session all16 torque-zero readback not observed';return result
@@ -194,13 +201,15 @@ class DirectJointClient:
             with contextlib.nullcontext(self.sequence_local.writer) as writer:
                 state=self.status();started=state['started'];generation=self.cancel_generation
                 if state.get('hardware_server') is not True or not 0<=state['status_age_s']<=1:raise RuntimeError('Fresh hardware owner unavailable')
-                if not release and (state.get('phase') not in ('idle','holding') or state.get('operator_armed') is not True or state.get('ok') is not True):raise RuntimeError('Owner busy, unsafe or STOP latched')
+                if not release and (state.get('phase') not in ('idle','holding') or state.get('operator_armed') is not True or state.get('ok') is not True):raise RuntimeError('Owner busy or unsafe')
                 self._validate(request,state)
                 if not release and state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else request.get('duration_s',0)+5):raise RuntimeError('Insufficient owner lease')
                 command_file=self.folder/'command.json';old=json.loads(command_file.read_text()) if command_file.exists() else None
                 command_id=max(time.time_ns(),int((old or {}).get('id',0))+1)
                 command={**request,'id':command_id,'session_started':started}
-                latest=self.status()
+                latest=self.status();stops=latest.get('stop_count',0)
+                # A STOP written but not yet read by the owner must never be overwritten.
+                if (old or {}).get('op')=='stop' and old.get('session_started')==latest.get('started') and latest.get('completed')!=old.get('id') and (latest.get('last_rejected') or {}).get('id')!=old.get('id'):raise RuntimeError('STOP pending; not dispatching')
                 if latest['started']!=started or not 0<=latest['status_age_s']<=1 or (not release and (latest.get('phase') not in ('idle','holding') or latest.get('operator_armed') is not True or latest.get('ok') is not True)):raise RuntimeError('Owner changed before dispatch')
                 if generation!=self.cancel_generation:raise RuntimeError('STOP interrupted dispatch')
                 if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:raise RuntimeError('Another writer changed command file')
@@ -211,10 +220,12 @@ class DirectJointClient:
                     current=self.status()
                     if current.get('started')!=started:raise RuntimeError('Bound owner restarted')
                     if not 0<=current['status_age_s']<=1:raise RuntimeError('Owner telemetry stale')
-                    if not release and (current.get('phase')=='stopped' or current.get('ok') is not True):raise RuntimeError('Owner stopped: '+str(current.get('error')))
+                    # No latch: a fault or STOP returns the owner to idle, so detect it by its stop record.
+                    last_stop=current.get('last_stop') or {}
+                    if not release and (last_stop.get('command_id')==command_id or current.get('stop_count',0)>stops or current.get('phase')=='stopped' or current.get('ok') is not True):raise RuntimeError('Owner stopped: '+str(last_stop.get('reason') or current.get('error')))
                     if (current.get('last_rejected') or {}).get('id')==command_id:raise RuntimeError('Owner rejected: '+str(current['last_rejected'].get('reason')))
                     if json.loads(command_file.read_text()).get('id')!=command_id:raise RuntimeError('Command overwritten; cancelled')
-                    if current.get('completed')==command_id and current.get('phase') in ('idle','holding','stopped'):
+                    if current.get('completed')==command_id and current.get('phase') in ('idle','holding'):
                         if request['op']=='enable_motors':
                             measured={n:current['rows'][n]['Torque_Enable'] for n in request['names']}
                             if any(v!=int(request['enabled']) for v in measured.values()):

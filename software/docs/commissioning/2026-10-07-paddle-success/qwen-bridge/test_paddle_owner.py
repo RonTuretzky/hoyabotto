@@ -29,7 +29,7 @@ for i in range(1,80):
  for n in names:b.r[n]['Present_Position']=b.r[n]['Goal_Position']
  o.poll()
  if not o.engine.active:break
-assert o.state['completed']==3 and o.state['closure_outcome']=='endpoint_settled' and o.goals[names[1]]==1900 and o.goals[names[2]]==2100 and not o.latched
+assert o.state['completed']==3 and o.state['closure_outcome']=='endpoint_settled' and o.goals[names[1]]==1900 and o.goals[names[2]]==2100 and o.state['stop_count']==0
 o.motion_count=20
 try:o.command(dict(c,id=2))
 except ValueError as exc:assert 'budget' in str(exc)

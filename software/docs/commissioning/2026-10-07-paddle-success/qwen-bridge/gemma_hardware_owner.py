@@ -25,8 +25,8 @@ class HardwareOwner:
   self.commandable_names=set() if read_only else set(self.names if position_scope is None else self.position_names)
   self.ranges={n:[self.cal[n].range_min,self.cal[n].range_max] for n in self.position_names}
   self.enabled=set();self.old={};self.goals={};self.rows={};self.limits={};self.last_tick=clock();self.lease=clock()+30
-  self.started=wall();self.latched=False;self.engine=None;self.current_command=None
-  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':20 if paddle_profile else None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','motor_writes':0,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
+  self.started=wall();self.engine=None;self.current_command=None
+  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':20 if paddle_profile else None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
  def read(self,n,f):return int(self.by_name[n].read(f,n,normalize=False,num_retry=2))
  def write(self,n,f,v):
   self.by_name[n].write(f,n,v,normalize=False,num_retry=2);self.state['motor_writes']+=1
@@ -109,15 +109,15 @@ class HardwareOwner:
    update=self.engine.tick(current,telemetry_at=min(self.rows[n]['captured_at'] for n in self.engine.joints),**({'rows':self.rows} if self.paddle_profile else {}));self.state.update(update)
    if self.paddle_profile and not self.engine.active:self.lease=self.clock()+120
    if self.state.get('local_gripper_probe') and not self.engine.active:
-    self.release_all('Local probe complete',latch=False)
+    self.release_all('Local probe complete',record=False)
   self.publish();return self.state
  def publish(self):
-  if not self.latched and not(self.engine and self.engine.active):self.state['phase']='holding' if self.enabled else 'idle'
-  self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals=self.goals,lease_remaining=max(0,self.lease-self.clock()),stop_latched=self.latched)
+  if not(self.engine and self.engine.active):self.state['phase']='holding' if self.enabled else 'idle'
+  self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals=self.goals,lease_remaining=max(0,self.lease-self.clock()),stop_latched=False)
  def enable(self,names,enabled):
   if not isinstance(names,list) or not names or len(set(names))!=len(names) or not set(names)<=set(self.names) or type(enabled)is not bool:raise ValueError('Select known distinct motor names and boolean enabled')
   if not enabled:
-   if self.engine and self.engine.active:self.release_all('Release requested during movement',latch=False)
+   if self.engine and self.engine.active:self.release_all('Release requested during movement')
    else:
     for n in names:self.release(n)
    self.publish();return
@@ -127,7 +127,8 @@ class HardwareOwner:
    if not camera_ready:raise ValueError('Pickup phone feed paused; motor activation refused')
   if self.read_only:raise ValueError('READ_ONLY_OWNER: motor activation disabled; calibration mismatch must be resolved deliberately')
   if not set(names)<=self.commandable_names:raise ValueError('UNSUPPORTED_OWNER_SCOPE: requested motors are read-only')
-  if self.latched:raise ValueError('STOP is latched; a new deliberate operator session is required')
+  # No STOP latch: after a STOP or fault this explicit request is the only way motors re-enable. A failed torque-off is a hardware problem.
+  if self.state.get('ok') is not True:raise ValueError('OWNER_NOT_HEALTHY: last release failed '+json.dumps(self.state.get('release_errors'))+'; STOP must confirm release first')
   if self.engine and self.engine.active:raise ValueError('Movement is in progress')
   # Validate the entire request before enabling any motor.
   for n in names:
@@ -161,14 +162,18 @@ class HardwareOwner:
   if n in self.old:
    for f in ['Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient','Lock']:self.write(n,f,self.old[n][f])
    self.old.pop(n)
- def release_all(self,reason,latch=True):
+ def release_all(self,reason,record=True):
+  # Releases every enabled motor and cancels any move; nothing re-enables or resumes until an explicit enable_motors. No latch.
   errors=[]
   for n in list(self.enabled):
    try:self.release(n)
    except Exception as e:errors.append(str(e))
   if self.engine:self.engine.active=False
-  self.latched=latch;self.state.setdefault('root_failure',reason) if reason not in ('Operator STOP','Hardware-owner exit','Local probe complete') else None
-  self.state.update(phase='stopped' if latch else 'idle',ok=not bool(errors),operator_armed=not latch,error=self.state.get('root_failure',reason),release_errors=errors,released=not errors,stop_latched=latch);self.publish()
+  if self.paddle_profile:self.camera_gate.paused_at=self.camera_gate.initial_seq=None # a camera pause only applies while holding; the next enable needs a fresh feed
+  if reason not in ('Operator STOP','Hardware-owner exit','Local probe complete','Release requested during movement'):self.state['root_failure']=reason
+  if record:self.state.update(last_stop={'time':self.wall(),'reason':reason,'command_id':self.current_command,'released':not errors,'release_errors':errors},stop_count=self.state.get('stop_count',0)+1,error=reason)
+  self.current_command=None
+  self.state.update(ok=not bool(errors),operator_armed=not self.read_only,release_errors=errors,released=not errors,stop_latched=False);self.publish()
  def setpoints(self,goals):
   for n,q in goals.items():
    if n not in self.enabled or n.startswith('base_'):raise RuntimeError('Direct position target is not an enabled arm/head joint')
@@ -181,7 +186,6 @@ class HardwareOwner:
   if self.read_only and op not in ('stop','enable_motors','hold'):raise ValueError('READ_ONLY_OWNER: motion commands disabled')
   if op=='stop':self.release_all('Operator STOP');self.state['completed']=c['id'];return
   if op=='enable_motors':self.enable(c.get('names'),c.get('enabled'));self.state['completed']=c['id'];return
-  if self.latched:raise ValueError('STOP is latched; new operator session required')
   if op=='local_gripper_probe':
    if self.paddle_profile:raise ValueError('Legacy diagnostic probe unavailable under pickup profile')
    if self.enabled or any(r.get('Torque_Enable')!=0 for r in self.rows.values()) or len(self.rows)!=16:raise ValueError('Probe requires all16 observed released')

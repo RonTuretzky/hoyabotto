@@ -3,7 +3,7 @@
 Stops the API and the sole hardware owner, installs the changed qwen-bridge files into the
 work folder (old copies are backed up), then starts a fresh owner with
 --right-arm-only --paddle-profile and a fresh API. A fresh owner starts with every motor
-released and STOP unlatched; nothing moves. The cloudflared relay is left running.
+released and stop_latched false (the owner has no STOP latch); nothing moves. The cloudflared relay is left running.
 It also starts the native wrist-camera publisher for any wrist that has no fresh stream
 (camera problems are reported, never fatal).
 
@@ -21,7 +21,7 @@ WORK=ROOT/'work';SESSION=WORK/'gemma-hardware-session';STATUS=SESSION/'status.js
 OWNER_RECORD=WORK/'gemma-hardware-owner-process.json';API_RECORD=WORK/'gemma-robot-tools-process.json'
 OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api.log'
 INSTALL=['paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
-TESTS=['test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
+TESTS=['test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
 OWNER_ARGS=['--right-arm-only','--paddle-profile'];API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
 CAPTURE_SOURCE=BRIDGE.parents[1]/'session-archive-2026-10-05/capture-single.swift'

@@ -8,7 +8,7 @@
     "Wrist-camera snapshots through robot_get_cameras"
   ],
   "owner_preconditions": [
-    "robot_get_execution shows execution_profile paddle-success-v1, stop_latched false, phase idle or holding, status age under 1 s. If not, the owner must be restarted on the robot Mac with ./restart-robot-server.sh (motors released first).",
+    "robot_get_execution shows execution_profile paddle-success-v1, phase idle or holding, ok true, status age under 1 s (stop_latched is always false: there is no STOP latch). After a STOP or fault the owner is already back to idle with every motor released; no restart is needed, enable explicitly. Only a wrong profile or a missing or stale owner needs a restart on the robot Mac with ./restart-robot-server.sh (motors released first).",
     "Owner scope is the six right-arm joints only; left arm, head and wheels are read-only.",
     "Phone side view fresh: work/phone_camera/latest.json received_at under 10 s old with a seq. Enable and every new target are refused otherwise. While holding, a stale feed pauses target advancement; after 20 s stale the owner releases torque and a held paddle drops.",
     "Every right-arm joint at least 40 ticks inside its saved range when enabling; a folded rest pose near a limit is refused.",
@@ -20,14 +20,14 @@
     "per_joint_segment_ticks": "3..341 from the measured position; targets and goals stay 40 ticks inside saved ranges",
     "simultaneous": "One robot_move_joint_targets call may move several right-arm joints; they ramp together in 40-tick steps (no faster than every 0.4 s) and arrive on the same step. Moves over 341 ticks are split into <=280-tick segments.",
     "gripper_closing": "A closing gripper is always run alone, after the other joints of the same call. It advances 10 ticks per step, waits 0.3 s stationary, max 1.5 s per step, and stops when stationary closing error reaches 40 ticks: closure_outcome stationary_closure_unverified, grasp_verified false.",
-    "following_envelope": "Each joint must stay within 96 ticks of its commanded goal or the owner faults, releases and latches STOP.",
-    "segment_budget": "20 motion segments per owner session (settled_short moves count). Only an owner restart resets it, and a restart needs the arm released, so never run out while holding the paddle."
+    "following_envelope": "Each joint must stay within 96 ticks of its commanded goal or the owner faults and releases all motors; the move is cancelled and motors stay released until an explicit robot_set_motor_enable.",
+    "segment_budget": "20 motion segments per owner session (settled_short moves count). A STOP does not reset it; only an owner restart does, and a restart needs the arm released, so never run out while holding the paddle."
   },
   "settling": {
     "endpoint_settled": "Three fresh samples with velocity below 3, sample change at most 3, Moving flag 0, and endpoint error at most 57 ticks (gripper 30).",
     "corrections": "If a joint comes to rest short of target (gravity sag), the owner overdrives its held goal by the measured residual: at most 40 ticks per write, at most 57 ticks beyond target, never more than 90 ticks from the present position, at most 3 corrections, within an extra 5 s.",
     "settled_short": "If a joint is still short at rest after corrections, the move returns completed=false, endpoint_reached=false, closure_outcome=settled_short, settle_residual_ticks per joint, motors holding (no STOP). Re-plan from the readbacks or call robot_stop.",
-    "deadline_fault": "A joint that never comes to rest by the deadline still faults: torque released, STOP latched until an owner restart."
+    "deadline_fault": "A joint that never comes to rest by the deadline still faults: all motors released and the move cancelled, never resumed. There is no latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable."
   },
   "observed_start_pose_ticks": {"shoulder_pan": 2122, "shoulder_lift": 2781, "elbow_flex": 2798, "wrist_flex": 1579, "wrist_roll": 1242, "gripper": 1592},
   "observed_start_pose_note": "Pan, lift, elbow and gripper are measured starts from the table; wrist flex and roll are the held targets. Re-measure before every move.",
@@ -55,7 +55,7 @@
     "calibration": "No camera is calibrated to the robot frame; images guide the operator, they do not authorize motion."
   },
   "success_criteria": "Only call it a pickup when the paddle follows the jaws, visibly clears the table, stays held, and can be placed and released without a passive drop. Resistance, tool success, simulation or an image description alone are not a grasp.",
-  "stop_and_recovery": "robot_stop releases all motors and latches STOP; so does any owner fault. A latched owner refuses enable and motion until restarted. Recovery on the robot Mac: support the arm, confirm all 16 torque off, run ./restart-robot-server.sh from the repo root, then fetch fresh state and readiness. Never replay requests from an earlier owner session.",
+  "stop_and_recovery": "robot_stop releases all motors and cancels any move in progress; so does any owner fault. There is no STOP latch: the owner returns to phase idle and records last_stop (time, reason, command_id, released, release_errors) and stop_count. A cancelled move is never resumed and nothing re-enables by itself: motors stay released until an explicit robot_set_motor_enable, which repeats every health, range, camera and voltage check. Recovery needs no owner restart: read last_stop, fresh state, readiness and cameras, deal with the cause of the fault, enable all six joints explicitly, and re-plan from fresh readbacks. If readiness shows OWNER_NOT_HEALTHY, a torque-off release failed: that is a hardware problem; call robot_stop again and do not enable until it confirms the release. ./restart-robot-server.sh is for deploying new code, not for clearing a STOP. Never replay requests from an earlier owner session.",
   "do_not": [
     "Call robot_get_registered_tags as a prerequisite; tag registration is not part of this procedure.",
     "Replay the sequence blindly after power-off, manual arm movement or cart repositioning.",

@@ -22,10 +22,12 @@ o.enable(['base_left_wheel'],True);assert b.r['base_left_wheel']['Torque_Enable'
 try:o.command({'id':2,'session_started':o.started,'op':'direct_joint','positions':{'base_left_wheel':600},'duration_s':6})
 except ValueError:count+=1
 else:raise AssertionError('Wheel motion accepted')
-o.command({'id':3,'session_started':o.started,'op':'stop'});assert not o.enabled and o.latched and o.state['released'];count+=1
-try:o.enable(['left_arm_test'],True)
-except ValueError:count+=1
-else:raise AssertionError('STOP reset accepted')
+o.command({'id':3,'session_started':o.started,'op':'stop'});assert not o.enabled and o.state['released'] and o.state['phase']=='idle' and o.state['operator_armed'] and o.state['stop_latched'] is False;count+=1
+assert o.state['stop_count']==1 and o.state['last_stop']['reason']=='Operator STOP' and o.state['last_stop']['released'] and o.state['error']=='Operator STOP' and o.state['completed']==3;count+=1
+# No STOP latch: an explicit enable re-enables without an owner restart, then a move runs.
+o.enable(['left_arm_test'],True);assert o.enabled=={'left_arm_test'} and b.r['left_arm_test']['Torque_Enable']==1;count+=1
+o.command({'id':4,'session_started':o.started,'op':'direct_joint','positions':{'left_arm_test':520},'duration_s':1});assert o.engine.active and o.current_command==4;count+=1
+o.release_all('Operator STOP');assert not o.engine.active and o.state['last_stop']['command_id']==4 and o.current_command is None and o.state['stop_count']==2;count+=1
 o.enable(['right_arm_test'],False);count+=1
 for invalid in [(['left_arm_test','left_arm_test'],True),(['unknown'],True),(['left_arm_test'],1)]:
  try:o.enable(*invalid)
@@ -47,7 +49,7 @@ for duration in [0,-1,float('nan'),26,'bad']:
  except ValueError:assert b.writes==before and o.engine is None
  else:raise AssertionError('Malformed duration accepted')
 o.release_all('Direct target did not settle before deadline');o.release_all('Hardware-owner exit')
-assert o.state['error']=='Direct target did not settle before deadline' and o.state['root_failure']==o.state['error']
+assert o.state['root_failure']=='Direct target did not settle before deadline' and o.state['error']=='Hardware-owner exit' and o.state['stop_count']==2 and o.state['phase']=='idle'
 assert o.state['rows']['left_arm_test']['Torque_Enable']==0 and not o.enabled
 print({'added_fault_and_invalid_request_checks':7,'real_hardware_access':False})
 o,b=make();calls=[]
