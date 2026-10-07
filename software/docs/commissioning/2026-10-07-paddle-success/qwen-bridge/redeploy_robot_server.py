@@ -172,9 +172,12 @@ def find_oak_python(software):
 
 def ensure_oak(dry_run):
  """Keep the OAK RGB/depth stream alive: farm.oak_camera stream exits after --seconds, so restart it when stale."""
- if oak_fresh():say('oak: already streaming');return
  out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout
- stale=[int(l.split(None,1)[0]) for l in out.splitlines() if 'farm.oak_camera' in l and ' stream' in l]
+ streams=[l for l in out.splitlines() if 'farm.oak_camera' in l and ' stream' in l]
+ narrow=[l for l in streams if '--wide' not in l]
+ if oak_fresh() and not narrow:say('oak: already streaming');return
+ if oak_fresh() and narrow:say('oak: streaming without --wide (undistortion crops the field of view); restarting it wide')
+ stale=[int(l.split(None,1)[0]) for l in streams]
  software=BRIDGE.parents[3]
  python=find_oak_python(software)
  if dry_run:say(f'oak: stale; would stop {stale or "nothing"} and start a 24 h stream with {python or "NO PYTHON WITH depthai FOUND"}');return
