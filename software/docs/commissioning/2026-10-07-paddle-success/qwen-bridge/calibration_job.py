@@ -21,15 +21,15 @@ REGISTERS={'homing_offset':'Homing_Offset','range_min':'Min_Position_Limit','ran
 VELOCITIES=(200,300)
 
 
-def precheck(status,camera,now=None):
-    """Blockers that must be clear before a powered sweep."""
+def precheck(status,camera,now=None,need_camera=True):
+    """Blockers that must be clear before a powered sweep (or, without the camera check, a register restore)."""
     now=time.time() if now is None else now;blockers=[]
     if status:
         if status.get('enabled_motors') or any(r.get('Torque_Enable')==1 for r in (status.get('rows') or {}).values()):
             blockers.append('motors are powered: release the arm first (support it, then STOP)')
         if status.get('phase')=='moving':blockers.append('a motion is running')
     stamp=(camera or {}).get('received_at')
-    if type(stamp) not in (int,float) or not 0<=now-stamp<10:
+    if need_camera and (type(stamp) not in (int,float) or not 0<=now-stamp<10):
         blockers.append('phone camera is not fresh: nobody can watch the sweep')
     return blockers
 
@@ -69,6 +69,18 @@ def run(job_path,*,stop_owner=None,run_runner=None,restore=None,restart=None,now
     def finish(state,**kw):
         save(state=state,finished=now(),**kw);say(f'job {state}');return job
     status=read_json(work/'gemma-hardware-session/status.json');camera=read_json(work/'phone_camera/latest.json')
+    if job.get('action')=='restore':
+        # No motion: write the saved file's offsets/limits/position mode into the arm's servos, then restart.
+        blockers=precheck(status,camera,now(),need_camera=False)
+        if blockers:say('refused: '+'; '.join(blockers));return finish('refused',blockers=blockers)
+        say(f"stopping the hardware owner to restore the {job['arm']} arm's saved calibration into its servos (no motion)")
+        if not (stop_owner or _stop_owner)(work):return finish('failed',error='hardware owner did not stop; nothing changed')
+        save(phase='restoring')
+        report=(restore or _restore)(software,job['arm'],None)
+        say('saved calibration written and verified' if report.get('restored') else 'RESTORE FAILED: '+str(report.get('error') or report))
+        say('restarting the robot server (owner + API)')
+        restart_code=(restart or _restart)(checkout)
+        return finish('succeeded' if report.get('restored') and restart_code==0 else 'failed',outcome='restored' if report.get('restored') else 'restore_failed',summary={'restore':report},restart_exit=restart_code)
     blockers=precheck(status,camera,now())
     if blockers:say('refused: '+'; '.join(blockers));return finish('refused',blockers=blockers)
     say(f"stopping the hardware owner so the {job['arm']} arm calibration can open the servo ports")
@@ -128,7 +140,8 @@ def _run_runner(software,job,evidence,save):
 
 def _restore(software,arm,before):
     sys.path.insert(0,str(software));sys.path.insert(0,str(software/'scripts'))
-    from carton_robot.guarded_pr3282_calibration import PORTS,install_calibration_reply_guard
+    from carton_robot.guarded_pr3282_calibration import PORTS,CAL,install_calibration_reply_guard
+    if before is None:before=read_json(CAL)  # restore action: the live saved calibration file
     from carton_robot.servo_ownership import ServoOwnership
     from farm.vendor.autocal.workflow import FeetechMotorsBus,SO_FOLLOWER_MOTORS
     port=PORTS[0 if arm=='left' else 1];lock=ServoOwnership(PORTS).acquire()

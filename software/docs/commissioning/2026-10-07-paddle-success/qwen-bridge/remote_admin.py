@@ -119,6 +119,24 @@ def start_calibration(root,arm,velocity=300,python=sys.executable):
     return job
 
 
+def start_restore(root,arm,python=sys.executable):
+    """Detached, no-motion job: write the saved calibration file's values for one arm into its servos, then restart."""
+    p=paths(root)
+    if arm not in ('left','right'):raise ValueError('arm must be left or right')
+    try:record=json.loads(p['record'].read_text())
+    except (OSError,ValueError):raise ValueError('No deploy record yet: run ./restart-robot-server.sh once on the robot Mac with this version.')
+    busy=running_job(root)
+    if busy:raise ValueError(f"Another job is running: {busy['id']} ({busy.get('kind','deploy')})")
+    p['jobs'].mkdir(parents=True,exist_ok=True)
+    job_id=time.strftime('%Y%m%d-%H%M%S-')+os.urandom(3).hex()
+    job={'id':job_id,'kind':'calibration','action':'restore','arm':arm,'checkout':record['checkout'],'work':str(p['work']),'state':'running','phase':'precheck','created':time.time()}
+    path=p['jobs']/(job_id+'.json');path.write_text(json.dumps(job,indent=2))
+    with open(p['jobs']/(job_id+'.log'),'ab') as log:
+        proc=subprocess.Popen([python,str(Path(__file__).resolve().with_name('calibration_job.py')),str(path)],cwd=str(root),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+    job['pid']=proc.pid;path.write_text(json.dumps(job,indent=2))
+    return job
+
+
 def interrupt_calibration(root):
     """STOP during a calibration sweep: SIGINT the runner (upstream routine makes the motors limp, then cleans up)."""
     job=running_job(root)

@@ -19,7 +19,7 @@ class HardwareOwner:
   if paddle_profile:
    from paddle_camera_gate import PaddleCameraGate
    self.camera_gate=PaddleCameraGate(camera_metadata,clock=clock,wall=wall)
-  if paddle_profile and (read_only or not position_scope or any(not n.startswith("right_arm_") for n in position_scope)):raise ValueError("Pickup profile requires explicit right-arm scope")
+  if paddle_profile and (read_only or not position_scope or any(not n.startswith(("right_arm_","left_arm_")) for n in position_scope)):raise ValueError("Pickup profile requires an explicit arm scope")
   self.buses=buses;self.cal=calibration;self.telemetry=read_telemetry;self.clock=clock;self.wall=wall
   self.names=[n for b in buses for n in b.motors];self.by_name={n:b for b in buses for n in b.motors}
   all_position_names=[n for n in self.names if not n.startswith('base_')]
@@ -40,6 +40,7 @@ class HardwareOwner:
   self.state.setdefault('last_write_readbacks',{}).setdefault(n,{})[f]={'requested':v,'readback':actual,'time':self.wall()}
   if actual!=v:raise RuntimeError(n+': '+f+' readback mismatch')
  def inspect(self):
+  mismatched=set()
   for n in self.names:
    if self.read(n,'Torque_Enable')!=0:raise RuntimeError(n+': already powered before hardware-owner startup')
    self.limits[n]=[self.read(n,'Min_Position_Limit'),self.read(n,'Max_Position_Limit')]
@@ -49,7 +50,19 @@ class HardwareOwner:
     actual={f:self.read(n,f) for f in expected}
     if actual!=expected:
      self.state.setdefault('calibration_mismatches',{})[n]={'expected':expected,'actual':actual}
-     if n in self.commandable_names:raise RuntimeError(n+': saved calibration differs from hardware')
+     mismatched.add(n)
+  # An arm whose saved calibration does not match its servos stays read-only. With one arm in scope that is
+  # fatal (as before); with both arms the other arm keeps working and the reduction is reported.
+  bad=sorted({n.split('_arm_')[0] for n in mismatched if n in self.commandable_names and '_arm_' in n})
+  arms_in_scope={n.split('_arm_')[0] for n in self.position_names if '_arm_' in n}
+  if mismatched&self.commandable_names and (len(arms_in_scope)<2 or not self.paddle_profile or set(bad)>=arms_in_scope or any('_arm_' not in n for n in mismatched&self.commandable_names)):
+   raise RuntimeError(sorted(mismatched&self.commandable_names)[0]+': saved calibration differs from hardware')
+  for arm in bad:
+   dropped=[n for n in self.position_names if n.startswith(arm+'_arm_')]
+   self.position_names=[n for n in self.position_names if n not in dropped];self.commandable_names-=set(dropped)
+   for n in dropped:self.ranges.pop(n,None)
+   self.state.setdefault('scope_reduced',{})[arm]={'reason':'saved calibration differs from hardware','motors':sorted(n for n in mismatched if n.startswith(arm+'_arm_'))}
+  if bad:self.state.update(supportsselectedjoints=self.position_names,commandable_motors=sorted(self.commandable_names),read_only_motors=[n for n in self.names if n not in self.commandable_names],ranges=self.ranges,pickup_required_enabled_motors=self.position_names)
   self.state['released_register_diagnostics']={n:self.register_diagnostics(n) for n in self.names if n.endswith('gripper')}
   self.poll()
   n='right_arm_gripper'
@@ -271,7 +284,8 @@ class HardwareOwner:
   candidate=executor(list(positions),{n:self.ranges[n] for n in positions},self.setpoints,clock=self.clock,wall=self.wall)
   current={n:self.rows[n]['Present_Position'] for n in positions}
   if self.paddle_profile:
-   if set(self.position_names)!=self.enabled:raise ValueError('Pickup requires all six right-arm motors explicitly enabled')
+   arms={n.split('_arm_')[0] for n in positions};required={n for n in self.position_names if n.split('_arm_')[0] in arms}
+   if not required<=self.enabled:raise ValueError('Pickup requires all six '+'/'.join(sorted(arms))+'-arm motors explicitly enabled: '+', '.join(sorted(required-self.enabled)))
    if not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
   update=candidate.start(c,current,session_started=self.started,**({'held_goals':self.goals} if self.paddle_profile else {}))
   if self.paddle_profile:self.motion_count+=1
@@ -308,7 +322,7 @@ def main():
  try:
   ownership=ServoOwnership([b.port for b in buses]).acquire()
   for b in buses:guard_replies(b);b.connect(handshake=False)
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state)
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print('Hardware owner ready:16 motor reads, all torque off.',flush=True)
   while not stop.is_set():

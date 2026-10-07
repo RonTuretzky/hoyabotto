@@ -103,3 +103,9 @@ Exceptions:
 5. Restart the robot server.
 
 `robot_stop` sends SIGINT to a running sweep; the upstream routine makes the motors limp. `robot_get_calibration_job` reports the phase, log and outcome. The tool refuses unless `user_confirmed_clearance` is true. Its description tells the pilot to show the clearance checklist and get an explicit yes. One job runs at a time, whether deploy or calibration. `test_calibration_job.py` covers it; it has not been run on hardware through the API.
+
+## Both arms and calibration restore (2026-10-07)
+
+- **Both arms.** The restart script now starts the owner with `--both-arms --paddle-profile --wheels`; `--right-arm-only` gives the old scope. A pickup command needs all six joints of the arm it moves enabled, but not the other arm. The pickup profile settings and guards apply to each arm.
+- **Mismatched arm.** If an arm's saved calibration does not match its servos, that arm stays read-only (`scope_reduced` in status) and the other arm works. A single-arm scope with a mismatch, or a mismatch in every scoped arm, still refuses startup.
+- **Restore.** `robot_restore_calibration(arm)` is a no-motion job. It stops the owner, writes the saved calibration file's homing offset, limits and position mode into that arm's six servos with torque off, reads them back, then restarts. This fixes the left arm's 6 October mismatch (four servos left holding the rejected candidate). `test_both_arms.py` covers this.

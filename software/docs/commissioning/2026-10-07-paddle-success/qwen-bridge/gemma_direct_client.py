@@ -120,7 +120,7 @@ class DirectJointClient:
             'waypoint':d.get('leg'),'waypoints':d.get('legs'),'elapsed_s':d.get('elapsed_s'),'final_targets':d.get('final_targets'),
             'joints':{n:{k:v.get(k) for k in ('current_ticks','goal_ticks','target_ticks','following_error_ticks')} for n,v in (d.get('joints') or {}).items()},
             'base_drive_phase':state.get('base_drive_phase'),'enabled_motors':state.get('enabled_motors'),'lease_remaining_s':state.get('lease_remaining'),
-            'last_stop':state.get('last_stop'),'positions':{n:r.get('Present_Position') for n,r in state.get('rows',{}).items() if n.startswith('right_arm_')}}
+            'last_stop':state.get('last_stop'),'positions':{n:r.get('Present_Position') for n,r in state.get('rows',{}).items() if n.startswith(('right_arm_','left_arm_'))}}
     def drive_base(self,linear_m_s,angular_rad_s,duration_s):
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in (linear_m_s,angular_rad_s,duration_s)) or not 0<duration_s<=3:raise ValueError('Finite linear_m_s, angular_rad_s and duration_s in (0,3] required')
         return self._command({'op':'base_pulse','linear_m_s':linear_m_s,'angular_rad_s':angular_rad_s,'duration_s':duration_s})
@@ -155,8 +155,8 @@ class DirectJointClient:
                 if any(not c['range_min']+4<=t[n]<=c['range_max']-4 for t in targets):raise ValueError('Target outside saved range plus4tickmargin: '+n)
                 if state['rows'][n].get('Torque_Enable')!=1:raise ValueError('Requested motor is released; explicitly enable it first: '+n)
         if request['op']!='enable_motors' and state.get('execution_profile')=='paddle-success-v1':
-            required=state.get('pickup_required_enabled_motors',state.get('supportsselectedjoints',[]))
-            if set(required)!=set(state.get('enabled_motors',[])):raise ValueError('Pickup requires all six right-arm motors explicitly enabled: '+json.dumps(required))
+            arms={n.split('_arm_')[0] for n in names};required=[m for m in state.get('supportsselectedjoints',[]) if m.split('_arm_')[0] in arms]
+            if not set(required)<=set(state.get('enabled_motors',[])):raise ValueError('Pickup requires all six joints of the commanded arm explicitly enabled: '+json.dumps(sorted(set(required)-set(state.get('enabled_motors',[])))))
             from paddle_joint_executor import PaddleJointExecutor
             dry=PaddleJointExecutor(names,{n:state['ranges'][n] for n in names},lambda _:None)
             dry.start(dict(request,id=1,session_started=state['started']),{n:state['rows'][n]['Present_Position'] for n in names},session_started=state['started'],held_goals=state.get('goals'))
@@ -259,7 +259,7 @@ class DirectJointClient:
                     if json.loads(command_file.read_text()).get('id')!=command_id:raise RuntimeError('Command overwritten; cancelled')
                     if request['op']=='halt' and current.get('completed')==command_id:
                         return {'accepted':True,'completed':True,'halted':True,'command_id':command_id,'halted_command_id':current.get('halted_command_id'),'phase':current.get('phase'),
-                            'positions':{n:r.get('Present_Position') for n,r in current.get('rows',{}).items() if n.startswith('right_arm_')},'base_drive_phase':current.get('base_drive_phase'),
+                            'positions':{n:r.get('Present_Position') for n,r in current.get('rows',{}).items() if n.startswith(('right_arm_','left_arm_'))},'base_drive_phase':current.get('base_drive_phase'),
                             'note':'Holding where it stopped (wheels brake, then release). Nothing was released; send a new move to continue.'}
                     if not wait and request['op']=='direct_joint' and command_id in (current.get('accepted'),current.get('completed')):
                         return {'accepted':True,'started':True,'completed':current.get('completed')==command_id,'command_id':command_id,'owner_started':started,'phase':current.get('phase'),
