@@ -171,6 +171,20 @@ def run(args):
                     from carton.folding_partial_release import release_near_after_passive_far
                     result['stage'] = 'Release near holder after verified passive far hold'
                     result['partial_major_release'] = release_near_after_passive_far(sim, controller, capture=True)
+                if getattr(args, 'probe_shorts_after_release', False):
+                    from carton.folding_additional_view import AdditionalViewPixelPort, AdditionalViewConfiguration
+                    from carton.folding_partial_short_probe import probe_shorts_against_passive_majors
+                    # This new stage explicitly assumes the additional front
+                    # camera and independently identified open-short planes.
+                    port = AdditionalViewPixelPort(port,
+                        configuration=AdditionalViewConfiguration(
+                            assumption_id='offline:front-open-short-regrasp-v1', clock_id='offline:simulation',
+                            required_flaps=('long_near','long_far','short_left','short_right'),
+                            observe_open_shorts=True), seed=args.seed)
+                    controller.port = port
+                    result['stage'] = 'Probe paired short folds against freely passive majors'
+                    result['partial_short_probe'] = probe_shorts_against_passive_majors(
+                        sim, controller, capture=True, target_degrees=10.)
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -289,6 +303,7 @@ def run(args):
                   short_opening=getattr(controller, 'short_opening', None),
                   far_edge_attempt=getattr(controller, 'far_edge_attempt', None),
                   partial_major_release=getattr(controller, 'partial_major_release', None),
+                  partial_short_probe=getattr(controller, 'partial_short_probe', None),
                   additional_view_history=getattr(port, 'additional_view_history', None),
                   additional_view_declaration=getattr(port, 'declaration', None),
                   additional_view_assumptions_sha256=getattr(port, 'assumptions_sha256', None),
@@ -318,6 +333,8 @@ if __name__ == '__main__':
     parser.add_argument('--far-gripper-opening', type=float, default=-.17)
     parser.add_argument('--release-far-after', action='store_true')
     parser.add_argument('--release-near-after-far', action='store_true')
+    parser.add_argument('--probe-shorts-after-release', action='store_true',
+                        help='Bounded paired short probe with explicit additional front-camera assumption')
     parser.add_argument('--open-short-angle', type=float, default=-15.)
     parser.add_argument('--along', type=float, default=-.10)
     parser.add_argument('--radius', type=float, default=.125)
@@ -385,6 +402,8 @@ if __name__ == '__main__':
     if args.release_near_after_far and (not args.far_after_near or not args.release_far_after
             or args.near_hold_degrees != 40. or args.far_hold_degrees != 35.):
         parser.error('Near release requires the verified near40/far35 passive far-release profile')
+    if args.probe_shorts_after_release and not args.release_near_after_far:
+        parser.error('Paired short probe requires the both-hands-parked partial release')
     if args.center_floor_marker and args.floor_marker_x is not None and abs(args.floor_marker_x)<.057:
         parser.error('Declared floor markers would overlap')
     run(args)

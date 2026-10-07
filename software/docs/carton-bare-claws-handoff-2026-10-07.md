@@ -38,7 +38,7 @@ Full experimental details and failures are in `carton-near-transfer.md` and
 `evidence/carton-near-transfer-20261007.json`. Newer partial-far batches are under
 `output/bimanual-fold-sim/major-first` in the Hackatuson workspace. Do not treat
 static reachability or a held flap as completion.
-The 30-trial partial-major inventory is
+The 33-trial partial-major and short-regrasp inventory is
 `evidence/carton-partial-major-search-20261007.json`; the released-far batch is
 `partial-far-passive-release-02`. Every trial starts from the original open box.
 
@@ -94,6 +94,32 @@ PYTHONPATH=. .venv/bin/python tools/run_claw_sweep.py \
 Append `--release-near-after-far` to verify the both-hands-parked partial hold.
 This optional stage requires exactly the near40/far35 released-far profile;
 missing or stale observations, drift, and failed attempts cannot be reset away.
+
+Appending `--probe-shorts-after-release` attempts a bounded two-hand short-flap
+regrasp and fold toward at most +10°. This explicitly adds the hypothetical
+front RGB-D camera and open-short hinge-plane observer described in
+`carton-open-short-vision.md`; it is not a physical camera configuration.
+The first full-prefix batch, `paired-short-passive-majors-01`, passed the partial
+major release in all three seeds, but **0/3 completed the +10° probe**. Seeds
+0/2 refused a predicted left wrist/short collision; seed 1 lost fresh table
+registration after free transit. Seed 2 physically advanced the left short
+from −12.90° to −9.25° and the right from −13.82° to −11.60° before refusing.
+Static approach clearance therefore does not establish a safe complete stroke.
+
+The new independent panel-contact log covers every executed step of this probe,
+in addition to the existing full-run robot contact log. Both audits pass all
+three executed intervals; predicted colliding commands were not executed. This
+does not turn a refused probe into a fold pass. Verify panel evidence with:
+
+```sh
+PYTHONPATH=. .venv/bin/python -m tools.score_partial_short_panels --run /absolute/path/to/run
+```
+
+The scorer checks the compressed byte hash, unique recording identity, exact
+source-event interval, every original solver step and the unchanged 1 mm
+panel penetration criterion. Missing, position-only, replayed or incomplete
+logs cannot pass. Panel-to-panel contact forces are recorded; the criterion is
+penetration, not proof of measured cardboard deformation or retention strength.
 
 Omit `--video` during searches: all timestamped qpos states are still recorded,
 while presentation rendering/compression is skipped. Perception still renders

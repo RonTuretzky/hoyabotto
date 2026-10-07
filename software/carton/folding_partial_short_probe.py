@@ -1,0 +1,333 @@
+"""Bounded offline short-contact probe after both partial majors are passive.
+
+The two CAD proposals passed static paired robot-clearance diagnostics. Whether
+the shorts can displace the free majors is an unproven dynamics question. This
+component stops at a declared short target no greater than +10 degrees and
+never labels that component, or a hypothetical panel intersection, full closure.
+"""
+from contextlib import AbstractContextManager
+import gzip
+import hashlib
+import json
+import math
+from types import SimpleNamespace
+import uuid
+
+import mujoco
+import numpy as np
+
+from carton.folding_diagonal import contact_point
+from carton.folding_far_contact import RobotVertexIK, mesh_contact_vertices, _verify_target_angle
+from carton.folding_paths import JointPathPlanner, execute_path
+from carton.folding_progress import ContactProgressGuard
+from carton.folding_panel_audit import (
+    PANEL_SCHEMA, PANEL_SOURCE, PANEL_LOG_NAME, INTEGRATORS, event_digest,
+)
+
+
+_PROFILES = {
+    'front': {
+        'along': -.10,
+        'left': ([-.010900730, -.006113951, -.094425959],
+                 [-.352499325, -1.544291480, .953627161, .831693404, -1.569852638]),
+        'right': ([-.010900730, .005678369, -.094425928],
+                  [.416730994, -.876738899, .266623386, 1.308314546, .833325059]),
+    },
+    'middlefar': {
+        'along': .06,
+        'left': ([-.016536210, -.003251981, -.094435794],
+                 [-.213924120, .045895518, -.257406533, .616806899, -.265937843]),
+        'right': ([-.010900730, .005678369, -.094425928],
+                  [.219551130, .057894514, -.249991912, .622400643, .843985127]),
+    },
+}
+_SIDES = ('left', 'right')
+_FLAPS = ('short_left', 'short_right', 'long_near', 'long_far')
+
+
+class _PanelStepAudit(AbstractContextManager):
+    """Add a panel-panel stop to the existing actual-step diagnostic callback.
+
+    Runs before render/geometry refresh in FoldingSimulation.move. An earlier
+    existing robot/load fault can skip that callback on the final refused step;
+    coverage then remains explicitly incomplete and cannot authorize success.
+    """
+    def __init__(self, sim, report):
+        self.sim, self.report = sim, report
+        self.previous = sim.step_diagnostic
+        self.started = self.last_time = float(sim.data.time)
+        self.timestep = float(sim.model.opt.timestep)
+        self.event_start_index = len(sim.events)
+        self.recording_id = uuid.uuid4().hex
+        self.path = sim.out / PANEL_LOG_NAME
+        self.row = dict(path=PANEL_LOG_NAME, format='gzip_jsonl', schema=PANEL_SCHEMA,
+                        source=PANEL_SOURCE, recording_id=self.recording_id,
+                        expected_start_time=self.started, timestep_s=self.timestep,
+                        source_report='folding.json', source_event_start_index=self.event_start_index,
+                        max_panel_panel_penetration_mm=0., steps=0, complete_coverage=False)
+        report['panel_panel_audit'] = self.row
+
+    def __enter__(self):
+        if mujoco.mjtIntegrator(self.sim.model.opt.integrator).name not in INTEGRATORS:
+            raise ValueError('Panel contact audit requires an original one-pass integrator')
+        self.stream = gzip.open(self.path, 'xt', encoding='utf-8')
+        self.sim.step_diagnostic = self.diagnose
+        return self
+
+    def diagnose(self):
+        sim = self.sim
+        now, dt = float(sim.data.time), float(sim.model.opt.timestep)
+        if (not math.isclose(dt, self.timestep, rel_tol=0., abs_tol=1e-12)
+                or not math.isclose(now-self.last_time, dt, rel_tol=1e-8, abs_tol=1e-9)):
+            return 'Incomplete actual-step panel contact audit coverage'
+        contacts = []
+        for index, contact in enumerate(sim.data.contact):
+            a, b = sim.model.geom(contact.geom1).name, sim.model.geom(contact.geom2).name
+            if not (a.endswith('_cardboard') and b.endswith('_cardboard')):
+                continue
+            wrench = np.zeros(6)
+            mujoco.mj_contactForce(sim.model, sim.data, index, wrench)
+            penetration = max(0., -float(contact.dist)*1000)
+            self.row['max_panel_panel_penetration_mm'] = max(
+                self.row['max_panel_panel_penetration_mm'], penetration)
+            contacts.append(dict(contact_id=index, geom1=a, geom2=b, distance_m=float(contact.dist),
+                                 position_m=contact.pos.tolist(), contact_frame=contact.frame.tolist(),
+                                 wrench_contact_N_Nm=wrench.tolist()))
+        self.stream.write(json.dumps(dict(schema=PANEL_SCHEMA, source=PANEL_SOURCE,
+            recording_id=self.recording_id, step_index=self.row['steps'],
+            step_started_at=self.last_time, step_ended_at=now, timestep_s=dt,
+            integrator=mujoco.mjtIntegrator(sim.model.opt.integrator).name,
+            total_contact_count=int(sim.data.ncon), contacts=contacts), allow_nan=False)+'\n')
+        self.last_time = now
+        self.row['steps'] += 1
+        prior_fault = self.previous()
+        if prior_fault:
+            return prior_fault
+        if self.row['max_panel_panel_penetration_mm'] > 1.:
+            return 'Panel/panel penetration exceeded 1 mm during bounded short probe'
+        return None
+
+    def coverage_complete(self):
+        expected = round((float(self.sim.data.time)-self.started)/self.sim.model.opt.timestep)
+        return (expected > 0 and self.row['steps'] == expected
+                and math.isclose(self.last_time, float(self.sim.data.time), abs_tol=1e-9))
+
+    def __exit__(self, *exc):
+        self.sim.step_diagnostic = self.previous
+        self.row['complete_coverage'] = self.coverage_complete()
+        self.stream.close()
+        with self.path.open('rb') as stream:
+            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        events = self.sim.events[self.event_start_index:]
+        self.row.update(sha256=digest, compressed_bytes=self.path.stat().st_size,
+                        expected_end_time=float(self.sim.data.time),
+                        source_event_count=len(events), source_events_sha256=event_digest(events))
+        return False
+
+
+class _ShortStroke:
+    def __init__(self, angles, target):
+        self.target = target
+        self.history = {side: [float(angles[side])] for side in _SIDES}
+        self.commands = 0
+
+    def next_angles(self):
+        latest = {a: self.history[a][-1] for a in _SIDES}
+        if all(value >= self.target-1 for value in latest.values()):
+            return None
+        if self.commands >= 80:
+            raise ValueError('Paired short probe exceeded 80 bounded commands')
+        self.commands += 1
+        return {a: min(self.target, value+1.) for a, value in latest.items()}
+
+    def observe(self, angles):
+        for a in _SIDES:
+            value = float(angles[a])
+            if not math.isfinite(value) or not -25 <= value <= self.target+5:
+                raise ValueError('Observed short angle left bounded probe range')
+            self.history[a].append(value)
+            if (len(self.history[a]) > 12 and value < self.target-1
+                    and value-self.history[a][-13] < 2.):
+                raise ValueError(a+' short stalled over twelve bounded commands')
+
+
+def _point(box, profile, side, degrees):
+    point, _ = contact_point(math.radians(degrees), 0, -1 if side == 'left' else 1,
+                             profile['along'], .14, 0., .0015)
+    return box[:3, :3] @ point + box[:3, 3]
+
+
+def _paired_edge(sim, goals):
+    """Check both interpolated robot arms together in planner copies only."""
+    planners = {a: JointPathPlanner(sim, a, clearance=.006,
+                                   allowed_flaps=('short_'+a+'_cardboard',)) for a in _SIDES}
+    starts = {a: np.clip(sim.data.qpos[sim.arm_indices[a][:5]],
+                         planners[a].limits[:, 0], planners[a].limits[:, 1]) for a in _SIDES}
+    count = max(1, int(np.ceil(max(np.max(np.abs(goals[a]-starts[a])) for a in _SIDES)/.025)))
+    for u in np.linspace(0., 1., count+1):
+        values = {a: starts[a]+u*(goals[a]-starts[a]) for a in _SIDES}
+        for a, planner in planners.items():
+            for other in _SIDES:
+                planner.data.qpos[sim.arm_indices[other][:5]] = values[other]
+            if not planner.valid(values[a]):
+                raise ValueError('Paired '+a+' path collides: '+str(planner.last_collision))
+
+
+def _preflight(sim, box, angles, profile, vertices):
+    # Explicit offline obstacle/robot copy. Only robot joints in this copy are
+    # assigned. Even the planning flap configuration stays as currently seen
+    # by the simulator; its truth is not a control target or success reading.
+    copy = SimpleNamespace(model=sim.model, data=mujoco.MjData(sim.model),
+                           arm_indices=sim.arm_indices, forbidden_contact=sim.forbidden_contact)
+    copy.data.qpos[:] = sim.data.qpos
+    ik = {a: RobotVertexIK(copy, a, vertices[a]) for a in _SIDES}
+    points = {a: _point(box, profile, a, angles[a]) for a in _SIDES}
+    contact = {a: ik[a].solve(points[a], profile[a][1])[0] for a in _SIDES}
+    pre = {a: ik[a].solve(points[a]+[0., 0., .020], contact[a])[0] for a in _SIDES}
+    paths = {}
+    for a in _SIDES:
+        paths[a] = JointPathPlanner(copy, a, clearance=.006).plan(pre[a], max_seconds=4.)
+        copy.data.qpos[copy.arm_indices[a][:5]] = pre[a]
+    previous = pre
+    for u in np.linspace(.05, 1., 20):
+        goals = {a: ik[a].solve(points[a]+[0., 0., .020*(1-u)], previous[a])[0] for a in _SIDES}
+        _paired_edge(copy, goals)
+        for a in _SIDES:
+            copy.data.qpos[copy.arm_indices[a][:5]] = goals[a]
+        previous = goals
+    return paths
+
+
+def probe_shorts_against_passive_majors(sim, controller, *, capture=False, target_degrees=10.):
+    """Opt-in paired short attempt, with freely moving partial major panels."""
+    if not math.isfinite(target_degrees) or not 0 <= target_degrees <= 10:
+        raise ValueError('Bounded short probe target must be 0 to 10 degrees')
+    c = controller
+    if getattr(c, 'partial_short_probe', None) is not None:
+        raise ValueError('Partial short probe already attempted; faults cannot be reset')
+    prior = getattr(c, 'partial_major_release', None)
+    if (not isinstance(prior, dict) or prior.get('fault')
+            or prior.get('stage') != 'both partial major angles passively retained for five seconds'
+            or prior.get('both_hands_parked') is not True
+            or prior.get('both_majors_passively_retained') is not True
+            or prior.get('expected_near_degrees') != 40.
+            or prior.get('expected_far_degrees') != 35. or not prior.get('checks')):
+        raise ValueError('Verified both-hands-parked passive near40/far35 stage required')
+    report = dict(simulation_only=True, hardware_commands=0, full_task_complete=False,
+                  all_flaps_closed=False, bounded_component_only=True, joint_driven_physics=True,
+                  stage='require fresh four-flap entry', fault=None, target_short_degrees=target_degrees,
+                  majors_remain_free=True, target_source='fresh RGB-D short angles and carton pose',
+                  contact_radius_m=.14, normal_offset_m=.0015, candidates=[], checks=[])
+    c.partial_short_probe = report
+    try:
+        reading = c.sense('Register both shorts and passive majors before bounded paired probe')
+        guards = {f: ContactProgressGuard(f, reading) for f in _FLAPS}
+        if reading['seq'] <= prior['checks'][-1]['seq']:
+            raise ValueError('New four-flap observation after passive release required')
+        for f, target in (('long_near', 40.), ('long_far', 35.)):
+            _verify_target_angle(reading, f, target)
+        angles = {a: float(reading['angles']['short_'+a]['degrees']) for a in _SIDES}
+        if not all(-25 <= degrees <= 0 for degrees in angles.values()):
+            raise ValueError('Fresh outward short angles in -25 to 0 degrees required')
+        for a in _SIDES:
+            park = np.array([-.20 if a == 'left' else .20, -.18, .30])
+            if np.linalg.norm(sim.actual_control_position(a)-park) > .035:
+                raise ValueError(a+' hand is not within original park tracking bound')
+        report['visual_checks'] = {f: g.checks for f, g in guards.items()}
+        major_commands = {f: reading['angles'][f]['degrees'] for f in ('long_near', 'long_far')}
+        major_limits = {f: np.degrees(sim.model.joint(f+'_hinge').range) for f in major_commands}
+        chosen = None
+        for name, profile in _PROFILES.items():
+            vertices = {}
+            for a in _SIDES:
+                actual_vertices = mesh_contact_vertices(sim.model, sim.data, a)
+                vertices[a] = min(actual_vertices, key=lambda v: np.linalg.norm(np.asarray(v['local'])-profile[a][0]))
+                if np.linalg.norm(np.asarray(vertices[a]['local'])-profile[a][0]) > 1e-6:
+                    raise ValueError('Declared short contact vertex absent from original CAD')
+            try:
+                paths = _preflight(sim, np.asarray(reading['world_from_box']), angles, profile, vertices)
+                chosen = (name, profile, vertices, paths)
+                report['candidates'].append(dict(profile=name, complete_approach_clear=True))
+                break
+            except ValueError as exc:
+                report['candidates'].append(dict(profile=name, complete_approach_clear=False, refusal=str(exc)))
+        if chosen is None:
+            raise ValueError('Neither declared paired short approach passes original clearance gates')
+        name, profile, vertices, paths = chosen
+        report.update(contact_profile=name, contact_along_m=profile['along'], actual_cad_vertices=vertices)
+        ik = {a: RobotVertexIK(sim, a, vertices[a]) for a in _SIDES}
+
+        def observe(label, commands, *, require_partial_majors=False):
+            current = c.sense(label)
+            for f, guard in guards.items():
+                guard.check(current, commands[f[6:]] if f.startswith('short_') else major_commands[f])
+            observed = {a: current['angles']['short_'+a]['degrees'] for a in _SIDES}
+            if not all(-25 <= value <= target_degrees+5 for value in observed.values()):
+                raise ValueError('Observed short angle left bounded probe range')
+            for f, limits in major_limits.items():
+                if not limits[0] <= current['angles'][f]['degrees'] <= limits[1]:
+                    raise ValueError('Observed passive major left original hinge range')
+            if require_partial_majors:
+                _verify_target_angle(current, 'long_near', 40.)
+                _verify_target_angle(current, 'long_far', 35.)
+            report['checks'].append(dict(time=float(sim.data.time), seq=current['seq'],
+                                         visual_angles=current['angles']))
+            return current, observed
+
+        def command(goals, points, label):
+            _paired_edge(sim, goals)
+            duration = max(.25, max(float(np.max(np.abs(goals[a]-sim.data.qpos[sim.arm_indices[a][:5]])))
+                                    for a in _SIDES)/.55)
+            event = sim.move({}, duration, label, capture=capture, joint_targets=goals)
+            if event.get('step_error') or event['bad_penetration_mm'] > 1.:
+                raise ValueError(event.get('step_error') or 'Forbidden collision during paired short probe')
+            if event['max_joint_tracking_error_radians'] > .08:
+                raise ValueError('Paired short joint tracking exceeds 0.08 rad')
+            for a in _SIDES:
+                if np.linalg.norm(ik[a].point(sim.data.qpos[sim.arm_indices[a][:5]])-points[a]) > .035:
+                    raise ValueError('Paired short CAD tracking exceeds 35 mm')
+
+        with _PanelStepAudit(sim, report) as panel_audit:
+            report['stage'] = 'checked free paired short approach'
+            for a in _SIDES:
+                current_path = JointPathPlanner(sim, a, clearance=.006).plan(paths[a][-1])
+                execute_path(sim, a, current_path, 'Reach above '+a+' outward short edge', capture=capture)
+                reading, angles = observe('Check all four flaps after short free transit', angles,
+                                          require_partial_majors=True)
+            start_points = {a: ik[a].point(sim.data.qpos[sim.arm_indices[a][:5]]).copy() for a in _SIDES}
+            previous = {a: sim.data.qpos[sim.arm_indices[a][:5]].copy() for a in _SIDES}
+            report['stage'] = 'checked paired short contact approach'
+            for u in np.linspace(.05, 1., 20):
+                box = np.asarray(reading['world_from_box'])
+                points = {a: (1-u)*start_points[a]+u*_point(box, profile, a, angles[a]) for a in _SIDES}
+                goals = {a: ik[a].solve(points[a], previous[a])[0] for a in _SIDES}
+                command(goals, points, 'Approach both outward shorts using actual CAD fingers')
+                previous = goals
+                reading, angles = observe('Check both shorts and free majors during contact approach', angles)
+            for a in _SIDES:
+                guards['short_'+a].begin_stroke(reading)
+            stroke = _ShortStroke(angles, target_degrees)
+            report['measured_stroke'] = dict(max_advance_degrees=1., max_commands=80,
+                                             observed_degrees=stroke.history)
+            report['stage'] = 'bounded simultaneous short-fold probe'
+            while (commands := stroke.next_angles()) is not None:
+                box = np.asarray(reading['world_from_box'])
+                points = {a: _point(box, profile, a, commands[a]) for a in _SIDES}
+                goals = {a: ik[a].solve(points[a], previous[a])[0] for a in _SIDES}
+                command(goals, points, 'Probe simultaneous short folding toward at most +10 degrees')
+                previous = goals
+                reading, angles = observe('Observe whether free majors move during bounded short probe', commands)
+                stroke.observe(angles)
+            c.port.move_arms({}, .5, 'Hold bounded short probe for fresh verification', None)
+            reading, angles = observe('Verify bounded paired short component', {a: target_degrees for a in _SIDES})
+            for a in _SIDES:
+                _verify_target_angle(reading, 'short_'+a, target_degrees)
+            if not panel_audit.coverage_complete():
+                raise ValueError('Complete per-step panel contact coverage required')
+            report.update(stage='bounded paired short target visually held', bounded_target_verified=True,
+                          visual_angles=reading['angles'], command_count=stroke.commands,
+                          independent_final_angles=sim.truth_angles(), motion=dict(sim.motion_stats))
+        return report
+    except Exception as exc:
+        report['fault'] = str(exc)
+        raise

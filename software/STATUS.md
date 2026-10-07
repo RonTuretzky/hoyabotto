@@ -11,6 +11,15 @@ seconds in 3/3 seeds, with independently clear applied contacts. Both shorts
 remain open. **Full four-flap closure,
 tape application and hands-clear retention are incomplete.**
 
+The first bounded short-regrasp extension passes the same partial release in
+3/3 seeds but completes the +10° short target in 0/3. Two runs refuse predicted
+left wrist collisions, and one loses fresh table registration. One advances
+both shorts several degrees before the refusal. Executed robot and panel
+contact intervals independently pass; this does not certify the unexecuted
+stroke. The explicit additional-view open-short observer passes 15/15 frozen
+pixel replays and refuses 3/3 current-surface occlusion negatives. See
+[the observer scope](docs/carton-open-short-vision.md).
+
 The fixed station camera loses far-plane visibility around 39°; successful
 partial release at 35° does not establish continued visibility or closure.
 Actual station/material/camera calibration and deployment remain unverified.

@@ -69,3 +69,35 @@ a.out.mkdir()
     assert record['exit_code'] == 0
     assert record['shorts_opened'] and record['near_major_held']
     assert not record['partial_support_passed'] and not record['full_task_complete']
+
+
+def test_partial_release_is_not_counted_as_a_completed_short_probe(tmp_path):
+    software = tmp_path/'software'
+    (software/'tools').mkdir(parents=True)
+    (software/'tools/diagnose_short_flap_brace.py').write_text('''import argparse,json,sys
+from pathlib import Path
+p=argparse.ArgumentParser();p.add_argument('--out',type=Path);p.add_argument('--seed',type=int)
+a,_=p.parse_known_args()
+assert {'--open-shorts-first','--far-after-near','--release-far-after',
+        '--release-near-after-far','--probe-shorts-after-release'} <= set(sys.argv)
+assert not {'--fold-right','--press-left','--open-claw-transfer'} & set(sys.argv)
+a.out.mkdir()
+(a.out/'result.json').write_text(json.dumps({
+ 'partial_major_release':{'both_majors_passively_retained':True},
+ 'partial_short_probe':{'bounded_target_verified':a.seed != 0,
+                        'fault':'audit failed' if a.seed==2 else None}}))
+''')
+    snapshot = tmp_path/'source-snapshot'
+    snapshot_sources(software, snapshot)
+    root = tmp_path/'runs';root.mkdir()
+    for seed, expected in ((0, False), (1, True), (2, False)):
+        record = run_trial(dict(id=f'probe-{seed}', seed=seed, carton_offset_x=0.,
+            prepare_near_degrees=-15., support_height=.111, open_short_angle=-15.,
+            near_pre_out=.03, near_hold_degrees=40., far_after_near=True,
+            far_hold_degrees=35., release_far_after=True, release_near_after_far=True,
+            probe_shorts_after_release=True), root=root, snapshot=snapshot,
+            simulation_root=tmp_path, python=Path(sys.executable), video=False, timeout=10.)
+        assert record['exit_code'] == 0
+        assert record['both_partial_majors_released']
+        assert record['bounded_short_probe_held'] is expected
+        assert not record['full_task_complete']
