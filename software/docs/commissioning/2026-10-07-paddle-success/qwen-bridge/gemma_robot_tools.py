@@ -34,7 +34,7 @@ from gemma_execution_binding import TrustedExecutionBinding
 from gemma_direct_client import DirectJointClient
 from paddle_segments import paddle_target_segments, expand_path
 import remote_admin
-from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED, setup_report
+from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED, setup_report, revive
 WRIST_DIRS = wrist_dirs(ROOT)
 configure_wrist_ids(ROOT)  # IDs detected by the restart script
 LEGACY_CONTINUOUS_BINDING = TrustedExecutionBinding(SESSION)
@@ -344,7 +344,15 @@ def cameras_strict(names):
                              'captured_at': None, 'received_at': stamp, 'seq': m['seq'],
                              'timestamp_semantics': 'server receipt; capture delay unknown'}
                 elif name in ('left_wrist', 'right_wrist'):
-                    folder, m = select_wrist_manifest(name, WRIST_DIRS)
+                    revived = False
+                    try:
+                        folder, m = select_wrist_manifest(name, WRIST_DIRS)
+                    except RuntimeError as stale:
+                        # The camera stopped sending frames (its process can still be alive). Restart its stream once and
+                        # take the first fresh frame; the left wrist does this about 15 s after every start (USB fault).
+                        if not revive(name, ROOT):
+                            raise RuntimeError(f'{stale}. Its camera has stopped delivering frames and restarting the stream did not produce one within 8 s (or was tried <10 s ago): a camera/USB fault; the cable needs reseating. The age will not count down on its own.') from None
+                        folder, m = select_wrist_manifest(name, WRIST_DIRS); revived = True
                     data = manifest_image_path(folder, m['image']).read_bytes()
                     assert hashlib.sha256(data).hexdigest() == m['sha256']
                     stamp = m['captured_at']
@@ -352,6 +360,9 @@ def cameras_strict(names):
                              'mime_type': 'image/jpeg', 'captured_at': stamp, 'received_at': m.get('received_at'),
                              'seq': m['seq'], 'stream_id': m['stream_id'], 'width': m.get('width'), 'height': m.get('height'),
                              'robot_frame_calibrated': False, 'identity_verified': IDENTITY_VERIFIED[name]}
+                    if revived:
+                        image['revived_on_demand'] = True
+                        image['stream_note'] = 'This camera had stopped sending frames; its stream was restarted to capture this one. It stalls again within about 15 s (USB fault), so each request may take a few seconds longer.'
                     if not IDENTITY_VERIFIED[name]:
                         image['identity_note'] = 'Left/right for this wrist camera was auto-assigned after its USB ID changed; confirm from the image which gripper it shows.'
                 else:

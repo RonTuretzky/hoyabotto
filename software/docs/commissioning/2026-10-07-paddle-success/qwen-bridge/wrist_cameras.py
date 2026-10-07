@@ -4,7 +4,7 @@ The publisher (work/capture-single, built from software/docs/session-archive-202
 writes <name>.json next to an immutable hashed JPEG. Each wrist is pinned to its AVFoundation uniqueID so
 a swapped or re-enumerated camera is refused rather than mislabelled.
 """
-import json,os,re,time
+import json,os,re,signal,subprocess,threading,time
 from pathlib import Path
 ENV={'right_wrist':'XLEROBOT_RIGHT_WRIST_ID','left_wrist':'XLEROBOT_LEFT_WRIST_ID'}
 WRIST_CAMERA_IDS={'right_wrist':os.environ.get(ENV['right_wrist'],'0x12200005a39230'),
@@ -71,6 +71,39 @@ def select_wrist_manifest(name,dirs,now=None):
     stamp,folder,meta=max(found,key=lambda f:f[0])
     if not 0<=now-stamp<=FRESH_S:raise RuntimeError(f'{name} image is stale age_s={round(now-stamp,3)}')
     return folder,meta
+
+
+_revive_lock=threading.Lock();_last_revive={}
+REVIVE_EVERY_S=10;REVIVE_WAIT_S=8
+
+
+def capture_pids(camera_id):
+    """Native capture publishers (executable named capture*) started with this camera ID."""
+    out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout;found=[]
+    for line in out.splitlines():
+        parts=line.split()
+        if len(parts)>2 and Path(parts[1]).name.startswith('capture') and any(a.endswith('='+camera_id) for a in parts[2:]):found.append(int(parts[0]))
+    return found
+
+
+def revive(name,root,clock=time.time,sleep=time.sleep):
+    """On-demand restart of a wrist publisher whose camera stopped sending frames (the left wrist stalls about 15 s
+    after each start: a USB fault). Returns True once a fresh frame exists. At most one attempt per 10 s per camera."""
+    work=Path(root)/'work';capture=work/'capture-single';stream=work/'wrist-camera-stream';cid=WRIST_CAMERA_IDS[name]
+    with _revive_lock:
+        if clock()-_last_revive.get(name,0)<REVIVE_EVERY_S or not capture.exists():return False
+        _last_revive[name]=clock()
+        for pid in capture_pids(cid):
+            try:os.kill(pid,signal.SIGTERM)
+            except OSError:pass
+        sleep(.5);stream.mkdir(parents=True,exist_ok=True)
+        with open(stream/(name+'.log'),'ab') as log:
+            subprocess.Popen([str(capture),str(stream),f'{name}={cid}'],cwd=str(root),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+        deadline=clock()+REVIVE_WAIT_S
+        while clock()<deadline:
+            try:select_wrist_manifest(name,wrist_dirs(root));return True
+            except (RuntimeError,ValueError):sleep(.2)
+        return False
 
 
 def setup_report(root):
