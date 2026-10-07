@@ -5,8 +5,10 @@ search frozen controller variants and noise seeds concurrently while recording
 all state samples and every applied contact step. The latest fixed profile
 folds the near major to about 40°, folds the far major to 35°, withdraws the
 right hand, and observes five seconds of passive far-flap retention in 3/3 seeds.
-All three full intervals pass independent applied-contact scoring. Both shorts
-remain open and the near flap remains actively held. **Full four-flap closure,
+All three full intervals pass independent applied-contact scoring. A subsequent
+extension also parks the left hand and retains both partial major folds for five
+seconds in 3/3 seeds, with independently clear applied contacts. Both shorts
+remain open. **Full four-flap closure,
 tape application and hands-clear retention are incomplete.**
 
 The fixed station camera loses far-plane visibility around 39°; successful

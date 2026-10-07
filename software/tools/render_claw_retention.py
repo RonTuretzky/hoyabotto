@@ -76,8 +76,13 @@ def main():
                           if result.get('near_major_transfer') and result.get('short_opening')
                           else ('Both shorts supported by one claw; other hand withdrawn.' if verified_support
                           else 'Partial sequence finished; full closure incomplete.'))
+            if (result.get('partial_major_release') or {}).get('both_majors_passively_retained'):
+                conclusion = 'Both hands parked; partial major folds retained for five seconds. Shorts remain open.'
+            elif (result.get('far_major_clearance') or {}).get('passive_retention_only'):
+                conclusion = 'Right hand parked; far partial fold retained. Left still holds near; shorts remain open.'
             message = (result.get('error') or conclusion) if ended else state['label']
-            draw.text((500, 405), 'STOPPED / PARTIAL' if ended else 'CURRENT ACTION', font=body_font, fill='#111')
+            ending = 'STOPPED / PARTIAL' if result.get('error') else 'COMPONENT PASSED / PARTIAL'
+            draw.text((500, 405), ending if ended else 'CURRENT ACTION', font=body_font, fill='#111')
             for i, line in enumerate(textwrap.wrap(message, width=46)):
                 draw.text((500, 439 + i*22), line, font=small_font, fill='#111')
             draw.text((500, 559), 'Free empty carton; resisting spring hinges.', font=small_font, fill='#111')

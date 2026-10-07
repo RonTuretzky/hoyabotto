@@ -149,6 +149,16 @@ def run(args):
                 pre_out=args.near_pre_out, pre_up=args.near_pre_up)
             if getattr(args, 'far_after_near', False):
                 from carton.folding_far_contact import fold_far_from_edge
+                if getattr(args, 'additional_far_view', False):
+                    from carton.folding_additional_view import AdditionalViewPixelPort, AdditionalViewConfiguration
+                    # Explicit hypothetical second calibrated camera, activated
+                    # only for the far-contact stage. Original station startup
+                    # and physical prefix remain intact.
+                    port = AdditionalViewPixelPort(port,
+                        configuration=AdditionalViewConfiguration(
+                            assumption_id='offline:front-additional-v1', clock_id='offline:simulation',
+                            required_flaps=('long_near','long_far')), seed=args.seed)
+                    controller.port = port
                 result['stage'] = 'Fold far major while left claw retains near major'
                 far_key = 'far_major_transfer' if args.far_hold_degrees == 90 else 'far_major_clearance'
                 result[far_key] = fold_far_from_edge(sim, controller, capture=True,
@@ -157,6 +167,10 @@ def run(args):
                     release_after=args.release_far_after, contact_profile=args.far_contact_profile,
                     central_normal_extra_m=args.far_normal_extra, gripper_opening=args.far_gripper_opening,
                     central_startup_lift_m=args.far_startup_lift)
+                if getattr(args, 'release_near_after_far', False):
+                    from carton.folding_partial_release import release_near_after_passive_far
+                    result['stage'] = 'Release near holder after verified passive far hold'
+                    result['partial_major_release'] = release_near_after_passive_far(sim, controller, capture=True)
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -274,6 +288,10 @@ def run(args):
                   open_claw_transfer=getattr(controller, 'open_claw_transfer', None),
                   short_opening=getattr(controller, 'short_opening', None),
                   far_edge_attempt=getattr(controller, 'far_edge_attempt', None),
+                  partial_major_release=getattr(controller, 'partial_major_release', None),
+                  additional_view_history=getattr(port, 'additional_view_history', None),
+                  additional_view_declaration=getattr(port, 'declaration', None),
+                  additional_view_assumptions_sha256=getattr(port, 'assumptions_sha256', None),
                   source_sha256={p: hashlib.sha256(b).hexdigest() for p, b in snapshots.items()})
     result['controller'] = {'error': result.get('error', 'Partial sequence; full closure untested')}
     (out/'result.json').write_text(json.dumps(result, indent=2, allow_nan=False))
@@ -291,12 +309,15 @@ if __name__ == '__main__':
     parser.add_argument('--fold-right', action='store_true')
     parser.add_argument('--open-shorts-first', action='store_true')
     parser.add_argument('--far-after-near', action='store_true')
+    parser.add_argument('--additional-far-view', action='store_true',
+                        help='Explicit hypothetical second calibrated rendered camera during far stage')
     parser.add_argument('--far-hold-degrees', type=float, default=90.)
     parser.add_argument('--far-contact-profile', choices=['edge','central'], default='edge')
     parser.add_argument('--far-normal-extra', type=float, default=0.)
     parser.add_argument('--far-startup-lift', type=float, default=0.)
     parser.add_argument('--far-gripper-opening', type=float, default=-.17)
     parser.add_argument('--release-far-after', action='store_true')
+    parser.add_argument('--release-near-after-far', action='store_true')
     parser.add_argument('--open-short-angle', type=float, default=-15.)
     parser.add_argument('--along', type=float, default=-.10)
     parser.add_argument('--radius', type=float, default=.125)
@@ -359,6 +380,11 @@ if __name__ == '__main__':
         parser.error('Open-claw transfer requires claws and --press-left, without another transfer')
     if args.near_after_open_claw and not args.open_claw_transfer:
         parser.error('--near-after-open-claw requires --open-claw-transfer')
+    if args.additional_far_view and (not args.far_after_near or args.privileged_near_angle):
+        parser.error('Additional view requires the ordinary pixel-based far-after-near experiment')
+    if args.release_near_after_far and (not args.far_after_near or not args.release_far_after
+            or args.near_hold_degrees != 40. or args.far_hold_degrees != 35.):
+        parser.error('Near release requires the verified near40/far35 passive far-release profile')
     if args.center_floor_marker and args.floor_marker_x is not None and abs(args.floor_marker_x)<.057:
         parser.error('Declared floor markers would overlap')
     run(args)

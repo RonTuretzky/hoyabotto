@@ -28,12 +28,17 @@ The strongest executed components are:
   1.265, 0.203 and 0.032 mm. The left still supports the near flap at about 40°,
   and both shorts remain open. Each full run independently scores
   `CONTACT_ONLY_CLEAR`; this is a useful released partial fold, not closure.
+- Extending that sequence to lift and park the left hand also passes 3/3 seeds.
+  Both large flaps remain near 40°/35° for five seconds with both hands parked;
+  all three applied-contact intervals independently pass. This frees both hands
+  for a future regrasp, but the shorts remain outward and full closure is still
+  incomplete. The batch is `both-partial-majors-passive-release-01`.
 
 Full experimental details and failures are in `carton-near-transfer.md` and
 `evidence/carton-near-transfer-20261007.json`. Newer partial-far batches are under
 `output/bimanual-fold-sim/major-first` in the Hackatuson workspace. Do not treat
 static reachability or a held flap as completion.
-The 21-trial partial-major inventory is
+The 30-trial partial-major inventory is
 `evidence/carton-partial-major-search-20261007.json`; the released-far batch is
 `partial-far-passive-release-02`. Every trial starts from the original open box.
 
@@ -86,6 +91,10 @@ PYTHONPATH=. .venv/bin/python tools/run_claw_sweep.py \
   --far-startup-lift .0005 --release-far-after
 ```
 
+Append `--release-near-after-far` to verify the both-hands-parked partial hold.
+This optional stage requires exactly the near40/far35 released-far profile;
+missing or stale observations, drift, and failed attempts cannot be reset away.
+
 Omit `--video` during searches: all timestamped qpos states are still recorded,
 while presentation rendering/compression is skipped. Perception still renders
 its RGB-D inputs. The trace-only check exactly matched all 563 state/time pairs
@@ -128,7 +137,15 @@ views the far flap nearly edge-on there; the existing spatial-support gate
 correctly refuses the sparse plane. Moving to the smaller 35° target gives the
 released component above. An additional rendered view is being evaluated
 explicitly as an extra calibrated-camera assumption, not a camera already
-commissioned on the physical robot.
+commissioned on the physical robot. With this explicit second-view mode,
+the far45 target passes 3/3 full-prefix trials (independent final angles
+43.44°, 45.64° and 44.45°) and all three applied-contact audits pass. A matched
+single-camera far45 control passes only seed0; seeds1/2 stop at missing far
+observations. The extra view supplies one and two otherwise missing frames
+respectively. Seed0's entire 727-state trace is identical in both modes; it did
+not need the second view. Neither mode has folded the shorts or completed the
+carton. Enable the hypothesis with `--additional-far-view` and read
+`carton-additional-view.md` before interpreting these results.
 
 Folding the majors first is not a complete ordering solution: rigid shorts
 intersect them during their middle rotation. Static scans found that much larger

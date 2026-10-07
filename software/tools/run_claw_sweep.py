@@ -82,6 +82,8 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
                     '--far-startup-lift',str(job.get('far_startup_lift',0.)),
                     '--far-gripper-opening',str(job.get('far_gripper_opening',-.17))]
         if job.get('release_far_after'): command.append('--release-far-after')
+        if job.get('additional_far_view'): command.append('--additional-far-view')
+        if job.get('release_near_after_far'): command.append('--release-near-after-far')
     if video:
         command.append('--video')
     if job.get('privileged_near_angle'):
@@ -116,6 +118,8 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
                       near_clearance_held=bool(result.get('near_major_clearance')),
                       far_major_held=bool(result.get('far_major_transfer')),
                       far_clearance_held=bool(result.get('far_major_clearance')),
+                      both_partial_majors_released=bool((result.get('partial_major_release') or {}).get(
+                          'both_majors_passively_retained')),
                       shorts_opened=bool((result.get('short_opening') or {}).get('physically_opened_and_released')),
                       partial_support_passed=bool(record.get('exit_code') == 0
                           and (result.get('open_claw_transfer') or {}).get(
@@ -128,7 +132,7 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
     atomic_json(work / 'worker.json', record)
     print(json.dumps({key: record.get(key) for key in (
         'id', 'partial_support_passed', 'near_major_held', 'near_clearance_held', 'far_major_held',
-        'far_clearance_held', 'error', 'worker_error', 'wall_seconds')}), flush=True)
+        'far_clearance_held', 'both_partial_majors_released', 'error', 'worker_error', 'wall_seconds')}), flush=True)
     return record
 
 
@@ -149,12 +153,15 @@ def main():
     parser.add_argument('--near-pre-out', type=float, default=.02)
     parser.add_argument('--near-pre-up', type=float, default=0.)
     parser.add_argument('--far-after-near', action='store_true')
+    parser.add_argument('--additional-far-view', action='store_true',
+                        help='Explicit hypothetical second calibrated rendered camera during far stage')
     parser.add_argument('--far-hold-degrees', type=float, default=90.)
     parser.add_argument('--far-contact-profile', choices=['edge','central'], default='edge')
     parser.add_argument('--far-normal-extra', type=float, nargs='+', default=[0.])
     parser.add_argument('--far-startup-lift', type=float, nargs='+', default=[0.])
     parser.add_argument('--far-gripper-openings', type=float, nargs='+', default=[-.17])
     parser.add_argument('--release-far-after', action='store_true')
+    parser.add_argument('--release-near-after-far', action='store_true')
     parser.add_argument('--near-hold-degrees', type=float, nargs='+', default=[90.])
     parser.add_argument('--privileged-near-angle', action='store_true',
                         help='Explicit mechanics-only diagnostic; cannot verify perception or hardware readiness')
@@ -196,15 +203,21 @@ def main():
         parser.error('Invalid major-flap contact approach geometry')
     if args.far_after_near and not args.open_short_angles:
         parser.error('Far-after-near currently requires the physically opened short-flap profile')
+    if args.additional_far_view and not args.far_after_near:
+        parser.error('Additional far view requires the explicit far-after-near experiment')
     if args.near_release_angles or args.open_short_angles:
         for job in jobs:
             job.update(near_pre_out=args.near_pre_out,near_pre_up=args.near_pre_up,
                        far_after_near=args.far_after_near, far_hold_degrees=args.far_hold_degrees,
-                       release_far_after=args.release_far_after, far_contact_profile=args.far_contact_profile)
+                       release_far_after=args.release_far_after, far_contact_profile=args.far_contact_profile,
+                       additional_far_view=args.additional_far_view,
+                       release_near_after_far=args.release_near_after_far)
     if not math.isfinite(args.far_hold_degrees) or not 20<=args.far_hold_degrees<=90:
         parser.error('Far hold target must be20..90 degrees')
     if args.release_far_after and (not args.far_after_near or not 20<=args.far_hold_degrees<=45):
         parser.error('Far release requires a far-after-near target20..45 degrees')
+    if args.release_near_after_far and (not args.release_far_after or args.near_hold_degrees != [40.] or args.far_hold_degrees != 35.):
+        parser.error('Near release requires the verified near40/far35 passive far-release profile')
     if args.far_contact_profile == 'central' and args.far_hold_degrees > 45:
         parser.error('Central contact profile is only proposed through45 degrees')
     if any(not math.isfinite(v) or not 0<=v<=.002 for v in args.far_normal_extra):
@@ -252,14 +265,15 @@ def main():
                     near_major_holds=sum(bool(r.get('near_major_held')) for r in manifest['results']),
                     near_clearance_holds=sum(bool(r.get('near_clearance_held')) for r in manifest['results']),
                     far_major_holds=sum(bool(r.get('far_major_held')) for r in manifest['results']),
-                    far_clearance_holds=sum(bool(r.get('far_clearance_held')) for r in manifest['results']))
+                    far_clearance_holds=sum(bool(r.get('far_clearance_held')) for r in manifest['results']),
+                    both_partial_major_releases=sum(bool(r.get('both_partial_majors_released')) for r in manifest['results']))
     # This is measured worker overlap, not a benchmarked sequential speedup.
     manifest['worker_overlap_factor'] = (sum(r.get('wall_seconds', 0) for r in manifest['results'])
                                          / manifest['wall_seconds'])
     atomic_json(root / 'sweep.json', manifest)
     print(json.dumps({key: manifest[key] for key in (
         'completed_trials', 'partial_support_passes', 'near_major_holds', 'near_clearance_holds',
-        'far_major_holds', 'far_clearance_holds', 'wall_seconds', 'worker_overlap_factor')}), flush=True)
+        'far_major_holds', 'far_clearance_holds', 'both_partial_major_releases', 'wall_seconds', 'worker_overlap_factor')}), flush=True)
 
 
 if __name__ == '__main__':
