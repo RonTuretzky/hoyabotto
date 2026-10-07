@@ -103,7 +103,7 @@ def rig(monkeypatch):
         controls.pixel_calls.append(('major', id(rgb), id(depth), id(k), id(camera), id(box)))
         return copy.deepcopy(controls.angles)
 
-    def shorts(rgb, depth, k, camera, box, priors):
+    def shorts(rgb, depth, k, camera, box, priors, majors=None):
         controls.pixel_calls.append(('short', id(rgb), id(depth), id(k), id(camera), id(box)))
         return copy.deepcopy(controls.short_angles)
 

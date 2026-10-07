@@ -184,7 +184,7 @@ def main():
                         help='Require full fresh additional-view geometry when only primary carton identity is absent')
     parser.add_argument('--short-stroke-step-degrees', type=float, choices=(.25, .5, 1.), default=.25,
                         help='Declared measured-angle advance per bounded short stroke command')
-    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4'),
+    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4','jaw_surface_v5'),
                         default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
     parser.add_argument('--observe-primary-open-shorts', action='store_true',
                         help='Use strict hinge-plane evidence from current primary pixels during the short probe')

@@ -15,16 +15,44 @@ from carton.geometry import Box
 
 
 OPEN_SHORT_ANGLE_BOUNDS_DEGREES = (-40., 30.)
+# Pixels this close to a same-frame measured major panel belong to that panel.
+MAJOR_PANEL_EXCLUSION_M = .004
+
+
+def _off_major_panels(points, majors, box, hinge_height_offset):
+    """Mask of box-frame points not explained by a measured major panel.
+
+    Near the carton corners, inward-leaning major panels enter the short
+    sectors and can form a second hinge-aligned plane that makes a plainly
+    visible short ambiguous. Only same-frame measured major angles are used.
+    """
+    keep = np.ones(len(points), dtype=bool)
+    for name, inward in (('long_near', 1), ('long_far', -1)):
+        degrees = (majors or {}).get(name)
+        if degrees is None:
+            continue
+        if isinstance(degrees, bool) or not np.isfinite(degrees) or not -40 < degrees < 103:
+            raise ValueError('Finite measured major angles required for panel exclusion')
+        theta = np.radians(degrees)
+        local_y = inward * points[:, 1] + box.width / 2
+        local_z = points[:, 2] - box.height - hinge_height_offset
+        distance = local_y * np.cos(theta) - local_z * np.sin(theta)
+        radial = local_y * np.sin(theta) + local_z * np.cos(theta)
+        keep &= ~((np.abs(distance) < MAJOR_PANEL_EXCLUSION_M) & (radial > -MAJOR_PANEL_EXCLUSION_M)
+                  & (radial < box.flap + MAJOR_PANEL_EXCLUSION_M) & (np.abs(points[:, 0]) < box.length / 2))
+    return keep
 
 
 def depth_open_short_flap_angles(rgb, depth, k, world_from_camera, world_from_box,
-                                 priors=None, *, box=None):
+                                 priors=None, *, box=None, majors=None, hinge_height_offset=.0035):
     """Return supported short hinge planes strictly between -40 and +30 deg.
 
     Reuses the major observer's unconstrained plane, axis/offset, span and
     six-patch support gates. A second distinct plane with at least 35% of the
     leading support refuses the identity. Priors only reject discontinuities.
-    Returned omissions must not be filled from priors or a commanded angle.
+    ``majors`` are major angles measured in this same frame; pixels on those
+    panels are removed before the short planes are fitted. They are never
+    priors. Returned omissions must not be filled from priors or a commanded angle.
     """
     rgb, depth, k = np.asarray(rgb), np.asarray(depth), np.asarray(k, dtype=float)
     if rgb.dtype != np.uint8 or rgb.ndim != 3 or rgb.shape[2] != 3:
@@ -55,6 +83,8 @@ def depth_open_short_flap_angles(rgb, depth, k, world_from_camera, world_from_bo
     transform = np.linalg.inv(world_from_box) @ world_from_camera
     points = (np.einsum('ij,kj->ik', camera_points, transform[:3, :3])
               + transform[:3, 3])
+    if majors:
+        points = points[_off_major_panels(points, majors, box, hinge_height_offset)]
     result = {}
     lower, upper = OPEN_SHORT_ANGLE_BOUNDS_DEGREES
     for name, inward in (('short_left', 1), ('short_right', -1)):
@@ -92,6 +122,8 @@ def depth_open_short_flap_angles(rgb, depth, k, world_from_camera, world_from_bo
         row = candidates[0]
         row.update(method='aligned_depth_open_short_hinge_consistent_plane',
                    valid_angle_bounds_degrees=list(OPEN_SHORT_ANGLE_BOUNDS_DEGREES),
+                   measured_major_panels_excluded=sorted(name for name in (majors or {})
+                                                         if majors[name] is not None),
                    competing_plane_support_ratio=(candidates[1]['pixel_support'] / row['pixel_support']
                                                    if len(candidates) > 1 else 0.))
         result[name] = row

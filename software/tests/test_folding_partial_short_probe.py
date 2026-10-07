@@ -8,7 +8,8 @@ import pytest
 from carton.folding_partial_short_probe import (
     _PanelStepAudit, _ShortStroke, _contact_reading, _bounded_contact_goals,
     _validated_jaw_vertex, _subdivide_reversed_joint_paths, _exact_waypoint_details,
-    _entry_route_endpoint_drifts, _fold_frame,
+    _entry_route_endpoint_drifts, _fold_frame, _jaw_panel_clearance, _jaw_surface_increment,
+    _sensed_panels, _WHOLE_JAW,
     probe_shorts_against_passive_majors,
 )
 from carton.folding_far_contact import mesh_contact_vertices
@@ -509,3 +510,52 @@ def test_missing_actual_step_coverage_cannot_be_called_complete(tmp_path):
         assert 'Incomplete' in sim.step_diagnostic()
         assert not audit.coverage_complete()
     assert not report['panel_panel_audit']['complete_coverage']
+
+
+FRAME = dict(fold=np.array([1., 0., 0.]), radial=np.array([0., 0., 1.]), hinge=np.array([0., 1., 0.]))
+
+
+def test_jaw_clearance_uses_the_nearest_hull_point_over_the_sensed_panel():
+    # Surface point at radius .10 m and along 0; fold points into the panel.
+    surface = np.zeros(3)
+    points = np.array([[-.004, 0., 0.], [-.0013, .02, .01],   # outside, nearest is 1.3 mm
+                       [.002, 0., .06],                         # past the tip: not over the panel
+                       [.001, .20, 0.]])                        # beyond the panel width
+    clearance, name = _jaw_panel_clearance(points, ['a', 'b', 'tip', 'side'], surface, FRAME,
+                                           radius=.10, along=0.)
+    assert clearance == pytest.approx(.0013) and name == 'b'
+    with pytest.raises(ValueError, match='over the sensed short panel'):
+        _jaw_panel_clearance(points[2:], ['tip', 'side'], surface, FRAME, radius=.10, along=0.)
+
+
+def test_jaw_surface_lead_closes_a_standoff_plus_press_within_the_cap():
+    # The recorded V4 right stroke held the jaw 1.3 mm off the panel.
+    increment, detail = _jaw_surface_increment(np.zeros(3), FRAME, .0013, .0005)
+    assert increment == pytest.approx([.0005, 0., 0.])
+    increment, detail = _jaw_surface_increment(np.zeros(3), FRAME, -.0002, .0005)
+    assert increment == pytest.approx([.0003, 0., 0.])
+    assert detail['jaw_press_m'] == .0005 and detail['jaw_panel_clearance_m'] == -.0002
+
+
+def test_jaw_surface_lead_never_retreats_and_keeps_tangent_deadbands():
+    increment, detail = _jaw_surface_increment(np.array([0., .002, -.001]), FRAME, -.003, .0005)
+    assert increment == pytest.approx(np.zeros(3))
+    assert detail['fold_lead_increment_m'] == 0. and detail['fold_direction_retreat_allowed'] is False
+    increment, detail = _jaw_surface_increment(np.array([0., .004, 0.]), FRAME, -.003, .0005)
+    assert detail['hinge_correction_m'] == pytest.approx(.004)
+    assert np.linalg.norm(increment) == pytest.approx(.0005)
+    with pytest.raises(ValueError, match='Finite jaw-to-panel clearance'):
+        _jaw_surface_increment(np.zeros(3), FRAME, float('nan'), .0005)
+
+
+def test_sensed_panel_is_the_outer_face_of_the_registered_short():
+    profile = dict(along=0., per_side=_WHOLE_JAW)
+    sources = {a: dict(world_from_box=np.eye(4).tolist()) for a in ('left', 'right')}
+    panels = _sensed_panels(sources, profile, {'left': 0., 'right': 0.})
+    # Upright shorts: hinge midplanes at x = -/+ L/2; outer faces 1.5 mm outside.
+    from carton.folding_sim import L, H
+    assert panels['left']['surface'][0] == pytest.approx(-L/2-.0015)
+    assert panels['right']['surface'][0] == pytest.approx(L/2+.0015)
+    assert panels['left']['surface'][2] == pytest.approx(H+.14)
+    assert panels['left']['frame']['fold'] == pytest.approx([1., 0., 0.])
+    assert panels['right']['along'] == -.10

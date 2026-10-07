@@ -371,7 +371,7 @@ if __name__ == '__main__':
                         default='front', help='Explicit hypothetical camera mount for the short probe only')
     parser.add_argument('--allow-primary-carton-absence', action='store_true',
                         help='Opt in to fully fresh additional-view geometry when only the primary carton identity is absent')
-    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4'),
+    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4','jaw_surface_v5'),
                         default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
     parser.add_argument('--short-stroke-step-degrees', type=float, choices=(.25, .5, 1.), default=.25,
                         help='Declared measured-angle advance per bounded short stroke command')
