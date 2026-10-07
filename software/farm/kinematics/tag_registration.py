@@ -63,7 +63,8 @@ def assemble_dataset(captures, model_directory):
     solver = LeRobotSO101(model_directory)
     urdf, manifest = verified_model(model_directory)
     import hashlib
-    result = {"schema": 1, "binding": None, "samples": [], "physical_mapping_validated": False}
+    result = {"schema": 1, "binding": None, "samples": [], "source_stream_id": None,
+              "physical_mapping_validated": False}
     reference_ranges = None
     for capture in captures:
         sample = dict(capture["sample"])
@@ -87,9 +88,12 @@ def assemble_dataset(captures, model_directory):
         if reference_ranges is not None and reference_ranges != selected:
             raise ValueError("Motor calibration ranges changed across captures")
         reference_ranges = selected
+        # Bound to the camera and its geometry (identity, resolution, projection,
+        # intrinsics, distortion), not to one OAK publisher session: stream_id
+        # changes on every publisher restart and is kept as provenance only.
         binding = {"arm": sample["arm"], "camera_id": sample["frame"]["camera_id"],
-                   "stream_id": sample["frame"]["stream_id"],
                    "camera_calibration_sha256": sample["camera_calibration_sha256"],
+                   "camera_geometry": sample.get("camera_geometry"),
                    "tag_geometry_sha256": sample["tag_geometry_sha256"],
                    "robot_model_sha256": hashlib.sha256(urdf.read_bytes()).hexdigest(),
                    "motor_calibration_sha256": cfg.get("calibration_sha256"),
@@ -98,7 +102,10 @@ def assemble_dataset(captures, model_directory):
                    "gripper_tag_id": sample["gripper_tag_id"], "gripper_tag_mount": mount}
         if result["binding"] is not None and result["binding"] != binding:
             raise ValueError("Capture bindings differ; do not combine calibration sessions")
-        result["binding"] = binding
+        stream = sample["frame"].get("stream_id")
+        if result["source_stream_id"] not in (None, stream):
+            raise ValueError("Captures come from different OAK publisher sessions; collect one registration in one session")
+        result["binding"], result["source_stream_id"] = binding, stream
         q = candidate_degrees(sample["joint_ticks"], selected, names)
         sample.update(base_from_gripper=solver.forward(q).tolist(), candidate_model_degrees=q)
         result["samples"].append(sample)
@@ -113,7 +120,7 @@ def fit_registration(dataset):
     if dataset.get("schema") != 1:
         raise ValueError("Expected registration dataset schema 1")
     binding = dataset.get("binding", {})
-    required = ("arm", "camera_id", "stream_id", "camera_calibration_sha256", "tag_geometry_sha256",
+    required = ("arm", "camera_id", "camera_calibration_sha256", "tag_geometry_sha256",
                 "robot_model_sha256", "motor_calibration_sha256", "encoder_mapping_source", "gripper_tag_id")
     if any(not binding.get(k) for k in required) or binding["arm"] not in ("left", "right"):
         raise ValueError("Bind the dataset to one arm, camera, tag, model, mapping and calibration")
@@ -124,6 +131,12 @@ def fit_registration(dataset):
     samples = dataset.get("samples", [])
     if len(samples) < 11:
         raise ValueError("Need at least eight fitting poses and three held-out validation poses")
+    # One publisher session per dataset (a restart mid-collection is refused);
+    # the fitted registration itself is not bound to this stream_id.
+    stream = (dataset.get("source_stream_id") or binding.get("stream_id")
+              or (samples[0].get("frame") or {}).get("stream_id"))
+    if not stream:
+        raise ValueError("Registration samples need their source camera stream_id")
     seen, train, validation = set(), [], []
     head_reference, anchor_reference, corners_reference = None, None, None
     for sample in samples:
@@ -132,9 +145,9 @@ def fit_registration(dataset):
             raise ValueError("Sample arm, tag or mounting differs from the dataset binding")
         identity = sample.get("frame", {})
         key = (identity.get("stream_id"), identity.get("seq"), identity.get("sha256"))
-        if (identity.get("camera_id") != binding["camera_id"] or key[0] != binding["stream_id"]
+        if (identity.get("camera_id") != binding["camera_id"] or key[0] != stream
                 or type(key[1]) is not int or not isinstance(key[2], str) or len(key[2]) != 64 or key in seen):
-            raise ValueError("Each pose needs a distinct source frame from the bound camera stream")
+            raise ValueError("Each pose needs a distinct source frame from the bound camera in one stream session")
         if sample.get("camera_calibration_sha256") != binding["camera_calibration_sha256"]:
             raise ValueError("Camera calibration changed within registration dataset")
         if sample.get("tag_geometry_sha256") != binding["tag_geometry_sha256"]:
@@ -200,7 +213,11 @@ def fit_registration(dataset):
     passed = all(e["position_rms_mm"] <= 2 and e["position_max_mm"] <= 4
                  and e["orientation_max_degrees"] <= 2 for e in errors.values())
     return {"schema": 1, "status": "REGISTRATION_VALIDATED" if passed else "REGISTRATION_REJECTED",
-            "binding": binding, "dataset_sha256": fingerprint(dataset), "method": f"opencv_hand_eye_{method}",
+            "binding": {k: v for k, v in binding.items() if k != "stream_id"},
+            "binding_policy": "camera_id + camera geometry hash (resolution, projection, intrinsics, distortion); "
+                              "stream_id is provenance only, a new stream needs a passing gripper-consistency check",
+            "source_stream_id": stream,
+            "dataset_sha256": fingerprint(dataset), "method": f"opencv_hand_eye_{method}",
             "base_from_camera": b_c.tolist() if passed else None,
             "gripper_from_tag": g_t.tolist() if passed else None,
             "transform_translation_units": "metres", "residuals": errors, "excitation": excitation,
