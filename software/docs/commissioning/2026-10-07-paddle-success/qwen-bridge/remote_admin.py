@@ -137,6 +137,35 @@ def start_restore(root,arm,python=sys.executable):
     return job
 
 
+def processes():
+    """Read-only: the robot-service processes (owner, API, cameras, relay, jobs) with their start time and command."""
+    out=subprocess.run(['ps','-axo','pid=,ppid=,lstart=,args='],capture_output=True,text=True).stdout
+    keys=('gemma_hardware_owner','gemma_robot_tools','capture','oak_camera','cloudflared','phone_camera','depth-viewer','remote_admin','calibration_job','redeploy_robot_server','upstream_pr3282')
+    rows=[]
+    for line in out.splitlines():
+        if any(k in line for k in keys) and 'ps -axo' not in line:
+            parts=line.split(None,7)
+            rows.append({'pid':int(parts[0]),'ppid':int(parts[1]),'started':' '.join(parts[2:7]),'command':parts[7][:300] if len(parts)>7 else ''})
+    return rows
+
+
+def start_camera_restart(root,python=sys.executable):
+    """Detached job: run the restart script's camera step only (wrist publishers + OAK stream). No motors, no git."""
+    p=paths(root)
+    try:record=json.loads(p['record'].read_text())
+    except (OSError,ValueError):raise ValueError('No deploy record yet: run ./restart-robot-server.sh once on the robot Mac with this version.')
+    busy=running_job(root)
+    if busy:raise ValueError(f"Another job is running: {busy['id']} ({busy.get('kind','deploy')})")
+    p['jobs'].mkdir(parents=True,exist_ok=True)
+    job_id=time.strftime('%Y%m%d-%H%M%S-')+os.urandom(3).hex()
+    job={'id':job_id,'kind':'cameras','ref':'(deployed)','mode':'cameras-only','checkout':record['checkout'],'state':'running','created':time.time(),'skip_git':True}
+    path=p['jobs']/(job_id+'.json');path.write_text(json.dumps(job,indent=2))
+    with open(p['jobs']/(job_id+'.log'),'ab') as log:
+        proc=subprocess.Popen([python,str(Path(__file__).resolve()),'run-job',str(path)],cwd=str(root),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+    job['pid']=proc.pid;path.write_text(json.dumps(job,indent=2))
+    return job
+
+
 def interrupt_calibration(root):
     """STOP during a calibration sweep: SIGINT the runner (upstream routine makes the motors limp, then cleans up)."""
     job=running_job(root)
@@ -156,6 +185,11 @@ def _alive(pid):
 def run_job(path):
     """Detached job: fetch, check out the ref, then run the restart script (which replaces the API that started us)."""
     path=Path(path);job=json.loads(path.read_text());checkout=job['checkout']
+    if job.get('skip_git'):
+        print('== restart-robot-server.sh --cameras-only (no git changes)',flush=True)
+        code=subprocess.run(['bash',str(Path(checkout)/'restart-robot-server.sh'),'--cameras-only'],cwd=checkout,stdin=subprocess.DEVNULL).returncode
+        job.update(state='succeeded' if code==0 else 'failed',exit_code=code,finished=time.time());path.write_text(json.dumps(job,indent=2))
+        sys.exit(0 if code==0 else 1)
     def step(label,code,out):
         print(f'== {label} (exit {code})\n{out}',flush=True)
         return code

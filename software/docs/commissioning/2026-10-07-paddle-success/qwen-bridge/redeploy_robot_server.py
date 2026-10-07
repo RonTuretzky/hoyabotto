@@ -137,7 +137,34 @@ def _setup_wrist_cameras(dry_run):
    log=WRIST_STREAM/(name+'.log');tail=log.read_text(errors='replace').strip().splitlines()[-3:] if log.exists() else []
    if proc.poll() is None:proc.terminate()
    say(f'WARNING {name}: no frames after 8 s (exit code {proc.poll()}): {" | ".join(tail) or "no output"}')
+ ensure_oak(dry_run)
  return changed and not dry_run
+
+def oak_fresh(limit=5):
+ try:return 0<=time.time()-json.loads((Path(OAK_RAW_DIR)/'oak.json').read_text())['captured_at']<=limit
+ except (OSError,ValueError,KeyError,TypeError):return False
+
+def ensure_oak(dry_run):
+ """Keep the OAK RGB/depth stream alive: farm.oak_camera stream exits after --seconds, so restart it when stale."""
+ if oak_fresh():say('oak: already streaming');return
+ out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout
+ stale=[int(l.split(None,1)[0]) for l in out.splitlines() if 'farm.oak_camera' in l and ' stream' in l]
+ software=BRIDGE.parents[3]
+ candidates=[os.environ.get('XLEROBOT_OAK_PYTHON',''),str(WORK/'.venv-oak/bin/python'),str(software/'.venv-oak/bin/python'),str(software/'.venv/bin/python')]
+ python=next((c for c in candidates if c and Path(c).exists() and subprocess.run([c,'-c','import depthai'],capture_output=True,timeout=60).returncode==0),None)
+ if dry_run:say(f'oak: stale; would stop {stale or "nothing"} and start a 24 h stream with {python or "NO PYTHON WITH depthai FOUND"}');return
+ if not python:say('WARNING oak: stale, and no Python with depthai was found (set XLEROBOT_OAK_PYTHON)');return
+ for pid in stale:say(f'oak: stopping stale stream {pid}');os.kill(pid,signal.SIGTERM)
+ if stale:time.sleep(3)
+ Path(OAK_RAW_DIR).mkdir(parents=True,exist_ok=True)
+ with (WORK/'oak-stream.log').open('ab') as log:
+  proc=subprocess.Popen([python,'-m','farm.oak_camera','stream','--usb2','--seconds','86400','--output',OAK_RAW_DIR],cwd=str(software),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+ deadline=time.time()+25
+ while time.time()<deadline and proc.poll() is None and not oak_fresh():time.sleep(.5)
+ if oak_fresh():say(f'oak: streaming (pid {proc.pid}, 24 h) into {OAK_RAW_DIR}')
+ else:
+  tail=(WORK/'oak-stream.log').read_text(errors='replace').strip().splitlines()[-3:]
+  say(f'WARNING oak: no fresh frames after 25 s (exit code {proc.poll()}): {" | ".join(tail) or "no output"}')
 
 def start_api():
  API_LOG.parent.mkdir(parents=True,exist_ok=True)
