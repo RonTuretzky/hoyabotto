@@ -8,7 +8,8 @@ reached) instead of faulting. A joint that never comes to rest still fails at th
 """
 import math,time
 ENVELOPE=96          # max |present - commanded goal| at any tick
-MARGIN=40            # saved-range margin for start, target and goal
+MARGIN=40            # saved-range margin for targets and corrected goals
+EDGE=4               # a joint may start (and hold) anywhere this far inside its saved range
 SEGMENT=341          # max ticks per joint per command
 STEP,CONTACT_STEP=40,10
 CORRECTION_STEP=40   # max goal change per correction write
@@ -30,9 +31,10 @@ class PaddleJointExecutor:
   goals={}
   for n,t in p.items():
    q=current[n];lo,hi=self.ranges[n]
-   if not lo+MARGIN<=q<=hi-MARGIN or not lo+MARGIN<=t<=hi-MARGIN or not 2<abs(t-q)<=SEGMENT:raise ValueError(n+': pickup target requires 40-tick margin and 3..341-tick segment')
+   # Starting near a limit is allowed; the target is 40 ticks inside, so the move can only head back inward.
+   if not lo+EDGE<=q<=hi-EDGE or not lo+MARGIN<=t<=hi-MARGIN or not 2<abs(t-q)<=SEGMENT:raise ValueError(n+': pickup target must be 40 ticks inside the saved range, 3..341 ticks from the current position')
    g=(held_goals or {}).get(n,q)
-   if type(g) is not int or abs(g-q)>ENVELOPE or not lo+MARGIN<=g<=hi-MARGIN:raise ValueError(n+': pickup previous held goal outside envelope')
+   if type(g) is not int or abs(g-q)>ENVELOPE or not lo+EDGE<=g<=hi-EDGE:raise ValueError(n+': pickup previous held goal outside envelope')
    goals[n]=g
   self.contact=any(n.endswith('gripper') and t<current[n] for n,t in p.items())
   if self.contact and len(p)!=1:raise ValueError('Gripper closure must be commanded alone')

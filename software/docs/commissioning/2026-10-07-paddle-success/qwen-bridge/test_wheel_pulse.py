@@ -39,6 +39,16 @@ assert p.r[L]['Operating_Mode']==1 and p.r[L]['Torque_Enable']==1 and p.r[L]['Go
 r=run(e)
 d=r['base_result']['wheel_delta_ticks'];assert d[L]<-200 and d[R]>200 and r['base_result']['released'] and r['base_result']['stopped_early'] is None
 assert all(p.r[n]['Torque_Enable']==0 and p.r[n]['Goal_Velocity']==0 and p.r[n]['Operating_Mode']==0 and p.r[n]['Lock']==1 and p.r[n]['Acceleration']==0 for n in WHEELS)
+# Released servos chatter Present_Velocity while standing still; that alone is not rolling.
+t[0]=50;cam['received_at']=50;e=WheelPulseExecutor(lambda n,f:p.r[n][f],lambda n,f,v:p.r[n].__setitem__(f,v),fresh,clock=lambda:t[0],wall=lambda:t[0])
+e.start({'id':9,'session_started':7,'linear_m_s':-.02,'angular_rad_s':0,'duration_s':1},rows(),session_started=7)
+orig_step=p.step
+def chatter(dt):
+ orig_step(dt)
+ if e.phase=='released':
+  for n in WHEELS:p.r[n]['Present_Velocity']=50
+p.step=chatter;r=run(e);p.step=orig_step
+assert r['base_result']['released'] and r['base_result']['wheel_delta_ticks'][L]>200 # backward: left +, right -
 # Stale phone feed brakes early instead of faulting.
 t[0]=100;cam['received_at']=100;e=WheelPulseExecutor(lambda n,f:p.r[n][f],lambda n,f,v:p.r[n].__setitem__(f,v),fresh,clock=lambda:t[0],wall=lambda:t[0])
 e.start({'id':2,'session_started':7,'linear_m_s':.02,'angular_rad_s':0,'duration_s':3},rows(),session_started=7);cam['received_at']=89

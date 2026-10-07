@@ -148,7 +148,8 @@ class HardwareOwner:
    if row['Status'] or (not self.paddle_profile and row['Present_Temperature']>SOFTWARE_TEMPERATURE_LIMIT_C) or abs(row['Present_Load'])>(500 if n.endswith('gripper') or not self.paddle_profile else 800):raise ValueError(n+': fault or health limit')
    if self.paddle_profile and not 100<=row['Present_Voltage']<=140:raise ValueError(n+': pickup supply voltage outside 10..14V')
    if row['Operating_Mode']!=0:raise ValueError(n+': current mode is not supported position-hold mode')
-   if n in self.ranges and not self.ranges[n][0]+(40 if self.paddle_profile else 4)<=q<=self.ranges[n][1]-(40 if self.paddle_profile else 4):raise ValueError(n+': current position outside saved travel margin')
+   # Enable anywhere inside the saved range so a joint resting near a limit can drive itself back; pickup targets stay 40 ticks inside.
+   if n in self.ranges and not self.ranges[n][0]+4<=q<=self.ranges[n][1]-4:raise ValueError(n+': current position outside saved travel margin')
    if not 0<=q<=4095 or (lo<hi and not lo<=q<=hi):raise ValueError(n+': current position outside firmware position limits')
   for n in names:
    if n in self.enabled:continue
@@ -159,7 +160,7 @@ class HardwareOwner:
    self.write(n,'Torque_Limit',min(self.old[n]['Torque_Limit'],torque));self.write(n,'Goal_Velocity',200 if self.paddle_profile and n.endswith('gripper') else 100);self.write(n,'Goal_Time',0);self.write(n,'Acceleration',5 if self.paddle_profile else 10)
    if self.paddle_profile and n.endswith(('shoulder_lift','elbow_flex')):self.write(n,'P_Coefficient',32)
    q=self.read(n,'Present_Position');lo,hi=self.limits[n]
-   if n in self.ranges and not self.ranges[n][0]+(40 if self.paddle_profile else 4)<=q<=self.ranges[n][1]-(40 if self.paddle_profile else 4):raise RuntimeError(n+': drifted before enable')
+   if n in self.ranges and not self.ranges[n][0]+4<=q<=self.ranges[n][1]-4:raise RuntimeError(n+': drifted before enable')
    if not 0<=q<=4095 or(lo<hi and not lo<=q<=hi):raise RuntimeError(n+': drifted outside firmware limits')
    self.write(n,'Goal_Position',q);self.enabled.add(n)
    self.write(n,'Torque_Enable',1);self.write(n,'Lock',1);self.write(n,'Goal_Position',q);self.goals[n]=q

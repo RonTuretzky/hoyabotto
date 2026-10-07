@@ -1,3 +1,11 @@
+## First API use of the new owner — 7 October 2026
+
+The new owner was deployed and reached from the Qwen chat. Two of its rules blocked the first real requests, and both are fixed on `main`:
+- **Arm enable refused.** It returned "right_arm_shoulder_lift: current position outside saved travel margin": the shoulder rested within 40 ticks of its limit, so the arm could not be enabled. Enable now only needs each joint inside its saved range; moves from the edge can only head inward.
+- **Base pulse faulted.** A "move the wheels back" pulse drove and braked, then faulted with "Wheels rolling after release". The cause was very likely spurious released-servo velocity readings, not real rolling, but this is unconfirmed. The check now uses encoder position only and reports the measured values.
+
+To pick up the fixes, release the arm and rerun `./restart-robot-server.sh` from an updated `main`. If "rolling after release" appears again, record the numbers in its message here.
+
 ## Full-scope owner startup failed — 7 October 2026
 
 Reported by the robot-Mac session. A restart was attempted with a full-scope owner (all 16 motors commandable), and it failed:

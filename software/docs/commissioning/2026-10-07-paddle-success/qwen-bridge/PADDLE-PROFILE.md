@@ -49,3 +49,8 @@ Not yet run on hardware; `test_wheel_pulse.py` covers it on fake hardware. `whee
 - Allowed while the arm is released or holding; refused while an arm move runs, and an arm move is refused while the base drives. The prototype only drove with the arm released.
 - Risk to know: velocity mode keeps spinning until told to stop. If the owner process is killed hard (SIGKILL or power loss to the Mac) mid-pulse, the wheels keep turning at ≤ 0.02 m/s until the 12 V supply is cut. A normal exit, SIGTERM or fault stops them.
 - The result gives wheel encoder deltas and estimated travel. Slip and real cart motion are unverified, so check the cameras after each pulse.
+
+## Usability fixes from the first API use (2026-10-07)
+
+- **Enable near a limit.** Enable used to require every joint to sit 40 ticks inside its saved range. After a release, the shoulder sagged near its limit, so the arm could never be enabled to drive itself back. Now a joint only needs to be 4 ticks inside its range to enable and start a move. Targets and corrected goals still stay 40 ticks inside, so a move from the edge can only head inward. A joint reading beyond its range still has to be moved by hand.
+- **Wheel release check.** The first API base pulse drove and braked correctly but then faulted with "Wheels rolling after release". The after-release check required every Present_Velocity reading to be ≤ 5, and released Feetech servos report spurious velocity while stationary (STATUS.md, right elbow "velocity50 despite stable position"). The check now judges rolling by encoder position only: more than 5 ticks over 5 released samples. If it fires, the error carries the measured position change and velocity readings.

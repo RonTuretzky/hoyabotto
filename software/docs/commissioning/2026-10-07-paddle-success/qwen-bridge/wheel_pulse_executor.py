@@ -79,7 +79,9 @@ class WheelPulseExecutor:
    return {'phase':'moving','base_drive_phase':self.phase}
   self.released.append(sample)
   if len(self.released)<5:return {'phase':'moving','base_drive_phase':self.phase}
-  if not self.settled(self.released[-5:],spread=5):raise RuntimeError('Wheels rolling after release')
+  if not self.settled(self.released[-5:],spread=5,use_velocity=False):
+   moved={n:max(abs(wrap(x['position'][n]-self.released[-5]['position'][n])) for x in self.released[-5:]) for n in WHEELS}
+   raise RuntimeError(f"Wheels rolling after release: position change over 5 released samples {moved} ticks (limit 5); velocity readings {[x['velocity'] for x in self.released[-5:]]}")
   self.restore()
   delta={n:wrap(current[n]-self.before[n]) for n in WHEELS}
   self.active=False
@@ -87,9 +89,11 @@ class WheelPulseExecutor:
    'estimated_wheel_travel_cm':{n:abs(v)*2*math.pi*WHEEL_RADIUS_M/TICKS_PER_REV*100 for n,v in delta.items()},'pulse_s':self.stopped_at-self.started,
    'stopped_early':self.stopped_early,'released':True,'settings_restored':True,'odometry_note':'wheel encoder estimate only; slip and floor contact unverified'}}
  @staticmethod
- def settled(samples,spread=3):
+ def settled(samples,spread=3,use_velocity=True):
+  # Released Feetech servos report spurious Present_Velocity (e.g. 50) while stationary, so the
+  # after-release check judges rolling by encoder position only; braking (still powered) also uses velocity.
   if len(samples)<2:return False
-  if any(abs(s['velocity'][n] or 0)>5 for s in samples for n in WHEELS):return False
+  if use_velocity and any(abs(s['velocity'][n] or 0)>5 for s in samples for n in WHEELS):return False
   return all(abs(wrap(s['position'][n]-samples[0]['position'][n]))<=spread for s in samples for n in WHEELS)
  def restore(self):
   for n in WHEELS:

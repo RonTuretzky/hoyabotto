@@ -18,6 +18,11 @@ except RuntimeError as x:assert '96ticks' in str(x)
 else:raise AssertionError('Excess lag accepted')
 t[0]=0;e=make();r=run(e,lambda j,goal:goal)
 assert e.goal[n]==2450 and r['closure_outcome']=='endpoint_settled' and r['endpoint_reached'] and e.corrections[n]==0
+# A joint resting near its limit (inside the 40-tick margin) can be commanded back inward, but not further out.
+t[0]=0;e=make(start=3250,target=3100);r=run(e,lambda j,goal:goal);assert r['closure_outcome']=='endpoint_settled' and e.goal[n]==3100
+try:make(start=3250,target=3260)
+except ValueError:pass
+else:raise AssertionError('Target inside the 40-tick margin accepted')
 for target in [2300,830]:
  try:make(target=target)
  except ValueError:pass
