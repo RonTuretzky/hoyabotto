@@ -144,16 +144,39 @@ def oak_fresh(limit=5):
  try:return 0<=time.time()-json.loads((Path(OAK_RAW_DIR)/'oak.json').read_text())['captured_at']<=limit
  except (OSError,ValueError,KeyError,TypeError):return False
 
+def find_oak_python(software):
+ """A Python that can import depthai: env override, the remembered one, the usual venvs, then a bounded search
+ of the Codex workspaces (the OAK stream was started from another workspace's .venv-oak). Remembered in work/oak-python."""
+ remembered=WORK/'oak-python'
+ candidates=[os.environ.get('XLEROBOT_OAK_PYTHON',''),remembered.read_text().strip() if remembered.exists() else '']
+ oak=Path(OAK_RAW_DIR)
+ for base in (WORK,software,oak.parent,oak.parent.parent,oak.parent/'xlerobot-farm/software',oak.parent.parent/'xlerobot-farm/software'):
+  candidates.append(str(base/'.venv-oak/bin/python'))
+ codex=Path('/Users/teachera/Documents/Codex')
+ for pattern in ('*/.venv-oak/bin/python','*/*/.venv-oak/bin/python','*/*/*/.venv-oak/bin/python','*/*/*/*/.venv-oak/bin/python','*/*/*/*/*/.venv-oak/bin/python'):
+  candidates+=sorted(str(x) for x in codex.glob(pattern))
+ candidates.append(str(software/'.venv/bin/python'))
+ seen=set()
+ for c in candidates:
+  if not c or c in seen or not Path(c).exists():continue
+  seen.add(c)
+  try:ok=subprocess.run([c,'-c','import depthai,numpy,cv2'],capture_output=True,timeout=60).returncode==0
+  except (OSError,subprocess.TimeoutExpired):ok=False
+  if ok:
+   try:remembered.write_text(c+'\n')
+   except OSError:pass
+   return c
+ return None
+
 def ensure_oak(dry_run):
  """Keep the OAK RGB/depth stream alive: farm.oak_camera stream exits after --seconds, so restart it when stale."""
  if oak_fresh():say('oak: already streaming');return
  out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout
  stale=[int(l.split(None,1)[0]) for l in out.splitlines() if 'farm.oak_camera' in l and ' stream' in l]
  software=BRIDGE.parents[3]
- candidates=[os.environ.get('XLEROBOT_OAK_PYTHON',''),str(WORK/'.venv-oak/bin/python'),str(software/'.venv-oak/bin/python'),str(software/'.venv/bin/python')]
- python=next((c for c in candidates if c and Path(c).exists() and subprocess.run([c,'-c','import depthai'],capture_output=True,timeout=60).returncode==0),None)
+ python=find_oak_python(software)
  if dry_run:say(f'oak: stale; would stop {stale or "nothing"} and start a 24 h stream with {python or "NO PYTHON WITH depthai FOUND"}');return
- if not python:say('WARNING oak: stale, and no Python with depthai was found (set XLEROBOT_OAK_PYTHON)');return
+ if not python:say('WARNING oak: stale, and no Python with depthai, numpy and cv2 was found under the Codex workspaces (set XLEROBOT_OAK_PYTHON)');return
  for pid in stale:say(f'oak: stopping stale stream {pid}');os.kill(pid,signal.SIGTERM)
  if stale:time.sleep(3)
  Path(OAK_RAW_DIR).mkdir(parents=True,exist_ok=True)
