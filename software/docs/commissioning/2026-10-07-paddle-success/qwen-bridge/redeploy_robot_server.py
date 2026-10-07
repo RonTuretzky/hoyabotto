@@ -6,6 +6,9 @@ work folder (old copies are backed up), then starts a fresh owner with
 released and stop_latched false (the owner has no STOP latch); nothing moves. The cloudflared relay is left running.
 It also starts the native wrist-camera publisher for any wrist that has no fresh stream
 (camera problems are reported, never fatal).
+It also makes sure work/so101-model holds the hash-verified SO-101 model that right-arm-kinematics.json names:
+files are copied from the left config's model if that verifies, otherwise model-fetch downloads the missing ones
+(reported, never fatal; robot_get_arm_pose then shows model_assets.verified false).
 
 Refuses to stop an owner that is holding motors (torque off would drop the arm) unless
 --release-holding is given. Run with --dry-run first to see what would be replaced.
@@ -21,13 +24,24 @@ WORK=ROOT/'work';SESSION=WORK/'gemma-hardware-session';STATUS=SESSION/'status.js
 OWNER_RECORD=WORK/'gemma-hardware-owner-process.json';API_RECORD=WORK/'gemma-robot-tools-process.json'
 OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api.log'
 # Files only the API process loads: these can be replaced by restarting the API alone, with motors untouched.
-API_ONLY=['gemma_robot_tools.py','wrist_cameras.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
-INSTALL=['calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
-TESTS=['test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
+API_ONLY=['gemma_robot_tools.py','gemma_reach_planner.py','right-arm-kinematics.json','wrist_cameras.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
+INSTALL=['calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py','gemma_reach_planner.py','right-arm-kinematics.json']
+TESTS=['test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_reach_planner_right.py']
 OWNER_ARGS=['--both-arms','--paddle-profile','--wheels','--allow-missing-bus'];  # an arm whose calibration mismatches stays read-only
 API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
 CAPTURE_SOURCE=BRIDGE.parents[2]/'session-archive-2026-10-05/capture-single.swift'  # software/docs/session-archive-…
+SOFTWARE=BRIDGE.parents[3]
+RIGHT_CONFIG='right-arm-kinematics.json'  # installed into work/; its model_directory is relative to work/
+LEFT_CONFIG=ROOT/'outputs/Standard-Reach-Candidate.json'
+# Runs in a child with cwd=SOFTWARE, so farm.kinematics.assets (stdlib only) and so101-assets.json come from this checkout.
+MODEL_CODE='''import json,sys
+from farm.kinematics import assets
+try:
+ if sys.argv[1]=='fetch':assets.fetch_model(sys.argv[2])
+ _,m=assets.verified_model(sys.argv[2]);print(json.dumps({'verified':True,'revision':m['revision']}))
+except Exception as e:print(json.dumps({'verified':False,'error':type(e).__name__+': '+str(e)}))
+'''
 sys.path.insert(0,str(BRIDGE))
 from wrist_cameras import WRIST_CAMERA_IDS,IDENTITY_VERIFIED,CONFIG as WRIST_CONFIG,select_wrist_manifest,wrist_dirs,resolve_ids,configure as configure_wrist_ids
 configure_wrist_ids(ROOT)
@@ -212,6 +226,48 @@ def ensure_oak(dry_run):
   tail=(WORK/'oak-stream.log').read_text(errors='replace').strip().splitlines()[-3:]
   say(f'WARNING oak: no fresh frames after 25 s (exit code {proc.poll()}): {" | ".join(tail) or "no output"}')
 
+def model_directory():
+ return (WORK/json.loads((BRIDGE/RIGHT_CONFIG).read_text())['model_directory']).resolve()
+
+def model_assets(folder,fetch=False):
+ """Hash-check the SO-101 assets in folder against so101-assets.json. With fetch, first download only the missing
+ files (farm.kinematics.assets.fetch_model never replaces a file and refuses a conflicting one)."""
+ try:
+  out=subprocess.run([sys.executable,'-c',MODEL_CODE,'fetch' if fetch else 'verify',str(folder)],cwd=SOFTWARE,capture_output=True,text=True,
+                     timeout=600 if fetch else 120,env=dict(os.environ,PYTHONPATH=str(SOFTWARE)))
+  return json.loads(out.stdout.strip().splitlines()[-1])
+ except Exception as e:return {'verified':False,'error':f'{type(e).__name__}: {e}'}
+
+def seed_model_from_left(folder):
+ """Offline: copy the files the left config's model directory has, but only from a directory that itself verifies.
+ Existing files are never overwritten, and the result is hash-checked again afterwards."""
+ try:source=json.loads(LEFT_CONFIG.read_text()).get('model_directory')
+ except (OSError,ValueError):return None
+ if not isinstance(source,str):return None
+ source=(LEFT_CONFIG.parent/source).resolve()
+ if source==folder or not model_assets(source).get('verified'):return None
+ copied=0
+ for item in json.loads((SOFTWARE/'farm/kinematics/so101-assets.json').read_text())['files']:
+  target=folder/item['path']
+  if not target.exists():target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source/item['path'],target);copied+=1
+ say(f'so101 model: copied {copied} files from the left config model {source}')
+ return str(source)
+
+def ensure_model(dry_run):
+ """Make sure the right-arm config's SO-101 model directory holds the verified assets. Idempotent and never fatal:
+ if it stays unverified, robot_get_arm_pose reports model_assets.verified false and registration refuses."""
+ folder=model_directory();state=model_assets(folder)
+ if state.get('verified'):say(f"so101 model: verified at {folder} (revision {state['revision']})");return dict(state,directory=str(folder))
+ if dry_run:say(f"so101 model: not verified at {folder} ({state.get('error')}); a deploy would fill it (left config model, else model-fetch from GitHub)");return dict(state,directory=str(folder))
+ seeded=None
+ try:seeded=seed_model_from_left(folder)
+ except OSError as e:say(f'so101 model: could not copy from the left config model: {e}')
+ state=model_assets(folder,fetch=True)
+ if state.get('verified'):say(f"so101 model: verified at {folder} (revision {state['revision']}){', seeded from '+seeded if seeded else ''}")
+ else:say(f"WARNING so101 model: not verified at {folder}: {state.get('error')}. robot_get_arm_pose(right) will report model_assets.verified false. "
+          f"By hand: cd {SOFTWARE} && {PYTHON} -m carton.servo model-fetch --out {folder}")
+ return dict(state,directory=str(folder),seeded_from=seeded)
+
 def start_api():
  API_LOG.parent.mkdir(parents=True,exist_ok=True)
  env=dict(os.environ,XLEROBOT_PASSIVE_RECOVERY='1',XLEROBOT_OAK_RAW_DIR=OAK_RAW_DIR)
@@ -248,7 +304,7 @@ def main():
   record_deploy('cameras-only')
   print(json.dumps({'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_camera_ids':WRIST_CAMERA_IDS,'identity_verified':IDENTITY_VERIFIED},indent=2));return
  if not Path(PYTHON).exists():fail(f'{PYTHON} not found; set XLEROBOT_PYTHON')
- run_tests();changed=show_changes()
+ run_tests();changed=show_changes();model=ensure_model(args.dry_run)
  if args.api_only:
   owner_side=[n for n in changed if n not in API_ONLY]
   if owner_side:fail('these changes need a full restart (motors released first): '+', '.join(owner_side))
@@ -308,7 +364,7 @@ def main():
  record_deploy('restart')
  print(json.dumps({'owner_pid':owner.pid,'owner_session_started':s['started'],'execution_profile':s['execution_profile'],'phase':s['phase'],
                    'all_released':True,'motors':len(s.get('rows') or {}),'missing_buses':s.get('missing_buses'),'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
-                   'relay':'unchanged','installed':changed,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
+                   'relay':'unchanged','installed':changed,'so101_model':model,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
  say('done. Motors are released; enable all six right-arm joints explicitly before any pickup move.')
 
 def bring_up(args):
