@@ -81,18 +81,18 @@ class RenderedOwner:
             for frame in payload['images']:
                 frame['captured_at'] = self.now
             return payload
+        rows = {n: dict(Present_Position=v, Present_Velocity=0, Present_Load=0, Moving=0, Status=0,
+                        Torque_Enable=int(n in self.enabled), captured_at=self.now-.001) for n, v in self.positions().items()}
         if name == 'robot_get_state':
             r = dict(cached=False, time=self.now, commandable_ranges=self.ranges,
-                     raw_calibration_ranges=self.raw_ranges, motors=[dict(name=n, Present_Position=v,
-                     Present_Velocity=0, Present_Load=0, Moving=0, Status=0,
-                     Torque_Enable=int(n in self.enabled), captured_at=self.now-.001)
-                     for n,v in self.positions().items()])
+                     raw_calibration_ranges=self.raw_ranges, motors=[dict(name=n, **row) for n, row in rows.items()])
         elif name == 'robot_get_execution':
+            # As today's robot API serves it: the owner status including its own telemetry rows.
             r = dict(time=self.now, started=self.started, control_mode='direct_joint', ok=not self.stopped,
-                     phase='stopped' if self.stopped else ('holding' if self.enabled else 'idle'),
+                     hardware_server=True, phase='stopped' if self.stopped else ('holding' if self.enabled else 'idle'),
                      operator_armed=not self.stopped, stop_latched=self.stopped, enabled_motors=sorted(self.enabled),
                      accepted=self.command_id, completed=self.command_id, motor_writes=self.motor_writes,
-                     lease_remaining=15.)
+                     stop_count=int(self.stopped), lease_remaining=15., rows=rows)
         elif name == 'robot_get_capabilities':
             r = dict(motion_units='raw_encoder_ticks', motion_ready=not self.stopped, joint_blockers={}, blockers=[])
         elif name == 'robot_get_arm_pose':
@@ -106,11 +106,12 @@ class RenderedOwner:
         elif name == 'robot_set_motor_enable':
             if self.stopped:
                 return {'ok':False,'result':{'error':'Simulation STOP latched'}}
-            if any(n not in {'right_arm_'+j for j in self.fk.names} for n in args['names']):
-                raise ValueError('Only modeled right positioning joints may be enabled')
+            # The pickup-profile owner needs all six arm motors enabled; the jaw only holds.
+            if any(n not in {'right_arm_'+j for j in self.joints} for n in args['names']):
+                raise ValueError('Only modeled right-arm motors may be enabled')
             if args['enabled']:
                 self.enabled.update(args['names'])
-                self.data.ctrl[:5] = self.data.qpos[:5]
+                self.data.ctrl[:6] = self.data.qpos[:6]
             else:
                 self.enabled.difference_update(args['names'])
             r = self.ack({n:int(args['enabled']) for n in args['names']})

@@ -225,16 +225,49 @@ The fitter's zero-write count refers only to the mathematical solve.
 The adapter checks fresh all-motor readbacks, current-owner identity, controller
 phase, unchanged ranges, requested/completed command identity, measured endpoint
 error, uncommanded drift, camera stream/sequence/time and fixed table-tag corners.
-It holds only the selected arm's five positioning motors; it never enables the
-jaw, head, other arm or wheels. Those other encoders must remain stationary.
+It enables all six motors of the selected arm in one call, because today's
+pickup-profile owner (`paddle-success-v1`) refuses any move otherwise; the jaw
+is held where it is and never commanded. It never enables the head, other arm or
+wheels. Those other encoders must remain stationary. Each step moves one joint
+3..16 ticks (the owner treats a target within 2 ticks as a no-op) with
+`duration_s` 0.4.
 
 Successful motor responses must confirm completion from the bound owner;
-acceptance alone is insufficient. Enable/move leaves the owner `holding` and
-release leaves it `idle`. Normal completion releases the held motors and verifies
-fresh all-sixteen torque-zero readback. Failure after an enable attempt requests
-independent STOP and records its response. A failed preflight sends no STOP to
+acceptance alone is insufficient. A response with `completed: false` and a
+`closure_outcome` (`settled_short`, `halted`, `contact_halt`) is a refusal. The
+owner accepts endpoints within 57 ticks; the adapter still requires its own 5.
+Enable/move leaves the owner `holding` and release leaves it `idle`. Normal
+completion releases the held motors and verifies fresh all-sixteen torque-zero
+readback. Failure after an enable attempt requests independent STOP; the owner
+eases torque off over about 2 s, and the adapter keeps reading state until
+torque-zero is confirmed (`cleanup.release_confirmed`). The owner has no STOP
+latch, so a STOP or owner fault shows up as a changed `stop_count` and an idle,
+released owner, which aborts the run. A failed preflight sends no STOP to
 another client's owner. There is no automatic retry, reset, restart or blind
 return movement following a missing tag or refusal.
+
+## Link timing
+
+Owner rows must be 0..0.75 s old and camera frames 0..1.0 s old on the chat
+Mac's clock. One status read uses `robot_get_execution`, which carries the
+owner's own 16 telemetry rows, and only two relay round trips separate a camera
+frame from the next command. A registration makes about 530 relay calls: about
+125 s at a 150 ms round trip against the default 180 s budget. Measure the link
+before a run (read-only; no motor, camera or state change):
+
+```bash
+cd software && PYTHONPATH=. python tools/measure_robot_link.py --pilot-root /path/to/gemma/pilot
+```
+
+It reports round trip, robot-minus-chat clock offset (within half a round trip)
+and the projected registration time and freshness margins. A chat clock behind
+the robot makes owner timestamps look like the future and is refused. Fix the
+clocks (`sudo sntp -sS time.apple.com` on both Macs) or the link; do not relax
+the freshness limits. `limits.max_seconds` (at most 300) may be raised in
+`tag-calibration.json` for a slower but in-limit link.
+`qwen-bridge/test_tag_registration_contract.py` runs the whole registration
+against the real robot-server code with a fake bus, in the restart script's
+test step.
 
 The installed wrapper and CLI share a local motion lock. Independent STOP and
 read tools bypass it. Owner command/write counters also detect outside activity,

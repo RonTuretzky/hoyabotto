@@ -79,7 +79,7 @@ class CalibrationRobot:
                      'description': 'Also ask the read-only robot_plan_reach for a labelled pre-grasp proposal'}},
                   'additionalProperties': False}),
                 (RUN, 'Perform the CURRENT user-requested automatic calibration through the existing owner. '
-                 'Enables only the configured arm positioning motors, makes small observed joint movements, '
+                 'Enables the six motors of the configured arm (the jaw only holds), makes small observed joint movements, '
                  'then releases. local_model reuses bidirectional probes and independent visual-model checks; '
                  'registration collects eight fit and three held-out poses then runs the existing hand-eye fitter. '
                  'Use only after fresh readiness and with the operator supervising the cleared workspace. '

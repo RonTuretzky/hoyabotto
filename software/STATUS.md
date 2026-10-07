@@ -33,6 +33,16 @@ No hardware touched. `robot_get_registered_tags` no longer refuses after an OAK 
 - A `robot_plan_reach` pre-grasp proposal is included only when the planner is configured and uses the same jaw offset and calibration. It is labelled "proposal, not executed, not collision checked". The rule that planner output is not sent to the motor owner is unchanged; that decision still belongs to the owner. The pilot's reach procedure (small segments with existing tools, re-detect tag 3 and check cameras after each) is in [docs/gemma-automatic-calibration.md](docs/gemma-automatic-calibration.md#paddle-target-read-only). No motion limits changed.
 - Tested on rendered MuJoCo tag images through the production detector (`tests/test_paddle_target.py`): grasp point within 1 mm of scene truth. No hardware was touched; no physical registration had been fitted as of the last hardware record.
 
+## Tag-registration mover checked against today's robot server — 7 October 2026 (no hardware)
+
+`qwen-bridge/test_tag_registration_contract.py` runs CalibrationRobot → `run_calibration(..., 'registration')` through TagRobot and the real `gemma_robot_tools` dispatch, DirectJointClient and HardwareOwner (`--both-arms --paddle-profile --wheels`, 2 s soft release) on a fake bus, with rendered OAK frames. It is in the restart script's test list. The first run against the 6 October mover failed; the adapter (`carton/servo/gemma.py`, `tag_calibration.py`) now:
+- enables all six right-arm motors (the owner refuses moves otherwise; the jaw only holds);
+- refuses steps under 3 ticks before dispatch (the server answers ≤2 ticks with a no-op), sends `duration_s` 0.4;
+- reads status as one `robot_get_execution` (it carries the owner's 16 rows) and keeps two round trips between a frame and the next command (at 150 ms the old pattern exceeded the 1.0 s frame age on the first step);
+- detects STOP/faults by `stop_count` (no latch), names `closure_outcome` on `completed: false`, and confirms a soft release from fresh reads after `robot_stop`.
+
+Limits are unchanged. Registration makes ~530 relay calls: ~125 s at 150 ms RTT, ~178 s at 250 ms; slower links exceed the 180 s budget (`limits.max_seconds` may go to 300). Before a physical run, measure the link read-only with `tools/measure_robot_link.py --pilot-root "$PILOT"` (RTT, robot−chat clock offset, projection). Unverified on hardware: holding Present_Load (<500 required on all 16 rows), Moving/velocity noise while holding, ≤3-tick drift of held joints during a step, endpoint within 5 ticks after a 16-tick step, and OAK capture latency versus the encoder bracket.
+
 ## Right arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:50
 
 Job 20261007-195000-fd5abb validated and installed; the owner's servo-versus-file check shows no mismatches. The 18:19 attempt had failed validation only because left/right pan travel differed by 48.9°, against the old 191° left pan; after the left recalibration (238.5°) the right run validated.
