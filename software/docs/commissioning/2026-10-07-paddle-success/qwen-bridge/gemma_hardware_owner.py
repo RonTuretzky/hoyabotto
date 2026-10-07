@@ -93,6 +93,7 @@ class HardwareOwner:
   if self.engine and self.engine.active:
    current={n:self.rows[n]['Present_Position'] for n in self.engine.joints}
    update=self.engine.tick(current,telemetry_at=min(self.rows[n]['captured_at'] for n in self.engine.joints),**({'rows':self.rows} if self.paddle_profile else {}));self.state.update(update)
+   if self.paddle_profile and not self.engine.active:self.lease=self.clock()+120
    if self.state.get('local_gripper_probe') and not self.engine.active:
     self.release_all('Local probe complete',latch=False)
   self.publish();return self.state
@@ -132,7 +133,7 @@ class HardwareOwner:
    self.write(n,'Goal_Position',q);self.enabled.add(n)
    self.write(n,'Torque_Enable',1);self.write(n,'Lock',1);self.write(n,'Goal_Position',q);self.goals[n]=q
    self.state['enable_register_diagnostics'][n]['applied']=self.register_diagnostics(n)
-  self.lease=self.clock()+30;self.state['released']=False;self.poll()
+  self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['released']=False;self.poll()
  def release(self,n):
   self.by_name[n].disable_torque([n],num_retry=3)
   if self.read(n,'Torque_Enable')!=0:raise RuntimeError(n+': release not confirmed')
@@ -174,7 +175,7 @@ class HardwareOwner:
    applied=self.state['enable_register_diagnostics'][n]['applied']['registers']
    if any(applied[f]!=v for f,v in {'Torque_Limit':250,'Goal_Velocity':100,'Acceleration':10,'P_Coefficient':32,'Operating_Mode':0}.items()):raise RuntimeError('Probe applied settings differ from authorized values')
    self.engine=probe;self.current_command=c['id'];self.state.update(probe.start(c));self.last_tick=self.clock();self.lease=self.clock()+30;self.publish();return
-  if op=='hold':self.lease=self.clock()+30;self.state['completed']=c['id'];return
+  if op=='hold':self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['completed']=c['id'];return
   if op not in ('direct_joint','gripper_target'):raise ValueError('Unsupported hardware command')
   positions=c.get('positions')
   if not isinstance(positions,dict) or not positions or not set(positions)<=self.enabled or not set(positions)<=set(self.position_names):raise ValueError('Targets require already-enabled arm/head motors; wheels do not accept position-motion requests')

@@ -154,7 +154,7 @@ class DirectJointClient:
                 executor=GripperWaypointExecutor
             dry=executor([name],{name:state['ranges'][name]},lambda _: (_ for _ in ()).throw(AssertionError('Validation wrote')))
             dry.start(dict(request,id=1,session_started=started),{name:state['rows'][name]['Present_Position']},session_started=started)
-            if state.get('enabled_motors') and state.get('lease_remaining',0)<=dry.duration+5:raise ValueError('Insufficient owner lease before gripper activation')
+            if state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else dry.duration+5):raise ValueError('Insufficient owner lease before gripper activation')
             enabled_here=state['rows'][name]['Torque_Enable']==0;enable_attempted=False;phase='validated'
             try:
                 if enabled_here:
@@ -189,7 +189,7 @@ class DirectJointClient:
                 if state.get('hardware_server') is not True or not 0<=state['status_age_s']<=1:raise RuntimeError('Fresh hardware owner unavailable')
                 if not release and (state.get('phase') not in ('idle','holding') or state.get('operator_armed') is not True or state.get('ok') is not True):raise RuntimeError('Owner busy, unsafe or STOP latched')
                 self._validate(request,state)
-                if not release and state.get('enabled_motors') and state.get('lease_remaining',0)<=request.get('duration_s',0)+5:raise RuntimeError('Insufficient owner lease')
+                if not release and state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else request.get('duration_s',0)+5):raise RuntimeError('Insufficient owner lease')
                 command_file=self.folder/'command.json';old=json.loads(command_file.read_text()) if command_file.exists() else None
                 command_id=max(time.time_ns(),int((old or {}).get('id',0))+1)
                 command={**request,'id':command_id,'session_started':started}
