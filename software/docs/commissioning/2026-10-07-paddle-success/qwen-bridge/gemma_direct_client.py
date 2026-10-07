@@ -99,14 +99,33 @@ class DirectJointClient:
     def set_motor_enable(self,names,enabled):
         if type(enabled) is not bool or not isinstance(names,list) or not names or len(set(names))!=len(names) or any(not isinstance(n,str) for n in names):raise ValueError('Distinct motor names and boolean enabled required')
         return self._command({'op':'enable_motors','names':names,'enabled':enabled})
-    def execute(self,positions,duration_s):
+    def execute(self,positions,duration_s,wait=True,replace=False):
         if type(duration_s) not in (int,float) or not math.isfinite(duration_s) or not 0<duration_s<=25:raise ValueError('Duration must be finite in (0,25]')
         if not isinstance(positions,dict) or not positions or any(type(q) is not int for q in positions.values()):raise ValueError('Nonempty integer encoder targets required')
-        return self._command({'op':'direct_joint','positions':positions,'duration_s':duration_s})
+        return self._command({'op':'direct_joint','positions':positions,'duration_s':duration_s,'replace':replace is True},wait=wait)
+    def execute_path(self,waypoints,duration_s,wait=True,replace=False):
+        """Continuous motion through waypoints (pickup profile); intermediate points are passed without stopping."""
+        if type(duration_s) not in (int,float) or not math.isfinite(duration_s) or not 0<duration_s<=60:raise ValueError('Path duration must be finite in (0,60]')
+        if not isinstance(waypoints,list) or not waypoints or any(not isinstance(w,dict) or not w or any(type(q) is not int for q in w.values()) for w in waypoints):raise ValueError('Nonempty list of integer waypoint targets required')
+        return self._command({'op':'direct_joint','waypoints':waypoints,'duration_s':duration_s,'replace':replace is True},wait=wait)
+    def halt(self):
+        """Stop the running motion and hold where the arm is (wheels brake and release); unlike stop, nothing is released."""
+        return self._command({'op':'halt'})
+    def motion(self):
+        """Compact live view of the running or last motion, for monitoring while it moves."""
+        state=self.status();d=state.get('direct_settle_diagnostics') or {}
+        return {'phase':state.get('phase'),'status_age_s':round(state['status_age_s'],3),'moving':state.get('phase')=='moving',
+            'running_command_id':state.get('accepted') if state.get('phase')=='moving' else None,'last_completed_command_id':state.get('completed'),
+            'closure_outcome':state.get('closure_outcome'),'endpoint_reached':state.get('endpoint_reached'),'settle_residual_ticks':state.get('settle_residual_ticks'),
+            'waypoint':d.get('leg'),'waypoints':d.get('legs'),'elapsed_s':d.get('elapsed_s'),'final_targets':d.get('final_targets'),
+            'joints':{n:{k:v.get(k) for k in ('current_ticks','goal_ticks','target_ticks','following_error_ticks')} for n,v in (d.get('joints') or {}).items()},
+            'base_drive_phase':state.get('base_drive_phase'),'enabled_motors':state.get('enabled_motors'),'lease_remaining_s':state.get('lease_remaining'),
+            'last_stop':state.get('last_stop'),'positions':{n:r.get('Present_Position') for n,r in state.get('rows',{}).items() if n.startswith('right_arm_')}}
     def drive_base(self,linear_m_s,angular_rad_s,duration_s):
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in (linear_m_s,angular_rad_s,duration_s)) or not 0<duration_s<=3:raise ValueError('Finite linear_m_s, angular_rad_s and duration_s in (0,3] required')
         return self._command({'op':'base_pulse','linear_m_s':linear_m_s,'angular_rad_s':angular_rad_s,'duration_s':duration_s})
     def _validate(self,request,state):
+        if request['op']=='halt':return
         if request['op']=='base_pulse':
             if state.get('base_drive_supported') is not True:raise ValueError('UNSUPPORTED_OWNER_SCOPE: owner started without --wheels; base drive disabled')
             for n in ('base_left_wheel','base_right_wheel'):
@@ -128,16 +147,16 @@ class DirectJointClient:
                     bounds=state.get('wheel_hold_ranges',{}).get(n) or row.get('firmware_position_limits')
                     if bounds is not None and (not isinstance(bounds,list) or len(bounds)!=2 or not bounds[0]<bounds[1] or not bounds[0]<=q<=bounds[1]):raise ValueError('Wheel current position/actual firmware limits invalid: '+n)
         else:
-            names=list(request['positions'])
+            targets=request.get('waypoints') or [request['positions']];names=list(targets[0])
+            if any(set(t)!=set(names) for t in targets):raise ValueError('Every waypoint must name the same joints')
             if not set(names)<=set(state.get('supportsselectedjoints',[])):raise ValueError('Unsupported position motor or wheel target')
-            for n,q in request['positions'].items():
+            for n in names:
                 c=self.calibration[n]
-                if not c['range_min']+4<=q<=c['range_max']-4:raise ValueError('Target outside saved range plus4tickmargin: '+n)
+                if any(not c['range_min']+4<=t[n]<=c['range_max']-4 for t in targets):raise ValueError('Target outside saved range plus4tickmargin: '+n)
                 if state['rows'][n].get('Torque_Enable')!=1:raise ValueError('Requested motor is released; explicitly enable it first: '+n)
         if request['op']!='enable_motors' and state.get('execution_profile')=='paddle-success-v1':
             required=state.get('pickup_required_enabled_motors',state.get('supportsselectedjoints',[]))
             if set(required)!=set(state.get('enabled_motors',[])):raise ValueError('Pickup requires all six right-arm motors explicitly enabled: '+json.dumps(required))
-            if state.get('pickup_motion_segments_used',0)>=20:raise ValueError('Pickup session motion budget exhausted (20 segments)')
             from paddle_joint_executor import PaddleJointExecutor
             dry=PaddleJointExecutor(names,{n:state['ranges'][n] for n in names},lambda _:None)
             dry.start(dict(request,id=1,session_started=state['started']),{n:state['rows'][n]['Present_Position'] for n in names},session_started=state['started'],held_goals=state.get('goals'))
@@ -198,12 +217,15 @@ class DirectJointClient:
                     except Exception as cleanup_error:cleanup={'release_confirmed':False,'error':str(cleanup_error)}
                 raise RuntimeError('Gripper sequence failed in '+phase+'; cleanup='+json.dumps(cleanup)+'; '+str(exc)) from exc
 
-    def _command(self,request):
-        with self.serialized():return self._command_locked(request)
+    def _command(self,request,wait=True):
+        with self.serialized():return self._command_locked(request,wait)
 
-    def _command_locked(self,request):
+    def _command_locked(self,request,wait=True):
         release=request['op']=='enable_motors' and request['enabled'] is False
+        # halt and replace=true are the two requests meant for a motion that is still running.
+        busy_ok=request['op']=='halt' or request.get('replace') is True;phases=('idle','holding','moving') if busy_ok else ('idle','holding')
         ready=self.readiness()
+        if busy_ok and ready['blockers'] and all(b.startswith('OWNER_BUSY') for b in ready['blockers']):ready=dict(ready,available_to_accept_authorized_command=True)
         if not ready['available_to_accept_authorized_command'] and not release:return {'accepted':False,'motor_writes':0,'reason':ready['blocker'],'readiness':ready}
         if not self.lock.acquire(blocking=False):raise RuntimeError('Hardware command active; STOP remains independently available')
         dispatched=False;started=None
@@ -211,7 +233,7 @@ class DirectJointClient:
             with contextlib.nullcontext(self.sequence_local.writer) as writer:
                 state=self.status();started=state['started'];generation=self.cancel_generation
                 if state.get('hardware_server') is not True or not 0<=state['status_age_s']<=1:raise RuntimeError('Fresh hardware owner unavailable')
-                if not release and (state.get('phase') not in ('idle','holding') or state.get('operator_armed') is not True or state.get('ok') is not True):raise RuntimeError('Owner busy or unsafe')
+                if not release and (state.get('phase') not in phases or state.get('operator_armed') is not True or state.get('ok') is not True):raise RuntimeError('Owner busy or unsafe')
                 self._validate(request,state)
                 if not release and state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else request.get('duration_s',0)+5):raise RuntimeError('Insufficient owner lease')
                 command_file=self.folder/'command.json';old=json.loads(command_file.read_text()) if command_file.exists() else None
@@ -220,7 +242,7 @@ class DirectJointClient:
                 latest=self.status();stops=latest.get('stop_count',0)
                 # A STOP written but not yet read by the owner must never be overwritten.
                 if (old or {}).get('op')=='stop' and old.get('session_started')==latest.get('started') and latest.get('completed')!=old.get('id') and (latest.get('last_rejected') or {}).get('id')!=old.get('id'):raise RuntimeError('STOP pending; not dispatching')
-                if latest['started']!=started or not 0<=latest['status_age_s']<=1 or (not release and (latest.get('phase') not in ('idle','holding') or latest.get('operator_armed') is not True or latest.get('ok') is not True)):raise RuntimeError('Owner changed before dispatch')
+                if latest['started']!=started or not 0<=latest['status_age_s']<=1 or (not release and (latest.get('phase') not in phases or latest.get('operator_armed') is not True or latest.get('ok') is not True)):raise RuntimeError('Owner changed before dispatch')
                 if generation!=self.cancel_generation:raise RuntimeError('STOP interrupted dispatch')
                 if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:raise RuntimeError('Another writer changed command file')
                 atomic_json(command_file,command);dispatched=True
@@ -235,6 +257,14 @@ class DirectJointClient:
                     if not release and (last_stop.get('command_id')==command_id or current.get('stop_count',0)>stops or current.get('phase')=='stopped' or current.get('ok') is not True):raise RuntimeError('Owner stopped: '+str(last_stop.get('reason') or current.get('error')))
                     if (current.get('last_rejected') or {}).get('id')==command_id:raise RuntimeError('Owner rejected: '+str(current['last_rejected'].get('reason')))
                     if json.loads(command_file.read_text()).get('id')!=command_id:raise RuntimeError('Command overwritten; cancelled')
+                    if request['op']=='halt' and current.get('completed')==command_id:
+                        return {'accepted':True,'completed':True,'halted':True,'command_id':command_id,'halted_command_id':current.get('halted_command_id'),'phase':current.get('phase'),
+                            'positions':{n:r.get('Present_Position') for n,r in current.get('rows',{}).items() if n.startswith('right_arm_')},'base_drive_phase':current.get('base_drive_phase'),
+                            'note':'Holding where it stopped (wheels brake, then release). Nothing was released; send a new move to continue.'}
+                    if not wait and request['op']=='direct_joint' and command_id in (current.get('accepted'),current.get('completed')):
+                        return {'accepted':True,'started':True,'completed':current.get('completed')==command_id,'command_id':command_id,'owner_started':started,'phase':current.get('phase'),
+                            'deadline_s':current.get('direct_deadline_s'),'waypoints':current.get('motion_waypoints'),
+                            'note':'Motion is running. Monitor with robot_get_motion and cameras; robot_halt_motion stops and holds; a new move with replace=true changes course.','mode':'direct_joint'}
                     if current.get('completed')==command_id and current.get('phase') in ('idle','holding'):
                         if request['op']=='base_pulse':
                             result=current.get('base_result') or {}
@@ -250,10 +280,14 @@ class DirectJointClient:
                                 self.sleep(.02)
                                 continue
                         else:
-                            measured={n:current['rows'][n]['Present_Position'] for n in request['positions']}
+                            final=(request.get('waypoints') or [request.get('positions')])[-1]
+                            measured={n:current['rows'][n]['Present_Position'] for n in final}
+                            if current.get('closure_outcome')=='halted':
+                                return {'accepted':True,'completed':False,'halted':True,'endpoint_reached':False,'closure_outcome':'halted','holding':True,'command_id':command_id,'readbacks':measured,
+                                    'settle_residual_ticks':current.get('settle_residual_ticks'),'mode':'direct_joint'}
                             if current.get('execution_profile')=='paddle-success-v1' and current.get('closure_outcome')=='settled_short':
                                 # At rest short of target after bounded corrections: holding, not a success and not a STOP.
-                                if any(abs(q-request['positions'][n])>96+57 for n,q in measured.items()):raise RuntimeError('Pickup settled_short contradicts measured endpoint')
+                                if any(abs(q-final[n])>96+57 for n,q in measured.items()):raise RuntimeError('Pickup settled_short contradicts measured endpoint')
                                 return {'accepted':True,'completed':False,'endpoint_reached':False,'closure_outcome':'settled_short','holding':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
                                     'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':False,'owner_status_time':current['time'],
                                     'reason':'Joint came to rest short of its target after bounded goal corrections; motors are holding at the measured position. Re-plan from fresh readbacks or STOP.',
@@ -262,8 +296,8 @@ class DirectJointClient:
                                 for n,q in measured.items():
                                     tolerance=30 if n.endswith('gripper') else 57
                                     contact=n.endswith('gripper') and current.get('closure_outcome')=='stationary_closure_unverified'
-                                    if abs(q-request['positions'][n])>(96 if contact else tolerance):raise RuntimeError('Pickup completion contradicts measured endpoint')
-                            elif any(abs(measured[n]-request['positions'][n])>(20 if request['op']=='gripper_target' else 5) for n in measured):raise RuntimeError('Completion contradicts measured endpoint')
+                                    if abs(q-final[n])>(96 if contact else tolerance):raise RuntimeError('Pickup completion contradicts measured endpoint')
+                            elif any(abs(measured[n]-final[n])>(20 if request['op']=='gripper_target' else 5) for n in measured):raise RuntimeError('Completion contradicts measured endpoint')
                         return {'accepted':True,'completed':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
                             'endpoint_reached':current.get('endpoint_reached'),'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':current.get('grasp_verified',False),'closure_outcome':current.get('closure_outcome'),'gripper_result':current.get('gripper_result'),'owner_status_time':current['time'],'duration_s_actual':current.get('direct_duration_s'),
                             'motor_writes':'canonical owner only','mode':'direct_joint'}

@@ -1,3 +1,14 @@
+## Continuous monitored motion and chat sessions — 7 October 2026
+
+Software only; fake-hardware tests pass.
+- **Robot API.** The 20-move limit is gone. Arm moves can run continuously through waypoints, start without waiting (`wait=false`), be watched with `robot_get_motion` and cameras, be halted in place with `robot_halt_motion`, or be re-aimed mid-motion with `replace=true`. Wrist cameras: run `./restart-robot-server.sh --cameras-only` from Terminal on the robot Mac. The earlier "no publisher output" most likely came from a restart run without Terminal's camera permission.
+- **Chat Mac.** The pilot UI at `/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot`, which is not in this repo, is now one persistent session:
+  - Full history is kept; only old images and old bulky tool outputs are trimmed.
+  - Each message allows 60 steps; "continue" resumes.
+  - Controller refusals go back to the model instead of ending the request, pausing after 3 in a row.
+  - A **New session** button archives the conversation to `.private/sessions/`.
+  - Backups of the previous `chat_server.py`/`chat.html` are in `.private/backup-*`.
+
 ## First API use of the new owner — 7 October 2026
 
 The new owner was deployed and reached from the Qwen chat. Two of its rules blocked the first real requests, and both are fixed on `main`:

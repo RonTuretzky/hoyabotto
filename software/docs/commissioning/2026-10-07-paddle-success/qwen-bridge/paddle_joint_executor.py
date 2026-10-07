@@ -5,12 +5,18 @@ all of them reach their targets on the same step. A closing gripper (contact mod
 commanded alone. A joint that stops short under load gets bounded goal corrections; if it is
 still short once those are spent, the segment ends 'settled_short' (holding, endpoint not
 reached) instead of faulting. A joint that never comes to rest still fails at the deadline.
+
+A command may carry 'waypoints' (a list of target sets) instead of 'positions'. The ramp passes
+through intermediate waypoints without stopping and settles only at the last one, so a long
+motion is continuous. halt() stops advancing at any time and holds the last commanded goals;
+the owner uses it for robot_halt_motion and for replacing a running motion with a new one.
 """
 import math,time
 ENVELOPE=96          # max |present - commanded goal| at any tick
 MARGIN=40            # saved-range margin for targets and corrected goals
 EDGE=4               # a joint may start (and hold) anywhere this far inside its saved range
-SEGMENT=341          # max ticks per joint per command
+SEGMENT=341          # max ticks per joint per leg (command or waypoint-to-waypoint)
+MAX_WAYPOINTS=24
 STEP,CONTACT_STEP=40,10
 CORRECTION_STEP=40   # max goal change per correction write
 CORRECTION_ROOM=90   # a correction never commands more than this from the present position
@@ -23,36 +29,56 @@ class PaddleJointExecutor:
   self.joints=list(joints);self.ranges=ranges;self.write=write;self.clock=clock;self.wall=wall
   self.active=False;self.samples=[];self.diagnostics={}
  def start(self,c,current,session_started,held_goals=None):
-  p=c.get('positions');duration=c.get('duration_s')
+  path=c.get('waypoints') is not None;legs=c.get('waypoints') if path else [c.get('positions')];duration=c.get('duration_s')
   if type(c.get('id')) is not int or c['id']<=0 or c.get('session_started')!=session_started:raise ValueError('Bound-session command required')
-  if not isinstance(p,dict) or not p or set(p)!=set(self.joints):raise ValueError('Pickup command joints must match the executor joints')
-  if any(not n.startswith('right_arm_') or type(t) is not int for n,t in p.items()):raise ValueError('Integer right-arm target required')
-  if type(duration) not in (int,float) or not math.isfinite(duration) or not 0<duration<=25:raise ValueError('Finite duration (0,25] required')
+  if not isinstance(legs,list) or not 1<=len(legs)<=MAX_WAYPOINTS:raise ValueError(f'Pickup path needs 1..{MAX_WAYPOINTS} waypoints')
+  for p in legs:
+   if not isinstance(p,dict) or not p or set(p)!=set(self.joints):raise ValueError('Pickup command joints must match the executor joints')
+   if any(not n.startswith('right_arm_') or type(t) is not int for n,t in p.items()):raise ValueError('Integer right-arm target required')
+  if type(duration) not in (int,float) or not math.isfinite(duration) or not 0<duration<=(60 if path else 25):raise ValueError('Finite duration (0,25] required (paths: (0,60])')
   goals={}
-  for n,t in p.items():
+  for n in self.joints:
    q=current[n];lo,hi=self.ranges[n]
-   # Starting near a limit is allowed; the target is 40 ticks inside, so the move can only head back inward.
-   if not lo+EDGE<=q<=hi-EDGE or not lo+MARGIN<=t<=hi-MARGIN or not 2<abs(t-q)<=SEGMENT:raise ValueError(n+': pickup target must be 40 ticks inside the saved range, 3..341 ticks from the current position')
+   # Starting near a limit is allowed; every target is 40 ticks inside, so the move can only head back inward.
+   if not lo+EDGE<=q<=hi-EDGE:raise ValueError(n+': current position outside saved range')
    g=(held_goals or {}).get(n,q)
    if type(g) is not int or abs(g-q)>ENVELOPE or not lo+EDGE<=g<=hi-EDGE:raise ValueError(n+': pickup previous held goal outside envelope')
    goals[n]=g
-  self.contact=any(n.endswith('gripper') and t<current[n] for n,t in p.items())
-  if self.contact and len(p)!=1:raise ValueError('Gripper closure must be commanded alone')
-  step=CONTACT_STEP if self.contact else STEP
-  self.steps=max(1,max(math.ceil(max(abs(t-current[n]),abs(t-goals[n]))/step) for n,t in p.items()))
-  # The longest ramp moves full steps (as in the pilot); shorter ramps are spread over the same number of steps.
-  longest=max(abs(t-goals[n]) for n,t in p.items());count=max(1,math.ceil(longest/step))
-  self.step={n:step if abs(t-goals[n])==longest else max(1,math.ceil(abs(t-goals[n])/count)) for n,t in p.items()}
+  previous=dict(current)
+  for i,p in enumerate(legs):
+   for n,t in p.items():
+    lo,hi=self.ranges[n]
+    if not lo+MARGIN<=t<=hi-MARGIN or abs(t-previous[n])>SEGMENT:raise ValueError(f'{n}: waypoint {i+1} must be 40 ticks inside the saved range and at most 341 ticks from the previous point')
+   previous=p
+  if not path and not all(2<abs(t-current[n]) for n,t in legs[0].items()):raise ValueError('Each joint in a pickup move must travel 3..341 ticks')
+  if path and not any(abs(p[n]-current[n])>2 for p in legs for n in self.joints):raise ValueError('Pickup path does not move any joint')
+  self.contact=any(n.endswith('gripper') and t<current[n] for n,t in legs[0].items())
+  if self.contact and (len(legs[0])!=1 or path):raise ValueError('Gripper closure must be commanded alone, not in a path')
+  step=CONTACT_STEP if self.contact else STEP;origin=goals;self.leg_steps=[]
+  for p in legs:
+   self.leg_steps.append(max(1,max(math.ceil(max(abs(t-origin[n]),abs(t-current[n]) if p is legs[0] else 0)/step) for n,t in p.items())));origin=p
+  self.steps=sum(self.leg_steps)
   self.interval=1.5 if self.contact else max(.4,float(duration)/self.steps)
   base=self.steps*self.interval+3
-  if base>(55 if self.contact else 28):raise ValueError('Pickup segment exceeds API completion deadline; shorten segment/duration')
+  if base>(55 if self.contact else 80 if path else 28):raise ValueError('Pickup motion exceeds API completion deadline; shorten it or its duration')
   self.duration=base-3;self.deadline=base+(0 if self.contact else CORRECTION_BUDGET_S)
-  self.targets=dict(p);self.goal=goals;self.bias=dict.fromkeys(p,0);self.corrections=dict.fromkeys(p,0)
-  self.exhausted={n:n.endswith('gripper') for n in p} # grippers get no corrections
-  self.stable=dict.fromkeys(p,0);self.still=dict.fromkeys(p,0);self.last_q={n:current[n] for n in p}
+  self.legs=[dict(p) for p in legs];self.leg=0;self.final_target=dict(legs[-1]);self.goal=goals
+  self.bias=dict.fromkeys(self.joints,0);self.corrections=dict.fromkeys(self.joints,0)
+  self.exhausted={n:n.endswith('gripper') for n in self.joints} # grippers get no corrections
+  self.stable=dict.fromkeys(self.joints,0);self.still=dict.fromkeys(self.joints,0);self.last_q={n:current[n] for n in self.joints}
+  self.set_leg(0)
   self.first_step=True;self.started=self.last_tick=self.last_write=self.clock();self.quiet_since=None;self.last_sample=None;self.command_id=c['id'];self.active=True
-  self.progress_q={n:current[n] for n in p};self.progress_at=dict.fromkeys(p,self.started)
-  return {'accepted':c['id'],'phase':'moving','execution_profile':'paddle-success-v1','direct_start_positions':{n:current[n] for n in p},'direct_requested_targets':p,'direct_deadline_s':self.deadline,'direct_duration_s':self.duration,'grasp_verified':False,'closure_outcome':None,'endpoint_reached':None,'settle_residual_ticks':None}
+  self.progress_q={n:current[n] for n in self.joints};self.progress_at=dict.fromkeys(self.joints,self.started)
+  return {'accepted':c['id'],'phase':'moving','execution_profile':'paddle-success-v1','direct_start_positions':{n:current[n] for n in self.joints},'direct_requested_targets':self.final_target,'motion_waypoints':len(legs),'direct_deadline_s':self.deadline,'direct_duration_s':self.duration,'grasp_verified':False,'closure_outcome':None,'endpoint_reached':None,'settle_residual_ticks':None}
+ def set_leg(self,i):
+  # The longest ramp of this leg moves full steps (as in the pilot); shorter ramps are spread over the same number of steps.
+  self.leg=i;self.targets=dict(self.legs[i]);step=CONTACT_STEP if self.contact else STEP
+  longest=max(abs(t-self.goal[n]) for n,t in self.targets.items());count=max(1,math.ceil(longest/step))
+  self.step={n:step if abs(t-self.goal[n])==longest else max(1,math.ceil(abs(t-self.goal[n])/count)) for n,t in self.targets.items()}
+ def halt(self,current):
+  """Stop advancing now and hold the last commanded goals (at most one step ahead of the arm)."""
+  self.legs=[dict(self.goal)];self.targets=dict(self.goal);self.bias=dict.fromkeys(self.joints,0)
+  return self.finish(current,'halted')
  def aim(self,n):return self.targets[n]+self.bias[n]
  def correct(self,n,q):
   # Overdrive the held goal by the measured residual, inside every envelope; never past the margin.
@@ -66,7 +92,7 @@ class PaddleJointExecutor:
   self.goal[n]=want;self.bias[n]=want-t;return want
  def finish(self,current,outcome):
   self.active=False
-  residual={n:current[n]-self.targets[n] for n in self.joints}
+  residual={n:current[n]-self.final_target[n] for n in self.joints}
   return {'completed':self.command_id,'phase':'holding','direct_actual_positions':current,'grasp_verified':False,'closure_outcome':outcome,'endpoint_reached':outcome=='endpoint_settled','settle_residual_ticks':residual,'direct_settle_diagnostics':self.diagnostics}
  def tick(self,current,telemetry_at,rows=None):
   now=self.clock();rows=rows or {}
@@ -89,13 +115,16 @@ class PaddleJointExecutor:
    self.last_sample=telemetry_at
   c=self.joints[0]
   contact_stop=self.contact and self.quiet_since is not None and now-self.quiet_since>=.3 and current[c]-self.goal[c]>=40
-  self.diagnostics={'joints':{n:{'goal_ticks':self.goal[n],'current_ticks':current[n],'target_ticks':self.targets[n],'following_error_ticks':current[n]-self.goal[n],'stable_samples':self.stable[n],'still_samples':self.still[n],'overdrive_ticks':self.bias[n],'corrections':self.corrections[n]} for n in self.joints},'contact_stop':contact_stop}
+  self.diagnostics={'leg':self.leg+1,'legs':len(self.legs),'elapsed_s':round(now-self.started,2),'final_targets':self.final_target,'joints':{n:{'goal_ticks':self.goal[n],'current_ticks':current[n],'target_ticks':self.targets[n],'following_error_ticks':current[n]-self.goal[n],'stable_samples':self.stable[n],'still_samples':self.still[n],'overdrive_ticks':self.bias[n],'corrections':self.corrections[n]} for n in self.joints},'contact_stop':contact_stop}
   self.samples.append(dict(self.diagnostics,t=now));self.samples=self.samples[-128:]
-  settled=all(self.stable[n]>=3 for n in self.joints)
+  # Pass through intermediate waypoints without stopping: once the ramp reaches one, aim at the next.
+  if self.leg<len(self.legs)-1 and all(self.goal[n]==self.targets[n] for n in self.joints):self.set_leg(self.leg+1)
+  final=self.leg==len(self.legs)-1
+  settled=final and all(self.stable[n]>=3 for n in self.joints)
   if contact_stop or (settled and (now-self.last_write>=self.interval if not self.contact else self.quiet_since is not None and now-self.quiet_since>=.3)):
    return self.finish(current,'stationary_closure_unverified' if contact_stop else 'endpoint_settled')
   ramp_done=all(self.goal[n]==self.aim(n) for n in self.joints)
-  if not self.contact and ramp_done and now-self.last_write>=self.interval and all(self.still[n]>=3 for n in self.joints):
+  if not self.contact and final and ramp_done and now-self.last_write>=self.interval and all(self.still[n]>=3 for n in self.joints):
    # Everything is at rest: correct joints that are not settled, or finish if none can be corrected further.
    pending=[n for n in self.joints if self.stable[n]<3]
    writes={n:g for n in pending if not self.exhausted[n] and (g:=self.correct(n,current[n])) is not None}

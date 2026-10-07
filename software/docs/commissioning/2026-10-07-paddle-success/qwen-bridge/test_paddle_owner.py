@@ -30,14 +30,10 @@ for i in range(1,80):
  o.poll()
  if not o.engine.active:break
 assert o.state['completed']==3 and o.state['closure_outcome']=='endpoint_settled' and o.goals[names[1]]==1900 and o.goals[names[2]]==2100 and o.state['stop_count']==0
-o.motion_count=20
-try:o.command(dict(c,id=2))
-except ValueError as exc:assert 'budget' in str(exc)
-else:raise AssertionError('Budget ignored')
 # Health faults still take effect while the camera is paused.
 t[0]+=.1;meta['received_at']=-20;b.r[names[0]]['Status']=8
 try:o.poll()
 except RuntimeError as exc:assert 'Status' in str(exc)
 else:raise AssertionError('Paused camera masked servo fault')
 o.release_all('test fault');assert not o.enabled and all(b.r[n]['Torque_Enable']==0 and b.r[n]['P_Coefficient']==16 and b.r[n]['Torque_Limit']==1000 for n in names)
-print('Pickup owner settings, simultaneous two-joint move, 120s holds, pause health monitoring, 20-segment budget and release restoration passed; no hardware')
+print('Pickup owner settings, simultaneous two-joint move, 120s holds, pause health monitoring, release restoration passed; no hardware')

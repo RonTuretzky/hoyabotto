@@ -32,7 +32,7 @@ sys.path.insert(0, str(UTILITY))
 from carton.servo.common import atomic_json
 from gemma_execution_binding import TrustedExecutionBinding
 from gemma_direct_client import DirectJointClient
-from paddle_segments import paddle_target_segments
+from paddle_segments import paddle_target_segments, expand_path
 from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status
 WRIST_DIRS = wrist_dirs(ROOT)
 LEGACY_CONTINUOUS_BINDING = TrustedExecutionBinding(SESSION)
@@ -71,32 +71,63 @@ HEAD_TARGET = target_schema([n for n in POSITION_NAMES if n.startswith('head_mot
 def commandable_ranges():
     return {n: {'min_ticks': CAL[n]['range_min'] + 4, 'max_ticks': CAL[n]['range_max'] - 4, 'margin_ticks': 4} for n in POSITION_NAMES}
 
-def execute_targets(positions, duration_s):
-    """Run a target set through the owner, segmenting it under the pickup profile."""
+def execute_targets(positions, duration_s, wait=True, replace=False):
+    """Run a target set through the owner. Under the pickup profile a long move becomes one continuous
+    waypoint path; a closing gripper runs afterwards, alone. wait=False returns once the motion starts."""
     state = DIRECT_CLIENT.status()
     if state.get('execution_profile') != 'paddle-success-v1':
+        if not wait or replace:raise ValueError('wait=false and replace=true need the pickup profile owner')
         return DIRECT_CLIENT.execute(positions, duration_s)
     segments = paddle_target_segments(positions, state)
     if not segments:
         return {'accepted': True, 'completed': True, 'no_op': True, 'endpoint_reached': True, 'motor_writes': 0,
                 'reason': 'Every requested joint is already within 2 ticks of its target'}
-    # No owner STOP latch: a STOP between segments must end the sequence here, never continue it.
+    rows = state.get('rows', {})
+    closing = {n for n, t in positions.items() if n.endswith('gripper') and type(rows.get(n, {}).get('Present_Position')) is int and t < rows[n]['Present_Position'] - 2}
+    closing_segments = [seg for seg in segments if set(seg) <= closing]
+    moving_segments = [seg for seg in segments if not set(seg) <= closing]
+    if closing_segments and (not wait or replace):
+        raise ValueError('A closing gripper runs alone after the arm stops; send it as its own robot_set_gripper/move with wait=true')
     generation = DIRECT_CLIENT.cancel_generation
     results = []
-    for segment in segments:
-        if DIRECT_CLIENT.cancel_generation != generation:
-            raise RuntimeError(f'STOP cancelled remaining pickup segments after {len(results)} of {len(segments)}; motors released, no automatic resume')
-        result = DIRECT_CLIENT.execute(segment, max(.4, duration_s / len(segments)))
+    if moving_segments:
+        if len(moving_segments) == 1:
+            result = DIRECT_CLIENT.execute(moving_segments[0], duration_s, wait=wait, replace=replace)
+        else:
+            result = DIRECT_CLIENT.execute_path(moving_segments, min(60, max(duration_s, .4 * len(moving_segments))), wait=wait, replace=replace)
         results.append(result)
-        # settled_short holds where it stopped; a closure that met resistance must not keep closing.
+        if not wait or not result.get('completed'):
+            return dict(result, path_waypoints=moving_segments, simultaneous_joints=sorted({n for seg in moving_segments for n in seg}))
+    for seg in closing_segments:
+        # No owner STOP latch: a STOP between parts must end the sequence here, never continue it.
+        if DIRECT_CLIENT.cancel_generation != generation:
+            raise RuntimeError('STOP cancelled the remaining gripper closure; motors released, no automatic resume')
+        result = DIRECT_CLIENT.execute(seg, duration_s)
+        results.append(result)
         if not result.get('completed') or result.get('closure_outcome') == 'stationary_closure_unverified':
             break
     final = dict(results[-1])
-    final.update(segments_total=len(segments), segments_completed=sum(1 for r in results if r.get('completed')),
-                 segment_targets=segments, simultaneous_joints=sorted({n for s in segments for n in s}),
-                 segment_outcomes=[{'targets': s, 'closure_outcome': r.get('closure_outcome'), 'readbacks': r.get('readbacks')}
-                                   for s, r in zip(segments, results)])
+    final.update(path_waypoints=moving_segments, closing_steps=closing_segments, simultaneous_joints=sorted({n for seg in moving_segments for n in seg}),
+                 part_outcomes=[{'closure_outcome': r.get('closure_outcome'), 'readbacks': r.get('readbacks')} for r in results])
     return final
+
+
+def execute_path(waypoints, duration_s, wait=True, replace=False):
+    """Continuous multi-waypoint motion (pickup profile): fill missing joints, split long legs, run as one command."""
+    state = DIRECT_CLIENT.status()
+    if state.get('execution_profile') != 'paddle-success-v1':raise ValueError('Waypoint paths need the pickup profile owner')
+    rows = state.get('rows', {})
+    names = sorted({n for w in waypoints for n in w})
+    start = {}
+    for n in names:
+        q = rows.get(n, {}).get('Present_Position')  # the executor measures each leg from the measured position
+        if type(q) is not int:raise ValueError('Current encoder unavailable for ' + n + '; refresh robot_get_state')
+        start[n] = q
+    path = expand_path(waypoints, start)
+    for n in names:
+        if any(n.endswith('gripper') and w[n] < p[n] - 2 for p, w in zip([start] + path, path)):
+            raise ValueError('A path cannot close the gripper; close it with its own move once the arm has stopped')
+    return dict(DIRECT_CLIENT.execute_path(path, duration_s, wait=wait, replace=replace), path_waypoints=path)
 
 def normalize_targets(targets, arm=None, head=False):
     result = {}
@@ -133,7 +164,10 @@ TOOLS = [
     tool('robot_get_evidence', 'Read bounded deployment evidence and recording metadata without arbitrary filesystem access.'),
     tool('robot_get_execution', 'Read the bound sole-owner execution status; no motor connection.'),
     tool('robot_stop', 'Independent STOP for the current bound owner: releases all motors and cancels any move in progress, which is never resumed. There is no STOP latch and no owner restart is needed; motors stay released until an explicit robot_set_motor_enable. Never enables motors or restarts an owner.'),
-    tool('robot_move_joint_targets', 'Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'positions': ARM_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'positions', 'duration_s']),
+    tool('robot_move_joint_targets', 'Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'positions': ARM_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}, 'wait': {'type': 'boolean', 'description': 'true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move.'}, 'replace': {'type': 'boolean', 'description': 'true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false.'}}, ['arm', 'positions', 'duration_s']),
+    tool('robot_move_path', 'Continuous right-arm motion through waypoints (pickup profile). Each waypoint lists the joints that change (others carry forward); the arm passes through intermediate waypoints without stopping and settles only at the last. Legs over 341 ticks are split automatically. Use wait=false to watch it with robot_get_motion and cameras while it moves, then robot_halt_motion to stop and hold or a replace=true move to change course. Cannot close the gripper (do that as its own move).', {'arm': {'type': 'string', 'enum': ['right']}, 'waypoints': {'type': 'array', 'minItems': 1, 'maxItems': 12, 'items': ARM_TARGET}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 60}, 'wait': {'type': 'boolean', 'description': 'true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move.'}, 'replace': {'type': 'boolean', 'description': 'true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false.'}}, ['arm', 'waypoints', 'duration_s']),
+    tool('robot_get_motion', 'Live progress of the running or last motion: phase (moving/holding/idle), current waypoint, per-joint current/goal/target ticks and following error, elapsed time, outcome. Cheap; call it repeatedly while a wait=false motion runs.'),
+    tool('robot_halt_motion', 'Stop the running motion now and HOLD where the arm is (the base brakes and releases). Nothing is released, unlike robot_stop. Use it when monitoring shows the motion should not continue; then send a new move.'),
     tool('robot_move_head', 'Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
     tool('robot_set_gripper', 'Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'position_ticks': {'type': 'integer'}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'position_ticks']),
     tool('robot_move_base', 'One guarded base pulse through the sole owner (owner must be started with --wheels): both wheels switch to velocity mode, drive for duration_s, brake, settle, release torque and restore settings; wheels are never left powered. Each wheel is limited to 0.02 m/s (straight: |linear_m_s|<=0.02; turning in place: |angular_rad_s|<=0.16 rad/s, positive turns left), at most 3 s per call (about 6 cm). Requires a fresh phone feed; a stale feed brakes early. Wheel health (status, load<=500, velocity<=400, 10-14 V) is checked every sample; any failure or robot_stop stops the wheels and releases all motors. Allowed while the arm is released or holding, not while an arm move runs. Returns wheel encoder deltas only; slip and actual cart travel are unverified, so check cameras after each pulse.', {'linear_m_s': {'type': 'number', 'minimum': -0.02, 'maximum': 0.02}, 'angular_rad_s': {'type': 'number', 'minimum': -0.16, 'maximum': 0.16}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 3}}, ['linear_m_s', 'angular_rad_s', 'duration_s']),
@@ -473,6 +507,10 @@ def validate_arguments(name, args):
     if set(args) - set(schema['properties']) or set(schema['required']) - set(args):
         raise ValueError('Unexpected or missing tool arguments')
     for key, value in args.items():
+        if name == 'robot_move_path' and key == 'waypoints':
+            if not isinstance(value, list) or not 1 <= len(value) <= 12 or any(not isinstance(w, dict) or not w or any(type(q) is not int for q in w.values()) for w in value):
+                raise ValueError('waypoints must be 1..12 objects of joint name to integer ticks')
+            continue
         if name == 'robot_plan_reach' and key == 'tool_poses':
             validate_poses(value)
             continue
@@ -549,7 +587,13 @@ def dispatch(name, args):
             b=commandable_ranges()[n]
             raise ValueError(f"Gripper target out of bounds: {n}={args['position_ticks']}; valid inclusive range [{b['min_ticks']}, {b['max_ticks']}] ticks; readiness={json.dumps(DIRECT_CLIENT.readiness())}")
     if name == 'robot_move_joint_targets':
-        return execute_targets(args['positions'], args['duration_s']), None
+        return execute_targets(args['positions'], args['duration_s'], wait=args.get('wait', True), replace=args.get('replace', False)), None
+    if name == 'robot_move_path':
+        return execute_path([normalize_targets(w, arm='right') for w in args['waypoints']], args['duration_s'], wait=args.get('wait', True), replace=args.get('replace', False)), None
+    if name == 'robot_get_motion':
+        return DIRECT_CLIENT.motion(), None
+    if name == 'robot_halt_motion':
+        return DIRECT_CLIENT.halt(), None
     if name == 'robot_move_head':
         return DIRECT_CLIENT.execute(args['positions'], args.get('duration_s', 3)), None
     if name == 'robot_move_base':
@@ -635,7 +679,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(400, body)
         except Exception as e:
             body = {'ok': False, 'result': {'error': str(e),
-                'motor_writes': ('not_observed_by_bridge' if reserved and req.get('name') in ('robot_move_joint_targets', 'robot_move_head', 'robot_set_gripper', 'robot_set_motor_enable', 'robot_move_motor_targets') else 0)}}
+                'motor_writes': ('not_observed_by_bridge' if reserved and req.get('name') in ('robot_move_joint_targets', 'robot_move_head', 'robot_set_gripper', 'robot_set_motor_enable', 'robot_move_motor_targets', 'robot_move_path', 'robot_halt_motion', 'robot_move_base') else 0)}}
             if reserved:
                 with CACHE_LOCK: REQUESTS[request_id] = (fingerprint, body)
             return self.send_json(409, body)

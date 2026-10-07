@@ -105,17 +105,19 @@ with tempfile.TemporaryDirectory() as tmp:
   assert json.loads((folder/'command.json').read_text())['op']=='stop';checks+=1
  finally:halt.set();thread.join(1)
 
-# 4. Segmented pickup moves stop at a STOP between segments (execute_targets from gemma_robot_tools, run against a fake client).
+# 4. A long move runs as one continuous owner path (a STOP inside it is handled by the owner); a STOP after the
+# arm part must still cancel the gripper closure that would follow (execute_targets run against a fake client).
 source=Path(__file__).with_name('gemma_robot_tools.py').read_text()
 function=next(node for node in ast.parse(source).body if isinstance(node,ast.FunctionDef) and node.name=='execute_targets')
+grip=names[5]
 class Client:
  cancel_generation=0;calls=[]
- def status(self):return {'execution_profile':'paddle-success-v1','rows':{names[1]:{'Present_Position':2697}}}
- def execute(self,segment,duration):self.calls.append(segment);self.cancel_generation+=1;return {'completed':True,'closure_outcome':'endpoint_settled','readbacks':segment}
+ def status(self):return {'execution_profile':'paddle-success-v1','rows':{names[1]:{'Present_Position':2697},grip:{'Present_Position':1592}}}
+ def execute_path(self,path,duration,wait=True,replace=False):self.calls.append(('path',path));self.cancel_generation+=1;return {'completed':True,'closure_outcome':'endpoint_settled'}
+ def execute(self,segment,duration,wait=True,replace=False):self.calls.append(('move',segment));return {'completed':True,'closure_outcome':'endpoint_settled','readbacks':segment}
 space={'DIRECT_CLIENT':Client(),'paddle_target_segments':paddle_target_segments};exec(compile(ast.Module([function],[]),'gemma_robot_tools.py','exec'),space)
-assert len(paddle_target_segments({names[1]:2000},space['DIRECT_CLIENT'].status()))==3
-try:space['execute_targets']({names[1]:2000},6)
-except RuntimeError as exc:assert 'STOP cancelled remaining pickup segments after 1 of 3' in str(exc)
-else:raise AssertionError('Segments continued after STOP')
-assert len(space['DIRECT_CLIENT'].calls)==1;checks+=1
+try:space['execute_targets']({names[1]:2000,grip:1400},6)
+except RuntimeError as exc:assert 'STOP cancelled the remaining gripper closure' in str(exc)
+else:raise AssertionError('Gripper closure continued after STOP')
+calls=space['DIRECT_CLIENT'].calls;assert len(calls)==1 and calls[0][0]=='path' and len(calls[0][1])==3;checks+=1
 print({'no_stop_latch_checks':checks,'hardware_access':False})

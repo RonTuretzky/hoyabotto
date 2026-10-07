@@ -22,7 +22,7 @@
     "simultaneous": "One robot_move_joint_targets call may move several right-arm joints; they ramp together in 40-tick steps (no faster than every 0.4 s) and arrive on the same step. Moves over 341 ticks are split into <=280-tick segments.",
     "gripper_closing": "A closing gripper is always run alone, after the other joints of the same call. It advances 10 ticks per step, waits 0.3 s stationary, max 1.5 s per step, and stops when stationary closing error reaches 40 ticks: closure_outcome stationary_closure_unverified, grasp_verified false.",
     "following_envelope": "Each joint must stay within 96 ticks of its commanded goal or the owner faults and releases all motors; the move is cancelled and motors stay released until an explicit robot_set_motor_enable.",
-    "segment_budget": "20 motion segments per owner session (settled_short moves count). A STOP does not reset it; only an owner restart does, and a restart needs the arm released, so never run out while holding the paddle."
+    "continuous": "robot_move_joint_targets (wait=false) or robot_move_path start a motion and return; watch it with robot_get_motion and cameras; robot_halt_motion stops and holds; a move with replace=true changes course mid-motion. Intermediate waypoints are passed without stopping. No per-session move limit."
   },
   "settling": {
     "endpoint_settled": "Three fresh samples with velocity below 3, sample change at most 3, Moving flag 0, and endpoint error at most 57 ticks (gripper 30).",
@@ -133,7 +133,7 @@
       "endpoint": 2681
     }
   ],
-  "sequence_note": "Commands were relative to fresh measured positions. Each pilot step is one segment (13 total, budget 20). Steps 12 and 13 can be one simultaneous call. Use robot_set_gripper or a lower gripper target for CLOSE. Check cameras after every segment; locally correct a healthy held pose on an empty miss instead of resetting the arm.",
+  "sequence_note": "Commands were relative to fresh measured positions. Each pilot step is one segment (13 total); there is no per-session move limit. Steps 12 and 13 can be one simultaneous call. Use robot_set_gripper or a lower gripper target for CLOSE. Check cameras after every segment; locally correct a healthy held pose on an empty miss instead of resetting the arm.",
   "cameras": {
     "phone": "Side view of handle and both fingers; required by the owner (receipt time, not capture time).",
     "oak": "Head RGB/depth; raw distorted fallback unless a rectified stream declares itself.",

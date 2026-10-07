@@ -36,3 +36,18 @@ def paddle_target_segments(targets, state):
                     segment[n] = s + round((t - s) * done / spans[n])
             segments.append(segment)
     return segments
+
+
+def expand_path(points, start):
+    """Fill each waypoint to the full joint set (carrying unchanged joints forward from start) and split
+    any leg longer than 341 ticks into <=280-tick pieces, so the executor can run the whole path continuously."""
+    names = sorted(set(start) & {n for p in points for n in p})
+    previous = {n: start[n] for n in names}
+    out = []
+    for point in points:
+        target = {**previous, **{n: point[n] for n in point if n in previous}}
+        pieces = max(1, max(0 if abs(target[n] - previous[n]) <= PADDLE_MAX_SEGMENT_TICKS else -(-abs(target[n] - previous[n]) // PADDLE_SEGMENT_TICKS) for n in names))
+        for i in range(1, pieces + 1):
+            out.append({n: previous[n] + round((target[n] - previous[n]) * i / pieces) for n in names})
+        previous = target
+    return out

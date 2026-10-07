@@ -54,3 +54,14 @@ Not yet run on hardware; `test_wheel_pulse.py` covers it on fake hardware. `whee
 
 - **Enable near a limit.** Enable used to require every joint to sit 40 ticks inside its saved range. After a release, the shoulder sagged near its limit, so the arm could never be enabled to drive itself back. Now a joint only needs to be 4 ticks inside its range to enable and start a move. Targets and corrected goals still stay 40 ticks inside, so a move from the edge can only head inward. A joint reading beyond its range still has to be moved by hand.
 - **Wheel release check.** The first API base pulse drove and braked correctly but then faulted with "Wheels rolling after release". The after-release check required every Present_Velocity reading to be ≤ 5, and released Feetech servos report spurious velocity while stationary (STATUS.md, right elbow "velocity50 despite stable position"). The check now judges rolling by encoder position only: more than 5 ticks over 5 released samples. If it fires, the error carries the measured position change and velocity readings.
+
+## Continuous, monitored motion; no move limit (2026-10-07)
+
+Fake-hardware tests only (`test_continuous_motion.py`).
+
+- **No per-session move limit.** The 20-segment budget is gone. Moves are still counted in `pickup_motion_segments_used`, for information.
+- **Waypoint paths.** A command can carry `waypoints` instead of `positions`. The ramp passes through intermediate waypoints without settling, at the same 40-tick / ≥0.4 s cadence, and settles only at the last one, with corrections and `settled_short` as before. Each leg is ≤ 341 ticks per joint, with up to 24 waypoints, a duration of at most 60 s and a deadline of at most 80 s. A path cannot close the gripper. `robot_move_joint_targets` sends a move longer than 341 ticks as one continuous path instead of separate stop-and-go segments. `robot_move_path` takes explicit waypoints and fills joints that don't change.
+- **Non-blocking moves.** With `wait=false` the move returns as soon as the owner accepts it. `robot_get_motion` reports live progress: phase, waypoint, per-joint current/goal/target and following error, elapsed time, outcome.
+- **Halt.** `robot_halt_motion` (owner op `halt`) stops advancing and holds the last commanded goals, at most one 40-tick step ahead of the arm. The outcome is `halted`, nothing is released, and the 120 s hold renews. On the base it brakes the pulse early.
+- **Change course.** A move with `replace=true` while an arm motion runs halts it and starts the new one from the held goals, with no release in between. Without `replace`, a second move is refused while one runs.
+- All the existing per-tick checks still run during monitored motion: following envelope, health, watchdog, camera gate, STOP.

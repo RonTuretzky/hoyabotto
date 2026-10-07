@@ -21,7 +21,7 @@ WORK=ROOT/'work';SESSION=WORK/'gemma-hardware-session';STATUS=SESSION/'status.js
 OWNER_RECORD=WORK/'gemma-hardware-owner-process.json';API_RECORD=WORK/'gemma-robot-tools-process.json'
 OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api.log'
 INSTALL=['wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py']
-TESTS=['test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
+TESTS=['test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py']
 OWNER_ARGS=['--right-arm-only','--paddle-profile','--wheels'];API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
 CAPTURE_SOURCE=BRIDGE.parents[1]/'session-archive-2026-10-05/capture-single.swift'
@@ -90,16 +90,22 @@ def ensure_wrist_publishers(dry_run):
   deadline=time.time()+8
   while time.time()<deadline and proc.poll() is None and not wrist_fresh(name):time.sleep(.2)
   if wrist_fresh(name):say(f'{name}: publisher pid {proc.pid} streaming to {WRIST_STREAM}')
-  else:say(f'WARNING {name}: no fresh frames after 8 s (exit code {proc.poll()}); see {WRIST_STREAM/(name+".log")}. Run this script from Terminal, which has camera permission.')
+  else:
+   log=(WRIST_STREAM/(name+'.log'));tail=log.read_text(errors='replace').strip().splitlines()[-3:] if log.exists() else []
+   say(f'WARNING {name}: no fresh frames after 8 s (exit code {proc.poll()}). Publisher said: {" | ".join(tail) or "nothing"}. '
+       'Camera access needs Terminal: open Terminal.app yourself and run ./restart-robot-server.sh --cameras-only')
 
 def main():
  parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
  parser.add_argument('--dry-run',action='store_true',help='run tests and show what would change; stop nothing')
+ parser.add_argument('--cameras-only',action='store_true',help='only start missing wrist-camera publishers (run from Terminal); the server is not touched')
  parser.add_argument('--no-wheels',action='store_true',help='start the owner without base drive (robot_move_base refused)')
  parser.add_argument('--no-wrist-cams',action='store_true',help='do not start wrist-camera publishers')
  parser.add_argument('--release-holding',action='store_true',help='allow stopping an owner that is holding motors (the arm will lose torque; support it first)')
  args=parser.parse_args()
  if not WORK.is_dir():fail(f'{WORK} not found; set XLEROBOT_WORK_ROOT')
+ if args.cameras_only:
+  ensure_wrist_publishers(False);print(json.dumps({'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS}},indent=2));return
  if not Path(PYTHON).exists():fail(f'{PYTHON} not found; set XLEROBOT_PYTHON')
  run_tests();changed=show_changes()
  owners=processes('gemma_hardware_owner.py');apis=processes('gemma_robot_tools.py');status=read_status()

@@ -31,7 +31,7 @@ class HardwareOwner:
   if wheels and not read_only and len(self.wheel_names)!=2:raise ValueError('Base drive requires both wheel motors on the owner buses')
   self.enabled=set();self.old={};self.goals={};self.rows={};self.limits={};self.last_tick=clock();self.lease=clock()+30
   self.started=wall();self.engine=None;self.current_command=None
-  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':20 if paddle_profile else None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','base_drive_supported':bool(self.wheel_names),'base_drive_limits':{'max_wheel_m_s':.02,'max_duration_s':3.0} if self.wheel_names else None,'motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
+  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','base_drive_supported':bool(self.wheel_names),'base_drive_limits':{'max_wheel_m_s':.02,'max_duration_s':3.0} if self.wheel_names else None,'motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
  def read(self,n,f):return int(self.by_name[n].read(f,n,normalize=False,num_retry=2))
  def write(self,n,f,v):
   self.by_name[n].write(f,n,v,normalize=False,num_retry=2);self.state['motor_writes']+=1
@@ -213,6 +213,15 @@ class HardwareOwner:
    if any(applied[f]!=v for f,v in {'Torque_Limit':250,'Goal_Velocity':100,'Acceleration':10,'P_Coefficient':32,'Operating_Mode':0}.items()):raise RuntimeError('Probe applied settings differ from authorized values')
    self.engine=probe;self.current_command=c['id'];self.state.update(probe.start(c));self.last_tick=self.clock();self.lease=self.clock()+30;self.publish();return
   if op=='hold':self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['completed']=c['id'];return
+  if op=='halt':
+   # Stop advancing and hold where the arm is (wheels: brake and release). Unlike stop, nothing is released.
+   if self.engine and self.engine.active:
+    if self.driving():self.engine.stopped_early='halted by operator'
+    elif hasattr(self.engine,'halt'):
+     update=self.engine.halt({n:self.rows[n]['Present_Position'] for n in self.engine.joints});self.state.update(update,halted_command_id=self.current_command)
+     if self.paddle_profile:self.lease=self.clock()+120
+    else:raise ValueError('The active motion cannot be halted; use stop')
+   self.state['completed']=c['id'];self.publish();return
   if op=='base_pulse':
    if not self.wheel_names:raise ValueError('UNSUPPORTED_OWNER_SCOPE: owner started without --wheels; base drive disabled')
    if self.engine and self.engine.active:raise ValueError('Previous motion has not completed')
@@ -221,8 +230,14 @@ class HardwareOwner:
    self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.last_tick=self.clock();self.publish();return
   if op not in ('direct_joint','gripper_target'):raise ValueError('Unsupported hardware command')
   positions=c.get('positions')
+  if c.get('waypoints') is not None:
+   if not self.paddle_profile or op!='direct_joint':raise ValueError('Waypoint paths require the pickup profile')
+   positions=c['waypoints'][0] if isinstance(c['waypoints'],list) and c['waypoints'] else None
   if not isinstance(positions,dict) or not positions or not set(positions)<=self.enabled or not set(positions)<=set(self.position_names):raise ValueError('Targets require already-enabled arm/head motors; wheels do not accept position-motion requests')
-  if self.engine and self.engine.active:raise ValueError('Previous motion has not completed')
+  if self.engine and self.engine.active:
+   # replace=true swaps a running arm motion for this one, starting from the held goals (no stop in between).
+   if not c.get('replace') or self.driving() or not hasattr(self.engine,'halt'):raise ValueError('Previous motion has not completed; send replace=true to change it, or halt first')
+   replaced=self.current_command;self.state.update(self.engine.halt({n:self.rows[n]['Present_Position'] for n in self.engine.joints}),replaced_command_id=replaced)
   executor=DirectJointExecutor
   if self.paddle_profile:
    from paddle_joint_executor import PaddleJointExecutor
@@ -234,7 +249,6 @@ class HardwareOwner:
   current={n:self.rows[n]['Present_Position'] for n in positions}
   if self.paddle_profile:
    if set(self.position_names)!=self.enabled:raise ValueError('Pickup requires all six right-arm motors explicitly enabled')
-   if self.motion_count>=20:raise ValueError('Pickup session motion budget exhausted (20 segments)')
    if not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
   update=candidate.start(c,current,session_started=self.started,**({'held_goals':self.goals} if self.paddle_profile else {}))
   if self.paddle_profile:self.motion_count+=1

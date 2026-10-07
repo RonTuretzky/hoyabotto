@@ -426,6 +426,14 @@
             "type": "number",
             "exclusiveMinimum": 0,
             "maximum": 25
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move."
+          },
+          "replace": {
+            "type": "boolean",
+            "description": "true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false."
           }
         },
         "required": [
@@ -838,6 +846,160 @@
         "required": [
           "arm"
         ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_move_path",
+      "description": "Continuous right-arm motion through waypoints (pickup profile). Each waypoint lists the joints that change (others carry forward); the arm passes through intermediate waypoints without stopping and settles only at the last. Legs over 341 ticks are split automatically. Use wait=false to watch it with robot_get_motion and cameras while it moves, then robot_halt_motion to stop and hold or a replace=true move to change course. Cannot close the gripper (do that as its own move).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "arm": {
+            "type": "string",
+            "enum": [
+              "right"
+            ]
+          },
+          "waypoints": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "description": "Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {\"right_arm_shoulder_lift\": 2000}; select targets from fresh state and commandable_ranges.",
+              "minProperties": 1,
+              "properties": {
+                "left_arm_shoulder_pan": {
+                  "type": "integer",
+                  "minimum": 963,
+                  "maximum": 3131
+                },
+                "left_arm_shoulder_lift": {
+                  "type": "integer",
+                  "minimum": 859,
+                  "maximum": 3235
+                },
+                "left_arm_elbow_flex": {
+                  "type": "integer",
+                  "minimum": 946,
+                  "maximum": 3148
+                },
+                "left_arm_wrist_flex": {
+                  "type": "integer",
+                  "minimum": 902,
+                  "maximum": 3192
+                },
+                "left_arm_wrist_roll": {
+                  "type": "integer",
+                  "minimum": 119,
+                  "maximum": 3975
+                },
+                "left_arm_gripper": {
+                  "type": "integer",
+                  "minimum": 1279,
+                  "maximum": 2815
+                },
+                "right_arm_shoulder_pan": {
+                  "type": "integer",
+                  "minimum": 683,
+                  "maximum": 3411
+                },
+                "right_arm_shoulder_lift": {
+                  "type": "integer",
+                  "minimum": 830,
+                  "maximum": 3264
+                },
+                "right_arm_elbow_flex": {
+                  "type": "integer",
+                  "minimum": 936,
+                  "maximum": 3158
+                },
+                "right_arm_wrist_flex": {
+                  "type": "integer",
+                  "minimum": 933,
+                  "maximum": 3161
+                },
+                "right_arm_wrist_roll": {
+                  "type": "integer",
+                  "minimum": 125,
+                  "maximum": 3969
+                },
+                "right_arm_gripper": {
+                  "type": "integer",
+                  "minimum": 1274,
+                  "maximum": 2820
+                },
+                "elbow_flex": {
+                  "type": "integer"
+                },
+                "gripper": {
+                  "type": "integer"
+                },
+                "shoulder_lift": {
+                  "type": "integer"
+                },
+                "shoulder_pan": {
+                  "type": "integer"
+                },
+                "wrist_flex": {
+                  "type": "integer"
+                },
+                "wrist_roll": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "duration_s": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 60
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move."
+          },
+          "replace": {
+            "type": "boolean",
+            "description": "true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false."
+          }
+        },
+        "required": [
+          "arm",
+          "waypoints",
+          "duration_s"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_get_motion",
+      "description": "Live progress of the running or last motion: phase (moving/holding/idle), current waypoint, per-joint current/goal/target ticks and following error, elapsed time, outcome. Cheap; call it repeatedly while a wait=false motion runs.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "robot_halt_motion",
+      "description": "Stop the running motion now and HOLD where the arm is (the base brakes and releases). Nothing is released, unlike robot_stop. Use it when monitoring shows the motion should not continue; then send a new move.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
         "additionalProperties": false
       }
     }
