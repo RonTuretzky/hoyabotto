@@ -280,7 +280,8 @@ def run(args):
                         fallback_support_heights=tuple(h for h in (.115, .117) if h > args.support_height)
                         if getattr(args, 'close_majors_after_open_claw', False) else (),
                         support_half_spans=(.060, .056, .052) if getattr(args, 'close_majors_after_open_claw', False)
-                        else (.052,))
+                        else (.052,),
+                        support_samples=5 if getattr(args, 'close_majors_after_open_claw', False) else 1)
                     if getattr(args, 'close_majors_after_open_claw', False):
                         from carton.folding_majors_over_shorts import close_majors_over_held_shorts
                         if args.majors_view_camera != 'none':

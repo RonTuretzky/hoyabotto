@@ -171,7 +171,8 @@ def right_support_evidence(model, data):
 
 
 def transfer_to_open_claw(sim, controller, *, capture=False, observe_seconds=5.,
-                          support_height=.1094, fallback_support_heights=(), support_half_spans=(.052,)):
+                          support_height=.1094, fallback_support_heights=(), support_half_spans=(.052,),
+                          support_samples=1):
     """Attempt a two-finger bridge, then withdraw the left supporting hand.
 
     Joint targets are solved from fresh visual carton registration and original
@@ -338,6 +339,19 @@ def transfer_to_open_claw(sim, controller, *, capture=False, observe_seconds=5.,
     c.require_folded(reading, ['short_left', 'short_right'])
     support = right_support_evidence(sim.model, sim.data)
     report['support_checks'].append(support)
+    if not support['both_loaded'] and support_samples > 1:
+        # A resting panel's contact chatters at a few hundredths of a millimetre,
+        # so one instant can show no load. Sample more instants while the
+        # physics runs; each short must be loaded by the right claw in one.
+        loaded = {flap for flap, force in support['forces_N'].items() if force > .02}
+        for _ in range(support_samples - 1):
+            event = sim.move({}, .1, 'Sample right-claw support after left-hand withdrawal', capture=capture)
+            verify_physics(event)
+            sample = right_support_evidence(sim.model, sim.data)
+            report['support_checks'].append(sample)
+            loaded |= {flap for flap, force in sample['forces_N'].items() if force > .02}
+        support = dict(support, both_loaded=loaded == {'short_left', 'short_right'},
+                       sampled_instants=support_samples, loaded_in_any_sample=sorted(loaded))
     if not support['both_loaded']:
         raise ValueError('Right-claw support did not survive left-hand withdrawal')
     report['both_shorts_retained_by_right_claw'] = True

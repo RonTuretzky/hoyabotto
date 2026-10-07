@@ -347,7 +347,8 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
         outward = -np.array([0., _sign(flap)*math.cos(t), -math.sin(t)])
         up = np.array([0., 0., 1.])
         pre, q_pre = _clear_pre(sim, ik, side, contact, choice['q'], c.box,
-                                [tuple(d*outward + h*up) for h in (0., .01, .02) for d in (.02, .015, .01, .025)])
+                                [tuple(d*outward + h*up) for h in (0., .01, .02, .03, .04)
+                                 for d in (.02, .015, .01, .025, .035)])
         execute_path(sim, side, JointPathPlanner(sim, side, clearance=.006).plan(q_pre),
                      f'Reach outside {flap} with {side} claw', capture=capture)
         gates(sim.events[-1], f'{side} free transit to {flap}')

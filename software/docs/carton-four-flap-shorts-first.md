@@ -1,30 +1,36 @@
 # Four-flap closure, shorts first — 7 October 2026
 
 **Simulation only. The two bare claws close all four flaps and hold them in
-14 of 20 seeds (70%).** No tape, no hands-clear retention, no hardware. Both
+24 of 30 seeds (80%).** No tape, no hands-clear retention, no hardware. Both
 large flaps are still held by the jaws at the end; releasing them would let
 them spring open (hinge rest angle 0°).
 
 ## Result
 
-Batches `four-flap-close-19` (seeds 0–9) and `four-flap-close-20` (seeds
-10–19), under `/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/shorts-first/`:
+Batch `four-flap-close-28` (seeds 0–29), under
+`/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/shorts-first/`:
 
-- **14/20 close and hold all four flaps.** Final independent angles: shorts
-  89.7–93.0°, near 87.3–90.4°, far 86.6–89.8°. Carton motion ≤ 9.7 mm and
-  ≤ 1.0°. All 14 applied-contact audits score `CONTACT_ONLY_CLEAR`.
-- Failures (6/20):
+- **24/30 close and hold all four flaps.** Final independent angles: shorts
+  89.7–106.9° (a closing major can press them below flat into the empty
+  carton), near 87.9–90.8°, far 87.5–90.7°. Carton motion ≤ 12.8 mm and
+  ≤ 2.2°. All 24 applied-contact audits score `CONTACT_ONLY_CLEAR`.
+- Failures (6/30):
 
 | seeds | stage | stop |
 |---|---|---|
-| 15, 16, 18 | original left-minor pinch (prefix) | fixed jaw lands on the short's edge; see "pinch clearance" below |
-| 7 | final far push | far overshoots to 91° and presses the shorts to 112° |
-| 8 | final far push | carton moved over 15 mm |
-| 10 | far pin hook | right forearm touches the outward near flap |
+| 4, 13 | far pin (A) | right forearm, holding the shorts, touches the outward near flap |
+| 20, 24 | final far push (E) | carton moved over 15 mm |
+| 28 | final far push (E) | robot/flap penetration over 1 mm |
+| 23 | near push (D) | no clear contact on the near flap |
 
-A batch with `--pinch-clearance -.007` (`four-flap-close-23`, seeds 0–19)
-also gives 14/20: it fixes seeds 15/16/18 but loses seeds 4/8 to the
-open-claw hand-off, so the original −0.002 stays the default.
+Changes that took the rate from 1/5 to 24/30, each traced to an executed
+failure: a wider open-claw span (below), sampling the open-claw support over
+0.5 s (a resting panel's contact chatters, so one instant could read no
+load), a left-minor pinch tip 4.5 mm off the panel midplane instead of 2 mm
+(the fixed jaw otherwise landed on the short's edge at 120 mm base height),
+regrips and hooks on the far edge, closing the right claw in the air, near
+contacts in the gap between the shorts, and wider pre-contact searches.
+Holding the near flap at −17° instead of −15° drops the rate to 9/20.
 
 ## Sequence
 
@@ -98,14 +104,14 @@ PYTHONPATH=. .venv/bin/python tools/run_claw_sweep.py \
   --simulation-root /absolute/path/to/gemma-xlerobot --out /absolute/new/batch \
   --workers 4 --seeds 0 1 2 3 4 5 6 7 8 9 --near-targets -15 --support-heights .113 \
   --close-majors-after-open-claw --majors-far-target 34 --base-height .12 \
-  --far-open-degrees 1.0 --extra-wall-markers
+  --far-open-degrees 1.0 --extra-wall-markers --pinch-clearance -.0045
 ```
 
 About 70 s per trial; score contacts with `tools/score_folding_contacts.py --run <trial>/run`.
 
 ## Still open
 
-- Remaining failures above (prefix pinch margin, far overshoot, carton motion).
+- Remaining failures above (forearm/near-flap clearance during the far pin, carton motion in the final far push).
 - Taping and hands-clear retention: the majors spring open when released.
 - Physical validation: hinge stiffness, friction, cardboard thickness, camera
   noise and the station dimensions are all assumptions.
