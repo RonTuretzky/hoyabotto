@@ -19,7 +19,8 @@ def paths(root):
     return {'work':work,'record':work/'deploy.json','jobs':work/'deploy-jobs',
             'logs':{'owner':work/'gemma-hardware-owner.log','api':work/'qwen-server-recovery/api.log',
                     'relay':work/'qwen-server-recovery/relay.log','redeploy':work/'redeploy.log',
-                    'wrist_right':work/'wrist-camera-stream/right_wrist.log','wrist_left':work/'wrist-camera-stream/left_wrist.log'}}
+                    'wrist_right':work/'wrist-camera-stream/right_wrist.log','wrist_left':work/'wrist-camera-stream/left_wrist.log',
+                    'oak':work/'oak-stream.log'}}
 
 
 def tail(path,lines=80):
