@@ -14,6 +14,10 @@ import cv2
 import numpy as np
 
 
+# apriltag-geometry.json sections consumed elsewhere (farm/perception/paddle_target.py).
+NON_MEASUREMENT_SECTIONS = ("paddle_grasp",)
+
+
 def fingerprint(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
@@ -151,7 +155,10 @@ class TagGeometry:
         if not isinstance(config.get("camera_ids"), list) or not config["camera_ids"] or any(
                 not isinstance(c, str) or not c for c in config["camera_ids"]):
             raise ValueError("Bind metric geometry to explicit camera identities")
-        self.fingerprint = fingerprint(self.config)
+        # Owner-measured grasp offsets do not change any tag measurement; keep
+        # them out of the fingerprint so measuring them does not invalidate a
+        # registration bound to tag_geometry_sha256.
+        self.fingerprint = fingerprint({k: v for k, v in self.config.items() if k not in NON_MEASUREMENT_SECTIONS})
 
     def measure(self, tags, meta, image, shape):
         out = {"status": "UNAVAILABLE", "coordinate_frame": None, "units": "mm",
