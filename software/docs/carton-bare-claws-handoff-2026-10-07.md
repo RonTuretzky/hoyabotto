@@ -91,6 +91,11 @@ while presentation rendering/compression is skipped. Perception still renders
 its RGB-D inputs. The trace-only check exactly matched all 563 state/time pairs
 of a video-recorded run. Three contact-audited near holds completed in 28.42 wall
 seconds with a 2.90 worker-overlap factor; that is not a controlled speedup ratio.
+For the later three-seed released-far profile, an exact-source sequential
+comparison took 95.35 seconds versus 53.37 seconds with three workers: an
+observed 1.79× speedup. All 2,465 timestamped state records matched exactly.
+This is one same-host comparison under variable background load, not a general
+speed guarantee. See `evidence/carton-parallel-benchmark-20261007.json`.
 
 Score applied contact evidence independently:
 

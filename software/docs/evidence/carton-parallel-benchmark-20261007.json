@@ -1,0 +1,40 @@
+{
+  "simulation_only": true,
+  "neural_network_training": false,
+  "full_task_complete": false,
+  "parallel_batch": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/partial-far-passive-release-02",
+  "serial_batch": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/far-release-serial-benchmark-01",
+  "identical_frozen_sources": true,
+  "parallel_workers": 3,
+  "serial_workers": 1,
+  "parallel_wall_seconds": 53.37103379203472,
+  "serial_wall_seconds": 95.34899970807601,
+  "observed_speedup_ratio": 1.7865308751487257,
+  "caveat": "Single same-host comparison under variable background load; not a hardware-independent speed guarantee.",
+  "trials": [
+    {
+      "seed": 0,
+      "frame_count": 780,
+      "all_timestamped_states_equal": true,
+      "final_angles_equal": true,
+      "parallel_result_sha256": "df1a7017ed3fca72f9f25adebb8c0a3a25001131df08dcbdbd2effdb7bb8b862",
+      "serial_result_sha256": "ed3cfe07d9f486067ba790dbd918e78b72df5f31ba3a7c8b34bc4a3e4beb7f1c"
+    },
+    {
+      "seed": 1,
+      "frame_count": 836,
+      "all_timestamped_states_equal": true,
+      "final_angles_equal": true,
+      "parallel_result_sha256": "7626bca82f05e8087d77692d1fc9028ac0a18b97ed3a79a0635684d30179e352",
+      "serial_result_sha256": "13ae4242e06d870ab30f000d3d3fe26f8902e7575b6d77979e062322bc6fe410"
+    },
+    {
+      "seed": 2,
+      "frame_count": 849,
+      "all_timestamped_states_equal": true,
+      "final_angles_equal": true,
+      "parallel_result_sha256": "d9ba07190ab8471a15aca5b4de0a2feaf6f3eede6efc5e0207e2cf29490ddb25",
+      "serial_result_sha256": "2198e50a63fb1ad52b4709ed76125ce22f0c9f212b488006bcf1feae630faac7"
+    }
+  ]
+}
