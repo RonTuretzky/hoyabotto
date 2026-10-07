@@ -65,3 +65,11 @@ Fake-hardware tests only (`test_continuous_motion.py`).
 - **Halt.** `robot_halt_motion` (owner op `halt`) stops advancing and holds the last commanded goals, at most one 40-tick step ahead of the arm. The outcome is `halted`, nothing is released, and the 120 s hold renews. On the base it brakes the pulse early.
 - **Change course.** A move with `replace=true` while an arm motion runs halts it and starts the new one from the held goals, with no release in between. Without `replace`, a second move is refused while one runs.
 - All the existing per-tick checks still run during monitored motion: following envelope, health, watchdog, camera gate, STOP.
+
+## Contact guard (2026-10-07)
+
+There is no self-collision model: per-joint calibration ranges cannot stop the arm reaching into the mast, head, base or other arm through a combination of joints. As a stopgap, `test_contact_guard.py` covers this:
+- **Contact halt.** If an arm joint (not the gripper) shows |Present_Load| ≥ 600 for two fresh samples while lagging ≥ 20 ticks behind its command, the motion ends `contact_halt`. That joint's goal is set to its present position, so it stops pushing; the others hold. Nothing is released, and the 120 s hold renews. The result names the joint and its load. 600 is a first guess (75% of the 800 release limit) to tune from logs.
+- **Trade-off.** If the high load was gravity rather than contact, the joint sags by its following error after the back-off.
+- **Corrections.** A joint at ≥ 600 load gets no settle correction. A joint that did not move after a correction gets no further ones, and is reported in `possible_contact_joints`.
+- The 800-load and 96-tick release limits are unchanged and still catch anything faster.

@@ -28,7 +28,8 @@
     "endpoint_settled": "Three fresh samples with velocity below 3, sample change at most 3, Moving flag 0, and endpoint error at most 57 ticks (gripper 30).",
     "corrections": "If a joint comes to rest short of target (gravity sag), the owner overdrives its held goal by the measured residual: at most 40 ticks per write, at most 57 ticks beyond target, never more than 90 ticks from the present position, at most 3 corrections, within an extra 5 s.",
     "settled_short": "If a joint is still short at rest after corrections, the move returns completed=false, endpoint_reached=false, closure_outcome=settled_short, settle_residual_ticks per joint, motors holding (no STOP). Re-plan from the readbacks or call robot_stop.",
-    "deadline_fault": "A joint that never comes to rest by the deadline still faults: all motors released and the move cancelled, never resumed. There is no latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable."
+    "deadline_fault": "A joint that never comes to rest by the deadline still faults: all motors released and the move cancelled, never resumed. There is no latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable.",
+    "contact_halt": "No self-collision model exists. Load >= 600 on an arm joint lagging >= 20 ticks behind its command is treated as contact: the motion ends closure_outcome=contact_halt, that joint stops pushing and holds, nothing is released. Look at the cameras; do not resend the same target."
   },
   "observed_start_pose_ticks": {
     "shoulder_pan": 2122,

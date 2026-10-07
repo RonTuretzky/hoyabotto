@@ -10,6 +10,11 @@ A command may carry 'waypoints' (a list of target sets) instead of 'positions'. 
 through intermediate waypoints without stopping and settles only at the last one, so a long
 motion is continuous. halt() stops advancing at any time and holds the last commanded goals;
 the owner uses it for robot_halt_motion and for replacing a running motion with a new one.
+
+Contact guard (arm joints; the gripper keeps its close-until-resistance logic): there is no self-collision
+model, so a sustained high load on a joint lagging >= 20 ticks behind its command is treated as contact. The joint's goal is
+pulled back to where it is (it stops pushing), the others hold, and the motion ends 'contact_halt' without
+releasing anything. Settle corrections never push a loaded joint, nor one that did not move after a correction.
 """
 import math,time
 ENVELOPE=96          # max |present - commanded goal| at any tick
@@ -23,6 +28,8 @@ CORRECTION_ROOM=90   # a correction never commands more than this from the prese
 MAX_OVERDRIVE=57     # max |held goal - target| reached through corrections
 MAX_CORRECTIONS=3
 CORRECTION_BUDGET_S=5
+CONTACT_LOAD=600     # arm-joint |Present_Load| treated as contact (fault/release stays at 800)
+CONTACT_PUSH_TICKS=20
 def tolerance(n):return 30 if n.endswith('gripper') else 57
 class PaddleJointExecutor:
  def __init__(self,joints,ranges,write,clock=time.monotonic,wall=time.time):
@@ -66,6 +73,7 @@ class PaddleJointExecutor:
   self.bias=dict.fromkeys(self.joints,0);self.corrections=dict.fromkeys(self.joints,0)
   self.exhausted={n:n.endswith('gripper') for n in self.joints} # grippers get no corrections
   self.stable=dict.fromkeys(self.joints,0);self.still=dict.fromkeys(self.joints,0);self.last_q={n:current[n] for n in self.joints}
+  self.loaded=dict.fromkeys(self.joints,0);self.correction_from={};self.possible_contact=set()
   self.set_leg(0)
   self.first_step=True;self.started=self.last_tick=self.last_write=self.clock();self.quiet_since=None;self.last_sample=None;self.command_id=c['id'];self.active=True
   self.progress_q={n:current[n] for n in self.joints};self.progress_at=dict.fromkeys(self.joints,self.started)
@@ -93,7 +101,7 @@ class PaddleJointExecutor:
  def finish(self,current,outcome):
   self.active=False
   residual={n:current[n]-self.final_target[n] for n in self.joints}
-  return {'completed':self.command_id,'phase':'holding','direct_actual_positions':current,'grasp_verified':False,'closure_outcome':outcome,'endpoint_reached':outcome=='endpoint_settled','settle_residual_ticks':residual,'direct_settle_diagnostics':self.diagnostics}
+  return {'completed':self.command_id,'phase':'holding','direct_actual_positions':current,'grasp_verified':False,'closure_outcome':outcome,'endpoint_reached':outcome=='endpoint_settled','settle_residual_ticks':residual,'possible_contact_joints':sorted(self.possible_contact),'contact':None,'direct_settle_diagnostics':self.diagnostics}
  def tick(self,current,telemetry_at,rows=None):
   now=self.clock();rows=rows or {}
   if not 0<=self.wall()-telemetry_at<=1.0 or not 0<=now-self.last_tick<=1.0:raise RuntimeError('Pickup telemetry/watchdog expired')
@@ -115,8 +123,25 @@ class PaddleJointExecutor:
    self.last_sample=telemetry_at
   c=self.joints[0]
   contact_stop=self.contact and self.quiet_since is not None and now-self.quiet_since>=.3 and current[c]-self.goal[c]>=40
-  self.diagnostics={'leg':self.leg+1,'legs':len(self.legs),'elapsed_s':round(now-self.started,2),'final_targets':self.final_target,'joints':{n:{'goal_ticks':self.goal[n],'current_ticks':current[n],'target_ticks':self.targets[n],'following_error_ticks':current[n]-self.goal[n],'stable_samples':self.stable[n],'still_samples':self.still[n],'overdrive_ticks':self.bias[n],'corrections':self.corrections[n]} for n in self.joints},'contact_stop':contact_stop}
+  self.diagnostics={'leg':self.leg+1,'legs':len(self.legs),'elapsed_s':round(now-self.started,2),'final_targets':self.final_target,'joints':{n:{'goal_ticks':self.goal[n],'current_ticks':current[n],'target_ticks':self.targets[n],'following_error_ticks':current[n]-self.goal[n],'stable_samples':self.stable[n],'still_samples':self.still[n],'overdrive_ticks':self.bias[n],'corrections':self.corrections[n],'load':rows.get(n,{}).get('Present_Load')} for n in self.joints},'contact_stop':contact_stop}
   self.samples.append(dict(self.diagnostics,t=now));self.samples=self.samples[-128:]
+  if not self.contact:
+   hits={}
+   for n in self.joints:
+    if n.endswith('gripper'):continue
+    load=abs(rows.get(n,{}).get('Present_Load',0))
+    if fresh:self.loaded[n]=self.loaded[n]+1 if load>=CONTACT_LOAD else 0
+    # Lagging >=20 ticks behind its command under high load: blocked. (A loaded joint that keeps up is not.)
+    if self.loaded[n]>=2 and abs(self.goal[n]-current[n])>=CONTACT_PUSH_TICKS:hits[n]=load
+   if hits:
+    backoff={}
+    for n in hits:
+     lo,hi=self.ranges[n];backoff[n]=max(lo+EDGE,min(hi-EDGE,current[n]))
+    self.write(backoff);self.goal.update(backoff)
+    out=self.finish(current,'contact_halt')
+    out['contact']={n:{'load':hits[n],'position_ticks':current[n]} for n in hits}
+    out['contact_note']=f'Load >= {CONTACT_LOAD} on a joint lagging >= {CONTACT_PUSH_TICKS} ticks behind its command: treated as contact with something (there is no self-collision model). That joint stopped pushing and holds where it is; nothing was released.'
+    return out
   # Pass through intermediate waypoints without stopping: once the ramp reaches one, aim at the next.
   if self.leg<len(self.legs)-1 and all(self.goal[n]==self.targets[n] for n in self.joints):self.set_leg(self.leg+1)
   final=self.leg==len(self.legs)-1
@@ -127,7 +152,12 @@ class PaddleJointExecutor:
   if not self.contact and final and ramp_done and now-self.last_write>=self.interval and all(self.still[n]>=3 for n in self.joints):
    # Everything is at rest: correct joints that are not settled, or finish if none can be corrected further.
    pending=[n for n in self.joints if self.stable[n]<3]
+   for n in pending:
+    load=abs(rows.get(n,{}).get('Present_Load',0))
+    if not self.exhausted[n] and (load>=CONTACT_LOAD or (n in self.correction_from and abs(current[n]-self.correction_from[n])<3)):
+     self.exhausted[n]=True;self.possible_contact.add(n)  # do not push into something
    writes={n:g for n in pending if not self.exhausted[n] and (g:=self.correct(n,current[n])) is not None}
+   self.correction_from.update({n:current[n] for n in writes})
    if writes:
     self.write(writes);self.last_write=now
     for n in writes:self.stable[n]=self.still[n]=0

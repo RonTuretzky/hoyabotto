@@ -282,9 +282,9 @@ class DirectJointClient:
                         else:
                             final=(request.get('waypoints') or [request.get('positions')])[-1]
                             measured={n:current['rows'][n]['Present_Position'] for n in final}
-                            if current.get('closure_outcome')=='halted':
-                                return {'accepted':True,'completed':False,'halted':True,'endpoint_reached':False,'closure_outcome':'halted','holding':True,'command_id':command_id,'readbacks':measured,
-                                    'settle_residual_ticks':current.get('settle_residual_ticks'),'mode':'direct_joint'}
+                            if current.get('closure_outcome') in ('halted','contact_halt'):
+                                return {'accepted':True,'completed':False,'halted':True,'endpoint_reached':False,'closure_outcome':current['closure_outcome'],'holding':True,'command_id':command_id,'readbacks':measured,
+                                    'settle_residual_ticks':current.get('settle_residual_ticks'),'contact':current.get('contact'),'contact_note':current.get('contact_note'),'mode':'direct_joint'}
                             if current.get('execution_profile')=='paddle-success-v1' and current.get('closure_outcome')=='settled_short':
                                 # At rest short of target after bounded corrections: holding, not a success and not a STOP.
                                 if any(abs(q-final[n])>96+57 for n,q in measured.items()):raise RuntimeError('Pickup settled_short contradicts measured endpoint')
