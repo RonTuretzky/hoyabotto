@@ -1,3 +1,10 @@
+## Read-only paddle target tool (software only) — 7 October 2026
+
+- Added `robot_get_paddle_target` to the chat-side calibration wrapper (`farm/perception/paddle_target.py`), next to `robot_get_registered_tags`. It returns the paddle tag 3 pose in the right arm base, with uncertainty, frame IDs and age. It refuses with the registered read's own reason when no passing registration exists, and refuses frames that are too old.
+- The grasp point, approach direction and jaw tool poses stay withheld until the owner records `paddle_grasp` in `.private/apriltag-geometry.json`. That means the tag-3-to-handle offset (printed tag frame, mm) and `gripper_from_jaw_contact`, each with a tolerance and a source. Both are **unmeasured**. The section is excluded from the geometry hash, so recording it does not invalidate a registration.
+- A `robot_plan_reach` pre-grasp proposal is included only when the planner is configured and uses the same jaw offset and calibration. It is labelled "proposal, not executed, not collision checked". The rule that planner output is not sent to the motor owner is unchanged; that decision still belongs to the owner. The pilot's reach procedure (small segments with existing tools, re-detect tag 3 and check cameras after each) is in [docs/gemma-automatic-calibration.md](docs/gemma-automatic-calibration.md#paddle-target-read-only). No motion limits changed.
+- Tested on rendered MuJoCo tag images through the production detector (`tests/test_paddle_target.py`): grasp point within 1 mm of scene truth. No hardware was touched; no physical registration had been fitted as of the last hardware record.
+
 ## Right arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:50
 
 Job 20261007-195000-fd5abb validated and installed; the owner's servo-versus-file check shows no mismatches. The 18:19 attempt had failed validation only because left/right pan travel differed by 48.9°, against the old 191° left pan; after the left recalibration (238.5°) the right run validated.

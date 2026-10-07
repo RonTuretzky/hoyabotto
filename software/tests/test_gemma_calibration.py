@@ -282,7 +282,7 @@ def test_wrapper_shared_lock_blocks_mutations_but_not_stop_or_reads(rig, tmp_pat
     path = tmp_path/'config.json'
     path.write_text(json.dumps(cfg))
     wrapped = CalibrationRobot(owner, path)
-    assert {t['function']['name'] for t in wrapped.catalog()['tools']} == {'robot_calibration_status', 'robot_calibrate_tags', 'robot_get_registered_tags'}
+    assert {t['function']['name'] for t in wrapped.catalog()['tools']} == {'robot_calibration_status', 'robot_calibrate_tags', 'robot_get_registered_tags', 'robot_get_paddle_target'}
     with motion_lock(path.with_name('tag-calibration.lock')):
         with pytest.raises(Refused):wrapped.call('robot_set_motor_enable', {'names': [], 'enabled': True})
         assert wrapped.call('robot_get_state', {'fresh': True})['ok']

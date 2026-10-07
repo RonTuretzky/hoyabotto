@@ -735,7 +735,7 @@ cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py registratio
         </ul>
         <h3>What to build</h3>
         <ol>
-          <li>A chat Mac tool, e.g. <code>robot_get_paddle_target</code>: fresh registered read &rarr; tag 3 pose &middot; measured handle offset &rarr; grasp and pregrasp tool poses (for example 60 mm back/up) in arm-base metres. It refuses on ambiguity, stale data or any registration refusal.</li>
+          <li>A chat Mac tool, e.g. <code>robot_get_paddle_target</code>: fresh registered read &rarr; tag 3 pose &middot; measured handle offset &rarr; grasp and pregrasp tool poses (for example 60 mm back/up) in arm-base metres. It refuses on ambiguity, stale data or any registration refusal. <b>Built, read-only</b> (<code>farm/perception/paddle_target.py</code>, <code>tests/test_paddle_target.py</code>): it returns only the tag pose until the owner records the <code>paddle_grasp</code> offsets in <code>apriltag-geometry.json</code>, and labels any planner ticks "proposal, not executed, not collision checked". See <a href="gemma-automatic-calibration.md">the paddle target section</a>.</li>
           <li>A Qwen procedure, served like <code>paddle-procedure.json</code>: get target &rarr; <code>robot_plan_reach</code> &rarr; short legs with <code>robot_move_path wait=false</code> + <code>robot_get_motion</code> + cameras &rarr; stop at pregrasp &rarr; re-read registered tags &rarr; camera-guided final alignment &rarr; close with paddle-success-v1.</li>
           <li>Tests: fake-owner, plus the rendered simulation using the measured offsets.</li>
         </ol>
@@ -797,7 +797,7 @@ cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py registratio
           <tr><td>Cart moved / base pulse, or tag 1 moved</td><td>Table-anchor check refuses (camera-to-arm is still valid, but the code can't tell)</td><td>10</td></tr>
           <tr><td>Tag 2 bumped or re-mounted</td><td>Gripper consistency refuses</td><td>10-11</td></tr>
           <tr><td>Raw/rectified stream switched</td><td>Intrinsics hash changes, so it refuses</td><td>10</td></tr>
-          <tr><td><code>apriltag-geometry.json</code> edited</td><td>Geometry hash changes, so it refuses</td><td>10</td></tr>
+          <tr><td><code>apriltag-geometry.json</code> edited (tags or camera ids; the <code>paddle_grasp</code> offsets are excluded from the hash)</td><td>Geometry hash changes, so it refuses</td><td>10</td></tr>
           <tr><td>Right arm recalibrated</td><td>Ranges and mapping change</td><td>5, 6, 10-12</td></tr>
           <tr><td>SO-101 model changed</td><td>Model hash changes</td><td>5, 10</td></tr>
         </table>

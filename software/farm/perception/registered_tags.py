@@ -65,11 +65,22 @@ def registered_observation(before, after, observation, registration, arm_status,
         point = base_from_camera @ np.r_[np.asarray(tag['center_camera_mm'])/1000,1]
         pose = (None if tag.get('camera_from_tag') is None or tag.get('orientation_ambiguous') is not False
                 else base_from_camera @ transform(tag['camera_from_tag']))
+        std = tag.get('position_std_mm_at_assumed_half_pixel_noise')
+        std_base = None
+        if std is not None and np.shape(std) == (3,) and np.isfinite(std).all():
+            rotation = base_from_camera[:3, :3]
+            std_base = np.sqrt(np.diag(rotation @ np.diag(np.square(std)) @ rotation.T)).tolist()
+        else:
+            std = None
         tags.append({'tag_id':tag['tag_id'], 'center_arm_base_mm':(point[:3]*1000).tolist(),
                      'arm_base_from_tag':None if pose is None else pose.tolist(),
                      'orientation_ambiguous':tag.get('orientation_ambiguous',True),
-                     'coarse_position_only':tag.get('coarse_position_only',True)})
+                     'coarse_position_only':tag.get('coarse_position_only',True),
+                     'reprojection_rms_px':tag.get('reprojection_rms_px'),
+                     'position_std_mm_camera_axes':None if std is None else list(std),
+                     'position_std_mm_arm_base_axes':std_base})
     return {'status':'REGISTERED_TAG_ESTIMATES', 'arm':arm, 'frame':frame,
+            'camera_frame':(observation.get('pose_3d') or {}).get('coordinate_frame'),
             'registration_sha256':fingerprint(registration), 'tags':tags,
             'transform_translation_units':'metres', 'point_units':'millimetres',
             'current_gripper_consistency':{'position_mm':residual[0]*1000,'orientation_degrees':residual[1]},
@@ -88,7 +99,9 @@ def read_registered_tags(robot, config, registration, *, clock=time.time):
     payload = robot.call('robot_get_tags', {'cameras': [config.get('camera', 'oak')], 'tag_ids': [1, tag_id, 3]})
     after = robot.call('robot_get_state', {'fresh': True})
     if payload.get('ok') is not True:
-        raise ValueError('Fresh tag observation failed')
+        reason = ((payload.get('result') or {}).get('observations', {})
+                  .get(config.get('camera', 'oak'), {}).get('reason'))
+        raise ValueError('Fresh tag observation failed' + (f': {reason}' if reason else ''))
     row = payload['result']['observations'][config.get('camera', 'oak')]
     frame = row.get('frame', {})
     age = clock() - frame.get('captured_at', float('-inf'))

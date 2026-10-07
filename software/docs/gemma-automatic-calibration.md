@@ -26,6 +26,11 @@ registers, controller limits or STOP state.
   missing binding refuses coordinates. Ambiguous object orientation produces
   only its centre, so an offset handle target cannot be inferred from it.
   This read-only tool enables neither Cartesian control nor physical grasping.
+- `robot_get_paddle_target`: read-only guidance built on the same registered
+  read. It returns the paddle tag 3 pose in the arm base and, once the owner has
+  measured the offsets, the handle grasp point, approach direction, jaw tool
+  poses and a labelled planner proposal. See
+  [Paddle target (read-only)](#paddle-target-read-only).
 
 Both execution modes are explicit tool calls for the current user-requested
 calibration. Merely constructing the adapter, opening the chat, reading status,
@@ -104,6 +109,108 @@ PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py regis
 PYTHONPATH=. /path/to/gemma/.venv/bin/python tools/calibrate_gemma_tags.py registered \
   --pilot-root /path/to/gemma/pilot
 ```
+
+## Paddle target (read-only)
+
+`robot_get_paddle_target` answers "where is the paddle handle in the right
+arm's base frame?" It is information for the pilot. It sends nothing to the
+motors. The repository rule still applies: reach-planner output is not sent to
+the motor owner. The owner has not decided to change that rule.
+
+Each call:
+
+1. Reads `apriltag-geometry.json` (beside `tag-calibration.json`). A malformed
+   `paddle_grasp` section refuses before any robot call.
+2. Performs the same fresh registered read as `robot_get_registered_tags`. A
+   missing registration, or any change that read refuses on, returns
+   `ok:false` with that reason. Report "registration unavailable" and carry on
+   camera-guided. It is not a prerequisite for `paddle-success-v1`.
+3. Takes tag 3 from that fresh frame. If tag 3 is missing it refuses. If its
+   orientation is ambiguous it returns only the tag centre.
+4. Returns `paddle_tag` (centre in mm, `arm_base_from_tag` in metres).
+   `frame_id` is `right_arm_base`. `freshness` carries the camera ID, stream,
+   sequence, frame hash, capture time and age. `registration_sha256` and
+   `grasp_geometry_sha256` identify the inputs.
+5. Returns the grasp only when the offsets are measured. With `tag_to_handle`
+   measured you get `handle_point_arm_base_mm`, `approach_direction_arm_base`,
+   `jaw_closing_axis_arm_base` and a pre-grasp point `pregrasp_standoff_mm` back
+   along the approach. With `jaw_contact` measured too you also get
+   `grasp_tool_pose_arm_base` and `pregrasp_tool_pose_arm_base`. These tool poses
+   follow the convention +z = approach, +y = jaw closing axis.
+6. With tool poses available, asks `robot_plan_reach` (read-only) for the
+   pre-grasp. Ticks come back only if the planner's `gripper_from_tool` matches
+   `jaw_contact` within 1 mm and 1 degree, and its motor calibration matches the
+   registration. They are labelled `"proposal, not executed, not collision
+   checked"` with `executed:false` and `collision_checked:false`. Otherwise
+   `reach_proposal.reason` says why. Today the right arm has no planner
+   configuration, so expect the planner's missing-configuration list.
+7. Refuses the whole answer if the frame is more than 6 s old when the answer is
+   assembled. The registered read itself already refuses frames older than 3 s.
+
+`uncertainty` lists its terms: registration train/validation residuals, the
+live gripper-tag disagreement, the tag 3 position standard deviation from 0.5 px
+corner noise (`tag3_depth_std_mm` is the camera-z, monocular depth term; OAK
+stereo depth is not fused), the orientation error multiplied by the offset
+length, and the declared offset tolerances. `combined_rss_mm` adds them in
+quadrature. `conservative_bound_mm` adds the worst cases. Print size,
+intrinsics, paper warp, joint backlash and poses outside the sampled workspace
+are not included.
+
+### What the owner measures
+
+Fill `paddle_grasp` in `.private/apriltag-geometry.json`. For each block, set
+`"status": "measured"` and record `tolerance_mm` (0-20) and a `source` (how,
+when, who).
+
+- `tag_to_handle.handle_center_mm`: the grasp centre on the handle, measured
+  from the centre of tag 3's black square, in the **printed tag frame**. Hold
+  the paddle so tag 3 looks like the kit image. +x points to the tag's right
+  edge, +y to its top edge and +z out of the printed face (millimetres). For
+  example, a handle 75 mm to the tag's left and 6 mm below its face is
+  `[-75, 0, -6]`.
+- `tag_to_handle.approach_direction`: the unit vector the jaw travels along to
+  reach the handle, in the same frame. For a top-down grasp of a paddle lying
+  flat, use `[0, 0, -1]`.
+- `tag_to_handle.jaw_closing_axis`: the unit vector across the handle along
+  which the jaws close, perpendicular to the approach. For a handle running
+  along the tag's x axis, use `[0, 1, 0]`.
+- `jaw_contact.gripper_from_jaw_contact`: a 4x4 transform in metres from the
+  right gripper model frame (the FK target frame) to the jaw contact frame.
+  The contact frame has +z out of the jaws and +y along the closing axis. It
+  must equal the planner configuration's `gripper_from_tool` (step 12 of the
+  registration slides) or the proposal is withheld.
+- `pregrasp_standoff_mm` (20-150, default 60): the back-off distance along the
+  approach.
+
+The decoded tag frame that `robot_get_tags` returns is the printed frame
+rotated 180 degrees about +y. The code applies this conversion, and
+`tests/test_paddle_target.py` checks it against rendered detections. The 2026-10-06
+rendered `[105, 0, 4.45]` offset belongs to the simulator mount and must not be
+copied.
+
+### Reach procedure for the pilot
+
+The target is guidance only. Use it like this:
+
+1. Call `robot_get_paddle_target {}`. If it refuses, do not reach by tags.
+   Continue with the camera-guided procedure.
+2. Never send `reach_proposal.joint_targets_ticks` as one move. Use them, and
+   `joint_change_ticks`, only to see which joints change, in which direction,
+   and by how much.
+3. Move in small segments with the existing motion tools: `robot_move_path`
+   with `wait=false` plus `robot_get_motion`, or `robot_move_joint_targets`.
+   Change each joint by a small part of the remaining difference, for example
+   a quarter of it and not more than about 100 ticks. These numbers are
+   suggestions, not limits. The owner's existing limits, segmentation, contact
+   guard, watchdog and STOP are unchanged and remain authoritative.
+4. After every segment, look at the cameras (`robot_get_cameras` with `oak` and
+   `right_wrist`). Once the arm has settled, call `robot_get_paddle_target`
+   again to re-detect tag 3 and re-read the target. The read refuses while
+   joints move, and it needs tags 1 and 2 in view as well. If the paddle moved,
+   the arm is near contact, or a read refuses, use `robot_halt_motion` (or
+   `robot_stop`) and stop moving toward the target.
+5. Stop at the pre-grasp. Do the final alignment, closing, lift, hold, place,
+   open, withdraw and release with the camera-guided `paddle-success-v1` steps.
 
 ## Evidence and interruption
 
