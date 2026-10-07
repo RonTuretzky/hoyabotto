@@ -1,0 +1,46 @@
+{
+  "right_arm_calibration_fields": {
+    "shoulder_pan": [
+      "id",
+      "drive_mode",
+      "homing_offset",
+      "range_min",
+      "range_max"
+    ],
+    "shoulder_lift": [
+      "id",
+      "drive_mode",
+      "homing_offset",
+      "range_min",
+      "range_max"
+    ],
+    "elbow_flex": [
+      "id",
+      "drive_mode",
+      "homing_offset",
+      "range_min",
+      "range_max"
+    ],
+    "wrist_flex": [
+      "id",
+      "drive_mode",
+      "homing_offset",
+      "range_min",
+      "range_max"
+    ],
+    "wrist_roll": [
+      "id",
+      "drive_mode",
+      "homing_offset",
+      "range_min",
+      "range_max"
+    ]
+  },
+  "required_unestablished_fields": [
+    "model_zero_tick for five joints",
+    "model_sign for five joints",
+    "camera-to-arm transform bound to those measurements"
+  ],
+  "jaw_offset_status": "candidate from partial surface fit; not independently physically validated",
+  "motor_writes": 0
+}

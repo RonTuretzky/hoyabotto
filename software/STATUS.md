@@ -1,3 +1,41 @@
+## Left retry05: short shoulder and elbow ranges — 6 October 2026
+
+User confirmed stepped out of frame. Fresh feed showed clear sweep; guarded left retry05 ran atvelocity100 with outward swivel retained. Measured shoulder47.1 degrees (raw endpoints3685..125 wrapping), elbow57.5 degrees (1784..2439); routine rejected shoulder below120 and elbow below115. All six left releases verified. No definite cart strike identified in sampled fresh phone frames; actual cause remains unproven. No completed calibration saved. Added load/voltage/current fields from the existing coherent15-byte sample to limit-wait trace for later diagnosis; no new writes, additional motor reads or threshold changes. Evidence at current task outputs/auto-calibration-left-retry5-2026-10-06.
+
+## Left calibration interrupted for person in sweep — 6 October 2026
+
+After user confirmed clear, left guarded retry04 began from outward pan1759. Wrist unfolding reversed successfully; shoulder and elbow unfold succeeded. A fresh phone frame showed a person's head immediately below/beside the claw while it was moving. Sent Ctrl-C; vendor returned130; guarded launcher aborted and verified all six left-arm torque releases. No completed calibration saved. Backups/evidence in current task outputs/auto-calibration-left-clearance-2026-10-06. Require everyone outside the arm sweep before resuming powered motion.
+
+## Further camera-guided swivel steps — 6 October 2026
+
+User widened phone framing. Left bounded pan steps continued:1918 original to1759 current (13.97 degrees decreasing overall). Step08 refused before motion on transient released elbow velocity50/Moving1; after10s settling step09 passed. Steps10 and11 moved23 and24 ticks respectively but settled11/10 ticks short of their targets at the3s deadline. Both verified torque release and prior settings restoration. Step10 load max80, status0, voltage119; no confirmed physical contact. Subsequent read-only pan: torque0, position1759, goal1749, CW/CCW dead zones1, P16. Do not interpret endpoint misses as successful positioning or widen checks/raise torque to force movement. All12 arms checked torque0/status0 after step10. Per-step evidence in current task outputs/left-swivel-clearance-step-07..11.json. No new arm calibration saved; both-arm goal incomplete.
+
+## Camera-guided clearance investigation — 6 October 2026
+
+After the phone was moved to the opposite side, a task-local bounded shoulder-pan helper ran six small left swivel steps. Each command <=34 encoder ticks (2.99 degrees), torque limit300, position speed100, acceleration5, strict coherent fault/load/travel checks and3s deadline. Other joints remained released. Every step reached its tolerance and verified selected-joint torque release and prior speed/acceleration/torque restoration. Left pan moved from1918 to1859 overall (5.19 degrees decreasing), after an initial increasing-direction probe and reversal. Current pan homing0; no calibration offsets/limits changed by this helper. Camera showed decreasing pan moving the hanging forearm outward. Further rotation stopped because the elbow reached the camera's right edge; requested wider framing. No new full calibration run and no completion claim. Per-step evidence: current task `outputs/left-swivel-clearance-step-01.json` through`06.json`.
+
+## Folded left-arm retry and diagnostic — 6 October 2026
+
+After user fully folded both arms, strict preflight passed all12 arm status/torque checks. Fresh phone frames inspected, start held until hands cleared. Left guarded velocity100 retry again rejected elbow41.1 degrees (limits2806..3274; minimum115). Shoulder measured179.8 degrees. All six left motors verified released; no completed calibration saved. Evidence at `/Users/teachera/Documents/Codex/2026-10-06/users-teachera-documents-codex-2026-10/outputs/auto-calibration-left-folded-2026-10-06/`.
+
+Subsequent read-only elbow settings: both torque0, velocity mode1, homing0, min0/max4095, torque limit800, P16. Thus narrow stored encoder limits do not explain the short sweep. No bypass or widened limits applied. Await supported power-off manual elbow freedom/clearance check before additional powered sweeps. Both elbows currently remain in velocity mode from incomplete calibration; ordinary position operation requires deliberate restoration or successful calibration, not blind torque enable.
+
+## Left-arm retry after USB/12 V reset — 6 October 2026
+
+User reset left USB and12V. Fresh strict precheck: all12 arm motors status0, torque0. Fresh phone-camera frame was inspected from `/Users/teachera/Documents/Codex/2026-10-05/m/work/phone_camera/` (not the stale older task stream). Guarded left retry at velocity100 unfolded successfully but rejected elbow travel41.5 degrees against115..225 degrees; shoulder measured139.3 degrees. Routine returned1, no completed calibration saved. All six left-arm torque releases verified. Evidence/backups in `/Users/teachera/Documents/Codex/2026-10-06/users-teachera-documents-codex-2026-10/outputs/auto-calibration-left-retry-2026-10-06/`. Neither arm newly calibrated; partial homing/limit changes may remain. Do not accept narrower obstructed travel or expand safety limits. Need elbow mechanical/clearance inspection before further powered sweeps.
+
+## Right-arm automatic calibration attempt — 6 October 2026, follow-up
+
+User requested the right arm while left wrist retained fault 8. Guarded right-arm velocity100 calibration unfolded wrist, shoulder and elbow, but rejected elbow range 3538 ticks /310.96 degrees against the existing225-degree maximum. Second elbow leg tracked600 ticks of negative travel; this does not establish a full mechanical range. No completed calibration saved. Cleanup verified all six right-arm motors torque off. Backups/evidence: `/Users/teachera/Documents/Codex/2026-10-06/users-teachera-documents-codex-2026-10/outputs/auto-calibration-right-2026-10-06/`.
+
+Before this run, an independent read confirmed all12 arm motors torque0 (including faulted left wrist). User reported unplugging/replugging left arm during the right run. Subsequent left-arm precheck received no packet from ID1 (communication-6); no left retry started. Both arms remain incompletely calibrated with possible partial EEPROM changes. Do not use saved calibration as evidence of matching hardware. Need restored left communication and physical inspection of right elbow/clearance before more sweeps.
+
+## Automatic calibration attempt — 6 October 2026, this chat
+
+The user requested automatic calibration and confirmed all clearance conditions. Read-only preflight received replies from all 16 servos. The guarded left-arm PR3282 launcher ran at velocity 100 with a 45-second leg timeout. Wrist-flex unfolding stopped short in both directions, then the launcher aborted on `SDK unexpected servo fault 8` from motor ID 4. No completed calibration was saved. Partial homing/limit changes may exist; the old saved calibration must not be treated as matching hardware.
+
+Cleanup verified torque off for left shoulder pan/lift, elbow, wrist roll and gripper. Wrist-flex release could not be confirmed because its reply retained fault 8. The user was instructed to switch 12 V off immediately. Right-arm calibration was not started; head and wheels were not commanded. Preserve register backups and inspect the wrist before another attempt; do not bypass the fault. Evidence is in `/Users/teachera/Documents/Codex/2026-10-06/users-teachera-documents-codex-2026-10/outputs/auto-calibration-left-2026-10-06/`.
+
 ## Handoff stop condition — 6 October 2026
 
 After updating main and reconciling local changes, the requested read-only `farm servo-protection -p paper-tray-v0` check returned no status packets for the servos while `lsof /dev/cu.usbmodem*` was empty. Hardware work stopped at that read failure. No protection-register writes or power-cycle verification were performed. The earlier successful table below is dated evidence, not a fresh post-update success; do not report “ALL DONE” or temperature sensing removed. Calibration remains paused, motors were last verified released, and the cause of the silent read is not established.
@@ -806,3 +844,171 @@ Two right-claw movement attempts failed to reach the position target within the 
 ### Right claw passed and settings persisted
 
 The isolated standard movement test also failed at P=16: raw goal 1460 from 1393, actual 1413, return command 1393. A bounded diagnostic used P=32 (the vendored driver documents this as the servo default), lowered Torque_Limit to 500, and explicit position speed 200. The commanded step was 4.5 normalized units / 5.97 physical degrees, within the profile's 6-degree step limit. The claw moved 3.245 normalized units and returned within the standard test tolerance. These settings were added as a right-claw-only profile override, with validation and hardware readback before enabling torque. A second check loaded the saved profile and passed: moved 3.046 units and returned within tolerance. Final independent readback verified all 16 torque-off, every calibration entry matching hardware, and all three saved claw settings matching hardware. All 14 basic arm/head movement checks have now passed. The repository suite passed 93 tests.
+
+
+### 2026-10-06 JST: reproduce prior velocity-200 calibration, incomplete
+
+User authorized both-arm full calibration and camera-monitored retry after confirming clearance. Left prior-method-01 aborted on missing ID1 telemetry before movement; subsequent read-only precheck showed all12 arm motors status0/torque0. Left prior-method-02 initialized and unfolded but endpoint settling timed out after1s with elbow position2098–2099 and alternating velocity/Moving telemetry. All6 left releases verified. Extended settling observation window to3s while retaining three consecutive low-velocity/Moving0/stable-position samples; focused suite29 passed, including delayed chatter acceptance and persistent movement rejection. Left prior-method-03 at velocity200,20s passed settling but measured shoulder31.6deg (invalid120–230 bounds), elbow157.5deg. Shoulder first leg load reached800 with position132–139; resistance source unproven. No calibration saved; all6 releases verified. Partial homing/mode/EEPROM changes may remain; do not assume saved calibration matches hardware. Right-arm sweep awaits complete camera coverage. Logs in local task work/auto-calibration-left-prior-method-01..03 and outputs/auto-calibration-left-prior-method-2026-10-06. No new reusable default or remote publication validated.
+
+
+### 2026-10-06 JST: unchanged upstream PR3282, default velocity1000
+
+Owner explicitly requested exact PR code and selected default1000. Downloaded unchanged workflow/mixin/defaults from PR head1c8e185e3694def2469d7d312c78dab217e336da; hashes in task outputs/pr3282-original/provenance.json. Loader only attaches upstream mixin to installed driver, holds exclusive ownership, redirects staged result path. No local range minimum or settling/limit-seeking overrides. Full LEFT run initialized/unfolded, measured shoulder213.4deg and elbow196.7deg, applied/read back their partial calibration, then upstream aborted during simultaneous wrist/claw seeking: wrist_flex ID4 Present_Position had no status packet after5 attempts. Exit1, no complete result saved. Independent postcheck confirmed all12 arm motors torque0/status0. Partial hardware calibration remains; saved XLeRobot file has not been merged or verified against new partial settings. Right not run: camera coverage still obscured. Task outputs/pr3282-original/left-run-result.json records exact failure. No calibration completion or preset-success claim.
+
+
+### 2026-10-06 JST: owner-requested unchanged PR1000 retry
+
+Fresh precheck all12 torque0/status0; owner confirmed people clear. Repeated full LEFT original PR1c8e185 at1000/20s, no local range/settling overrides. Unfold succeeded; shoulder161.8deg and elbow151.0deg partial ranges written. Same distal stage again lost wrist_flex ID4 Present_Velocity feedback then failed5 Present_Position reads. Ctrl-C sent when fresh frame showed new person at cart; failure had already reached exit prompt. Process terminal exit1. Independent all12 torque0/status0 check passed. No full result saved; partial hardware settings remain, do not run normal control based on old calibration file. Task outputs/pr3282-original/left-retry-result.json. Need diagnose motion-dependent distal-chain feedback loss before repeating full powered sweep.
+
+
+### 2026-10-06 JST: upstream velocity300 left completed; orientation unresolved
+
+Owner requested300. Original PR full LEFT exit0, all6 saved into task-local candidate and EEPROM; independent offsets/limits readback matched all6, mode0 torque0. Saved spans:pan87.19deg, shoulder162.07, elbow148.36, wrist202.32, roll340.14, grip137.29. No local minimum/settling checks altered upstream run. Candidate not merged into live XLeRobot file: pan drastically shorter than prior191deg, working-side orientation unresolved. Started RIGHT300 after fresh wider camera showed both arms; owner then reported calibration behind cart rather than front and camera moved/cut off active right arm. Sent Ctrl-C; upstream returned130 during shoulder/elbow phase. All12 torque0/status0 independently verified afterward. Right partial settings may remain; do not treat old saved calibration as hardware-matched. Need establish intended cart front and starting yaw/clearance before next powered sweep. Outputs/pr3282-original/left-300-candidate.json and left-300-readback.json preserve completed but unvalidated left candidate.
+
+
+### 2026-10-06 JST: front-facing right300 retry, failed cleanup — power-off required
+
+Owner confirmed white-table front, repositioned/folded both arms and requested start. Left all6 servo reads silent before motion; right all6 status0/torque0. Proceeded RIGHT upstream300 independently. Unfold stage completed; shoulder/elbow phase lost shoulder_lift ID2 feedback, all5 Present_Position attempts failed. At exit/disconnect Torque_Enable0 write to ID1 received no status packet after6 tries. Process terminal exit1, no new right result saved. Postcheck both buses/all12 arm motors silent. Torque release NOT verified. Immediately instructed owner to switch BOTH12V supplies OFF; confirmation pending. Do not resume motion until physical power-off confirmed and cause/readback established. Failure outputs/pr3282-original/right-300-failed-stop.json; current-bus-status.json.
+
+
+### 2026-10-06 JST: both reseated, right300 load-dependent bus loss repeats
+
+After owner reseated supplies/first-servo leads, all12 Status0/Torque0 preflight passed. Original PR RIGHT300 started. First shoulder/elbow stops at1613/3797 then shoulder_lift ID2 Torque_Enable1 failed3 attempts with no packet. Upstream disconnected with ID1 Torque_Enable0 write failing6 attempts. Terminal exit1, no result saved. Independent postcheck LEFT all6 Status0/Torque0, RIGHT all6 silent. Thus failure isolated to loaded right bus this time; power or chain connection remains hypothesis, not established. RIGHT torque release NOT verified. Immediately told owner to switch RIGHT12V OFF; confirmation pending. Outputs/pr3282-original/right-300-after-reseat.json. No further powered motion until power-off and fault cause resolved.
+
+
+### 2026-10-06 JST: left-only300 with right12V off
+
+Owner explicitly confirmed right12V OFF and requested left alone. Fresh left all6 Status0/Torque0, camera clear. Original upstream PR full LEFT300/20s measured shoulder212.0deg and elbow194.8deg, wrote partial offsets/limits, then lost wrist_roll ID5 Present_Position feedback after5 attempts during simultaneous distal-joint stage. Terminal exit1. Fresh independent left all6 Status0/Torque0 verified. No new complete result saved; prior left30087deg-pan candidate remains task-local, not a valid current hardware snapshot. Right remains owner-confirmed unpowered. Evidence outputs/pr3282-original/left-only-300-retry.json. Both-arm calibration remains incomplete; current saved XLeRobot calibration not assumed equal partial hardware settings.
+
+
+### 2026-10-06 JST: left-only300 next retry completed, candidate unvalidated
+
+Owner requested retry with right12V remaining confirmed OFF. Original PR1c8e185 full LEFT300/20s exit0, no communication error. All6 saved candidate and EEPROM. Independent all6 homing/min/max equality, Operating_Mode0 and Torque_Enable0 verified. Saved travel degrees:pan87.36, shoulder161.19, elbow149.94, wrist202.32, roll340.49, grip138.16. Pan again materially shorter than prior191; shoulder/elbow shorter than immediately preceding failed212/195 run. Thus upstream completion does not prove full unobstructed mechanical calibration. Candidate preserved task outputs/pr3282-original/left-only-300-completed-candidate.json; readback left-300-readback.json; result left-only-300-completed-result.json. Live XLeRobot calibration file NOT replaced; do not assume hardware matches old live calibration. Right remains off; both-arm validation and reusable success preset unfinished.
+
+
+### 2026-10-06 JST: resting-pose request and upstream fold discrepancy
+
+Owner requested left hand resting pose after completed but unvalidated87deg pan candidate. Left all6 read Status0/Torque0; elbow mode0/homing-150/limits1194..2900. Bounded low-torque elbow positive34tick step (2.99deg), torque300, speed100,acc5,failed target1243 from1209: final1217 after3s. Max recorded load128, no fault; no physical cause established. Torque release and prior settings restoration verified. No further powered movement performed; asked owner to support/poweroff/manualfold. Evidence outputs/left-rest-step-01.json. Independent code inspection confirms original PR _fold_arm waits for Moving0 but prints reached target without tolerance check. Prior pre-pan pose reported elbow1413 versus1194 target (19.25deg error), wrist1328 versus896 (37.97deg error). Thus nominal folded clearance pose was not established even when upstream exits0. Do not call candidate fully calibrated or replace live file. Diagnosis outputs/pr3282-original/fold-clearance-diagnosis.json. Left still extended in latest camera; await supported resting pose before further full sweeps.
+
+
+### 2026-10-06 JST: owner-requested larger resting movement succeeded to compact pose
+
+Small elbow moves using temporary torque300 did not reliably settle/retain position; all releases/settings restorations verified. Owner explicitly requested larger movements. Used existing Torque_Limit800 (unchanged), speed100,acc5 with gradual40tick position target increments (3.52deg each, below profile6deg limit), coherent status/load<=800/voltage/tracking<=96tick checks. Three monitored nominal30deg segments moved elbow1273→1581→1894→2220 (83.23deg net). Camera showed forearm retracting upwards; stopped progression before hand approached mast.15s hold deadline expired and cleanup verified all6 torque0/settingsrestored. Independent all6 mode0/status0/torque0; elbow2220 remained with torque released. Thus compact intermediate rest achieved; not identical to original fully folded starting pose and not a valid calibration. No offsets/limits changed by resting helper; right12V remains owner-confirmed off. Evidence outputs/left-rest-normal-session.json and Left-Arm-Resting-Pose.json. Full left calibration still incomplete: prior87deg pan candidate unvalidated.
+
+
+### 2026-10-06 JST: starting-joint restoration and separate right calibration chat
+
+Compared shortened candidate with last verified Oct5 snapshot. Restored LEFT pan(-22,959..3135) and elbow(107,942..3152) from that snapshot, with torque initially verified off and fresh hold goals written in the new coordinate frame. Pan unexpectedly read Torque_Enable1 after EEPROM restoration; no deliberate torque-enable command was issued. Immediately explicitly disabled ALL6 left motors; independent all6 Torque_Enable0/Status0 verified (outputs/left-release-after-restoration.json). Physical encoder reference remained stable. Restoration settings/backup: outputs/pr3282-original/starting-joints-restoration.json. Left remains mixed old/candidate settings, not newly validated, and normal control must not assume old live file matches hardware. Owner explicitly requested RIGHT calibration in another chat. Created Calibrate XLeRobot right arm, thread01a11043-3c2d-75d0-9ba0-ce89d1db0fa0, with upstream300/20s, full source/physical state, exclusive ServoOwnership and failure-release instructions. Parent will HOLD powered work while that chat uses robot; never concurrent powered arm sweeps.
+
+
+### 2026-10-06 JST: separate right upstream300 run interrupted for camera coverage
+
+Fresh both-arm preflight all12 Status0/Torque0; exclusive ServoOwnership held through unchanged PR1c8e185 RIGHT300/20s and cleanup/readback. Unfold completed; shoulder/elbow first stops1614/3790. Right claw left phone image boundary during outward movement, preventing clearance monitoring; sent Ctrl-C before completing sweep. Upstream130, no complete calibration saved or merged. Independent all12 Status0/Torque0 verified. Right shoulder/elbow remain Operating_Mode1, homing0/limits0..4095; partial settings must not be treated as matching live calibration. No communication failure observed in this attempt and no definite contact established. Await wider fresh camera coverage and people-clear confirmation before further powered movement. Evidence: /Users/teachera/Documents/Codex/2026-10-06/xlerobot-right-arm-calibration/outputs/run.log, preflight.json, release-readback.json, run-result.json.
+
+
+### 2026-10-06 JST: right300 repeat loses feedback — RIGHT12V off required
+
+Owner widened phone camera. Waited for left-front-pan-positioning ownership to release, then acquired exclusive lock; all12 Status0/Torque0 fresh preflight passed. Unchanged original PR1c8e185 RIGHT300/20s unfolded, then shoulder_lift ID2 Present_Position failed all5 reads during simultaneous shoulder/elbow limit seeking. Upstream disconnect ID1 Torque_Enable0 failed6 attempts; independent emergency release/readback attempted every right motor, evidence below. Torque release UNVERIFIED; immediately instructed owner RIGHT12V OFF, confirmation pending. Process exited1; no complete candidate saved or merged. This repeats motion-dependent right-bus loss; actual physical cause remains unproven. Do not repeat powered calibration until diagnosed. Evidence /Users/teachera/Documents/Codex/2026-10-06/xlerobot-right-arm-calibration/outputs/run.log, run-result.json, emergency-release.json.
+
+
+### 2026-10-06 JST: left pan aligned; right chat owns motion then fails feedback
+
+After separate right run130 completed and all12 torque0/status0 readback, parent slowly aligned LEFT pan from2888 to2052 using restored validated offset-22/limits959..3135; gradual40tick steps, speed100,acc5, existing torque800, bounded telemetry/tracking. Target2047, achieved2052 (0.44deg error); physical total73.48deg.15s hold deadline released motor; all6 left torque0 and settings restored. Evidence outputs/left-front-pan-positioning.json. Prepared elbow-fold trajectory toward3072 within restored validated limits942..3152, but execution refused before connection because right chat resumed and held ServoOwnership; NO elbow motion from this attempted setup. Right second run then terminal failed: bus silent and emergency torque-off unverified. Parent holds additional LEFT motion pending owner-confirmed RIGHT12V OFF in right chat. Full-left calibration remains incomplete; left mixed settings described above.
+
+
+### 2026-10-06 JST: right restart restores stationary replies
+
+Owner reported restarting right arm. Exclusive read-only check at17:17:59 JST received all6 right motor replies: Status0, Torque_Enable0. Shoulder/elbow remain Operating_Mode1 from interrupted calibration; other4 mode0. No movement or register writes. Communication recovered at rest, but movement-dependent failure cause remains unproven; no further calibration retry authorized by this status question. Evidence: /Users/teachera/Documents/Codex/2026-10-06/xlerobot-right-arm-calibration/outputs/right-online-after-restart.json.
+
+
+### 2026-10-06 JST: right stationary diagnostic after restart
+
+User requested autonomous completion. Exclusive read-only 30-sample coherent audit: all6 replied throughout, voltage120..121 raw, status0, initial torque0. Shoulder/elbow mode1; their homing0 combined with restored stored limits makes current settings mixed. Released elbow reports Moving1/velocity50 intermittently despite stable2503..2504 position and current/load0; not evidence of mechanical travel. No powered reposition or sweep attempted: repeated prior complete right-bus losses and unacknowledged torque releases remain unresolved by reboot. Calibration incomplete. Diagnostic evidence /Users/teachera/Documents/Codex/2026-10-06/xlerobot-right-arm-calibration/outputs/stationary-diagnostic.json and diagnostic-summary.json.
+
+Diagnostic correction after aggregating all30 samples: gripper reported112raw once (11.2V) while proximal pan/shoulder stayed121; wrist119..120. Thus complete voltage envelope11.2..12.1V, not only final-sample12.0..12.1V. Coherent packet evidence retained; isolated low distal report does not establish cause.
+
+
+### 2026-10-06 JST: right link settings verified without motion
+
+All6 right firmware3.10, Baud_Rate0, Return_Delay_Time0, Response_Status_Level1, Status0/Torque0. No wrong/inconsistent stationary link settings identified. macOS log query for serial-number/usbmodem events in failure window returned no matching entries; does not exclude USB issue. No physical cause proven; no powered retries or reposition. Power/chain integrity under load remains required before unchanged full routine. Evidence current task outputs/right-link-settings.json and failure-diagnosis.json.
+
+
+### 2026-10-06 JST: right full-calibration goal blocked after diagnostic audit
+
+Same load-dependent whole-right-bus loss remained unresolved across3 autonomous goal turns. Fresh17:20:54JST all6 status0/torque0; camera fresh, no owner process running, no physical remediation evidence. Full calibration not saved, travel/EEPROM match not validated. Marked goal BLOCKED pending physical power/chain inspection with12Voff and supported load validation; no blind powered retry. Audit current task outputs/blocked-audit.json.
+
+
+### 2026-10-06 JST: replacement right12V cable — passed shoulder/elbow, coverage stop
+
+Owner replaced12V cable and requested retry. Fresh all12 Status0/Torque0; exclusive lock. Unchanged original PR1c8e185 RIGHT300/20s completed shoulder/elbow calibration without communication loss. Applied/readback partial right shoulder homing785 limits829..3265 (214.10deg), elbow632 limits935..3159 (195.47deg). Fresh camera showed claw beyond left edge during raised/outward pose; Ctrl-C before distal seek. Upstream130; independent all12 Status0/Torque0, right all6 mode0 verified. No completed candidate saved or merged. Cable change correlates with improved loaded communication in this attempt, not proven root cause/resolution. Need additional left margin camera coverage for full right sweep. Evidence current right task outputs/cable-replacement-retry/run.log, release-readback.json.
+
+
+### 2026-10-06 JST: wider-view right300 fails distal feedback despite new12V cable
+
+Owner fixed camera left margin. Exclusive original PR1c8e185 RIGHT300/20s full retry preflight all12 Status0/Torque0. Shoulder/elbow this time127.6/90.5deg (far shorter than immediately preceding214/195); partial homing1278/35 limits1321..2773 /1532..2562 applied. Distal simultaneous wrist_roll/gripper/wrist_flex first stops653/3129/2427. Wrist_roll ID5 Present_Position then failed5 reads, all right feedback lost. Upstream ID1 torque-off write failed6 tries; independent release attempts ALL6 returned SDK-6/no packet. Left all6 Status0/Torque0 verified. Immediately instructed RIGHT12V OFF; confirmation pending. No complete candidate saved/merged. Replacement cable did not eliminate failure; physical cause unproven. Evidence right task outputs/wider-view-retry/run.log, release-readback.json, run-result.json. No blind repeated sweep.
+
+
+### 2026-10-06 JST: tracked repeatable upstream calibration tooling
+
+Added pinned unchanged PR3282 sources1c8e185 and hash manifest, plus scripts/carton_robot/upstream_pr3282_calibration.py: default300/20s, plan-only default, explicit execution/clearance prompt, both-port ownership, selectable physically confirmed other-arm-poweroff preflight, unique evidence directories, original candidate staging, emergency release of every selected motor and readback verification. Post-run quality rejects incomplete/short/wrapped/wide candidates separately from upstream sweeps; optional --install uses atomic selected-arm merge, preserves other joints, and refuses externally changed live files. Updated procedure/skill to distinguish prior success from current unresolved failures and unsupported fold-success messages. Focused verification57 tests passed; source-loader and plan-only smoke passed; no motors opened or moved for this code update. No new calibration validity claim: current physical goal remains blocked pending RIGHT12V OFF confirmation.
+
+
+### 2026-10-06 JST: post-new-cable right goal blocked again
+
+Three consecutive goal turns retained same feedback/release blocker after wider-view run failed. Fresh right read-only check all6 silent; last independent emergency release attempts all6 unacknowledged. RIGHT12Voff confirmation still absent. Marked goal BLOCKED; full calibration incomplete, no result merged. Physical diagnosis/remediation required before powered calibration. Evidence current right task outputs/wider-view-retry/blocked-audit.json.
+
+
+### 2026-10-06 JST: battery-wire rearrangement restores all16 replies
+
+Owner reported rearranging battery wires, suspected battery path. Fresh exclusive read-only all16 check: every arm/head/wheel servo Status0/Torque_Enable0, voltage120..122raw (12.0..12.2V). No motor movement or register writes. Right IDs2..6 remain Operating_Mode1 with homing0 and prior EEPROM limits; right elbow3774 beyond stored max3092 in current mixed frame. Thus normal powered position control is not ready, calibration remains incomplete, no live file merge. Changed power arrangement correlates with recovered stationary replies; failure cause/resolution under load not yet proven. Evidence /Users/teachera/Documents/Codex/2026-10-06/xlerobot-right-arm-calibration/outputs/all-servo-check.json.
+
+
+### 2026-10-06 JST: power recovered, camera service restarted before calibration
+
+All16 stationary replies recovered after battery-wire rearrangement. Autonomous calibration resume checked phone freshness: saved frame was ~36min old; old server97755 missing and head snapshot stale. Restarted existing phone server (no secret printed); now listening/waiting, seq0/no received frame. Camera tunnel process absent. No motor movement started. Tracked unchanged-upstream300/20s plan/provenance check passed. Need restored fresh complete phone view before sweep; no inference of clearance from old image. Evidence current right task outputs/camera-recovery.json.
+
+
+### 2026-10-06 JST: right goal blocked by absent live clearance feed
+
+After restored all16 idle replies,3 consecutive autonomous goal turns had no fresh complete camera feed. Restarted server session17395 confirmed running; seq0/received_atnull. Old phone frame ~36min stale, wired head snapshot stale. Local camera QR regenerated from current config without printing secrets; external tunnel creation rejected by automatic approval review, not bypassed. Goal BLOCKED pending phone sharing via local QR. No powered motor operations started after battery wiring change. Evidence current right task outputs/camera-blocked-audit.json.
+
+
+### 2026-10-06 JST: battery rewiring right300 retry still loses whole bus
+
+Owner restored fresh Cloudflare phone feed, explicitly confirmed clearance/goahead. Tracked unchanged PR1c8e185 RIGHT300/20s with exclusive ownership, staged output and backed-up live file. Shoulder214.6deg/elbow196.0deg measured/applied; fold readings843 vs826,3140 vs3162 supported near-target position. During simultaneous distal seek first CW stops roll653/grip3151/wrist2382, wrist_roll ID5 position failed5 retries. Upstream ID1 torque-off failed6 tries; outer cleanup Goal_Velocity0 and Torque_Enable0 failed4 tries EACH for ALL6, readback failedALL6. Exit1; release UNVERIFIED, no complete candidate and no install. Immediately instructed RIGHT12V OFF; confirmation pending. Battery rewiring restored idle communication but did not resolve load-dependent failure. No blind repeat. Evidence /Users/teachera/Documents/Codex/2026-10-06/xlerobot-right-arm-calibration/outputs/battery-rewired-retry/result.json and release-readback.json.
+
+
+### 2026-10-06 JST: wall-powered right300 full routine completes, pan range unresolved
+
+Owner switched right to wall supply after reporting0V at failure on battery. Fresh all16 Status0/Torque0; right124..125rawV. Bounded pan34tick roundtrip passed (2085→2115→2089), torque300/speed100/acc5, all6 release and prior settings restoration verified. Then tracked unchanged PR1c8e185 full RIGHT300/20s completed exit0 without communication failure. Saved staged candidate, independent all6 hardware offsets/min/max equality, mode0, and all16 Status0/Torque0 verified. Travel: pan240.47, shoulder214.63, elbow196.00, wrist196.52, roll338.55, grip136.58deg. Validator refuses installation because pan differs49.2deg from saved left191.25; previous verified right206.02 also34.45deg narrower. No definite cart contact identified in sampled fresh camera views, but wider pan endpoints require independent quality resolution. Candidate NOT merged; do not claim fully calibrated. Live file does not match new right EEPROM. Wall supply completed this run where battery failed; exact battery/cable shutdown mechanism unproven. Evidence /Users/teachera/Documents/Codex/2026-10-06/xlerobot-right-arm-calibration/outputs/wall-powered-full01/validation-audit.json, candidate/robots/so_follower/right.json, independent-all16-readback.json.
+
+
+### 2026-10-06 JST: owner accepted/installed wall-powered right candidate; left rested
+
+Owner explicitly chose to assume wider right calibration is better and requested remote update. Fresh right all6 homing/min/max, mode0/status0/torque0 verified; backed up live file, atomically merged only right6, reread file, verified every other entry unchanged. Right pan240.47deg remains owner-accepted by assumption, not independently full-range validated; prior206.02/left191.25 mismatch not suppressed in validator. Right installed calibration now matches hardware. Versioned accepted candidate in docs/evidence/right-arm-calibration-2026-10-06.json.
+
+Owner requested LEFT resting pose. Initial helper refused before motion because EEPROM torque1000 differed from expected800; all6 released. Used temporary LOWER torque800, speed100/acc5,40tick goal increments within restored elbow942..3152. Camera-monitored segments1964→2296→2636→2970 formed compact resting pose. First interactive hold15s expired safely; later segments release immediately. All6 left release/settings restoration verified, followed by independent all16 Status0/Torque0; right calibration still equals hardware. No left calibration registers/head/wheel movement. Left calibration remains mixed, not newly validated. Evidence docs/evidence/left-arm-resting-pose-2026-10-06.json and current right task outputs/final-all16-verification.json, Left-Resting-Pose.jpg.
+
+
+### 2026-10-06 JST: drive/reach request — head camera verified, no movement yet
+
+Owner requested forward cart movement toward white table and arm extension near tagged paddle, plus head-camera verification. Explicit request authorizes a bounded wheel test despite parked profile; tracked wheels flag left unchanged. Fresh exclusive all16 read-only preflight: Status0/Torque0/mode0; all RIGHT6 installed offsets/min/max match hardware, both wheels/head match saved file; LEFT shoulder/wrist/roll/gripper remain mismatched/mixed. Selected right arm for prospective reach, left parked. Native exact-ID AVFoundation capture via Terminal: previous head identity0x12130005a39230 absent; current externalIDs0x12400005a39230,0x12200005a39230,0x12140005a39230 all returned real frames.0x1240 elevated forward wide room/table/paddle view identifies head; other captures show wrist/claw closeups. Do not infer OpenCV numbered mapping from native enumeration; no profilecamera mapping edited. Camera evidence current task outputs/Head-Camera-Verified.jpg/json and Camera-Devices-20261006.txt. Floor camera shows power leads; cart now wall-powered/tethered. Asked owner to confirm cable slack, no lead under wheels, clear5cm forward path. NO cart or arm motion in this request yet; dependent drive/reach awaits physical clearance answer.
+
+
+### 2026-10-06 JST:20cm forward demo and paddle handoff readiness
+
+Owner confirmed cable slack/no leads under wheels and requested20cm pulses. One logical20cm advance at.02m/s,11 motor pulses <=1s, strict coherent fault/load<=500/velocity<=400/voltage checks, acknowledgement/readback of both commands, zero targets, <=.9s powered-stop confirmation using five stable encoder samples and actualzero observation per wheel, separate stationary-after-release check, mode/acceleration/torque/lock restoration and post-restore release checks. Encoders estimate left19.8957cm/right20.0875cm (mean19.9916cm); floor travel not independently measured. Fresh phone frames inspected between pulses; no definite contact identified. Evidence outputs/Table-Drive-20cm-Result.json and Table-Drive-Pulse01..11. No other wheel loop or turn.
+
+Head camera identity changed: exactID0x12400005a39230 native AVFoundation through Terminal captures valid1920x1080 forward table views; all3 USBcameras capture. Original headID absent. No OpenCV index remap inferred. Right-arm installed calibration freshly matched hardware. Right guided extension used only5 positioning motors, jaw left off/closed; exact settings verified/temporary lower torques (elbow400/P32, others<=800), speed100/acc5,40tick increments, per-joint saved limits, load/status/voltage/tracking checks, live-phone freshness. Initial pre-motion SDK-7 wrong-ID reply aborted/released; subsequent released precheck passed. Controlled shoulder/elbow/pan moves unfolded arm but did NOT establish paddle pregrasp. Timed holds and final stale phone feed ended sessions with all6 right releases/settings restoration verified. Current right pose partly extended, not identical to starting fold. No jaw closure, contact or pickup performed.
+
+Owner referenced15b5b36 handoff. Fetchedorigin/main without changing working tree; read document/inventory; all37 files hash-match. Native fresh-capture tag audit detects1table and3paddle (Hamming0/margins55.86/46.19), no2fixedgripperhousing in3USBviews. No metric pose or current registration/jawhandle transform verified. Local robot-tools TCP1241 reachable, recorded Gemma gateway192.168.100.142:1240 times out; DevMac pilotpath unavailable here; old ownerstatus stopped~7h old. No new owner or registration motion started. Phone feed stale; requested restart/wider co-visible1/2/3 view and current Gemma connectivity. Independent finalall16 Status0/Torque0 verified. Evidence outputs/Paddle-Handoff-Readiness-Summary.json, source audit, tag audit, owner readiness and original camera images. Approach near paddle remains INCOMPLETE pending observation/registration readiness; do not claim picked up or use simulated offsets.
+
+
+### 2026-10-06 JST: phone feed restored, tags1/2/3 co-visible
+
+After server/tunnel disappearance, restarted existing camera server on8876/8877; new camera HTTPS quick tunnel uses local HTTPS8877 with existing CA verification, authenticated status passed and unauthenticated status401; QR decoded roundtrip matches configured link. Owner requested killing Gemma tunnel; revalidated PID2077 TCP127.0.0.1:1241 and terminated it, camera tunnel separate. Owner restarted phone upload: freshseq93/frame age0.106s. Detects1table,2gripperhousing,3paddle; tag1 one corner x=-1.39 clipped, Hamming1, margin48;2/3 Hamming0/margins32/46. Requested slight wider framing. Both arms fresh Status0/Torque0; no new motor motion. No matching registration/contact transforms verified and no pickup claimed. Evidence outputs/Phone-Camera-Recovery.json, Phone-Readjusted-Tag-Check.json and Phone-Camera-Readjusted-Readiness.json.
+
+
+### 2026-10-07 JST: paddle commissioning archived; pickup incomplete
+
+See docs/commissioning/2026-10-07-paddle/README.md and its evidence/scripts archive for the 20cm encoder-estimated drive, bounded non-contact reach/return, failed camera registration, provisional depth/CAD offsets, and restored 7 October connectivity. No verified paddle pregrasp/closure/lift/place. Requested40deg arm and40cm cart operations remain incomplete. All16 last read-only responses Status0/Torque0; no present-state guarantee. First phone QR was corrected to the raw URL-encoded bearer fragment; secrets, QR images and footage were not committed. Model zero/sign binding and current camera-to-arm registration remain absent. Archived prototypes are opt-in, workstation-specific experiments, not production controllers.

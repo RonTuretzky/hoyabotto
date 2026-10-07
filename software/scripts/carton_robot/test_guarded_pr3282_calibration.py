@@ -110,6 +110,15 @@ class Tests(unittest.TestCase):
    pos=100+int(now[0]*100);data=[0]*15;data[0]=pos&255;data[1]=pos>>8;data[2]=100;return data,0,0
   bus=types.SimpleNamespace(motors={'a':types.SimpleNamespace(id=1)},port_handler=None,packet_handler=types.SimpleNamespace(readTxRx=read))
   with self.assertRaises(g.CalibrationAbort):g.settle_limit_position(bus,'a',clock=lambda:now[0],sleep=lambda d:now.__setitem__(0,now[0]+d))
+ def test_endpoint_chatter_must_end_before_acceptance(self):
+  now=[0.0]
+  def read(*a):
+   data=[0]*15;data[0]=100
+   if now[0]<1.5:data[2]=50;data[10]=1
+   return data,0,0
+  bus=types.SimpleNamespace(motors={'a':types.SimpleNamespace(id=1)},port_handler=None,packet_handler=types.SimpleNamespace(readTxRx=read))
+  self.assertEqual(g.settle_limit_position(bus,'a',clock=lambda:now[0],sleep=lambda d:now.__setitem__(0,now[0]+d)),100)
+  self.assertGreaterEqual(now[0],1.6)
  def test_slow_leg_runs_beyond_20_then_stops_before_45(self):
   result,elapsed,writes=self.wait_trace(lambda t:(100+int(min(t,25)*80),80 if t<25 else 0,1 if t<25 else 0,0),timeout=45,max_travel_ticks={'a':2580});self.assertGreater(elapsed,25);self.assertLess(elapsed,45);self.assertEqual(result[1]['a'],2100)
  def test_never_stops_deadline_is_failure(self):

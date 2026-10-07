@@ -1,0 +1,17 @@
+{
+  "commit": "1c8e185e3694def2469d7d312c78dab217e336da",
+  "files": {
+    "auto_calibration.py": {
+      "path": "src/lerobot/motors/feetech/auto_calibration.py",
+      "sha256": "9c383e087c4caec0c2fb98f0c6171a84fa16dc7147ed19977635fa3aeeab72cd"
+    },
+    "calibration_defaults.py": {
+      "path": "src/lerobot/motors/feetech/calibration_defaults.py",
+      "sha256": "05342632e50a2f17d3435dc5f7bff20530c5c562d216551398b917040a332e3e"
+    },
+    "workflow.py": {
+      "path": "src/lerobot/scripts/lerobot_auto_calibrate_feetech.py",
+      "sha256": "76db4f4256bf9cd631a292a0c6e496621cf81fe20c8aa063740cc079eb4d6552"
+    }
+  }
+}

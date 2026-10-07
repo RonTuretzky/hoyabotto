@@ -82,7 +82,7 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 | `farm robot-test [--move --ask]` | Motors only: reads every joint; with `--move` nudges each one and asks whether the named part moved. |
 | `farm servo-protection [--write]` | Reads each servo's own EEPROM temperature protection (limit, unload mask, alarm mask); with `--write` sets the limit (default 200 °C, `--limit N`) and clears the temperature bit in both masks, permanently; a servo that will not keep a limit above the documented 100 gets 100 instead. No motion. |
 | `farm policy-server --checkpoint DIR` | Parked. On a second machine: serves a checkpoint over HTTP; `farm policy-test --server URL` uses it. See `docs/gpu-server.md`. |
-| `farm calibrate --auto --arm left` (then `right`), `farm calibrate --head` | Automatic calibration: each arm finds its own limits (LeRobot PR #3282, vendored in `farm/vendor/autocal`); the head is a two-joint hands-on step. **Never run on this robot.** Staged modes: `--motor gripper`, `--unfold-only`. Procedure in the `farm-bringup` skill. |
+| `farm calibrate --auto --arm left` (then `right`), `farm calibrate --head` | Automatic calibration: each arm finds its own limits (LeRobot PR #3282, vendored in `farm/vendor/autocal`); the head is a two-joint hands-on step. Runs have completed, but communication and clearance failures remain documented in `STATUS.md`. Staged modes: `--motor gripper`, `--unfold-only`. Procedure in the `farm-bringup` skill. |
 | `farm r2a [--checkpoint DIR]` | R2a planter-assembly readiness: parts hashes, station transform, grip thresholds, dataset/checkpoint schema. Files only. Contract in `farm/assembly/`, plan in `docs/r2a-assembly.md`. Execution disabled. |
 | `farm mcp` | Stdio MCP server: state, camera frames and three skill-level actions (stop, go_rest, go_keyframe). No raw joint access. It holds the robot's serial ports while it runs. |
 
@@ -106,3 +106,7 @@ shadow → route → approve. Starts at shadow; promotes itself after `jev_shado
 `farm light-monitor` streams the ESP32 readings once the board is flashed.
 
 `firmware/esp32_light/esp32_light.ino` — Arduino IDE, board "ESP32 Dev Module", 115200 baud. BH1750 on 3V3/GND/SDA=GPIO21/SCL=GPIO22 (verify the delivered ELEGOO board's labels). `farm check` shows the live lux stream.
+
+### Repeating the unchanged calibration PR
+
+Use the tracked [upstream calibration procedure](docs/auto-calibration.md). The new runner defaults to velocity300/20s, retains evidence, verifies release/readback and stages candidates before optional atomic installation. Routine completion is reported separately from full-range validation.

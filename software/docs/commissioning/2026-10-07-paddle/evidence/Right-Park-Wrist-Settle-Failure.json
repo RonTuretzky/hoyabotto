@@ -1,0 +1,98 @@
+{
+  "segments": [
+    {
+      "joint": "shoulder_lift",
+      "start": 2622,
+      "target": 2281,
+      "position": 2310,
+      "actual_delta_deg": -27.421875,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 2281,
+        "elbow_flex": 2525,
+        "wrist_flex": 2519,
+        "wrist_roll": 2124
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 2310,
+      "target": 1969,
+      "position": 1999,
+      "actual_delta_deg": -27.333984375,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 1969,
+        "elbow_flex": 2525,
+        "wrist_flex": 2519,
+        "wrist_roll": 2124
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 1999,
+      "target": 1658,
+      "position": 1684,
+      "actual_delta_deg": -27.685546875,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 1658,
+        "elbow_flex": 2525,
+        "wrist_flex": 2519,
+        "wrist_roll": 2124
+      }
+    },
+    {
+      "joint": "elbow_flex",
+      "start": 2536,
+      "target": 2877,
+      "position": 2877,
+      "actual_delta_deg": 29.970703125,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 1658,
+        "elbow_flex": 2877,
+        "wrist_flex": 2519,
+        "wrist_roll": 2124
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 1673,
+      "target": 1332,
+      "position": 1346,
+      "actual_delta_deg": -28.740234375,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 1332,
+        "elbow_flex": 2877,
+        "wrist_flex": 2519,
+        "wrist_roll": 2124
+      }
+    },
+    {
+      "joint": "elbow_flex",
+      "start": 2878,
+      "target": 3098,
+      "position": 3099,
+      "actual_delta_deg": 19.423828125,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 1332,
+        "elbow_flex": 3098,
+        "wrist_flex": 2519,
+        "wrist_roll": 2124
+      }
+    }
+  ],
+  "error": "Motion did not settle",
+  "release": {
+    "shoulder_pan": true,
+    "shoulder_lift": true,
+    "elbow_flex": true,
+    "wrist_flex": true,
+    "wrist_roll": true
+  },
+  "settings_restored": true,
+  "all_six_torque_off": true
+}

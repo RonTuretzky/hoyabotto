@@ -3,7 +3,7 @@
   farm set-motor-id --name head_motor_1   give one loose servo its bus ID (replaces Feetech's Windows FD tool)
   farm devices                      list serial ports and cameras (fill the profile from this)
   farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration by hand (setup, not operation)
-  farm calibrate --auto --arm left [--motor gripper | --unfold-only]   UNTESTED ON THE CART: the arm finds its own limits (LeRobot PR #3282)
+  farm calibrate --auto --arm left [--motor gripper | --unfold-only]   the arm finds its own limits; see docs/auto-calibration.md for the unchanged PR runner (LeRobot PR #3282)
   farm calibrate --head             hands-on, two joints: calibrate only the head
   farm calibration-report           read the saved calibration; flag wrapped, short or mismatched joint ranges (no motion)
   farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one

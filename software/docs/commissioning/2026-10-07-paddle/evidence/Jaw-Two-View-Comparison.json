@@ -1,0 +1,35 @@
+{
+  "status": "PRELIMINARY_PLANAR_FEATURE_COMPARISON",
+  "feature": "distal fixed-jaw tip",
+  "views": {
+    "OAK": {
+      "pixel": [
+        561,
+        176
+      ],
+      "tag_plane_offset_mm": [
+        -100.0877456665039,
+        -26.18468475341797
+      ]
+    },
+    "Phone": {
+      "pixel": [
+        23,
+        282
+      ],
+      "tag_plane_offset_mm": [
+        -62.418827056884766,
+        7.901497840881348
+      ]
+    }
+  },
+  "contact_offset_validated": false,
+  "motor_writes": 0,
+  "disagreement_mm": 50.80172509935095,
+  "limitations": [
+    "Unverified coplanarity of jaw tip and paper tag",
+    "Lens distortion not removed in this planar check",
+    "Manual feature selection",
+    "Tip is not the measured jaw grasp centre"
+  ]
+}
