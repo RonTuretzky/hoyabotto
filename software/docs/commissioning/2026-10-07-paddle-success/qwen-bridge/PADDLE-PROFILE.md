@@ -14,3 +14,6 @@ Pickup-profile lease correction: enable and completed movement grant a monitored
 
 
 Additional pilot corrections now implemented: camera freshness is checked before activation and before each new target; a stale phone feed pauses target advancement while servo health and STOP remain active, resumes only on a new fresh sequence, and times out after 20 seconds. The next ramp starts from the last commanded held waypoint and rejects a changed owner position outside the 96-tick envelope. Pickup commands require all six right-arm joints enabled, enforce a 20-segment session budget, and preserve a 120-second monitored hold.
+
+
+The pickup watchdog accepts up to a one-second telemetry gap; legacy profiles retain the 200 ms watchdog. This is deliberately bounded and does not turn stale telemetry into a ten-minute wait. The motion tool now splits oversized targets into <=341-tick segments and returns a no-op for residuals within two ticks.

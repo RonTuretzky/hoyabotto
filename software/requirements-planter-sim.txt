@@ -1,5 +1,0 @@
-# Reuse the pinned carton camera, SO101 kinematics and MuJoCo environment.
--r requirements-carton-folding-sim.txt
--r requirements-gemma-calibration.txt
-trimesh==4.12.2
-manifold3d==3.3.2

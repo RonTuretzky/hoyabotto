@@ -7,11 +7,8 @@ import pytest
 
 from carton.folding_partial_short_probe import (
     _PanelStepAudit, _ShortStroke, _contact_reading, _bounded_contact_goals,
-    _validated_jaw_vertex, _subdivide_reversed_joint_paths, _exact_waypoint_details,
-    _entry_route_endpoint_drifts,
     probe_shorts_against_passive_majors,
 )
-from carton.folding_far_contact import mesh_contact_vertices
 from carton.folding_sim import JOINTS
 
 
@@ -29,11 +26,6 @@ def test_prior_passive_stage_is_required_before_plant_access():
 def test_unknown_contact_policy_refuses_before_plant_access():
     with pytest.raises(ValueError, match='contact policy'):
         probe_shorts_against_passive_majors(None, None, contact_policy='unbounded')
-
-
-def test_unknown_approach_policy_refuses_before_plant_access():
-    with pytest.raises(ValueError, match='approach policy'):
-        probe_shorts_against_passive_majors(None, None, approach_policy='unchecked')
 
 
 def test_missing_short_observation_stops_before_planning_and_cannot_be_retried():
@@ -241,112 +233,6 @@ def test_feedback_still_refuses_ik_that_expands_the_command_increment():
         _bounded_contact_goals(sim, {a: LinearIK(.001) for a in ('left', 'right')},
                                {a: [.003, 0., 0.] for a in ('left', 'right')},
                                contact_policy='setpoint_feedback_v3')
-
-
-def jaw_mesh_sim():
-    model = mujoco.MjModel.from_xml_string('''<mujoco>
-      <asset><mesh name="tetra" vertex="0 0 0 .01 0 0 0 .01 0 0 0 .01"/></asset>
-      <worldbody><body name="left_gripper_link">
-        <geom name="left_wrist_roll_follower_tip" type="mesh" mesh="tetra" pos="0 0 -.1"/>
-        <geom name="left_wrist_roll_follower_proximal" type="mesh" mesh="tetra"/>
-        <geom name="left_wrist_link_housing" type="mesh" mesh="tetra" pos=".1 0 0"/>
-        <body name="left_moving_jaw_link" pos=".03 0 0"><joint type="hinge"/>
-          <geom name="left_moving_jaw_finger" type="mesh" mesh="tetra"/>
-        </body>
-      </body></worldbody></mujoco>''')
-    data = mujoco.MjData(model)
-    mujoco.mj_kinematics(model, data)
-    return SimpleNamespace(model=model, data=data)
-
-
-def test_proximal_jaw_validation_preserves_honest_distal_only_selector():
-    sim = jaw_mesh_sim()
-    declared = dict(body='left_gripper_link', local=[0., 0., 0.],
-                    geometry='left_wrist_roll_follower_proximal')
-    point = _validated_jaw_vertex(sim, 'left', declared)
-    assert point['source_vertex_error_m'] < 1e-6
-    assert point['geometry'] == declared['geometry']
-    distal = mesh_contact_vertices(sim.model, sim.data, 'left')
-    assert all(np.linalg.norm(vertex['local']) > .08 for vertex in distal)
-
-
-@pytest.mark.parametrize('declared', [
-    dict(body='left_gripper_link', local=[.1, 0., 0.], geometry='left_wrist_link_housing'),
-    dict(body='left_gripper_link', local=[.2, 0., 0.]),
-    dict(body='right_gripper_link', local=[0., 0., 0.]),
-    dict(body='left_gripper_link', local=[float('nan'), 0., 0.]),
-])
-def test_nonjaw_nonvertex_wrong_side_or_nonfinite_contact_refuses(declared):
-    with pytest.raises(ValueError):
-        _validated_jaw_vertex(jaw_mesh_sim(), 'left', declared)
-
-
-def test_moving_jaw_vertex_cannot_be_frozen_to_same_side_gripper_body():
-    sim = jaw_mesh_sim()
-    with pytest.raises(ValueError, match='absent from original permitted'):
-        _validated_jaw_vertex(sim, 'left', dict(body='left_gripper_link',
-            local=[.03, 0., 0.], geometry='left_moving_jaw_finger'))
-    valid = _validated_jaw_vertex(sim, 'left', dict(body='left_moving_jaw_link',
-        local=[0., 0., 0.], geometry='left_moving_jaw_finger'))
-    assert valid['body'] == 'left_moving_jaw_link'
-
-
-def test_exact_reverse_subdivision_preserves_joint_edges_without_inward_ik():
-    class NoSolveIK(LinearIK):
-        def solve(self, target, seed):
-            raise AssertionError('Exact inward path must not re-solve point IK')
-    paths = {'left': [np.zeros(5), np.array([.003, -.001, 0., .2, 0.])],
-             'right': [np.zeros(5), np.array([0., .002, 0., 0., -.1])]}
-    ik = {a: NoSolveIK() for a in paths}
-    waypoints = _subdivide_reversed_joint_paths(paths, ik)
-    for a in paths:
-        assert np.array_equal(waypoints[0][a], paths[a][0])
-        assert np.array_equal(waypoints[-1][a], paths[a][-1])
-    for start, end in zip(waypoints, waypoints[1:]):
-        for a in paths:
-            assert np.linalg.norm(ik[a].point(end[a])-ik[a].point(start[a])) <= .000501
-            # All joint coordinates remain on the original checked edge.
-            mask = paths[a][-1] != 0
-            fractions = end[a][mask]/paths[a][-1][mask]
-            assert np.allclose(fractions, fractions[0])
-
-
-def test_unequal_reverse_paths_cannot_silently_drop_one_arms_waypoint():
-    with pytest.raises(ValueError, match='Equal finite paired'):
-        _subdivide_reversed_joint_paths({'left': [np.zeros(5), np.ones(5)], 'right': [np.zeros(5)]}, {})
-
-
-def test_exact_waypoint_rejects_jump_from_real_current_setpoint_without_resolving():
-    sim = feedback_sim()
-    ik = {a: LinearIK() for a in ('left', 'right')}
-    goals = {a: np.array([.001, 0., 0., 0., 0.]) for a in ik}
-    with pytest.raises(ValueError, match='Exact normal waypoint exceeds'):
-        _exact_waypoint_details(sim, ik, goals, {a: [.001, 0., 0.] for a in ik})
-    assert np.array_equal(sim.data.ctrl, np.zeros(10))
-
-
-def test_exact_waypoint_bound_is_setpoint_increment_not_claimed_physical_motion():
-    sim = feedback_sim()
-    sim.data.qpos[[2, 7]] = -.001
-    ik = {a: LinearIK() for a in ('left', 'right')}
-    goals = {a: np.array([0., 0., .0005, 0., 0.]) for a in ik}
-    _, details = _exact_waypoint_details(sim, ik, goals, {a: [0., 0., .005] for a in ik})
-    for a in ik:
-        assert details[a]['commanded_fk_increment_m'] == pytest.approx(.0005)
-        assert details[a]['actual_fk_step_m'] == pytest.approx(.0015)
-
-
-@pytest.mark.parametrize('target', [[.025, .025, 0.], [float('nan'), 0., 0.]])
-def test_fresh_endpoint_drift_or_missing_geometry_invalidates_frozen_route(target):
-    entry = {a: [0., 0., 0.] for a in ('left', 'right')}
-    with pytest.raises(ValueError):
-        _entry_route_endpoint_drifts(dict(left=target, right=[0., 0., 0.]), entry)
-
-
-def test_current_geometry_monitor_does_not_modify_entry_route():
-    entry = {a: [0., 0., 0.] for a in ('left', 'right')}
-    assert _entry_route_endpoint_drifts(dict(left=[.001, 0., 0.], right=[0., 0., 0.]), entry)['left'] == .001
-    assert entry['left'] == [0., 0., 0.]
 
 
 def contact_sim(tmp_path, *, overlap, prior_fault=None):

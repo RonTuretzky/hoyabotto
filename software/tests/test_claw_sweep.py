@@ -82,9 +82,7 @@ assert {'--open-shorts-first','--far-after-near','--release-far-after',
         '--release-near-after-far','--probe-shorts-after-release'} <= set(sys.argv)
 assert sys.argv[sys.argv.index('--short-view-camera')+1] == 'front_left_back'
 assert '--allow-primary-carton-absence' in sys.argv
-assert '--observe-primary-open-shorts' in sys.argv
 assert sys.argv[sys.argv.index('--short-contact-policy')+1] == 'setpoint_feedback_v3'
-assert sys.argv[sys.argv.index('--short-approach-policy')+1] == 'whole_jaw_normal_v1'
 assert not {'--fold-right','--press-left','--open-claw-transfer'} & set(sys.argv)
 a.out.mkdir()
 (a.out/'result.json').write_text(json.dumps({
@@ -101,8 +99,7 @@ a.out.mkdir()
             near_pre_out=.03, near_hold_degrees=40., far_after_near=True,
             far_hold_degrees=35., release_far_after=True, release_near_after_far=True,
             probe_shorts_after_release=True, short_view_camera='front_left_back',
-            allow_primary_carton_absence=True, short_contact_policy='setpoint_feedback_v3',
-            observe_primary_open_shorts=True, short_approach_policy='whole_jaw_normal_v1'), root=root, snapshot=snapshot,
+            allow_primary_carton_absence=True, short_contact_policy='setpoint_feedback_v3'), root=root, snapshot=snapshot,
             simulation_root=tmp_path, python=Path(sys.executable), video=False, timeout=10.)
         assert record['exit_code'] == 0
         assert record['both_partial_majors_released']

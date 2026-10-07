@@ -186,15 +186,13 @@ def run(args):
                             assumption_id='offline:front-open-short-regrasp-v1', clock_id='offline:simulation',
                             required_flaps=('long_near','long_far','short_left','short_right'),
                             observe_open_shorts=True, camera=short_camera,
-                            observe_primary_open_shorts=getattr(args, 'observe_primary_open_shorts', False),
                             allow_primary_carton_absence=getattr(args, 'allow_primary_carton_absence', False)),
                         seed=args.seed)
                     controller.port = port
                     result['stage'] = 'Probe paired short folds against freely passive majors'
                     result['partial_short_probe'] = probe_shorts_against_passive_majors(
                         sim, controller, capture=True, target_degrees=10.,
-                        contact_policy=getattr(args, 'short_contact_policy', 'measured_v2'),
-                        approach_policy=getattr(args, 'short_approach_policy', 'elevated_v2'))
+                        contact_policy=getattr(args, 'short_contact_policy', 'measured_v2'))
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -372,10 +370,6 @@ if __name__ == '__main__':
                         help='Opt in to fully fresh additional-view geometry when only the primary carton identity is absent')
     parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3'),
                         default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
-    parser.add_argument('--observe-primary-open-shorts', action='store_true',
-                        help='Use strict hinge-plane evidence from current primary pixels during the short probe')
-    parser.add_argument('--short-approach-policy', choices=('elevated_v2', 'whole_jaw_normal_v1'),
-                        default='elevated_v2', help='Explicit checked normal approach using original jaw surfaces')
     parser.add_argument('--open-short-angle', type=float, default=-15.)
     parser.add_argument('--along', type=float, default=-.10)
     parser.add_argument('--radius', type=float, default=.125)
@@ -451,10 +445,6 @@ if __name__ == '__main__':
         parser.error('Fresh-view fallback requires the explicit paired-short probe')
     if args.short_contact_policy != 'measured_v2' and not args.probe_shorts_after_release:
         parser.error('Alternative short contact policy requires the explicit paired-short probe')
-    if args.observe_primary_open_shorts and not args.probe_shorts_after_release:
-        parser.error('Primary open-short observation requires the explicit paired-short probe')
-    if args.short_approach_policy != 'elevated_v2' and not args.probe_shorts_after_release:
-        parser.error('Alternative short approach requires the explicit paired-short probe')
     if args.center_floor_marker and args.floor_marker_x is not None and abs(args.floor_marker_x)<.057:
         parser.error('Declared floor markers would overlap')
     run(args)
