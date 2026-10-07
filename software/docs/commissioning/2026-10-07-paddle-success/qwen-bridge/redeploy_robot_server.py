@@ -75,6 +75,7 @@ def wrist_fresh(name):
 def ensure_wrist_publishers(dry_run):
  """Start capture-single for each wrist without a fresh stream; needs Terminal's camera permission."""
  out=subprocess.run(['ps','-axo','pid=,command='],capture_output=True,text=True).stdout
+ say('expected wrist camera IDs: '+', '.join(f'{n}={i}' for n,i in WRIST_CAMERA_IDS.items())+' (override with XLEROBOT_RIGHT_WRIST_ID / XLEROBOT_LEFT_WRIST_ID)')
  for name,camera_id in WRIST_CAMERA_IDS.items():
   if wrist_fresh(name):say(f'{name}: already publishing fresh frames');continue
   running=[line.split(None,1)[0] for line in out.splitlines() if camera_id in line]
@@ -92,8 +93,13 @@ def ensure_wrist_publishers(dry_run):
   if wrist_fresh(name):say(f'{name}: publisher pid {proc.pid} streaming to {WRIST_STREAM}')
   else:
    log=(WRIST_STREAM/(name+'.log'));tail=log.read_text(errors='replace').strip().splitlines()[-3:] if log.exists() else []
-   say(f'WARNING {name}: no fresh frames after 8 s (exit code {proc.poll()}). Publisher said: {" | ".join(tail) or "nothing"}. '
-       'Camera access needs Terminal: open Terminal.app yourself and run ./restart-robot-server.sh --cameras-only')
+   say(f'WARNING {name}: no fresh frames after 8 s (exit code {proc.poll()}). Publisher said: {" | ".join(tail) or "nothing"}')
+   if proc.poll() is None:proc.terminate()
+   try:listed=subprocess.run([str(CAPTURE),'--list'],capture_output=True,text=True,timeout=15).stdout.strip()
+   except Exception as e:listed=f'(could not list cameras: {e})'
+   say(f'Cameras this Mac sees now (expected {name} = {camera_id}):\n{listed}\n'
+       f'If the ID changed (USB port/hub moves change it), rerun with the new one, e.g. '
+       f'XLEROBOT_{name.split("_")[0].upper()}_WRIST_ID=<camera_id> ./restart-robot-server.sh (the API pins the same variable).')
 
 def main():
  parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
