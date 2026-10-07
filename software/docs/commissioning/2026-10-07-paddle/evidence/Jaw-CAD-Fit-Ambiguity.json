@@ -1,0 +1,143 @@
+{
+  "status": "EXPLORATORY_PARTIAL_SURFACE_ICP",
+  "observed_points": 500,
+  "fits": [
+    {
+      "initial_dx_dz_mm": [
+        -15,
+        -10
+      ],
+      "held_out_tip_error_mm": 18.003568919773283,
+      "trimmed_rms_mm": 2.594509110434482,
+      "tag2_from_cad_grasp_mm": [
+        -82.63048166334588,
+        -8.09272201254189,
+        14.55606177631909
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        -15,
+        0
+      ],
+      "held_out_tip_error_mm": 15.92647190602881,
+      "trimmed_rms_mm": 2.683745424435454,
+      "tag2_from_cad_grasp_mm": [
+        -84.54289313512177,
+        1.108948677022612,
+        16.142440068267845
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        -15,
+        10
+      ],
+      "held_out_tip_error_mm": 17.618313999033887,
+      "trimmed_rms_mm": 2.7801665112085896,
+      "tag2_from_cad_grasp_mm": [
+        -86.36257081135344,
+        6.63430161156516,
+        21.89553583664638
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        0,
+        -10
+      ],
+      "held_out_tip_error_mm": 8.080575117036602,
+      "trimmed_rms_mm": 2.1160651778867887,
+      "tag2_from_cad_grasp_mm": [
+        -63.90854247220947,
+        -2.0248024723570026,
+        14.92295834016263
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        0,
+        0
+      ],
+      "held_out_tip_error_mm": 7.188195139768249,
+      "trimmed_rms_mm": 2.4370458144249154,
+      "tag2_from_cad_grasp_mm": [
+        -68.44100458206151,
+        -3.3925575188197357,
+        15.003761348113002
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        0,
+        10
+      ],
+      "held_out_tip_error_mm": 4.435977938543085,
+      "trimmed_rms_mm": 2.1972509247109486,
+      "tag2_from_cad_grasp_mm": [
+        -70.41111989578567,
+        -0.9586951575367593,
+        20.692310116729637
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        15,
+        -10
+      ],
+      "held_out_tip_error_mm": 11.772851493005154,
+      "trimmed_rms_mm": 2.066886305824804,
+      "tag2_from_cad_grasp_mm": [
+        -57.80996643942033,
+        1.3939737624113855,
+        14.657241941352318
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        15,
+        0
+      ],
+      "held_out_tip_error_mm": 11.994881894653568,
+      "trimmed_rms_mm": 2.076784201196075,
+      "tag2_from_cad_grasp_mm": [
+        -57.54256586846094,
+        1.5259818797573637,
+        14.714992736674077
+      ]
+    },
+    {
+      "initial_dx_dz_mm": [
+        15,
+        10
+      ],
+      "held_out_tip_error_mm": 11.47664271733513,
+      "trimmed_rms_mm": 1.81933752970266,
+      "tag2_from_cad_grasp_mm": [
+        -57.896048197933574,
+        2.5700275523017186,
+        19.30114974436019
+      ]
+    }
+  ],
+  "grasp_point_spread_mm": 30.137150074306707,
+  "validated": false,
+  "tip_model_mm": [
+    -9.794062614440918,
+    0.11978781223297119,
+    105.22257995605469
+  ],
+  "measured_tip_tag2_mm": [
+    -74.76796768080963,
+    2.2504730729287448,
+    15.839870936971302
+  ],
+  "motor_writes": 0,
+  "limitations": [
+    "Manually selected narrow fixed-jaw surface",
+    "Partial surface nearest-neighbour fit can match incorrect mesh regions",
+    "No held-out physical grasp-point reference",
+    "No arm model zero/sign binding",
+    "Depth alignment remains uncommissioned"
+  ]
+}

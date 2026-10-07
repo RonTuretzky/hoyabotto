@@ -1,0 +1,41 @@
+{
+  "segments": [
+    {
+      "joint": "shoulder_lift",
+      "start": 1335,
+      "target": 994,
+      "position": 1001,
+      "actual_delta_deg": -29.35546875,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 994,
+        "elbow_flex": 3100,
+        "wrist_flex": 2671,
+        "wrist_roll": 2123
+      }
+    },
+    {
+      "joint": "shoulder_lift",
+      "start": 1001,
+      "target": 886,
+      "position": 893,
+      "actual_delta_deg": -9.4921875,
+      "all_goals": {
+        "shoulder_pan": 2027,
+        "shoulder_lift": 886,
+        "elbow_flex": 3100,
+        "wrist_flex": 2671,
+        "wrist_roll": 2123
+      }
+    }
+  ],
+  "release": {
+    "shoulder_pan": true,
+    "shoulder_lift": true,
+    "elbow_flex": true,
+    "wrist_flex": true,
+    "wrist_roll": true
+  },
+  "settings_restored": true,
+  "all_six_torque_off": true
+}

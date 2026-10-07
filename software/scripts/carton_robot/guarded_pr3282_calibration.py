@@ -97,7 +97,7 @@ def directed_samples(positions,velocity):
     expected=1 if velocity>0 else -1
     return sum(d*expected for d in deltas),sum(max(0,-d*expected) for d in deltas)
 
-def settle_limit_position(bus,name,*,clock=time.monotonic,sleep=time.sleep,timeout_s=1.0):
+def settle_limit_position(bus,name,*,clock=time.monotonic,sleep=time.sleep,timeout_s=3.0):
     """Resample actual endpoint after zero velocity; don't retain pre-stop drift."""
     started=clock();previous=None;stable=0;trace=[]
     while clock()-started<timeout_s:
@@ -131,7 +131,9 @@ def wait_guarded_limits(bus,motors,confirm_samples,timeout_s,interval_s,*,veloci
             pos=data[0]|data[1]<<8;raw_vel=data[2]|data[3]<<8
             vel=-(raw_vel & 32767) if raw_vel & 32768 else raw_vel
             if n in getattr(bus,'_direction_samples',{}):bus._direction_samples[n].append(pos)
-            trace['samples'][n].append({'time':clock(),'position':pos,'velocity':vel,'moving':data[10],'status':row['status']})
+            load_raw=data[4]|data[5]<<8
+            load=-(load_raw & ~1024) if load_raw & 1024 else load_raw
+            trace['samples'][n].append({'time':clock(),'position':pos,'velocity':vel,'moving':data[10],'status':row['status'],'load':load,'voltage_raw':data[6],'current_raw':data[13]|data[14]<<8})
             if n in previous:travel[n]+=abs(((pos-previous[n]+2048)%4096)-2048)
             if n not in progress_position or abs(((pos-progress_position[n]+2048)%4096)-2048)>=3:
                 progress_position[n]=pos;last_progress[n]=clock()
@@ -156,12 +158,13 @@ def main():
     p.add_argument('--arm', choices=['left','right'], default='right')
     p.add_argument('--backup-dir', type=pathlib.Path, required=True)
     p.add_argument('--leg-timeout-s',type=float,default=45.0)
+    p.add_argument('--velocity',type=int,choices=(100,200),default=100,help='100 default or previously successful 200')
     p.add_argument('--execute',action='store_true')
     p.add_argument('--clearance-confirmed',action='store_true',help='Operator confirmed entire selected-arm sweep, other arm, cables and battery switch')
     a=p.parse_args()
     if not 1<=a.leg_timeout_s<=45:p.error('--leg-timeout-s must be1..45')
     if not a.execute:
-        print(json.dumps({'plan_only':True,'arm':a.arm,'port':PORTS[0 if a.arm=='left' else 1],'velocity':100,'leg_timeout_s':a.leg_timeout_s,'backup_dir':str(a.backup_dir),'requires_clearance_confirmation':True}));return 0
+        print(json.dumps({'plan_only':True,'arm':a.arm,'port':PORTS[0 if a.arm=='left' else 1],'velocity':a.velocity,'leg_timeout_s':a.leg_timeout_s,'backup_dir':str(a.backup_dir),'requires_clearance_confirmation':True}));return 0
     if not a.clearance_confirmed:
         p.error('--execute requires --clearance-confirmed')
     a.backup_dir.mkdir(parents=True, exist_ok=False)
@@ -250,7 +253,7 @@ def main():
     try:
         w._connect_and_clear=connect
         sink={}
-        rc=w.run_full_calibration(PORTS[0 if a.arm=='left' else 1],save=True,velocity_limit=100,timeout_s=a.leg_timeout_s,interactive=True,result_sink=sink)
+        rc=w.run_full_calibration(PORTS[0 if a.arm=='left' else 1],save=True,velocity_limit=a.velocity,timeout_s=a.leg_timeout_s,interactive=True,result_sink=sink)
         if rc or set(sink)!=set(names):raise CalibrationAbort(f'Incomplete calibration rc={rc}')
         # Persist via wrapper only after all six results returned.
         merge_arm(CAL,a.arm,sink)

@@ -1,0 +1,251 @@
+{
+  "status": "CAMERA_RELATIVE_ESTIMATE",
+  "coordinate_frame": "CAM_A_optical",
+  "units": "mm",
+  "method": "opencv_ippe_square",
+  "depth_used": false,
+  "robot_frame_calibrated": false,
+  "contact_offset_calibrated": false,
+  "physical_accuracy_validated": false,
+  "geometry_config_sha256": "d925a369226e7d1008cf9be8509fc3493386cd6e190389c3cadd6a44afeb0de7",
+  "tags": [
+    {
+      "tag_id": 1,
+      "black_square_mm": 60,
+      "size_source": "User-confirmed print-kit dimensions; no independent ruler measurement.",
+      "mount": null,
+      "status": "POSE_ESTIMATED",
+      "center_camera_mm": [
+        -94.14139734718344,
+        25.960574484564756,
+        633.7020387524241
+      ],
+      "camera_from_tag": [
+        [
+          0.9940342729589595,
+          0.0925822379294761,
+          -0.0576575528697041,
+          -0.09414139734718344
+        ],
+        [
+          -0.025931492232496967,
+          0.7140928768013814,
+          0.6995705261173623,
+          0.025960574484564757
+        ],
+        [
+          0.10594065269550117,
+          -0.6939019329282033,
+          0.7122335892001684,
+          0.633702038752424
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "transform_translation_units": "metres",
+      "orientation_ambiguous": false,
+      "reprojection_rms_px": 0.4070325886717843,
+      "alternative_position_spread_mm": 0.0,
+      "position_std_mm_at_assumed_half_pixel_noise": [
+        1.0128941444572626,
+        0.4196339629930141,
+        6.433998217099896
+      ],
+      "coarse_position_only": true,
+      "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+      "uncertainty_excludes": [
+        "print_size",
+        "camera_calibration",
+        "paper_warp",
+        "mounting"
+      ],
+      "candidate_reprojection_rms_px": [
+        0.4070325886717843,
+        1.630625278011842
+      ]
+    },
+    {
+      "tag_id": 2,
+      "black_square_mm": 40,
+      "size_source": "User-confirmed print-kit dimensions; no independent ruler measurement.",
+      "mount": {
+        "arm": "right",
+        "body": "fixed_gripper_housing",
+        "source": "Transferred direct user confirmation"
+      },
+      "status": "POSE_ESTIMATED",
+      "center_camera_mm": [
+        67.94428032303514,
+        57.44271488037436,
+        340.26403723777736
+      ],
+      "camera_from_tag": [
+        [
+          0.050689411200241626,
+          -0.9945709522621468,
+          0.0908801656498247,
+          0.06794428032303515
+        ],
+        [
+          0.9980542888247924,
+          0.053753854083430974,
+          0.03159366597302572,
+          0.05744271488037436
+        ],
+        [
+          -0.0363073016156631,
+          0.08910187477008533,
+          0.9953605556590261,
+          0.3402640372377774
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "transform_translation_units": "metres",
+      "orientation_ambiguous": false,
+      "reprojection_rms_px": 0.14243620998465006,
+      "alternative_position_spread_mm": 0.0,
+      "position_std_mm_at_assumed_half_pixel_noise": [
+        0.5404032662835089,
+        0.4537046526523109,
+        2.6937796943175147
+      ],
+      "coarse_position_only": true,
+      "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+      "uncertainty_excludes": [
+        "print_size",
+        "camera_calibration",
+        "paper_warp",
+        "mounting"
+      ],
+      "candidate_reprojection_rms_px": [
+        0.14243620998465006,
+        0.730806206638944
+      ]
+    },
+    {
+      "tag_id": 3,
+      "black_square_mm": 40,
+      "size_source": "User-confirmed print-kit dimensions; no independent ruler measurement.",
+      "mount": null,
+      "status": "POSE_ESTIMATED",
+      "center_camera_mm": [
+        -146.01308556950787,
+        105.29638296427206,
+        551.0781730394274
+      ],
+      "camera_from_tag": [
+        [
+          -0.98942688759549,
+          -0.14495115545119738,
+          -0.004857636921841227,
+          -0.14601308556950787
+        ],
+        [
+          0.09906621501667767,
+          -0.6999230388749413,
+          0.7073143747262154,
+          0.10529638296427206
+        ],
+        [
+          -0.10592600787989231,
+          0.6993546326331372,
+          0.7068824362432546,
+          0.5510781730394274
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "transform_translation_units": "metres",
+      "orientation_ambiguous": false,
+      "reprojection_rms_px": 0.11144696637018604,
+      "alternative_position_spread_mm": 0.0,
+      "position_std_mm_at_assumed_half_pixel_noise": [
+        1.8663628672063337,
+        1.3682085844541367,
+        6.945263487514875
+      ],
+      "coarse_position_only": true,
+      "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+      "uncertainty_excludes": [
+        "print_size",
+        "camera_calibration",
+        "paper_warp",
+        "mounting"
+      ],
+      "candidate_reprojection_rms_px": [
+        0.11144696637018604,
+        0.7957020992583492
+      ]
+    }
+  ],
+  "gripper_to_paddle_mm": {
+    "from_tag": 2,
+    "to_tag": 3,
+    "delta_camera_mm": [
+      -213.957365892543,
+      47.853668083897695,
+      210.81413580165002
+    ],
+    "tag_center_distance_mm": 304.1551048766992,
+    "contact_offset_calibrated": false,
+    "robot_motion_target": false
+  },
+  "camera_calibration": {
+    "camera_id": "oak-1944301091DA1C2E00",
+    "image_size_px": [
+      640,
+      360
+    ],
+    "intrinsics": [
+      [
+        504.89410400390625,
+        0.0,
+        314.7537841796875
+      ],
+      [
+        0.0,
+        504.9738464355469,
+        192.5926513671875
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "projection": "camera_pinhole_with_factory_distortion",
+    "effective_distortion": [
+      -4.6401896476745605,
+      16.705299377441406,
+      -7.162407564464957e-05,
+      -0.00028249737806618214,
+      -22.244977951049805,
+      -4.718361854553223,
+      16.918954849243164,
+      -22.367332458496094,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.007052261848002672,
+      0.00018638990877661854
+    ],
+    "coordinate_frame": "CAM_A_optical",
+    "lens_position": 79
+  },
+  "calibration_sha256": "54b9622cc81e06c88d4330bf6788bf08dfe59d06380275b6704d76ae22862ba9",
+  "axes": "+x camera right, +y camera down, +z forward"
+}

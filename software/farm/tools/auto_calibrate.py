@@ -3,8 +3,9 @@
 The limit-seeking itself is LeRobot PR #3282 (vendored in farm/vendor/autocal): each joint is
 driven to its mechanical stops and the stall is detected, so nobody sweeps the arm by hand.
 That code was tested by its author on a single free-standing SO-101. On the XLeRobot cart the
-arm shares its space with the neck, the other arm and the tray rim, and THIS HAS NOT BEEN RUN
-ON OUR ROBOT. Hence the staged modes: try one small joint, then the unfold, then the whole arm.
+arm shares its space with the neck, the other arm and the tray rim. Runs have completed on
+this robot, but communication failures and contact-affected ranges also occurred. The pinned
+upstream runner stages and verifies candidates separately; see docs/auto-calibration.md.
 
 What this module adds around the vendored code:
   - the arm's port comes from the profile (left = port1, right = port2); head and wheel servos
@@ -45,7 +46,16 @@ def merge_arm(path: Path, arm: str, results: dict[str, Any]) -> dict[str, dict[s
     for name, mid in WHEELS.items():          # wheels turn freely: full range, no homing (same as the manual procedure)
         cal.setdefault(name, {"id": mid, "drive_mode": 0, "homing_offset": 0, "range_min": 0, "range_max": 4095})
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cal, indent=4))
+    fd, tmp = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(json.dumps(cal, indent=4))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
     return cal
 
 

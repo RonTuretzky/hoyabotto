@@ -1,0 +1,190 @@
+{
+  "time": 1791335344.119783,
+  "read_only": true,
+  "buses": {
+    "left": {
+      "motors": {
+        "shoulder_pan": {
+          "id": 1,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 2042,
+          "Operating_Mode": 0,
+          "Homing_Offset": -22,
+          "Min_Position_Limit": 959,
+          "Max_Position_Limit": 3135
+        },
+        "shoulder_lift": {
+          "id": 2,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 1158,
+          "Operating_Mode": 0,
+          "Homing_Offset": 677,
+          "Min_Position_Limit": 1130,
+          "Max_Position_Limit": 2964
+        },
+        "elbow_flex": {
+          "id": 3,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 2975,
+          "Operating_Mode": 0,
+          "Homing_Offset": 107,
+          "Min_Position_Limit": 942,
+          "Max_Position_Limit": 3152
+        },
+        "wrist_flex": {
+          "id": 4,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 2978,
+          "Operating_Mode": 0,
+          "Homing_Offset": -824,
+          "Min_Position_Limit": 896,
+          "Max_Position_Limit": 3198
+        },
+        "wrist_roll": {
+          "id": 5,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 2115,
+          "Operating_Mode": 0,
+          "Homing_Offset": 1319,
+          "Min_Position_Limit": 110,
+          "Max_Position_Limit": 3984
+        },
+        "gripper": {
+          "id": 6,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 1293,
+          "Operating_Mode": 0,
+          "Homing_Offset": 130,
+          "Min_Position_Limit": 1261,
+          "Max_Position_Limit": 2833
+        },
+        "head_pan": {
+          "id": 7,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 2388,
+          "Operating_Mode": 0,
+          "Homing_Offset": 1900,
+          "Min_Position_Limit": 1019,
+          "Max_Position_Limit": 3151
+        },
+        "head_tilt": {
+          "id": 8,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 121,
+          "Present_Position": 2748,
+          "Operating_Mode": 0,
+          "Homing_Offset": 1591,
+          "Min_Position_Limit": 1932,
+          "Max_Position_Limit": 2665
+        }
+      }
+    },
+    "right": {
+      "motors": {
+        "shoulder_pan": {
+          "id": 1,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 125,
+          "Present_Position": 1808,
+          "Operating_Mode": 0,
+          "Homing_Offset": -57,
+          "Min_Position_Limit": 679,
+          "Max_Position_Limit": 3415
+        },
+        "shoulder_lift": {
+          "id": 2,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 125,
+          "Present_Position": 3231,
+          "Operating_Mode": 0,
+          "Homing_Offset": 785,
+          "Min_Position_Limit": 826,
+          "Max_Position_Limit": 3268
+        },
+        "elbow_flex": {
+          "id": 3,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 124,
+          "Present_Position": 2216,
+          "Operating_Mode": 0,
+          "Homing_Offset": 634,
+          "Min_Position_Limit": 932,
+          "Max_Position_Limit": 3162
+        },
+        "wrist_flex": {
+          "id": 4,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 124,
+          "Present_Position": 1359,
+          "Operating_Mode": 0,
+          "Homing_Offset": -770,
+          "Min_Position_Limit": 929,
+          "Max_Position_Limit": 3165
+        },
+        "wrist_roll": {
+          "id": 5,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 123,
+          "Present_Position": 1727,
+          "Operating_Mode": 0,
+          "Homing_Offset": 790,
+          "Min_Position_Limit": 121,
+          "Max_Position_Limit": 3973
+        },
+        "gripper": {
+          "id": 6,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 124,
+          "Present_Position": 1317,
+          "Operating_Mode": 0,
+          "Homing_Offset": 329,
+          "Min_Position_Limit": 1270,
+          "Max_Position_Limit": 2824
+        },
+        "wheel_left": {
+          "id": 9,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 124,
+          "Present_Position": 1710,
+          "Operating_Mode": 0,
+          "Homing_Offset": 85,
+          "Min_Position_Limit": 0,
+          "Max_Position_Limit": 4095
+        },
+        "wheel_right": {
+          "id": 10,
+          "Status": 0,
+          "Torque_Enable": 0,
+          "Present_Voltage": 125,
+          "Present_Position": 1881,
+          "Operating_Mode": 0,
+          "Homing_Offset": 85,
+          "Min_Position_Limit": 0,
+          "Max_Position_Limit": 4095
+        }
+      }
+    }
+  }
+}
