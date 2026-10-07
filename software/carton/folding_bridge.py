@@ -7,7 +7,7 @@ from carton.folding_sim import JOINTS
 from carton.folding_paths import JointPathPlanner,execute_path
 from carton.folding_grasp import panel_grasp_evidence
 
-def fold_right_partial(sim,c,*,capture=False,brace_flap='long_near',contact_x=.060,axis_yaw_degrees=0.,axis_mode='rise',normal_offset=False,along_travel=.085):
+def fold_right_partial(sim,c,*,capture=False,brace_flap='long_near',contact_x=.060,axis_yaw_degrees=0.,axis_mode='rise',normal_offset=False,along_travel=.085,blend_yaw=False,end_degrees=75.):
     if brace_flap not in ('long_near','short_left'):
         raise ValueError('Declare a supported bracing flap')
     reading=c.sense('Register paddle for raised minor support')
@@ -19,6 +19,8 @@ def fold_right_partial(sim,c,*,capture=False,brace_flap='long_near',contact_x=.0
         raise ValueError('Declare rising, horizontal or descending blade approach')
     if not math.isfinite(along_travel) or not 0<=along_travel<=.10:
         raise ValueError('Declare along-flap travel between 0 and 100 mm')
+    if not math.isfinite(end_degrees) or not 50<=end_degrees<=90:
+        raise ValueError('Declare a partial fold endpoint between 50 and 90 degrees')
     registration=sim.register_observed_tcp(reading.get('paddle'),[contact_x,0,.003],
         observation_sequence=reading['seq'],current_sequence=c.port.readings[-1]['seq'])
     relative=np.asarray(registration['rotation']);ix=sim.arm_indices['right'][:5]
@@ -35,6 +37,8 @@ def fold_right_partial(sim,c,*,capture=False,brace_flap='long_near',contact_x=.0
         # rotate it into the horizontal crossbar as the flap descends.
         angle=math.pi/2 if axis_mode=='flat' else min(math.pi/2,theta+math.radians(15))
         yaw=math.radians(axis_yaw_degrees)
+        if blend_yaw:
+            yaw*=float(np.clip((math.degrees(theta)-50)/25,0,1))
         z_sign=-1 if axis_mode=='descend' else 1
         desired_axis=R@np.array([-math.sin(angle)*math.cos(yaw),math.sin(angle)*math.sin(yaw),z_sign*math.cos(angle)])
         def details(q):
@@ -85,7 +89,7 @@ def fold_right_partial(sim,c,*,capture=False,brace_flap='long_near',contact_x=.0
     check_brace()
     checks=[]
     for h in np.linspace(.0135,0,10):checks.append(move(start,h,.2,'Lower crossbar onto right minor'))
-    for i,t in enumerate(np.linspace(start,math.radians(75),41)):
+    for i,t in enumerate(np.linspace(start,math.radians(end_degrees),41)):
         checks.append(move(t,0,.3,f'Fold right minor toward raised bridge {math.degrees(t):.1f}'))
         if i%5==0:c.sense('Observe raised right minor fold')
     c.port.move_arms({},1.,'Hold right minor with crossbar',None)
