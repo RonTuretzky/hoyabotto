@@ -275,3 +275,271 @@ def test_scene_points_is_fast_enough_for_a_chat_tool():
     for _ in range(3):
         ds.scene_points(depth, K, POSE, pixels=[[150, 175]], distortion=[0.01] * 14)
     assert (time.perf_counter() - start) / 3 < 0.5
+
+
+# ---------------------------------------------------------------- table-plane self-calibration
+
+TABLE_UP = 0.70
+TABLE_BOX = ((0.30, 0.90), (-0.45, 0.45))          # forward and left extent of the table top
+BOX3D = {'forward': (0.32, 0.52), 'left': (0.12, 0.27), 'top': 0.81}   # a 20x15x11 cm box on the table
+UP = np.array([0.0, 0.0, 1.0])
+
+
+def rotate_about(rot, axis, deg):
+    """rot pre-multiplied by a rotation of deg about a robot-frame axis (Rodrigues)."""
+    a = np.asarray(axis, dtype=float)
+    a = a / np.linalg.norm(a)
+    k = np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
+    th = math.radians(deg)
+    return (np.eye(3) + math.sin(th) * k + (1 - math.cos(th)) * k @ k) @ rot
+
+
+def pose_from_angles(tilt_deg, roll_deg=0.0, pan_deg=0.0, position=(0.04, -0.01, 1.16)):
+    """A camera pose: the level-forward optical frame of POSE tilted DOWN by tilt_deg about its image-right axis,
+    rolled by roll_deg about the optical axis, then panned LEFT by pan_deg about robot up."""
+    rot = np.array(POSE['rotation'], dtype=float)
+    rot = rotate_about(rot, rot[:, 0], -tilt_deg)
+    rot = rotate_about(rot, rot[:, 2], roll_deg)
+    rot = rotate_about(rot, UP, pan_deg)
+    return {'position_m': [float(v) for v in position], 'rotation': rot.tolist()}
+
+
+def render_planes(pose, intrinsics=K, *, table_up=TABLE_UP, table_box=TABLE_BOX, floor=True, box=None,
+                  wall_forward=None, noise_mm=0.0, seed=0, blind=(0.25, 8.0)):
+    """uint16 millimetre depth (pinhole, no distortion) of a scene of planes seen from ``pose``: the table top at
+    ``table_up`` over ``table_box`` ((forward0, forward1), (left0, left1)), the floor at 0, optionally a box
+    {'forward': (f0, f1), 'left': (l0, l1), 'top': h} (top face plus its near vertical face) and a vertical wall
+    at forward = ``wall_forward``. Gaussian range noise in mm; 0 outside the stereo window ``blind``."""
+    fx, fy, cx, cy = ds.check_intrinsics(intrinsics)
+    pos, rot = ds.check_pose(pose)
+    us, vs = np.meshgrid(np.arange(W, dtype=float), np.arange(H, dtype=float))
+    rays = np.stack([(us - cx) / fx, (vs - cy) / fy, np.ones_like(us)], axis=-1)
+    dirs = rays @ rot.T                     # robot-frame direction per metre of axial depth
+
+    def plane(axis, value, forward=None, left=None, up=None):
+        with np.errstate(divide='ignore', invalid='ignore'):
+            t = (value - pos[axis]) / dirs[..., axis]
+            hit = np.isfinite(t) & (t > 0)
+            p = pos + np.where(hit, t, 0.0)[..., None] * dirs
+        for i, window in ((0, forward), (1, left), (2, up)):
+            if window is not None:
+                hit &= (p[..., i] >= window[0]) & (p[..., i] <= window[1])
+        return np.where(hit, t, np.inf)
+
+    z = plane(2, table_up, *table_box)
+    if floor:
+        z = np.minimum(z, plane(2, 0.0))
+    if box:
+        z = np.minimum(z, plane(2, box['top'], box['forward'], box['left']))
+        z = np.minimum(z, plane(0, box['forward'][0], None, box['left'], (table_up, box['top'])))
+    if wall_forward is not None:
+        z = np.minimum(z, plane(0, wall_forward))
+    if noise_mm:
+        z = z + np.random.RandomState(seed).normal(0.0, noise_mm / 1000.0, z.shape)
+    valid = np.isfinite(z) & (z >= blind[0]) & (z <= blind[1])
+    return np.where(valid, np.rint(z * 1000.0), 0).astype(np.uint16)
+
+
+def project(pose, point, intrinsics=K):
+    """Pixel [x, y] of a robot-frame point under a pose."""
+    pos, rot = ds.check_pose(pose)
+    fx, fy, cx, cy = ds.check_intrinsics(intrinsics)
+    cam = rot.T @ (np.asarray(point, dtype=float) - pos)
+    return [int(round(fx * cam[0] / cam[2] + cx)), int(round(fy * cam[1] / cam[2] + cy))]
+
+
+def rotation_error_deg(a, b):
+    a, b = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    return math.degrees(math.acos(np.clip((np.trace(a.T @ b) - 1) / 2, -1, 1)))
+
+
+def test_pose_from_angles_matches_the_tilt_and_roll_readers():
+    pose = pose_from_angles(35.0, 2.0, 5.0)
+    rot = np.array(pose['rotation'])
+    assert ds.tilt_deg(rot) == pytest.approx(35.0, abs=1e-6)
+    assert ds.roll_deg(rot) == pytest.approx(2.0, abs=1e-6)
+    assert ds.roll_deg(pose_from_angles(35.0, -7.0)['rotation']) == pytest.approx(-7.0, abs=1e-6)
+    assert ds.roll_deg(pose_from_angles(90.0)['rotation']) == 0.0    # straight down: undefined, reported 0
+    assert math.degrees(math.atan2(rot[1, 2], rot[0, 2])) == pytest.approx(5.0, abs=1e-6)   # heading 5 deg left
+    assert ds.tilt_deg(POSE['rotation']) == 0.0 and ds.roll_deg(POSE['rotation']) == 0.0
+    # the synthetic scene is consistent with the back-projection: the box top projects to the box top
+    depth = render_planes(pose, box=BOX3D)
+    pixel = project(pose, [0.42, 0.195, BOX3D['top']])
+    assert ds.camera_to_robot(ds.backproject(depth, K, [pixel]), pose)[0] == pytest.approx([0.42, 0.195, 0.81], abs=0.003)
+
+
+def test_fit_table_plane_recovers_a_synthetic_table():
+    true = pose_from_angles(35.0, 2.0, 5.0)
+    depth = render_planes(true, box=BOX3D, noise_mm=2.0)
+    rot = np.array(true['rotation'])
+    plane = ds.fit_table_plane(depth, K, expected_up_cam=rot.T @ UP)
+    assert plane['ok'], plane
+    normal = np.array(plane['normal_cam'])
+    assert np.linalg.norm(normal) == pytest.approx(1.0)
+    assert math.degrees(math.acos(np.clip(normal @ (rot.T @ UP), -1, 1))) < 0.3
+    assert plane['angle_from_expected_up_deg'] < 0.3
+    assert plane['d_m'] == pytest.approx(1.16 - TABLE_UP, abs=0.003)     # the lens's height above the table
+    assert plane['inlier_fraction'] > 0.3 and plane['rms_m'] < 0.004 and plane['candidates'] > 10
+    assert plane['points'] == ds.PLANE_MAX_POINTS and plane['valid_pixels'] > 100000
+    assert 0.3 < plane['image_fraction'] < 1.0
+    assert plane['image_fraction'] == pytest.approx(ds.table_check(depth, K, true, plane)['fraction'], abs=0.03)
+    # deterministic for a seed
+    again = ds.fit_table_plane(depth, K, expected_up_cam=rot.T @ UP)
+    assert again['normal_cam'] == plane['normal_cam'] and again['d_m'] == plane['d_m']
+    # without the expected up the same plane wins (it dominates the image)
+    free = ds.fit_table_plane(depth, K)
+    assert free['ok'] and free['angle_from_expected_up_deg'] is None
+    assert np.allclose(free['normal_cam'], plane['normal_cam'], atol=1e-3) and free['d_m'] == pytest.approx(plane['d_m'], abs=0.002)
+
+
+def test_calibrate_camera_pose_recovers_the_true_pose_from_a_wrong_model():
+    true = pose_from_angles(35.0, 2.0, 5.0, position=(0.04, -0.01, 1.16))
+    wrong = pose_from_angles(20.0, 0.0, 5.0, position=(0.04, -0.01, 1.21))   # 15 deg too level, 5 cm too high
+    depth = render_planes(true, box=BOX3D, noise_mm=2.0)
+    wrong_rot = np.array(wrong['rotation'])
+    plane = ds.fit_table_plane(depth, K, expected_up_cam=wrong_rot.T @ UP, expected_d_m=1.21 - TABLE_UP)
+    cal = ds.calibrate_camera_pose(plane, wrong, TABLE_UP)
+    assert cal['ok'] is True and cal['method'] == 'table_plane', cal
+    assert cal['tilt_deg'] == pytest.approx(35.0, abs=0.2)
+    assert cal['roll_deg'] == pytest.approx(ds.roll_deg(true['rotation']), abs=0.2)
+    assert cal['position_m'][:2] == wrong['position_m'][:2]                         # forward/left kept
+    assert cal['position_m'][2] == pytest.approx(1.16, abs=0.003)
+    assert cal['tilt_correction_deg'] == pytest.approx(15.0, abs=0.2)
+    assert cal['height_correction_m'] == pytest.approx(-0.05, abs=0.003)
+    assert cal['angle_correction_deg'] == pytest.approx(rotation_error_deg(wrong['rotation'], true['rotation']), abs=0.3)
+    assert rotation_error_deg(cal['rotation'], true['rotation']) < 0.3
+    assert cal['model_tilt_deg'] == 20.0 and cal['model_position_m'] == wrong['position_m']
+    assert cal['camera_above_table_m'] == pytest.approx(0.46, abs=0.003) and cal['table_top_m'] == TABLE_UP
+    assert 'tilt 20.0 -> 35.0 deg' in cal['reason'] and cal['inlier_fraction'] == plane['inlier_fraction']
+    ds.check_pose(cal)   # a proper rotation
+    # the box top now comes out at 0.81 m, where the wrong pose had it 7 cm off
+    pixel = project(true, [0.42, 0.195, BOX3D['top']])
+    scene = ds.scene_points(depth, K, cal, pixels=[pixel], table_top_m=TABLE_UP)
+    assert scene['query'][0]['point_m'] == pytest.approx([0.42, 0.195, 0.81], abs=0.006)
+    assert scene['nearest']['top_m'] == pytest.approx(0.81, abs=0.01)
+    assert scene['nearest']['top_above_table_m'] == pytest.approx(0.11, abs=0.01)
+    assert 0.0 <= scene['nearest']['height_above_table_m'] <= 0.11
+    bad = ds.scene_points(depth, K, wrong, pixels=[pixel])
+    assert abs(bad['query'][0]['point_m'][2] - 0.81) > 0.05 and 'top_m' not in bad['nearest']
+    # the table's pixels sit at the table height under the calibrated pose, and span the table
+    check = ds.table_check(depth, K, cal, plane)
+    assert check['median_up_m'] == pytest.approx(TABLE_UP, abs=0.002) and check['pixels'] > 50000
+    assert 0.30 <= check['forward_range_m'][0] < check['forward_range_m'][1] <= 0.90
+    assert -0.45 <= check['left_range_m'][0] < check['left_range_m'][1] <= 0.45
+    assert ds.table_check(depth, K, cal, {'ok': False}) is None
+
+
+def test_calibrate_rejects_large_corrections_and_keeps_the_model_pose():
+    true = pose_from_angles(35.0)
+    depth = render_planes(true, box=BOX3D)
+    plane = ds.fit_table_plane(depth, K, expected_up_cam=np.array(true['rotation']).T @ UP)
+    # the right pose but a table height 30 cm off: the height correction exceeds 25 cm
+    cal = ds.calibrate_camera_pose(plane, true, 0.40)
+    assert cal['ok'] is False and cal['method'] == 'model'
+    assert 'cm in height' in cal['reason'] and cal['height_correction_m'] == pytest.approx(-0.30, abs=0.003)
+    assert cal['position_m'] == true['position_m'] and cal['rotation'] == true['rotation']
+    # a model 40 deg off: beyond the 35 deg limit, so the model pose stays
+    wrong = pose_from_angles(-5.0)
+    cal = ds.calibrate_camera_pose(ds.fit_table_plane(depth, K), wrong, TABLE_UP)
+    assert cal['ok'] is False and cal['method'] == 'model' and 'deg' in cal['reason']
+    assert cal['angle_correction_deg'] == pytest.approx(40.0, abs=0.3)
+    assert cal['rotation'] == wrong['rotation'] and cal['position_m'] == wrong['position_m']
+    # a failed plane fit: the model pose, with the fit's reason
+    cal = ds.calibrate_camera_pose({'ok': False, 'reason': 'too few points'}, wrong, TABLE_UP)
+    assert cal['ok'] is False and cal['reason'] == 'no table plane: too few points'
+    assert cal['tilt_correction_deg'] is None and cal['rotation'] == wrong['rotation']
+    assert ds.calibrate_camera_pose(None, wrong, TABLE_UP)['ok'] is False
+    # a roll beyond 10 deg cannot come from a pan/tilt head: the plane is not the table
+    rolled = pose_from_angles(35.0, 15.0)
+    cal = ds.calibrate_camera_pose(ds.fit_table_plane(depth, K), rolled, TABLE_UP)
+    assert cal['ok'] is False and 'roll the camera by -15.0 deg' in cal['reason']
+    assert cal['rotation'] == rolled['rotation'] and cal['roll_correction_deg'] == pytest.approx(-15.0, abs=0.1)
+    with pytest.raises(ValueError):
+        ds.calibrate_camera_pose(plane, wrong, 2.5)
+    with pytest.raises(ValueError):
+        ds.calibrate_camera_pose(plane, {'position_m': [0, 0, 1]}, TABLE_UP)
+
+
+def test_fit_table_plane_degenerate_cases_fall_back_cleanly():
+    nothing = ds.fit_table_plane(np.zeros((H, W), np.uint16), K)
+    assert nothing['ok'] is False and 'too few points' in nothing['reason'] and nothing['normal_cam'] is None
+    assert nothing['inlier_fraction'] == 0.0 and nothing['inliers'] == 0
+    too_close = ds.fit_table_plane(np.full((H, W), 200, np.uint16), K)       # all under min_range_m
+    assert too_close['ok'] is False and 'too few points' in too_close['reason']
+    noise = np.random.RandomState(1).randint(400, 2000, (H, W)).astype(np.uint16)
+    scatter = ds.fit_table_plane(noise, K)
+    assert scatter['ok'] is False and 'no plane' in scatter['reason'] and scatter['inlier_fraction'] < 0.15
+    # a wall 1 m ahead of a level camera fills the image: with the expected up it is not a table
+    level = pose_from_angles(0.0)
+    wall = render_planes(level, floor=False, wall_forward=1.0)
+    gated = ds.fit_table_plane(wall, K, expected_up_cam=np.array(level['rotation']).T @ UP)
+    assert gated['ok'] is False and 'not table-like' in gated['reason']
+    assert gated['angle_from_expected_up_deg'] == pytest.approx(90.0, abs=0.5)
+    # ungated, the wall is a fine plane, and the calibration refuses to turn the camera 90 deg onto it
+    free = ds.fit_table_plane(wall, K)
+    assert free['ok'] and free['d_m'] == pytest.approx(0.96, abs=0.003)
+    cal = ds.calibrate_camera_pose(free, level, TABLE_UP)
+    assert cal['ok'] is False and cal['angle_correction_deg'] == pytest.approx(90.0, abs=0.5)
+    # a plane that holds most of the few valid points but little of the image (a sleeve under the lens) is refused
+    tilted = pose_from_angles(35.0)
+    table = render_planes(tilted, box=BOX3D)
+    patch = np.zeros_like(table)
+    patch[150:230, 240:400] = table[150:230, 240:400]                  # 5.6 % of the image, all on the table
+    small = ds.fit_table_plane(patch, K, expected_up_cam=np.array(tilted['rotation']).T @ UP)
+    assert small['ok'] is False and 'covers only 6% of the image' in small['reason']
+    assert small['inlier_fraction'] > 0.9 and small['image_fraction'] == pytest.approx(0.056, abs=0.005)
+    # a table-like plane at the wrong distance (the robot's own arm under the lens, say) is skipped too
+    wrong_distance = ds.fit_table_plane(table, K, expected_up_cam=np.array(tilted['rotation']).T @ UP, expected_d_m=0.05)
+    assert wrong_distance['ok'] is False and 'dominant plane is not table-like' in wrong_distance['reason']
+    assert 'it is 0.46 m from the lens where the table should be about 0.05 m' in wrong_distance['reason']
+    assert wrong_distance['d_m'] == pytest.approx(0.46, abs=0.01)
+    # a tall box (30 cm, its top outside the height prior) whose near face fills most of the view: the table rim
+    # around it is table-like but holds far fewer points than that face, so it is not trusted
+    tall = render_planes(tilted, box={'forward': (0.45, 0.85), 'left': (-0.25, 0.25), 'top': 1.00})
+    dominated = ds.fit_table_plane(tall, K, expected_up_cam=np.array(tilted['rotation']).T @ UP, expected_d_m=0.46)
+    assert dominated['ok'] is False and 'dominant plane is not table-like' in dominated['reason']
+    assert dominated['angle_from_expected_up_deg'] == pytest.approx(90.0, abs=3.0)
+    assert 'the largest table-like plane holds only' in dominated['reason'] and dominated['inlier_fraction'] > 0.5
+    assert ds.calibrate_camera_pose(dominated, tilted, TABLE_UP)['ok'] is False
+    # known limit: a box top 11 cm above the table that hides nearly all of the table is inside the height prior
+    # and wins; the lens would then be placed 11 cm too low. The table must be visible for the calibration.
+    hidden = render_planes(tilted, box={'forward': (0.32, 0.88), 'left': (-0.40, 0.40), 'top': 0.81})
+    wrong_table = ds.fit_table_plane(hidden, K, expected_up_cam=np.array(tilted['rotation']).T @ UP, expected_d_m=0.46)
+    assert wrong_table['ok'] and wrong_table['d_m'] == pytest.approx(0.35, abs=0.01)
+    # argument checks
+    for kwargs in ({'inlier_m': 0}, {'ransac_iters': 0}, {'min_range_m': 3.0, 'max_range_m': 2.0}):
+        with pytest.raises(ValueError):
+            ds.fit_table_plane(table, K, **kwargs)
+    with pytest.raises(ValueError):
+        ds.scene_points(table, K, tilted, table_top_m=0)
+
+
+def test_fit_table_plane_prefers_the_table_over_a_box_top_and_the_floor():
+    # a big box top (40 x 40 cm, 11 cm above the table) and the floor beyond the table's far edge
+    true = pose_from_angles(45.0, position=(0.04, -0.01, 1.16))
+    big_box = {'forward': (0.32, 0.72), 'left': (-0.2, 0.2), 'top': 0.81}
+    depth = render_planes(true, box=big_box, table_box=((0.30, 0.75), (-0.45, 0.45)))
+    up_cam = np.array(true['rotation']).T @ UP
+    # the box top holds more points than the table; with the height prior the lowest major plane, the table, wins
+    plane = ds.fit_table_plane(depth, K, expected_up_cam=up_cam, expected_d_m=1.16 - TABLE_UP)
+    assert plane['ok'] and plane['d_m'] == pytest.approx(0.46, abs=0.003), plane
+    cal = ds.calibrate_camera_pose(plane, true, TABLE_UP)
+    assert cal['ok'] and abs(cal['height_correction_m']) < 0.003 and abs(cal['tilt_correction_deg']) < 0.2
+    # without the prior the largest plane wins: the box top here, which the calibration then rejects (11 cm off)
+    largest = ds.fit_table_plane(depth, K, expected_up_cam=up_cam)
+    assert largest['ok'] and largest['d_m'] == pytest.approx(0.35, abs=0.003)
+    # the floor beyond the far edge never wins with the prior, even when the head looks steeply down
+    steep = pose_from_angles(60.0, position=(0.04, -0.01, 1.16))
+    depth = render_planes(steep, table_box=((0.30, 0.75), (-0.45, 0.45)))
+    plane = ds.fit_table_plane(depth, K, expected_up_cam=np.array(steep['rotation']).T @ UP, expected_d_m=0.46)
+    assert plane['ok'] and plane['d_m'] == pytest.approx(0.46, abs=0.003), plane
+
+
+def test_fit_table_plane_is_fast_enough_for_a_chat_tool():
+    import time
+    depth = render_planes(pose_from_angles(35.0), box=BOX3D, noise_mm=2.0)
+    ds.fit_table_plane(depth, K)
+    started = time.perf_counter()
+    for _ in range(3):
+        ds.fit_table_plane(depth, K, expected_up_cam=[0, -0.8, -0.6])
+    assert (time.perf_counter() - started) / 3 < 0.5

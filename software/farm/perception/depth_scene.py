@@ -21,6 +21,14 @@ the factory mesh; pass no coefficients in that case.
 
 Stereo depth is blind closer than about 0.2-0.3 m and on textureless or blown-out surfaces: those
 pixels are 0. A mostly-invalid image centre usually means something is closer than that minimum.
+
+Self-calibration on the table plane: the model camera pose (head tick mapping and optical site) is
+unvalidated and on 8 October put a box top 21 cm too high. ``fit_table_plane`` finds the dominant plane
+in the depth image by RANSAC (in the camera frame); ``calibrate_camera_pose`` then keeps the model's
+heading and forward/left position but replaces the pitch and roll so that plane normal maps to robot
++up, and shifts the camera height so the plane lies at the owner's measured ``table_top_m``. Heights
+and forward distances of scene points then no longer depend on the head-tilt model; only the heading
+(pan) and the lens's forward offset still do.
 """
 from __future__ import annotations
 
@@ -47,6 +55,16 @@ DISTANCE_DEFINITION = 'straight-line metres from the camera lens to the point (r
 FRAME = ('Robot frame: origin on the floor directly below the midpoint between the two shoulder-pan axes; '
          '+forward_m the robot\'s front, +left_m the robot\'s left, +up_m height above the floor; metres. '
          'Image left is the robot\'s left when the head is at zero pan.')
+
+PLANE_MIN_INLIER_FRACTION = 0.15   # of the valid, in-range points
+PLANE_MIN_IMAGE_FRACTION = 0.10    # the plane must also cover this much of the whole image
+PLANE_MAX_ROLL_DEG = 10.0          # the head has pan and tilt, no roll axis: a larger roll means a wrong plane
+PLANE_MIN_POINTS = 300             # fewer valid in-range points than this: no fit
+PLANE_MAX_POINTS = 4000            # RANSAC subsample
+PLANE_MAX_ANGLE_DEG = 35.0         # largest tilt/roll correction the calibration accepts
+PLANE_GATE_DEG = PLANE_MAX_ANGLE_DEG  # candidate normals farther than this from the expected up are not a table
+PLANE_MAX_HEIGHT_M = 0.25          # largest camera height correction it accepts
+UP = np.array([0.0, 0.0, 1.0])     # robot +up
 
 _NORMALIZED_CACHE = {}  # (shape, intrinsics, distortion) -> (xn, yn); at most two entries
 
@@ -164,6 +182,299 @@ def camera_to_robot(points_cam, cam_pose):
     return np.asarray(points_cam, dtype=float) @ rot.T + pos
 
 
+# ---------------------------------------------------------------- table plane self-calibration
+
+def _unit(v):
+    v = np.asarray(v, dtype=float)
+    n = np.linalg.norm(v)
+    return v / n if n > 0 else v
+
+
+def _valid_points_cam(depth_mm, intrinsics, distortion, min_range_m, max_range_m):
+    """(points (N, 3) in the optical frame, number of valid pixels) for valid pixels within the range window."""
+    depth_m, valid = check_depth(depth_mm)
+    xn, yn, _, _ = normalized_rays(depth_m.shape, intrinsics, distortion)
+    z = np.where(valid, depth_m, 0.0)
+    pts = np.stack([xn * z, yn * z, z], axis=-1)[valid]
+    rng = np.linalg.norm(pts, axis=1)
+    return pts[(rng >= min_range_m) & (rng <= max_range_m)], int(valid.sum())
+
+
+def _plane_fail(reason, **extra):
+    out = {'ok': False, 'reason': reason, 'normal_cam': None, 'd_m': None, 'inlier_fraction': 0.0, 'inliers': 0}
+    out.update(extra)
+    return out
+
+
+def fit_table_plane(depth_mm, intrinsics, *, distortion=None, min_range_m=0.3, max_range_m=2.0, ransac_iters=200,
+                    inlier_m=0.01, seed=0, expected_up_cam=None, expected_d_m=None,
+                    min_inlier_fraction=PLANE_MIN_INLIER_FRACTION, min_image_fraction=PLANE_MIN_IMAGE_FRACTION,
+                    max_points=PLANE_MAX_POINTS):
+    """The dominant plane of the depth image, in the camera optical frame, by RANSAC on a subsample of the valid
+    back-projected points between ``min_range_m`` and ``max_range_m`` from the lens.
+
+    Returns {'ok', 'reason', 'normal_cam': [3] (unit, pointing from the plane toward the camera, i.e. the table's
+    up), 'd_m' (the lens's perpendicular distance above the plane: normal . p + d = 0 on the plane), 'inlier_fraction'
+    (of the sampled points, within ``inlier_m`` of the plane), 'inliers', 'image_fraction' (of all pixels),
+    'points' (sampled), 'valid_pixels', 'rms_m', 'inlier_median_cam' [3], 'inlier_median_range_m',
+    'angle_from_expected_up_deg' (when ``expected_up_cam``, the robot's up axis in camera coordinates from the
+    model pose, is given), 'candidates'}.
+    The plane must hold at least ``min_inlier_fraction`` of the sampled points and cover ``min_image_fraction`` of
+    the image (a sleeve or a hand right under the lens holds many of the few valid points but little of the
+    image). With ``expected_up_cam`` the candidates whose normal is more than ``PLANE_GATE_DEG`` from it (walls, the
+    floor seen edge-on) are skipped; with ``expected_d_m`` (the model's lens height above the table) candidates
+    farther than ``PLANE_MAX_HEIGHT_M`` from that distance (the floor, a box top, the robot's own arm under the
+    lens) are skipped too. The chosen plane must also hold at least half as many points as the largest plane in
+    the image, whatever its orientation (otherwise something other than the table dominates the view). With the
+    distance prior, the LOWEST remaining plane (largest ``d_m``) wins: the table lies below the boxes on it, and the
+    floor is outside the prior; without it the largest remaining plane wins, near-ties (within 10 %) going to the
+    lowest. ``ok`` False with a ``reason`` when nothing qualifies.
+    """
+    if not (0 < inlier_m < 0.2) or ransac_iters < 1 or not (0 <= min_range_m < max_range_m):
+        raise ValueError('fit_table_plane: inlier_m in (0, 0.2), ransac_iters >= 1 and 0 <= min_range_m < max_range_m')
+    pts, valid_pixels = _valid_points_cam(depth_mm, intrinsics, distortion, min_range_m, max_range_m)
+    image_pixels = int(np.asarray(depth_mm).shape[0] * np.asarray(depth_mm).shape[1])
+    in_range = len(pts)
+    if in_range < PLANE_MIN_POINTS:
+        return _plane_fail(f'too few points: {in_range} valid depth pixels between {min_range_m} and {max_range_m} m '
+                           f'(need {PLANE_MIN_POINTS}); the stereo is blind closer than about {STEREO_BLIND_M} m',
+                           points=in_range, valid_pixels=valid_pixels, image_fraction=0.0)
+    rs = np.random.RandomState(seed)
+    if in_range > max_points:
+        pts = pts[rs.choice(in_range, int(max_points), replace=False)]
+    count = len(pts)
+    expected = _unit(expected_up_cam) if expected_up_cam is not None else None
+    # Inputs are finite (check_depth); Apple's Accelerate BLAS still raises spurious divide/overflow flags on matmul.
+    with np.errstate(divide='ignore', over='ignore', invalid='ignore'):
+        result = _fit_plane(pts, count, valid_pixels, rs, expected, expected_d_m, int(ransac_iters), float(inlier_m),
+                            float(min_inlier_fraction))
+    # inliers among the sampled points scale to the whole image by the in-range count
+    result['image_fraction'] = float(result.get('inliers', 0)) / count * in_range / image_pixels
+    if result['ok'] and result['image_fraction'] < min_image_fraction:
+        result.update(ok=False, reason=(f'plane covers only {result["image_fraction"]:.0%} of the image (need '
+                                        f'{min_image_fraction:.0%}): {result["inlier_fraction"]:.0%} of the valid '
+                                        'points, but most of the image has no depth or is out of range (something '
+                                        'close to the lens, the robot\'s own arm?)'))
+    return result
+
+
+def _fit_plane(pts, count, valid_pixels, rs, expected, expected_d, ransac_iters, inlier_m, min_inlier_fraction):
+    """fit_table_plane's RANSAC and refinement on the sampled points (N, 3)."""
+    # RANSAC: every triple at once
+    idx = rs.randint(0, count, size=(int(ransac_iters), 3))
+    p0, p1, p2 = pts[idx[:, 0]], pts[idx[:, 1]], pts[idx[:, 2]]
+    normals = np.cross(p1 - p0, p2 - p0)
+    lengths = np.linalg.norm(normals, axis=1)
+    usable = lengths > 1e-9
+    normals[usable] /= lengths[usable, None]
+    offsets = -np.einsum('ij,ij->i', normals, p0)
+    # orient toward the camera: the lens is on the positive side (d > 0)
+    flip = offsets < 0
+    normals[flip] *= -1
+    offsets[flip] *= -1
+    inlier_counts = (np.abs(pts @ normals.T + offsets) < inlier_m).sum(axis=0)
+    inlier_counts[~usable] = 0
+    if expected is not None:
+        angles = np.degrees(np.arccos(np.clip(normals @ expected, -1.0, 1.0)))
+        gate = usable & (angles <= PLANE_GATE_DEG)
+    else:
+        angles = np.full(len(normals), np.nan)
+        gate = usable
+    if expected_d is not None:
+        gate &= np.abs(offsets - float(expected_d)) <= PLANE_MAX_HEIGHT_M
+    need = int(math.ceil(min_inlier_fraction * count))
+    best_any = int(inlier_counts.argmax())
+    top_any = int(inlier_counts[best_any])
+    table_like = gate & (inlier_counts >= need)
+    # a table-like plane must also be a major plane of the image: at least half the size of the largest one
+    qualified = table_like & (inlier_counts >= 0.5 * top_any)
+    if not qualified.any():
+        fail = dict(points=count, valid_pixels=valid_pixels, angle_from_expected_up_deg=float(angles[best_any]),
+                    d_m=float(offsets[best_any]), inlier_fraction=float(top_any / count), inliers=top_any,
+                    candidates=0)
+        if top_any < need:
+            return _plane_fail(f'no plane: the best candidate holds {top_any / count:.0%} of the {count} points '
+                               f'(need {min_inlier_fraction:.0%})', **fail)
+        why = []
+        if expected is not None and angles[best_any] > PLANE_GATE_DEG:
+            why.append(f'its normal is {angles[best_any]:.0f} deg from the expected up (a wall or the floor edge-on?)')
+        if expected_d is not None and abs(offsets[best_any] - expected_d) > PLANE_MAX_HEIGHT_M:
+            why.append(f'it is {offsets[best_any]:.2f} m from the lens where the table should be about '
+                       f'{expected_d:.2f} m (a box top, the floor or the robot\'s own arm?)')
+        if table_like.any():
+            runner = int(np.flatnonzero(table_like)[np.argmax(inlier_counts[table_like])])
+            why.append(f'the largest table-like plane holds only {inlier_counts[runner] / count:.0%} of the points '
+                       f'(the dominant plane has {top_any / count:.0%})')
+        return _plane_fail(f'dominant plane is not table-like ({top_any / count:.0%} of the points, '
+                           f'{offsets[best_any]:.2f} m from the lens): ' + ' and '.join(why), **fail)
+    # with the distance prior the lowest qualified plane is the table (boxes sit above it); without it, the largest
+    share = 0.5 if expected_d is not None else 0.9
+    strong = qualified & (inlier_counts >= share * inlier_counts[qualified].max())
+    best = int(np.flatnonzero(strong)[np.argmax(offsets[strong])])
+
+    # refine by least squares on the inliers (twice)
+    normal, d = normals[best], float(offsets[best])
+    for _ in range(2):
+        inliers = np.abs(pts @ normal + d) < inlier_m
+        if inliers.sum() < 3:
+            break
+        centroid = pts[inliers].mean(axis=0)
+        _, _, vt = np.linalg.svd(pts[inliers] - centroid, full_matrices=False)
+        normal = vt[-1]
+        d = -float(normal @ centroid)
+        if d < 0:
+            normal, d = -normal, -d
+    residual = pts @ normal + d
+    inliers = np.abs(residual) < inlier_m
+    n_in = int(inliers.sum())
+    angle = float(np.degrees(np.arccos(np.clip(normal @ expected, -1.0, 1.0)))) if expected is not None else None
+    if n_in < need or (angle is not None and angle > PLANE_GATE_DEG):
+        return _plane_fail(f'plane lost in refinement: {n_in / count:.0%} inliers' +
+                           (f', normal {angle:.0f} deg from the expected up' if angle is not None else ''),
+                           points=count, valid_pixels=valid_pixels, inlier_fraction=n_in / count, inliers=n_in,
+                           angle_from_expected_up_deg=angle, candidates=int(qualified.sum()))
+    median_cam = np.median(pts[inliers], axis=0)
+    return {
+        'ok': True,
+        'reason': f'plane with {n_in / count:.0%} of {count} sampled points within {inlier_m * 1000:.0f} mm',
+        'normal_cam': [float(v) for v in normal], 'd_m': d,
+        'inlier_fraction': n_in / count, 'inliers': n_in, 'points': count, 'valid_pixels': valid_pixels,
+        'rms_m': float(np.sqrt(np.mean(residual[inliers] ** 2))),
+        'inlier_median_cam': [float(v) for v in median_cam],
+        'inlier_median_range_m': float(np.median(np.linalg.norm(pts[inliers], axis=1))),
+        'angle_from_expected_up_deg': angle, 'candidates': int(qualified.sum()), 'inlier_m': float(inlier_m),
+    }
+
+
+def tilt_deg(rotation):
+    """Pitch of the optical axis below horizontal, degrees (positive = looking down)."""
+    rot = np.asarray(rotation, dtype=float)
+    return float(np.degrees(np.arcsin(np.clip(-rot[2, 2], -1.0, 1.0))))
+
+
+def roll_deg(rotation):
+    """Roll of the image about the optical axis, degrees: the signed angle from the horizontal image-right
+    direction to the actual image-right axis, measured about the viewing direction (positive = clockwise seen from
+    behind the camera, image-right dipping). 0.0 when the camera looks straight up or down (roll undefined)."""
+    rot = np.asarray(rotation, dtype=float)
+    x, z = rot[:, 0], rot[:, 2]
+    level_right = np.cross(z, UP)
+    if np.linalg.norm(level_right) < 1e-6:
+        return 0.0
+    level_right /= np.linalg.norm(level_right)
+    return float(np.degrees(np.arctan2(np.cross(level_right, x) @ z, level_right @ x)))
+
+
+def _heading(rot):
+    """Unit horizontal vector the camera points along (its optical axis projected onto the floor; image-up's
+    projection when the camera looks almost straight down)."""
+    for axis in (rot[:, 2], -rot[:, 1]):
+        h = np.array([axis[0], axis[1], 0.0])
+        if np.linalg.norm(h) > 0.2:
+            return h / np.linalg.norm(h)
+    return np.array([1.0, 0.0, 0.0])
+
+
+def calibrate_camera_pose(plane, model_pose, table_top_m, *, max_angle_deg=PLANE_MAX_ANGLE_DEG,
+                          max_height_m=PLANE_MAX_HEIGHT_M, max_roll_deg=PLANE_MAX_ROLL_DEG):
+    """A camera pose corrected by the table plane: the model's heading and forward/left position are kept; pitch
+    and roll are replaced so the plane normal maps to robot +up; the height is shifted so the plane lies at
+    ``table_top_m`` (metres above the floor, measured by the owner).
+
+    Returns the model pose's fields plus {'ok', 'method': 'table_plane' | 'model', 'reason', 'tilt_correction_deg',
+    'roll_correction_deg', 'angle_correction_deg', 'height_correction_m', 'tilt_deg', 'roll_deg', 'model_tilt_deg',
+    'model_roll_deg', 'camera_above_table_m', 'table_top_m', 'inlier_fraction', 'inliers', 'model_position_m',
+    'model_rotation'}. When the plane fit failed or a correction exceeds ``max_angle_deg`` / ``max_height_m`` /
+    ``max_roll_deg`` (the head has no roll axis, so a big roll means the plane is not the table) the pose is the
+    MODEL pose unchanged, ``ok`` False and ``method`` 'model' with the reason (the proposed corrections are still
+    reported).
+    """
+    pos, rot = check_pose(model_pose)
+    table_top = float(table_top_m)
+    if not (0.0 < table_top < 2.0):
+        raise ValueError('table_top_m must be a height above the floor between 0 and 2 m')
+    out = dict(model_pose)
+    out.update(method='model', ok=False, table_top_m=table_top, model_tilt_deg=round(tilt_deg(rot), 2),
+               model_roll_deg=round(roll_deg(rot), 2), model_position_m=[float(v) for v in pos],
+               model_rotation=[[float(v) for v in row] for row in rot],
+               inlier_fraction=float((plane or {}).get('inlier_fraction') or 0.0),
+               inliers=int((plane or {}).get('inliers') or 0),
+               tilt_correction_deg=None, roll_correction_deg=None, angle_correction_deg=None,
+               height_correction_m=None, camera_above_table_m=None)
+    if not isinstance(plane, dict) or not plane.get('ok') or plane.get('normal_cam') is None:
+        out['reason'] = 'no table plane: ' + str((plane or {}).get('reason') or 'plane fit missing')
+        return out
+    normal = _unit(plane['normal_cam'])
+    d = float(plane['d_m'])
+    if not np.isfinite(normal).all() or abs(np.linalg.norm(normal) - 1) > 1e-6 or not (0 < d < 5):
+        out['reason'] = 'table plane is malformed (normal not a unit vector or distance out of range)'
+        return out
+
+    # rotation: plane normal -> +up, heading kept
+    forward_cam = np.array([0.0, 0.0, 1.0]) - normal[2] * normal   # optical axis made perpendicular to the normal
+    if np.linalg.norm(forward_cam) < 0.2:                           # looking almost straight down the normal
+        image_up = np.array([0.0, -1.0, 0.0])
+        forward_cam = image_up - (image_up @ normal) * normal
+    forward_cam = _unit(forward_cam)
+    heading = _heading(rot)
+    cam_basis = np.stack([forward_cam, np.cross(normal, forward_cam), normal], axis=1)
+    robot_basis = np.stack([heading, np.cross(UP, heading), UP], axis=1)
+    new_rot = robot_basis @ cam_basis.T
+    angle = float(np.degrees(np.arccos(np.clip((rot @ normal) @ UP, -1.0, 1.0))))
+    tilt_new, roll_new = tilt_deg(new_rot), roll_deg(new_rot)
+    # height: under new_rot the plane sits at up = pos_up - d; move the lens so that is table_top
+    new_up = table_top + d
+    height_correction = new_up - float(pos[2])
+    out.update(tilt_correction_deg=round(tilt_new - out['model_tilt_deg'], 2),
+               roll_correction_deg=round(roll_new - out['model_roll_deg'], 2),
+               angle_correction_deg=round(angle, 2), height_correction_m=round(height_correction, 4),
+               tilt_deg=round(tilt_new, 2), roll_deg=round(roll_new, 2), camera_above_table_m=round(d, 4))
+    if angle > max_angle_deg:
+        out['reason'] = (f'table plane rejected: it would turn the camera by {angle:.1f} deg (limit {max_angle_deg:g}); '
+                         'the dominant plane is probably not the table, or the head mapping is badly off')
+        return out
+    if abs(height_correction) > max_height_m:
+        out['reason'] = (f'table plane rejected: it would move the camera {height_correction * 100:+.0f} cm in height '
+                         f'(limit {max_height_m * 100:.0f} cm); the dominant plane is probably not the table top at '
+                         f'{table_top:.2f} m, or table_top_m is wrong')
+        return out
+    if abs(roll_new - out['model_roll_deg']) > max_roll_deg:
+        out['reason'] = (f'table plane rejected: it would roll the camera by {roll_new - out["model_roll_deg"]:+.1f} deg '
+                         f'(limit {max_roll_deg:g}); the head has pan and tilt but no roll axis, so the dominant plane '
+                         'is probably not the table')
+        return out
+    out.update(ok=True, method='table_plane',
+               position_m=[float(pos[0]), float(pos[1]), float(new_up)],
+               rotation=[[float(v) for v in row] for row in new_rot],
+               reason=(f'tilt {out["model_tilt_deg"]:.1f} -> {tilt_new:.1f} deg, roll {out["model_roll_deg"]:.1f} -> '
+                       f'{roll_new:.1f} deg, lens height {pos[2]:.3f} -> {new_up:.3f} m so the fitted plane '
+                       f'({plane.get("inlier_fraction", 0):.0%} of points) lies at {table_top:.2f} m; heading and '
+                       'forward/left offset from the model'))
+    return out
+
+
+def table_check(depth_mm, intrinsics, cam_pose, plane, *, distortion=None, min_range_m=0.3, max_range_m=2.0):
+    """Where the fitted plane's pixels land in the robot frame under ``cam_pose``: {'median_up_m' (equals
+    table_top_m by construction after calibration), 'pixels', 'fraction' (of the image), 'forward_range_m' [5th,
+    95th percentile], 'left_range_m' [5th, 95th]}; None when the plane is not ok."""
+    if not isinstance(plane, dict) or not plane.get('ok'):
+        return None
+    pts, _ = _valid_points_cam(depth_mm, intrinsics, distortion, min_range_m, max_range_m)
+    normal, d = _unit(plane['normal_cam']), float(plane['d_m'])
+    with np.errstate(divide='ignore', over='ignore', invalid='ignore'):   # spurious Accelerate matmul flags
+        on_plane = np.abs(pts @ normal + d) < float(plane.get('inlier_m', 0.01))
+        if not on_plane.any():
+            return None
+        robot = camera_to_robot(pts[on_plane], cam_pose)
+    height, width = np.asarray(depth_mm).shape[:2]
+    fwd_lo, fwd_hi = np.percentile(robot[:, 0], [5, 95])
+    left_lo, left_hi = np.percentile(robot[:, 1], [5, 95])
+    return {'median_up_m': round(float(np.median(robot[:, 2])), 3), 'pixels': int(on_plane.sum()),
+            'fraction': round(float(on_plane.sum()) / (height * width), 3),
+            'forward_range_m': [round(float(fwd_lo), 3), round(float(fwd_hi), 3)],
+            'left_range_m': [round(float(left_lo), 3), round(float(left_hi), 3)]}
+
+
 # ---------------------------------------------------------------- connected components
 
 def label_components(mask):
@@ -239,16 +550,21 @@ def _region_labels(count, names, prefix):
 
 
 def scene_points(depth_mm, intrinsics, cam_pose, *, pixels=None, distortion=None, grid=(5, 3),
-                 nearest_band_m=NEAREST_BAND_M, nearest_percentile=NEAREST_PERCENTILE, round_m=3):
+                 nearest_band_m=NEAREST_BAND_M, nearest_percentile=NEAREST_PERCENTILE, round_m=3, table_top_m=None):
     """Summarise a depth image as robot-frame numbers. See the module docstring.
 
     Returns {'image': {'width','height'}, 'valid_fraction', 'invalid_fraction', 'centre_invalid_fraction',
     'min_valid_distance_m', 'max_valid_distance_m', 'grid': {'columns', 'rows', 'regions': [...]},
     'nearest': {...} or None, 'query': [...], 'undistorted', 'undistortion', 'distance_definition', 'frame',
-    'notes': [...]}; metres rounded to ``round_m`` decimals (None: unrounded).
+    'notes': [...]}; metres rounded to ``round_m`` decimals (None: unrounded). With ``table_top_m`` (height of
+    the table top above the floor; give it only with a pose calibrated on that table) the nearest object also
+    carries 'top_m' (95th percentile of its points' height), 'height_above_table_m' (centre) and
+    'top_above_table_m'.
     """
     depth_m, valid = check_depth(depth_mm)
     pos, rot = check_pose(cam_pose)
+    if table_top_m is not None and not (0 < float(table_top_m) < 2):
+        raise ValueError('table_top_m must be a height above the floor between 0 and 2 m')
     columns, rows = int(grid[0]), int(grid[1])
     if columns < 1 or rows < 1:
         raise ValueError('grid must be (columns, rows) with both >= 1')
@@ -323,6 +639,12 @@ def scene_points(depth_mm, intrinsics, cam_pose, *, pixels=None, distortion=None
                 'band': {'percentile': float(nearest_percentile), 'percentile_distance_m': _f(near_m, round_m),
                          'width_m': float(nearest_band_m), 'blobs': int(count)},
             }
+            if table_top_m is not None:
+                top = float(np.percentile(pts_robot[:, 2], 95))
+                centre_up = float(np.median(pts_robot[:, 2]))
+                nearest['top_m'] = _f(top, round_m)
+                nearest['height_above_table_m'] = _f(centre_up - float(table_top_m), round_m)
+                nearest['top_above_table_m'] = _f(top - float(table_top_m), round_m)
     if nearest is None:
         notes.append('no nearest object: no valid depth to cluster')
 

@@ -590,16 +590,19 @@ def test_catalog_adds_the_scene_tool_with_the_published_schema():
         "claw's offset to the nearest object. Use it for distances instead of guessing from images. The stereo depth "
         "is blind closer than about 25 cm and on textureless or blown-out areas.")
     params = function["parameters"]
-    assert params["additionalProperties"] is False and set(params["properties"]) == {"pixels", "with_claws"}
+    assert params["additionalProperties"] is False and set(params["properties"]) == {"pixels", "with_claws", "table_top_m"}
+    assert params["properties"]["table_top_m"]["type"] == "number" and "workspace.json" in params["properties"]["table_top_m"]["description"]
+    assert "camera_pose_source" in function["description"]
     assert params["properties"]["pixels"]["maxItems"] == 10 and params["properties"]["pixels"]["default"] == []
     assert params["properties"]["with_claws"]["type"] == "boolean" and params["properties"]["with_claws"]["default"] is True
     assert catalog["metadata"]["scene_points"] == {
         "tool": SCENE_TOOL_NAME, "execution": "local_depth_backprojection_with_model_camera_pose",
-        "motor_access": False, "synthetic_images": False, "depth_tool": "robot_get_depth"}
+        "motor_access": False, "synthetic_images": False, "depth_tool": "robot_get_depth",
+        "camera_pose": "table_plane_calibrated_when_table_top_m_is_known_else_model"}
     jsonschema.validate({}, params)
-    jsonschema.validate({"pixels": [[320, 180], [0, 0]], "with_claws": False}, params)
+    jsonschema.validate({"pixels": [[320, 180], [0, 0]], "with_claws": False, "table_top_m": 0.7}, params)
     for bad in ({"pixels": [[1, 2, 3]]}, {"pixels": [[-1, 2]]}, {"pixels": [[1.5, 2]]}, {"pixels": [[1, 2]] * 11},
-                {"with_claws": "yes"}, {"arm": "left"}):
+                {"with_claws": "yes"}, {"arm": "left"}, {"table_top_m": 0}, {"table_top_m": "0.7"}, {"table_top_m": 2}):
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(bad, params)
 
@@ -629,7 +632,8 @@ def test_scene_points_reads_state_and_depth_once_and_returns_robot_frame_numbers
                            "depth_camera_id", "depth_seq", "depth_captured_at", "depth_age_s", "depth_minus_state_s",
                            "robot_frame_calibrated", "state_time", "state_age_s", "compute_s", "state_source",
                            "state_cached", "stale_motors", "motors_posed", "mapping", "mapping_validated", "unmapped",
-                           "model", "joint_map", "motor_writes", "note"}
+                           "model", "joint_map", "motor_writes", "note", "camera_pose_source", "camera_pose_reason",
+                           "table_top_m", "table_top_source", "table_plane", "table_check"}
     assert result["image"] == {"width": 640, "height": 360}
     assert result["depth_seq"] == 77 and result["depth_captured_at"] == NOW - .4 and result["depth_age_s"] == pytest.approx(.4)
     assert result["depth_camera_id"] == "oak-18443010:depth" and result["depth_minus_state_s"] == pytest.approx(-.1)
@@ -643,6 +647,11 @@ def test_scene_points_reads_state_and_depth_once_and_returns_robot_frame_numbers
     assert result["camera"]["position_m"] == [0.037, -0.002, 1.181]
     assert result["camera"]["rotation"] == CAMERA["rotation"] and result["camera"]["head_sign_note"] == "tilt + = down"
     assert result["camera"]["site"] == "head_camera_link/twin_head_optical"
+    # no robot config, so no workspace.json: the model pose is used and the result says so
+    assert result["camera_pose_source"] == "model" and result["camera"]["source"] == "model"
+    assert "no workspace.json" in result["camera_pose_reason"]
+    assert result["table_top_m"] is None and result["table_plane"] is None and result["table_check"] is None
+    assert "top_m" not in result["nearest"] and "height_above_table_m" not in result["nearest"]
     # the box: 100x80 px at 0.5 m, centre pixel (149.5, 169.5) -> 0.537 m ahead, 0.164 m left, 0.023 m above the lens
     near = result["nearest"]
     assert near["pixel_bbox"] == [100, 130, 199, 209] and near["pixel_count"] == 8000
@@ -708,7 +717,8 @@ def test_scene_points_distorted_manifest_undistorts_with_cv2(renderer):
 
 
 @pytest.mark.parametrize("bad", [{"pixels": [[1, 2, 3]]}, {"pixels": [[-1, 2]]}, {"pixels": [[1.5, 2]]},
-                                 {"pixels": [[1, 2]] * 11}, {"pixels": "320,180"}, {"with_claws": "yes"}, {"arm": "left"}])
+                                 {"pixels": [[1, 2]] * 11}, {"pixels": "320,180"}, {"with_claws": "yes"}, {"arm": "left"},
+                                 {"table_top_m": 0}, {"table_top_m": True}, {"table_top_m": "0.7"}, {"table_top_m": 2.5}])
 def test_scene_points_refuses_bad_arguments(renderer, bad):
     robot, twin = make()
     answer = twin.call(SCENE_TOOL_NAME, bad)

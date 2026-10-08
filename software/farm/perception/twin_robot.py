@@ -33,6 +33,7 @@ DEPTH_TOOL_NAME = "robot_get_depth"
 VIEWS = ("front", "left", "right", "top")  # left/right: side views from the robot's left and right
 RENDERER_MODULE = "farm.sim.xlerobot_twin"
 JOINT_MAP_NAME = "twin-joint-map.json"
+WORKSPACE_NAME = "workspace.json"  # {"table_top_m": 0.70, ...}, typed by the owner next to the robot config
 CANDIDATE_MAPPING = "feetech_degrees_v1"
 MAX_STATE_AGE_S = 2.0
 MAX_QUERY_PIXELS = 10
@@ -67,6 +68,14 @@ CLAW_DESCRIPTION = (
 NOTE_UNVALIDATED = "model estimate from encoder readings with the unvalidated candidate mapping; not measured"
 NOTE_VALIDATED = "model estimate from encoder readings with the validated joint map; not measured"
 
+SCENE_CALIBRATION_DESCRIPTION = (
+    " When the table top's height above the floor is known (table_top_m, from the owner's workspace.json next to the "
+    "robot config or given as an argument) the dominant horizontal plane in the depth image is fitted and the camera's "
+    "pitch, roll and height are corrected so that plane lies at table_top_m: camera_pose_source is then 'table_plane' "
+    "and heights are measured against the real table, with the nearest object's height_above_table_m and "
+    "top_above_table_m; otherwise camera_pose_source is 'model' with camera_pose_reason and heights are unreliable."
+)
+
 SCENE_DESCRIPTION = (
     "Numeric 3D positions from the head depth camera, in the robot frame (forward/left/up from the base): a 5x3 "
     "grid of region distances, the nearest object's position and size, optional points at given pixels, and each "
@@ -76,12 +85,16 @@ SCENE_DESCRIPTION = (
     "Read-only: reads one depth frame (robot_get_depth) and the owner's last encoder status (no serial access) and "
     "sends nothing to the motors. Refuses when the depth frame or the encoder reading is older than 2 s. The "
     "camera pose and claw positions come from the robot MODEL with the unvalidated candidate head/arm mapping "
-    "unless mapping_validated is true; the depth itself is measured."
+    "unless mapping_validated is true; the depth itself is measured." + SCENE_CALIBRATION_DESCRIPTION
 )
 SCENE_NOTE = ("robot-frame positions use the model camera pose and the unvalidated candidate head/arm mapping; "
               "depth itself is measured")
 SCENE_NOTE_VALIDATED = ("robot-frame positions use the model camera pose and the validated joint map; depth itself "
                         "is measured")
+SCENE_NOTE_CALIBRATED = ("robot-frame positions use the head-camera pose self-calibrated on the table plane found in "
+                         "this depth frame (pitch, roll and lens height from the fitted plane and the owner's "
+                         "table_top_m; heading and the lens's forward/left offset still from the model); depth itself "
+                         "is measured")
 
 
 def tool_schema():
@@ -119,6 +132,10 @@ def scene_tool_schema():
                                       "depth around each); null point when the depth there is invalid."},
             "with_claws": {"type": "boolean", "default": True,
                            "description": "Also give each claw tip's position and its vector to the nearest object."},
+            "table_top_m": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 2,
+                            "description": "Height of the table top above the floor in metres, for the table-plane "
+                                           "camera self-calibration; defaults to table_top_m in the owner's "
+                                           "workspace.json next to the robot config."},
         }, "additionalProperties": False},
     }}
 
@@ -271,12 +288,15 @@ class TwinRobot:
     passes through unchanged."""
 
     def __init__(self, robot, *, joint_map_path=None, clock=time.time, size=(640, 480),
-                 max_age_s=MAX_STATE_AGE_S, renderer=None, claws=None, camera_pose=None):
+                 max_age_s=MAX_STATE_AGE_S, renderer=None, claws=None, camera_pose=None, workspace_path=None):
         self.robot = robot
+        config = _config_path(robot)
         if joint_map_path is None:
-            config = _config_path(robot)
             joint_map_path = config.with_name(JOINT_MAP_NAME) if config else None
+        if workspace_path is None:
+            workspace_path = config.with_name(WORKSPACE_NAME) if config else None
         self.joint_map_path = Path(joint_map_path) if joint_map_path else None
+        self.workspace_path = Path(workspace_path) if workspace_path else None
         self.clock = clock
         self.size = tuple(size)
         self.max_age_s = max_age_s
@@ -324,7 +344,8 @@ class TwinRobot:
                 catalog["tools"].append(scene_tool_schema())
                 metadata["scene_points"] = {
                     "tool": SCENE_TOOL_NAME, "execution": "local_depth_backprojection_with_model_camera_pose",
-                    "motor_access": False, "synthetic_images": False, "depth_tool": DEPTH_TOOL_NAME}
+                    "motor_access": False, "synthetic_images": False, "depth_tool": DEPTH_TOOL_NAME,
+                    "camera_pose": "table_plane_calibrated_when_table_top_m_is_known_else_model"}
         self.last_catalog = catalog
         return catalog
 
@@ -561,8 +582,8 @@ class TwinRobot:
 
     @staticmethod
     def _scene_arguments(args):
-        if not isinstance(args, dict) or set(args) - {"pixels", "with_claws"}:
-            raise Refusal("Unknown scene points arguments; allowed: pixels, with_claws")
+        if not isinstance(args, dict) or set(args) - {"pixels", "with_claws", "table_top_m"}:
+            raise Refusal("Unknown scene points arguments; allowed: pixels, with_claws, table_top_m")
         pixels = args.get("pixels", [])
         if (not isinstance(pixels, list) or len(pixels) > MAX_QUERY_PIXELS
                 or any(not isinstance(p, list) or len(p) != 2 or any(type(v) is not int or v < 0 for v in p)
@@ -571,7 +592,30 @@ class TwinRobot:
         with_claws = args.get("with_claws", True)
         if type(with_claws) is not bool:
             raise Refusal("with_claws must be true or false")
-        return pixels, with_claws
+        table_top = args.get("table_top_m")
+        if table_top is not None and (type(table_top) not in (int, float) or not (0 < table_top < 2)):
+            raise Refusal("table_top_m must be the table top's height above the floor in metres, between 0 and 2")
+        return pixels, with_claws, (float(table_top) if table_top is not None else None)
+
+    def _workspace_table_top(self):
+        """(table_top_m or None, why) from the owner's workspace.json next to the robot config."""
+        path = self.workspace_path
+        if path is None:
+            return None, "no robot config path, so no workspace.json with table_top_m"
+        try:
+            raw = path.read_text()
+        except FileNotFoundError:
+            return None, f"{path} not found (the owner types table_top_m there)"
+        except OSError as exc:
+            return None, f"{path}: {exc}"
+        try:
+            data = json.loads(raw)
+        except ValueError as exc:
+            return None, f"{path} is not valid JSON: {exc}"
+        value = data.get("table_top_m") if isinstance(data, dict) else None
+        if type(value) in (int, float) and 0 < value < 2:
+            return float(value), f"table_top_m from {path}"
+        return None, f"{path} has no table_top_m between 0 and 2 m"
 
     def _read_depth(self, request_id):
         """One robot_get_depth snapshot -> (depth uint16 mm, manifest, image record, captured_at)."""
@@ -619,7 +663,7 @@ class TwinRobot:
         return coefficients, f"manifest projection {projection!r} carries the factory distortion"
 
     def _scene_points(self, args, request_id):
-        pixels, with_claws = self._scene_arguments(args)
+        pixels, with_claws, table_top_arg = self._scene_arguments(args)
         state, stamp, positions, ranges, stale = self._read_state(request_id)
         self._check_age(stamp, "The encoder reading", "scene points")
         depth, manifest, image, depth_stamp = self._read_depth(request_id)
@@ -637,8 +681,30 @@ class TwinRobot:
                           "No scene points; use the real cameras.") from None
         if not isinstance(pose, dict) or not isinstance(pose.get("position_m"), list):
             raise Refusal("Twin camera pose returned no position")
+        # Table-plane self-calibration of the camera pose when the table height is known.
+        if table_top_arg is not None:
+            table_top, table_why = table_top_arg, "table_top_m from the tool arguments"
+        else:
+            table_top, table_why = self._workspace_table_top()
+        plane, calibration, table_check = None, None, None
+        source, source_reason = "model", table_why
+        if table_top is not None:
+            try:
+                rotation = np.asarray(pose.get("rotation"), dtype=float)
+                plane = depth_scene.fit_table_plane(
+                    depth, intrinsics, distortion=distortion, expected_up_cam=rotation.T @ depth_scene.UP,
+                    expected_d_m=float(pose["position_m"][2]) - table_top)
+                calibration = depth_scene.calibrate_camera_pose(plane, pose, table_top)
+            except ValueError as exc:
+                raise Refusal(f"Depth scene cannot be computed: {exc}") from None
+            source_reason = calibration["reason"]
+            if calibration["ok"]:
+                pose, source = calibration, "table_plane"
         try:
-            scene = depth_scene.scene_points(depth, intrinsics, pose, pixels=pixels, distortion=distortion)
+            scene = depth_scene.scene_points(depth, intrinsics, pose, pixels=pixels, distortion=distortion,
+                                             table_top_m=table_top if source == "table_plane" else None)
+            if source == "table_plane":
+                table_check = depth_scene.table_check(depth, intrinsics, pose, plane, distortion=distortion)
         except ValueError as exc:
             raise Refusal(f"Depth scene cannot be computed: {exc}") from None
         claws = None
@@ -670,8 +736,29 @@ class TwinRobot:
         camera = {"position_m": [round(float(v), 3) for v in pose["position_m"]],
                   "rotation": [[round(float(v), 4) for v in row] for row in pose.get("rotation", [])],
                   "head_angles_deg": pose.get("head_angles_deg"), "site": pose.get("site"),
-                  "head_sign_note": pose.get("head_sign_note"), "frame": pose.get("frame")}
-        note = SCENE_NOTE_VALIDATED if validated else SCENE_NOTE
+                  "head_sign_note": pose.get("head_sign_note"), "frame": pose.get("frame"), "source": source}
+        table_plane = None
+        if calibration is not None:
+            keys = ("ok", "reason", "inlier_fraction", "inliers", "image_fraction", "points",
+                    "angle_from_expected_up_deg", "d_m", "rms_m", "normal_cam")
+            table_plane = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in plane.items() if k in keys}
+            table_plane["normal_cam"] = ([round(float(v), 4) for v in plane["normal_cam"]]
+                                         if plane.get("normal_cam") is not None else None)
+            table_plane.update({k: calibration.get(k) for k in (
+                "tilt_correction_deg", "roll_correction_deg", "angle_correction_deg", "height_correction_m",
+                "camera_above_table_m", "model_tilt_deg", "model_roll_deg")})
+            camera.update({k: calibration.get(k) for k in ("tilt_deg", "roll_deg", "model_tilt_deg", "model_roll_deg",
+                                                           "tilt_correction_deg", "roll_correction_deg",
+                                                           "height_correction_m")})
+            camera["model_position_m"] = [round(float(v), 3) for v in calibration["model_position_m"]]
+        if source == "table_plane":
+            note = (SCENE_NOTE_CALIBRATED + f" (tilt corrected by {calibration['tilt_correction_deg']:+.1f} deg, roll "
+                    f"by {calibration['roll_correction_deg']:+.1f} deg, lens height by "
+                    f"{calibration['height_correction_m'] * 100:+.1f} cm; table top {table_top:.2f} m above the floor)")
+        else:
+            note = SCENE_NOTE_VALIDATED if validated else SCENE_NOTE
+            if table_top is not None:
+                note += f"; table-plane calibration NOT applied: {source_reason}"
         if stale:
             note += f"; encoder rows older than {self.max_age_s} s at state_time: {', '.join(stale)}"
         result = {
@@ -685,6 +772,9 @@ class TwinRobot:
             "depth_age_s": round(max(0.0, self.clock() - depth_stamp), 3),
             "depth_minus_state_s": round(depth_stamp - stamp, 3),
             "robot_frame_calibrated": manifest.get("robot_frame_calibrated", False) is True,
+            "camera_pose_source": source, "camera_pose_reason": source_reason,
+            "table_top_m": table_top, "table_top_source": table_why if table_top is not None else None,
+            "table_plane": table_plane, "table_check": table_check,
             "undistortion": f"{scene['undistortion']} ({distortion_why})",
             "state_time": stamp,
             "state_age_s": round(max(0.0, self.clock() - stamp), 3),
