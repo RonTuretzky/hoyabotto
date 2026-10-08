@@ -49,20 +49,45 @@ class Sensor:
         self.accel_scale=[4/(values[i+3]-values[i]) for i in range(3)]
         self.offset=list(values[6:9]);self.gyro_scale=[math.radians(936/(values[i+9]-values[i+6])) for i in range(3)]
         if any(not .0001<v<.001 for v in self.accel_scale) or any(not .0005<v<.003 for v in self.gyro_scale):raise ValueError('Invalid IMU calibration')
-        self.quaternion=[1.,0.,0.,0.];self.samples=deque(maxlen=200);self.ready=False
+        self.quaternion=[1.,0.,0.,0.];self.samples=deque(maxlen=200);self.accel_samples=deque(maxlen=200);self.ready=False
         self.gyro=[0.,0.,0.];self.accel=[0.,0.,0.];self.bias=[0.,0.,0.]
+        self.raw=[0]*6;self.angular=[0.,0.,0.];self.calibration_status='waiting_for_samples'
         self.session=uuid.uuid4().hex
+
+    def reset(self,status='waiting_for_samples'):
+        self.ready=False;self.samples.clear();self.accel_samples.clear()
+        self.quaternion=[1.,0.,0.,0.];self.gyro=[0.,0.,0.];self.bias=[0.,0.,0.]
+        self.calibration_status=status;self.session=uuid.uuid4().hex
 
     def update(self,raw):
         vals=struct.unpack('<6h',raw)
+        self.raw=list(vals)
         self.accel=[vals[i]*self.accel_scale[i] for i in range(3)]
         angular=[(vals[i+3]-self.offset[i])*self.gyro_scale[i] for i in range(3)]
+        self.angular=angular
+        if not any(vals):
+            # Fresh button reports can still contain a disabled/invalid IMU.
+            if self.ready or self.calibration_status!='no_imu_data':self.reset('no_imu_data')
+            return
         if not self.ready:
-            # One second still: movement restarts rather than calibrates away motion.
-            if abs(sum(v*v for v in self.accel)-1)>.2 or max(abs(v) for v in angular)>.08:self.samples.clear()
-            else:self.samples.append(angular)
+            # Estimate the resting gyro offset from one stable second. Testing
+            # absolute angular rate before removing that offset prevented the
+            # observed stationary controllers (~0.21 rad/s bias) ever calibrating.
+            # Require plausible gravity/rate AND small variation of every axis.
+            gravity=math.sqrt(sum(v*v for v in self.accel))
+            status='calibrating'
+            if not .8<=gravity<=1.2:status='acceleration_out_of_range'
+            elif max(abs(v) for v in angular)>.35:status='rotation_detected'
+            if status!='calibrating':
+                self.samples.clear();self.accel_samples.clear();self.calibration_status=status;return
+            self.samples.append(angular);self.accel_samples.append(self.accel)
+            unstable=any(max(s[i] for s in window)-min(s[i] for s in window)>limit
+                         for window,limit in ((self.samples,.035),(self.accel_samples,.04)) for i in range(3))
+            if unstable:
+                self.samples.clear();self.accel_samples.clear();self.calibration_status='movement_detected';return
+            self.calibration_status='calibrating'
             if len(self.samples)==200:
-                self.bias=[sum(s[i] for s in self.samples)/200 for i in range(3)];self.ready=True
+                self.bias=[sum(s[i] for s in self.samples)/200 for i in range(3)];self.ready=True;self.calibration_status='ready'
             return
         self.gyro=[angular[i]-self.bias[i] for i in range(3)]
         # Relative clutch orientation avoids an absolute yaw promise; Home reanchors.
@@ -117,8 +142,7 @@ class JoyCon:
             now=time.monotonic()
             if self.last_received and now-self.last_received>.2:
                 # Never integrate old orientation across a Bluetooth outage.
-                self.sensor.ready=False;self.sensor.samples.clear();self.sensor.session=uuid.uuid4().hex
-                self.sensor.quaternion=[1.,0.,0.,0.]
+                self.sensor.reset('stream_interrupted')
             self.last_packet=raw[1];self.last_received=now;self.sequence+=1
             for i in (13,25,37):self.sensor.update(raw[i:i+12])
             self.state=raw
@@ -163,7 +187,8 @@ class HIDReader:
         pads={'Left Thumbstick':normalize_stick(unpack_stick(l[6:9]),left.cal,self.deadzone),'Right Thumbstick':normalize_stick(unpack_stick(r[9:12]),right.cal,self.deadzone)}
         dx=float(bool(l[5]&4))-float(bool(l[5]&8));dy=float(bool(l[5]&2))-float(bool(l[5]&1))
         pads['Direction Pad']={a:dict(raw=v,filtered=v) for a,v in (('x',dx),('y',dy))}
-        motion={side:dict(ready=d.sensor.ready,age_s=max(0,time.monotonic()-d.last_received),quaternion=list(d.sensor.quaternion),rotation_rate=list(d.sensor.gyro),session=d.sensor.session) for side,d in self.devices.items()}
+        motion={side:dict(ready=d.sensor.ready,age_s=max(0,time.monotonic()-d.last_received),quaternion=list(d.sensor.quaternion),rotation_rate=list(d.sensor.gyro),session=d.sensor.session,
+                         calibration=dict(status=d.sensor.calibration_status,samples=len(d.sensor.samples),required=200,acceleration_g=list(d.sensor.accel),angular_rate=list(d.sensor.angular),raw=list(d.sensor.raw))) for side,d in self.devices.items()}
         frame['controllers']=[dict(id=self.session,connected=True,role='pair',name='Original Joy-Con pair (raw HID)',remapped=False,input_event_count=left.sequence+right.sequence,
                                    buttons={n:dict(pressed=v,value=int(v),physical_names=[n]) for n,v in values.items()},pads=pads,independent_motion=motion)]
         return frame

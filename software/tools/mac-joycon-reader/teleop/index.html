@@ -84,7 +84,7 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
   <p class="hint">Stop before changing settings. Leaving this window stops control.</p>
   <details class="diagnostics">
     <summary>Diagnostics</summary>
-    <p id="backendInfo"></p><p id="axesReadback"></p><p id="health"></p><p id="stopReason"></p>
+    <p id="backendInfo"></p><p id="axesReadback"></p><p id="gyroReadback"></p><p id="health"></p><p id="stopReason"></p>
     <div class="pads"><div><small>Left stick</small><div class="pad"><div id="leftDot" class="dot"></div></div></div><div><small>Right stick</small><div class="pad"><div id="rightDot" class="dot"></div></div></div></div>
     <p>Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.</p>
     <details id="simulation"><summary>Joint positions + base travel</summary><p>Simulation coordinates; not calibrated to the real robot. The practice box is solid and does not simulate folding.</p><div id="joints"></div><canvas id="base" width="360" height="260" aria-label="Top-down simulated base position"></canvas><p id="baseText"></p></details>
@@ -162,11 +162,13 @@ function draw(s){
   }else if(unavailable){
     $('gyroStatus').textContent='Connect both Joy-Cons to use gyro.';
   }else if(d.gyro_available){
-    $('gyroStatus').textContent='Ready. Turn on to rotate your wrists by tilting the Joy-Cons.';
+    $('gyroStatus').textContent='Both gyros ready. Turn on to rotate your wrists by tilting the Joy-Cons.';
   }else{
     const sides=['left','right'].map(side=>{
       const m=d.motion?.[side];
-      return side[0].toUpperCase()+side.slice(1)+': '+(m?.ready&&m.age_s>=0&&m.age_s<=.12?'ready':'waiting');
+      const c=m?.calibration,labels={no_imu_data:'no motion data',acceleration_out_of_range:'check resting position',rotation_detected:'keep still',movement_detected:'keep still',stream_interrupted:'reconnecting'};
+      const progress=c?.status==='calibrating'?`calibrating ${Math.floor(100*c.samples/c.required)}%`:labels[c?.status]||'waiting';
+      return side[0].toUpperCase()+side.slice(1)+': '+(m?.ready&&m.age_s>=0&&m.age_s<=.12?'ready':progress);
     }).join(' · ');
     $('gyroStatus').textContent='Set both Joy-Cons down and keep them still for 2–3 seconds. '+sides+'.';
   }
@@ -185,6 +187,10 @@ function draw(s){
   $('health').textContent=`Input age: ${s.input_age_s??'—'} s · ${s.simulation?'Local control loop':'Network round trip'}: ${s.rtt_ms??'—'} ms`;
   $('backendInfo').textContent='Input: '+(s.input_backend==='hid'?'Independent Nintendo HID':'Apple GameController')+' · Held: '+(Object.entries(d.buttons||{}).filter(([k,v])=>v).map(([k])=>k.replace('Button ','')).join(', ')||'none');
   $('axesReadback').textContent=['left','right'].map(side=>`${side} stick: X ${(a[side+'x']||0).toFixed(2)} / Y ${(a[side+'y']||0).toFixed(2)}`).join(' · ');
+  $('gyroReadback').textContent=Object.entries(d.motion||{}).map(([side,m])=>{
+    const c=m.calibration;if(!c)return '';
+    return `${side} IMU: ${c.status} (${c.samples}/${c.required}) · gravity ${Math.hypot(...c.acceleration_g).toFixed(3)} g · uncorrected rotation ${c.angular_rate.map(v=>v.toFixed(3)).join(', ')} rad/s`;
+  }).filter(Boolean).join(' · ');
   $('simulation').hidden=!s.simulation;
   $('readbackTitle').textContent=s.simulation?'Virtual motor state':'Robot readback';
   $('robotHealth').textContent=r.error||`Owner: ${r.simulation?'local simulator':r.preview?'not connected (preview)':r.phase||'—'} · Telemetry age: ${r.status_age_s??'—'} s · Manual: ${r.teleop?.active?'active':'inactive'}`;

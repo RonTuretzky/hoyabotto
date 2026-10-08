@@ -54,11 +54,26 @@ The new reader uses `hidapi` and only opens Nintendo IDs 057e:2006/2007. It
 requests volatile 0x30 reports/IMU streaming, reads factory or user stick/IMU
 calibration from SPI, and integrates all three 5 ms IMU samples per packet.
 Each controller must remain still for 200 samples before its gyro is ready.
+Calibration estimates the resting gyro bias from a stable one-second window,
+with per-axis angular/acceleration variation checks and bounded gravity/rate.
+Keep both controllers stationary during calibration: a steady yaw rotation
+cannot be distinguished from bias using this window alone.
+The UI shows progress and the reason for waiting; Diagnostics includes the
+measured gravity and uncorrected rotation. Missing IMU data or a packet gap
+invalidates the orientation and requires a fresh stationary window.
 Enable **Gyro mode**, directly above Start, while stopped. The switch shows why
 it is unavailable and whether each sensor is ready. Each L/R press anchors that controller's
 relative wrist orientation; release/repress to reanchor. A stale/missing gyro
 or changed gyro session stops practice. Long-held yaw/orientation can drift;
 there is no external tracking or absolute heading reference.
+
+On 2026-10-08, both connected controllers remained stuck before calibration:
+their resting angular offsets reached roughly 0.21 rad/s and one reported
+1.11 g. The previous absolute-rate and squared-gravity gates rejected these
+steady readings. After using the stable-window bias estimate, both live
+streams reached 200/200 samples and `gyro_available` became true. The browser
+switch was enabled while practice remained stopped; physical robot motion and
+the real tilt-to-simulated-wrist mapping were not exercised in this check.
 
 The HID output allowlist includes only report mode, IMU enable/sensitivity and
 SPI **read** commands. No calibration/firmware writes, pairing changes or rumble

@@ -50,6 +50,62 @@ class HIDTests(unittest.TestCase):
         reader.devices['right'].last_received-=.2
         self.assertFalse(reader.sample()['controllers'])
 
+    def test_resting_sensor_offsets_do_not_block_calibration(self):
+        # Stationary live observations that failed the old absolute-rate/1g gates.
+        for raw in ((75,-337,4348,36,196,99),(283,-266,-4329,-156,137,114)):
+            sensor=Sensor(imu_cal())
+            for i in range(200):
+                jitter=(i%5)-2
+                sensor.update(struct.pack('<6h',*(v+jitter for v in raw)))
+            self.assertTrue(sensor.ready)
+            self.assertEqual(sensor.calibration_status,'ready')
+            for _ in range(100):sensor.update(struct.pack('<6h',*raw))
+            self.assertLess(max(abs(v) for v in sensor.gyro),1e-8)
+            self.assertEqual(sensor.quaternion,[1.,0.,0.,0.])
+
+    def test_unstable_motion_and_invalid_gravity_do_not_calibrate(self):
+        # Each angular sample is below the bias cap, but the window is not still.
+        for kind in ('gyro','accel','invalid_gravity','missing'):
+            sensor=Sensor(imu_cal())
+            for i in range(400):
+                raw=[0,0,4096,0,0,0]
+                if kind=='gyro':raw[3]=100 if i%2 else -100
+                if kind=='accel':raw[0]=200 if i%2 else -200
+                if kind=='invalid_gravity':raw[2]=6000
+                if kind=='missing':raw=[0]*6
+                sensor.update(struct.pack('<6h',*raw))
+            self.assertFalse(sensor.ready,kind)
+
+    def test_missing_imu_after_calibration_revokes_ready(self):
+        sensor=Sensor(imu_cal());still=struct.pack('<6h',0,0,4096,0,0,0)
+        for _ in range(200):sensor.update(still)
+        session=sensor.session
+        self.assertTrue(sensor.ready)
+        sensor.update(bytes(12))
+        self.assertFalse(sensor.ready)
+        self.assertEqual(sensor.calibration_status,'no_imu_data')
+        self.assertNotEqual(session,sensor.session)
+        for _ in range(199):sensor.update(still)
+        self.assertFalse(sensor.ready)
+        sensor.update(still)
+        self.assertTrue(sensor.ready)
+
+    def test_packet_gap_requires_a_new_stationary_window(self):
+        device=JoyCon.__new__(JoyCon);device.sensor=Sensor(imu_cal())
+        still=struct.pack('<6h',0,0,4096,0,0,0)
+        for _ in range(200):device.sensor.update(still)
+        session=device.sensor.session
+        raw=bytearray(49);raw[0]=0x30;raw[1]=1
+        raw[13:49]=still*3
+        packets=iter((raw,[]))
+        device.device=SimpleNamespace(read=lambda _:next(packets))
+        device.last_packet=0;device.last_received=time.monotonic()-1;device.sequence=0
+        device.read()
+        self.assertFalse(device.sensor.ready)
+        self.assertEqual(len(device.sensor.samples),3)
+        self.assertEqual(len(device.sensor.accel_samples),3)
+        self.assertNotEqual(device.sensor.session,session)
+
     def test_persistent_and_rumble_commands_rejected(self):
         device=JoyCon.__new__(JoyCon)
         for cmd in (0x11,0x12,0x01,0x06,0x07,0x30,0x48):
