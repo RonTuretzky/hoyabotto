@@ -15,6 +15,7 @@ class PreviewRobot:
         raise ValueError("Local preview cannot activate or command the robot")
 
 DEFAULT_CONFIG = '/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/.private/robot.json'
+MOTOR_CONTROL_LOCK = Path(__file__).resolve().parents[1]/'MOTOR_CONTROL_DISABLED'
 
 class Robot:
     preview = False
@@ -246,6 +247,7 @@ def main():
     ap.add_argument('--reader',type=Path,default=Path(__file__).resolve().parents[1]/'.build/release/MacJoyConReader')
     ap.add_argument('--no-browser',action='store_true');ap.add_argument('--port',type=int,default=0)
     a=ap.parse_args()
+    if a.connect_robot and MOTOR_CONTROL_LOCK.exists():ap.error('Motor control disabled for this installation (MOTOR_CONTROL_DISABLED)')
     if a.connect_robot and a.simulator=='mujoco':ap.error('MuJoCo practice cannot be combined with a robot connection')
     if a.control_mode=='cartesian' and (a.simulator!='mujoco' or a.connect_robot):ap.error('Cartesian control requires local MuJoCo simulation')
     if a.control_mode=='upstream' and not a.connect_robot and a.simulator!='mujoco':ap.error('Local original controls require MuJoCo')

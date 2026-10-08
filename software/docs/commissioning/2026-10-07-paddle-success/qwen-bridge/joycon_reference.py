@@ -13,6 +13,7 @@ SOURCE_BINDING='b65b1cdd1b6c99016c87ecb79db8823182d1a8d816492e302af6de2e56601352
 JOINTS=('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper')
 POSITION_NAMES=tuple(f'{s}_arm_{j}' for s in ('left','right') for j in JOINTS)+('head_motor_1','head_motor_2')
 CAL_FIELDS=('range_min','range_max','homing_offset')
+POSITION_MARGIN=40  # Keep the deployed pickup profile's commandable travel margin.
 
 
 def digest(value):
@@ -73,7 +74,7 @@ class PhysicalReference:
         if calibration_rows(calibration)!=self.calibration:raise ValueError('Upstream reference differs from current motor calibration')
 
     def raw_limits(self,name):
-        c=self.calibration[name];return c['range_min']+4,c['range_max']-4
+        c=self.calibration[name];return c['range_min']+POSITION_MARGIN,c['range_max']-POSITION_MARGIN
 
     def limits(self,name):
         if name.endswith('gripper'):return (0.,90.)
@@ -82,7 +83,7 @@ class PhysicalReference:
     def from_ticks(self,name,ticks):
         ticks=number(ticks,name+' telemetry');lo,hi=self.raw_limits(name)
         # Readback may be at the endpoint, but never extrapolate outside the
-        # saved physical calibration. Commands retain the 4-tick margin.
+        # saved physical calibration. Commands retain the 40-tick pickup margin.
         c=self.calibration[name]
         if not c['range_min']<=ticks<=c['range_max']:raise ValueError(name+': telemetry outside saved calibration')
         zero,scale=self.lines[name];return (ticks-zero)/scale

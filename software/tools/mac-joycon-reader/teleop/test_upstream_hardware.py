@@ -32,6 +32,14 @@ def reference_record():
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_installation_lock_rejects_before_transport_or_reader(self):
+        import bridge
+        with tempfile.TemporaryDirectory() as folder:
+            lock=Path(folder)/'MOTOR_CONTROL_DISABLED';lock.touch()
+            with patch.object(bridge,'MOTOR_CONTROL_LOCK',lock),patch.object(bridge,'Robot',side_effect=AssertionError('No connection')),patch.object(bridge,'Bridge',side_effect=AssertionError('No input reader')),patch('sys.argv',['bridge.py','--connect-robot']),contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as e:bridge.main()
+            self.assertEqual(e.exception.code,2)
+
     def test_requires_measured_identity_all_joints_and_matching_calibration(self):
         record=reference_record();reference=PhysicalReference(record)
         reference.validate_calibration(record['calibration'])
@@ -64,6 +72,7 @@ class ReferenceTests(unittest.TestCase):
         r['joints']['left_arm_gripper'].update(closed_tick=3000,open_tick=1500)
         ref=PhysicalReference(r)
         self.assertLess(ref.to_ticks('right_arm_wrist_roll',30),2048)
+        self.assertEqual(ref.raw_limits('right_arm_wrist_roll'),(140,3960))
         self.assertEqual(ref.to_ticks('left_arm_gripper',90),1500)
         for n in POSITION_NAMES:
             for value in (0,30,60):self.assertAlmostEqual(ref.from_ticks(n,ref.to_ticks(n,value)),value)

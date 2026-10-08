@@ -460,6 +460,11 @@ def main():
    if stop(pids,label,20):fail(f'{label} did not exit during rollback; inspect before restarting')
   for name in INSTALL:
    if (backup/name).exists():shutil.copy2(backup/name,WORK/name)
+  # The restored owner may predate upstream mode. Do not require it to load
+  # the new reference, or assert the failed version's reference in readback.
+  if args.upstream_joycon_reference:
+   index=OWNER_ARGS.index('--upstream-joycon-reference');del OWNER_ARGS[index:index+2]
+   args.upstream_joycon_reference=None
   try:s,owner,api=bring_up(args)
   except SystemExit:
    if not processes('gemma_robot_tools.py'):say('the previous version did not start either; starting the API anyway so the robot stays reachable');start_api()

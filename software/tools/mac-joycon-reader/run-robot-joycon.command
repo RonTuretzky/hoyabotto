@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
+if [[ -e MOTOR_CONTROL_DISABLED ]]; then
+  echo "Motor control is disabled for this installation. Local simulation remains available."
+  exit 2
+fi
 explicit_connection=false
 for argument in "$@"; do
   if [[ "$argument" == --connect-robot ]]; then explicit_connection=true; fi

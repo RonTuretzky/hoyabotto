@@ -154,7 +154,10 @@ class ManualTeleop:
             if self.deadman[side] and not c['deadman'][side]: self.targets[n] = float(q)
             rate = c['rates'].get(n, 0) if c['deadman'][side] else 0
             lo, hi = o.ranges[n]
-            self.targets[n] = max(lo+4, min(hi-4, self.targets[n] + rate*min(dt, .1)))
+            # A neutral joint keeps its measured hold target even if gravity
+            # put it outside the command margin before arming.
+            margin=40 if getattr(self,'control_mode','joint')=='upstream' else 4
+            if rate:self.targets[n] = max(lo+margin, min(hi-margin, self.targets[n] + rate*min(dt, .1)))
         if self.names: o.setpoints({n: round(v) for n, v in self.targets.items()})
         self.deadman = dict(c['deadman'])
         if self.scope in ('drive', 'wholebody'): self.drive(c)

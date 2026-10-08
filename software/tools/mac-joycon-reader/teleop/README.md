@@ -196,7 +196,7 @@ shortcut. Stop, focus/input/feedback loss, owner restart, and changed controller
 identity stop the session. Initial pose must fit the upstream IK branch; no
 homing is used to force it to fit.
 
-The original target is bounded to saved travel and at most 40 ticks ahead of
+The original physical target stays 40 ticks inside saved travel and at most 40 ticks ahead of
 feedback. Commands retain 80 ticks/s for arms, 60 for head, the owner's 100 ticks/s
 ceiling, and 2 cm/s per-wheel / 0.16 rad/s driving limits. These physical limits
 are intentionally unchanged; this is **not** a promise of the simulator's speed
@@ -205,8 +205,11 @@ separate commissioning, not a change to this adapter.
 
 ### What blocks actual hardware use
 
-- The current user instruction prohibits touching the remote robot or activating
-  motors. Remote installation has not been performed.
+- The user approved installation with motors disabled. The approved deployment is
+  an isolated inactive copy; loading it into the hardware owner or enabling motors
+  is a separate step. A `MOTOR_CONTROL_DISABLED` marker in the reader directory
+  blocks the physical launcher and bridge before credentials, input readers, or
+  connections are opened. Simulation remains available.
 - No measured upstream-reference file has been supplied. The saved calibration
   provides travel and homing registers, not each joint's analytical zero/sign or
   the grippers' measured open/closed positions.
@@ -231,7 +234,8 @@ of the current remote motor settings.
 
 ### Prepared launch sequence (not executed)
 
-After the remote restriction is clarified and the actual measurements verified:
+After explicit motion authorization, actual measurements, and deliberate removal
+of the installation lock:
 
 1. Validate a measured record against the current calibration with
    `joycon_reference.py validate --reference PATH --calibration PATH`.
@@ -249,12 +253,12 @@ After the remote restriction is clarified and the actual measurements verified:
 4. Verify readback, controller identities/rails, scene clearance and Stop before
    explicitly selecting **Arm controls** for an authorized physical test.
 
-The complete local suite passed 45 tests; an additional focused source-binding/
-pre-connection rejection test also passed (46 tests total), including source parity, physical-unit
+The 46-test local suite passed after merging the robot Mac's newer code; focused
+checks also cover the installation lock before connection. Coverage includes source parity, physical-unit
 conversion, calibration rejection, exact-reference claims before enable, all
 14 position joints plus wheels through the original controller and the actual
 owner/API with fake motors, rail release, re-centering, and stale feedback.
-All 20 existing owner test files also passed. These fake-motor checks forbid network sockets. They do not prove physical
+All 24 existing owner test files also passed after merging the newer robot fixes. These fake-motor checks forbid network sockets. They do not prove physical
 calibration, safe collision geometry, or actual robot operation.
 
 ## Prepared robot integration
