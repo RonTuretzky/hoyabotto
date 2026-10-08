@@ -1,0 +1,15 @@
+{
+ "camera_id": "0x12400005a39230",
+ "camera_name": "left_wrist",
+ "arm": "left",
+ "mime_type": "image/jpeg",
+ "captured_at": 1791449404.7472312,
+ "received_at": 1791449404.955782,
+ "seq": 116864,
+ "stream_id": "30841D52-2179-4F61-A29C-3DF129001B1A",
+ "width": 640,
+ "height": 480,
+ "robot_frame_calibrated": false,
+ "identity_verified": true,
+ "sha256": "b946e55bb6504dc3392b9d11c3bd98195327088f1c63fee4299b5545adca5c14"
+}

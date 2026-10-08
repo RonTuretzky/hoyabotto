@@ -1,0 +1,504 @@
+{
+ "ok": true,
+ "result": {
+  "mode": "direct_joint",
+  "control_mode": "direct_joint",
+  "execution_adapter_bound": true,
+  "armed": true,
+  "motion_ready": true,
+  "available_to_accept_authorized_command": true,
+  "execution_binding": {
+   "mode": "direct_joint",
+   "control_mode": "direct_joint",
+   "hardware_server": true,
+   "execution_adapter_bound": true,
+   "execution_adapter_source": "work/gemma_direct_client.py:DirectJointClient",
+   "motion_ready": true,
+   "available_to_accept_authorized_command": true,
+   "operator_armed": true,
+   "local_operator_gate": true,
+   "motor_owner_active": true,
+   "supported_joints": [
+    "left_arm_shoulder_pan",
+    "left_arm_shoulder_lift",
+    "left_arm_elbow_flex",
+    "left_arm_wrist_flex",
+    "left_arm_wrist_roll",
+    "left_arm_gripper",
+    "right_arm_shoulder_pan",
+    "right_arm_shoulder_lift",
+    "right_arm_elbow_flex",
+    "right_arm_wrist_flex",
+    "right_arm_wrist_roll",
+    "right_arm_gripper"
+   ],
+   "supported_motors": [
+    "left_arm_shoulder_pan",
+    "left_arm_shoulder_lift",
+    "left_arm_elbow_flex",
+    "left_arm_wrist_flex",
+    "left_arm_wrist_roll",
+    "left_arm_gripper",
+    "head_motor_1",
+    "head_motor_2",
+    "right_arm_shoulder_pan",
+    "right_arm_shoulder_lift",
+    "right_arm_elbow_flex",
+    "right_arm_wrist_flex",
+    "right_arm_wrist_roll",
+    "right_arm_gripper",
+    "base_left_wheel",
+    "base_right_wheel"
+   ],
+   "joint_blockers": {},
+   "blockers": [],
+   "remote_owner_start": false,
+   "stop_latched": false,
+   "owner_restart_required_after_stop": false,
+   "continuous_profile_required": false,
+   "cartesian_transform_required": false,
+   "camera_gate_required": false,
+   "software_temperature_limit_c": 70,
+   "owner_started": 1791448804.245714,
+   "owner_phase": "holding",
+   "owner_status_age_s": 0.010740995407104492,
+   "enabled_motors": [
+    "left_arm_elbow_flex",
+    "left_arm_gripper",
+    "left_arm_shoulder_lift",
+    "left_arm_shoulder_pan",
+    "left_arm_wrist_flex",
+    "left_arm_wrist_roll",
+    "right_arm_elbow_flex",
+    "right_arm_gripper",
+    "right_arm_shoulder_lift",
+    "right_arm_shoulder_pan",
+    "right_arm_wrist_flex",
+    "right_arm_wrist_roll"
+   ],
+   "pickup_required_enabled_motors": [
+    "left_arm_shoulder_pan",
+    "left_arm_shoulder_lift",
+    "left_arm_elbow_flex",
+    "left_arm_wrist_flex",
+    "left_arm_wrist_roll",
+    "left_arm_gripper",
+    "right_arm_shoulder_pan",
+    "right_arm_shoulder_lift",
+    "right_arm_elbow_flex",
+    "right_arm_wrist_flex",
+    "right_arm_wrist_roll",
+    "right_arm_gripper"
+   ],
+   "pickup_motion_segments_used": 13,
+   "pickup_motion_segment_budget": null,
+   "pickup_idle_hold_seconds": 120,
+   "camera_pause_active": false,
+   "camera_supervision_required": true,
+   "execution_profile": "paddle-success-v1",
+   "base_drive_supported": true,
+   "base_drive_limits": {
+    "max_wheel_m_s": 0.02,
+    "max_duration_s": 3.0
+   },
+   "read_only": false,
+   "calibration_mismatches": {},
+   "last_stop": null,
+   "stop_count": 0,
+   "release_errors": [],
+   "torque_enabled_by_joint": {
+    "left_arm_shoulder_pan": 1,
+    "left_arm_shoulder_lift": 1,
+    "left_arm_elbow_flex": 1,
+    "left_arm_wrist_flex": 1,
+    "left_arm_wrist_roll": 1,
+    "left_arm_gripper": 1,
+    "head_motor_1": 0,
+    "head_motor_2": 0,
+    "right_arm_shoulder_pan": 1,
+    "right_arm_shoulder_lift": 1,
+    "right_arm_elbow_flex": 1,
+    "right_arm_wrist_flex": 1,
+    "right_arm_wrist_roll": 1,
+    "right_arm_gripper": 1,
+    "base_left_wheel": 0,
+    "base_right_wheel": 0
+   },
+   "lease_remaining_s": 93.8916704999865,
+   "lease_applies_while_enabled": true,
+   "explicit_enable_renews_idle_lease": true,
+   "blocker": null
+  },
+  "joint_blockers": {},
+  "camera_status": {
+   "oak_rectified": {
+    "available": true,
+    "fresh": false,
+    "age_s": 186799.45219898224,
+    "captured_at": 1791262560.805316,
+    "seq": 215859,
+    "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+    "projection": "rectified_pinhole",
+    "rgb_depth_pixel_registration_verified": false,
+    "robot_frame_calibrated": false
+   },
+   "oak_raw": {
+    "available": true,
+    "fresh": true,
+    "age_s": 0.1185460090637207,
+    "captured_at": 1791449360.139014,
+    "seq": 1544,
+    "stream_id": "931a7c4c2732482e99427702f9d386f6",
+    "projection": "camera_pinhole_with_factory_distortion",
+    "rgb_depth_pixel_registration_verified": false,
+    "robot_frame_calibrated": false
+   },
+   "phone": {
+    "available": true,
+    "fresh": true,
+    "age_s": 0.2224431037902832,
+    "received_at": 1791449360.035143,
+    "seq": 86719,
+    "stream_id": null,
+    "projection": null,
+    "rgb_depth_pixel_registration_verified": false,
+    "robot_frame_calibrated": false,
+    "timestamp_semantics": "server receipt; capture delay unknown",
+    "captured_at": null
+   },
+   "right_wrist": {
+    "available": true,
+    "fresh": true,
+    "age_s": 0.4324805736541748,
+    "captured_at": 1791449359.8251085,
+    "seq": 133924,
+    "stream_id": "93B7C9BD-620F-4F96-B211-AD593DC29CEA",
+    "camera_id": "0x12200005a39230",
+    "folder": "/Users/teachera/Documents/Codex/2026-10-05/m/work/wrist-camera-stream",
+    "robot_frame_calibrated": false,
+    "identity_verified": true
+   },
+   "left_wrist": {
+    "available": true,
+    "fresh": true,
+    "age_s": 0.30647897720336914,
+    "captured_at": 1791449359.9511101,
+    "seq": 116639,
+    "stream_id": "30841D52-2179-4F61-A29C-3DF129001B1A",
+    "camera_id": "0x12400005a39230",
+    "folder": "/Users/teachera/Documents/Codex/2026-10-05/m/work/wrist-camera-stream",
+    "robot_frame_calibrated": false,
+    "identity_verified": true
+   },
+   "wrist_camera_setup": {
+    "time": 1791448811.9024918,
+    "dry_run": false,
+    "messages": [
+     "cameras this Mac sees: USB2.0_CAM1 [0x12400005a39230], USB2.0_CAM1 [0x12200005a39230], MacBook Neo Camera [6C707041-05AC-0011-0005-000000000001], USB2.0_CAM1 [0x12130005a39230]",
+     "right_wrist: already streaming",
+     "left_wrist: already streaming",
+     "oak: stopping stale stream 10532",
+     "oak: stopping stale stream 36772",
+     "oak: streaming (watchdog pid 36783, restarts after crashes) into /Users/teachera/Documents/Codex/2026-10-06/users-teachera-documents-codex-2026-10/work/oak-live-stream"
+    ],
+    "ids": {
+     "right_wrist": "0x12200005a39230",
+     "left_wrist": "0x12400005a39230"
+    },
+    "identity_verified": {
+     "right_wrist": true,
+     "left_wrist": true
+    },
+    "fresh": {
+     "right_wrist": true,
+     "left_wrist": true
+    }
+   },
+   "continuous_visual_registration_ready": false
+  },
+  "saved_motor_readiness": {
+   "source": "saved canonical lock-protected carton_preflight snapshot",
+   "captured_at": 1791261364.540577,
+   "age_s": 187995.71780610085,
+   "fresh": false,
+   "all_16_released_at_snapshot": true,
+   "current_release_confirmed_by_this_metadata_read": false,
+   "out_of_range_at_snapshot": [
+    {
+     "name": "left_arm_shoulder_lift",
+     "Torque_Enable": 0,
+     "Status": 0,
+     "Present_Position": 3917,
+     "Present_Temperature": 36,
+     "Present_Load": 0,
+     "Present_Voltage": 119,
+     "Operating_Mode": 1,
+     "calibration_matches": false,
+     "range": [
+      855,
+      3239
+     ],
+     "in_range": false,
+     "normalized": 156.87919463087246
+    },
+    {
+     "name": "right_arm_shoulder_lift",
+     "Torque_Enable": 0,
+     "Status": 0,
+     "Present_Position": 3770,
+     "Present_Temperature": 37,
+     "Present_Load": 0,
+     "Present_Voltage": 120,
+     "Operating_Mode": 1,
+     "calibration_matches": false,
+     "range": [
+      845,
+      3249
+     ],
+     "in_range": false,
+     "normalized": 143.34442595673877
+    },
+    {
+     "name": "right_arm_elbow_flex",
+     "Torque_Enable": 0,
+     "Status": 0,
+     "Present_Position": 3150,
+     "Present_Temperature": 38,
+     "Present_Load": 0,
+     "Present_Voltage": 120,
+     "Operating_Mode": 1,
+     "calibration_matches": false,
+     "range": [
+      1002,
+      3092
+     ],
+     "in_range": false,
+     "normalized": 105.55023923444975
+    }
+   ],
+   "head_at_snapshot": [
+    {
+     "name": "head_motor_1",
+     "Torque_Enable": 0,
+     "Status": 0,
+     "Present_Position": 2398,
+     "Present_Temperature": 40,
+     "Present_Load": 0,
+     "Present_Voltage": 119,
+     "Operating_Mode": 0,
+     "calibration_matches": true,
+     "range": [
+      1019,
+      3151
+     ],
+     "in_range": true,
+     "normalized": 29.362101313320807
+    },
+    {
+     "name": "head_motor_2",
+     "Torque_Enable": 0,
+     "Status": 0,
+     "Present_Position": 2601,
+     "Present_Temperature": 37,
+     "Present_Load": 0,
+     "Present_Voltage": 120,
+     "Operating_Mode": 0,
+     "calibration_matches": true,
+     "range": [
+      1932,
+      2665
+     ],
+     "in_range": true,
+     "normalized": 82.53751705320599
+    }
+   ]
+  },
+  "automatic_motion_on_startup": false,
+  "passive_recovery": true,
+  "motion_units": "encoder_ticks; positioning-joint degrees use4095 ticks/rev",
+  "commandable_ranges": {
+   "left_arm_shoulder_pan": {
+    "min_ticks": 730,
+    "max_ticks": 3364,
+    "margin_ticks": 40
+   },
+   "left_arm_shoulder_lift": {
+    "min_ticks": 887,
+    "max_ticks": 3207,
+    "margin_ticks": 40
+   },
+   "left_arm_elbow_flex": {
+    "min_ticks": 984,
+    "max_ticks": 3110,
+    "margin_ticks": 40
+   },
+   "left_arm_wrist_flex": {
+    "min_ticks": 941,
+    "max_ticks": 3153,
+    "margin_ticks": 40
+   },
+   "left_arm_wrist_roll": {
+    "min_ticks": 151,
+    "max_ticks": 3943,
+    "margin_ticks": 40
+   },
+   "left_arm_gripper": {
+    "min_ticks": 1313,
+    "max_ticks": 2781,
+    "margin_ticks": 40
+   },
+   "head_motor_1": {
+    "min_ticks": 1059,
+    "max_ticks": 3111,
+    "margin_ticks": 40
+   },
+   "head_motor_2": {
+    "min_ticks": 1972,
+    "max_ticks": 2625,
+    "margin_ticks": 40
+   },
+   "right_arm_shoulder_pan": {
+    "min_ticks": 713,
+    "max_ticks": 3381,
+    "margin_ticks": 40
+   },
+   "right_arm_shoulder_lift": {
+    "min_ticks": 864,
+    "max_ticks": 3230,
+    "margin_ticks": 40
+   },
+   "right_arm_elbow_flex": {
+    "min_ticks": 972,
+    "max_ticks": 3122,
+    "margin_ticks": 40
+   },
+   "right_arm_wrist_flex": {
+    "min_ticks": 964,
+    "max_ticks": 3130,
+    "margin_ticks": 40
+   },
+   "right_arm_wrist_roll": {
+    "min_ticks": 170,
+    "max_ticks": 3924,
+    "margin_ticks": 40
+   },
+   "right_arm_gripper": {
+    "min_ticks": 1309,
+    "max_ticks": 2785,
+    "margin_ticks": 40
+   }
+  },
+  "canonical_position_joint_names": [
+   "left_arm_shoulder_pan",
+   "left_arm_shoulder_lift",
+   "left_arm_elbow_flex",
+   "left_arm_wrist_flex",
+   "left_arm_wrist_roll",
+   "left_arm_gripper",
+   "head_motor_1",
+   "head_motor_2",
+   "right_arm_shoulder_pan",
+   "right_arm_shoulder_lift",
+   "right_arm_elbow_flex",
+   "right_arm_wrist_flex",
+   "right_arm_wrist_roll",
+   "right_arm_gripper"
+  ],
+  "arm_joint_aliases": [
+   "elbow_flex",
+   "gripper",
+   "shoulder_lift",
+   "shoulder_pan",
+   "wrist_flex",
+   "wrist_roll"
+  ],
+  "ranges": {
+   "left_arm_shoulder_pan": {
+    "min_ticks": 690,
+    "max_ticks": 3404
+   },
+   "left_arm_shoulder_lift": {
+    "min_ticks": 847,
+    "max_ticks": 3247
+   },
+   "left_arm_elbow_flex": {
+    "min_ticks": 944,
+    "max_ticks": 3150
+   },
+   "left_arm_wrist_flex": {
+    "min_ticks": 901,
+    "max_ticks": 3193
+   },
+   "left_arm_wrist_roll": {
+    "min_ticks": 111,
+    "max_ticks": 3983
+   },
+   "left_arm_gripper": {
+    "min_ticks": 1273,
+    "max_ticks": 2821
+   },
+   "head_motor_1": {
+    "min_ticks": 1019,
+    "max_ticks": 3151
+   },
+   "head_motor_2": {
+    "min_ticks": 1932,
+    "max_ticks": 2665
+   },
+   "right_arm_shoulder_pan": {
+    "min_ticks": 673,
+    "max_ticks": 3421
+   },
+   "right_arm_shoulder_lift": {
+    "min_ticks": 824,
+    "max_ticks": 3270
+   },
+   "right_arm_elbow_flex": {
+    "min_ticks": 932,
+    "max_ticks": 3162
+   },
+   "right_arm_wrist_flex": {
+    "min_ticks": 924,
+    "max_ticks": 3170
+   },
+   "right_arm_wrist_roll": {
+    "min_ticks": 130,
+    "max_ticks": 3964
+   },
+   "right_arm_gripper": {
+    "min_ticks": 1269,
+    "max_ticks": 2825
+   },
+   "base_left_wheel": {
+    "min_ticks": 0,
+    "max_ticks": 4095
+   },
+   "base_right_wheel": {
+    "min_ticks": 0,
+    "max_ticks": 4095
+   }
+  },
+  "read_tools_ready": true,
+  "stop_tool_ready": true,
+  "controller": "DirectJointClient atomic file handoff -> canonical sole-owner direct_joint interpolator",
+  "direct_joint_requirements": [
+   "existing healthy authorized hardware owner in direct_joint mode",
+   "requested joints in explicitly supported owner scope",
+   "actual saved range margins and owner speed/acceleration/torque/health/watchdog checks",
+   "measured hardware completion feedback; sensor status reported independently"
+  ],
+  "continuous_profile_required_for_direct_joint": false,
+  "cartesian_transform_required_for_direct_joint": false,
+  "cartesian_pickup_additional_requirements": [
+   "validated spatial target registration and actual tool/contact offset when requesting a Cartesian plan"
+  ],
+  "wheel_policy": "robot_move_base guarded velocity pulses (<=0.02 m/s per wheel, <=3 s, released between pulses) when the owner runs with --wheels; robot_set_motor_enable cannot power the wheels in the right-arm scope",
+  "base_drive_supported": true,
+  "automatic_motor_activation": false,
+  "remote_owner_start_supported": false,
+  "stop_latch": false,
+  "owner_restart_required_after_stop": false,
+  "stop_behavior": "robot_stop and any owner fault release all motors and cancel the move in progress (never resumed). No STOP latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable, which repeats all health, range, camera and voltage checks. A failed release keeps the owner not healthy (OWNER_NOT_HEALTHY).",
+  "blockers": []
+ }
+}

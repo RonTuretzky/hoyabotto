@@ -1,0 +1,1911 @@
+{
+ "tools": [
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_list_motors",
+    "description": "List all16 configured motors and saved ranges. Live owner telemetry when available; explicitly aged historical rows in passive recovery, never asserted as current torque state. No serial owner duplication.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_set_motor_enable",
+    "description": "Explicitly enable or release named motors through the single hardware owner. Enabling HOLDS EACH MOTOR WHERE IT IS: the goal is set to the freshly read encoder before and after torque-on, so no motion happens and goals from earlier sessions are never used. A released joint may rest a little outside commandable_ranges (gravity); enabling is allowed anywhere inside the saved range and the next move must target inside commandable_ranges. Pickup profile: enable all six joints of an arm in one call. Head and wheels are read-only. Never automatically activates at server startup.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "names": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "left_arm_shoulder_pan",
+         "left_arm_shoulder_lift",
+         "left_arm_elbow_flex",
+         "left_arm_wrist_flex",
+         "left_arm_wrist_roll",
+         "left_arm_gripper",
+         "head_motor_1",
+         "head_motor_2",
+         "right_arm_shoulder_pan",
+         "right_arm_shoulder_lift",
+         "right_arm_elbow_flex",
+         "right_arm_wrist_flex",
+         "right_arm_wrist_roll",
+         "right_arm_gripper",
+         "base_left_wheel",
+         "base_right_wheel"
+        ]
+       },
+       "minItems": 1,
+       "maxItems": 16,
+       "uniqueItems": true
+      },
+      "enabled": {
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "names",
+      "enabled"
+     ],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_state",
+    "description": "Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "fresh": {
+       "type": "boolean"
+      }
+     },
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_cameras",
+    "description": "Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "cameras": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "oak",
+         "phone",
+         "left_wrist",
+         "right_wrist"
+        ]
+       },
+       "minItems": 1,
+       "maxItems": 4
+      },
+      "revive": {
+       "type": "boolean",
+       "description": "Restart a stalled wrist stream to get a frame (default true; previews pass false)"
+      }
+     },
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_clip",
+    "description": "Several recent frames of one camera as a short burst (oldest first, timestamps included): ask for it to see motion, e.g. whether the claw moved toward the object, whether the jaws closed on it, whether anything shifted. Not for distances. Costs several images; keep seconds and fps small.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "camera": {
+       "type": "string",
+       "enum": [
+        "oak",
+        "phone",
+        "left_wrist",
+        "right_wrist"
+       ]
+      },
+      "seconds": {
+       "type": "number",
+       "minimum": 0.5,
+       "maximum": 4,
+       "description": "How far back the burst reaches (default 2)"
+      },
+      "fps": {
+       "type": "number",
+       "minimum": 1,
+       "maximum": 8,
+       "description": "Frames per second in the burst (default 4); never more than 12 frames"
+      },
+      "max_width": {
+       "type": "integer",
+       "minimum": 160,
+       "maximum": 640,
+       "description": "Frames are downscaled to this width in pixels (default 480)"
+      }
+     },
+     "required": [
+      "camera"
+     ],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_capabilities",
+    "description": "Report actual joint ranges, units, supported controller protocol and concrete motion blockers.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_depth",
+    "description": "Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_handoff",
+    "description": "Retrieve the user-authorized complete paddle-task handoff, historical evidence and guards, plus current camera and saved servo ages. Context transfer never arms or binds execution.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_execution",
+    "description": "Read the bound sole-owner execution status; no motor connection.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_stop",
+    "description": "Independent STOP for the current bound owner: releases all motors and cancels any move in progress, which is never resumed. There is no STOP latch and no owner restart is needed; motors stay released until an explicit robot_set_motor_enable. Never enables motors or restarts an owner.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_move_joint_targets",
+    "description": "Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "arm": {
+       "type": "string",
+       "enum": [
+        "left",
+        "right"
+       ]
+      },
+      "positions": {
+       "type": "object",
+       "description": "Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {\"right_arm_shoulder_lift\": 2000}; select targets from fresh state and commandable_ranges.",
+       "minProperties": 1,
+       "properties": {
+        "left_arm_shoulder_pan": {
+         "type": "integer",
+         "minimum": 694,
+         "maximum": 3400
+        },
+        "left_arm_shoulder_lift": {
+         "type": "integer",
+         "minimum": 851,
+         "maximum": 3243
+        },
+        "left_arm_elbow_flex": {
+         "type": "integer",
+         "minimum": 948,
+         "maximum": 3146
+        },
+        "left_arm_wrist_flex": {
+         "type": "integer",
+         "minimum": 905,
+         "maximum": 3189
+        },
+        "left_arm_wrist_roll": {
+         "type": "integer",
+         "minimum": 115,
+         "maximum": 3979
+        },
+        "left_arm_gripper": {
+         "type": "integer",
+         "minimum": 1277,
+         "maximum": 2817
+        },
+        "right_arm_shoulder_pan": {
+         "type": "integer",
+         "minimum": 677,
+         "maximum": 3417
+        },
+        "right_arm_shoulder_lift": {
+         "type": "integer",
+         "minimum": 828,
+         "maximum": 3266
+        },
+        "right_arm_elbow_flex": {
+         "type": "integer",
+         "minimum": 936,
+         "maximum": 3158
+        },
+        "right_arm_wrist_flex": {
+         "type": "integer",
+         "minimum": 928,
+         "maximum": 3166
+        },
+        "right_arm_wrist_roll": {
+         "type": "integer",
+         "minimum": 134,
+         "maximum": 3960
+        },
+        "right_arm_gripper": {
+         "type": "integer",
+         "minimum": 1273,
+         "maximum": 2821
+        },
+        "elbow_flex": {
+         "type": "integer"
+        },
+        "gripper": {
+         "type": "integer"
+        },
+        "shoulder_lift": {
+         "type": "integer"
+        },
+        "shoulder_pan": {
+         "type": "integer"
+        },
+        "wrist_flex": {
+         "type": "integer"
+        },
+        "wrist_roll": {
+         "type": "integer"
+        }
+       },
+       "additionalProperties": false
+      },
+      "duration_s": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 25
+      },
+      "wait": {
+       "type": "boolean",
+       "description": "true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move."
+      },
+      "replace": {
+       "type": "boolean",
+       "description": "true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false."
+      }
+     },
+     "required": [
+      "arm",
+      "positions",
+      "duration_s"
+     ],
+     "additionalProperties": false,
+     "allOf": [
+      {
+       "if": {
+        "properties": {
+         "arm": {
+          "const": "left"
+         }
+        },
+        "required": [
+         "arm"
+        ]
+       },
+       "then": {
+        "properties": {
+         "positions": {
+          "type": "object",
+          "description": "Selected arm canonical names or explicit-arm aliases",
+          "minProperties": 1,
+          "properties": {
+           "left_arm_shoulder_pan": {
+            "type": "integer",
+            "minimum": 694,
+            "maximum": 3400
+           },
+           "left_arm_shoulder_lift": {
+            "type": "integer",
+            "minimum": 851,
+            "maximum": 3243
+           },
+           "left_arm_elbow_flex": {
+            "type": "integer",
+            "minimum": 948,
+            "maximum": 3146
+           },
+           "left_arm_wrist_flex": {
+            "type": "integer",
+            "minimum": 905,
+            "maximum": 3189
+           },
+           "left_arm_wrist_roll": {
+            "type": "integer",
+            "minimum": 115,
+            "maximum": 3979
+           },
+           "left_arm_gripper": {
+            "type": "integer",
+            "minimum": 1277,
+            "maximum": 2817
+           },
+           "shoulder_pan": {
+            "type": "integer",
+            "minimum": 694,
+            "maximum": 3400
+           },
+           "shoulder_lift": {
+            "type": "integer",
+            "minimum": 851,
+            "maximum": 3243
+           },
+           "elbow_flex": {
+            "type": "integer",
+            "minimum": 948,
+            "maximum": 3146
+           },
+           "wrist_flex": {
+            "type": "integer",
+            "minimum": 905,
+            "maximum": 3189
+           },
+           "wrist_roll": {
+            "type": "integer",
+            "minimum": 115,
+            "maximum": 3979
+           },
+           "gripper": {
+            "type": "integer",
+            "minimum": 1277,
+            "maximum": 2817
+           }
+          },
+          "additionalProperties": false
+         }
+        }
+       }
+      },
+      {
+       "if": {
+        "properties": {
+         "arm": {
+          "const": "right"
+         }
+        },
+        "required": [
+         "arm"
+        ]
+       },
+       "then": {
+        "properties": {
+         "positions": {
+          "type": "object",
+          "description": "Selected arm canonical names or explicit-arm aliases",
+          "minProperties": 1,
+          "properties": {
+           "right_arm_shoulder_pan": {
+            "type": "integer",
+            "minimum": 677,
+            "maximum": 3417
+           },
+           "right_arm_shoulder_lift": {
+            "type": "integer",
+            "minimum": 828,
+            "maximum": 3266
+           },
+           "right_arm_elbow_flex": {
+            "type": "integer",
+            "minimum": 936,
+            "maximum": 3158
+           },
+           "right_arm_wrist_flex": {
+            "type": "integer",
+            "minimum": 928,
+            "maximum": 3166
+           },
+           "right_arm_wrist_roll": {
+            "type": "integer",
+            "minimum": 134,
+            "maximum": 3960
+           },
+           "right_arm_gripper": {
+            "type": "integer",
+            "minimum": 1273,
+            "maximum": 2821
+           },
+           "shoulder_pan": {
+            "type": "integer",
+            "minimum": 677,
+            "maximum": 3417
+           },
+           "shoulder_lift": {
+            "type": "integer",
+            "minimum": 828,
+            "maximum": 3266
+           },
+           "elbow_flex": {
+            "type": "integer",
+            "minimum": 936,
+            "maximum": 3158
+           },
+           "wrist_flex": {
+            "type": "integer",
+            "minimum": 928,
+            "maximum": 3166
+           },
+           "wrist_roll": {
+            "type": "integer",
+            "minimum": 134,
+            "maximum": 3960
+           },
+           "gripper": {
+            "type": "integer",
+            "minimum": 1273,
+            "maximum": 2821
+           }
+          },
+          "additionalProperties": false
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_move_path",
+    "description": "Continuous arm motion through waypoints (pickup profile). Each waypoint lists the joints that change (others carry forward); the arm passes through intermediate waypoints without stopping and settles only at the last. Legs over 341 ticks are split automatically. Use wait=false to watch it with robot_get_motion and cameras while it moves, then robot_halt_motion to stop and hold or a replace=true move to change course. Cannot close the gripper (do that as its own move).",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "arm": {
+       "type": "string",
+       "enum": [
+        "left",
+        "right"
+       ]
+      },
+      "waypoints": {
+       "type": "array",
+       "minItems": 1,
+       "maxItems": 12,
+       "items": {
+        "type": "object",
+        "description": "Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {\"right_arm_shoulder_lift\": 2000}; select targets from fresh state and commandable_ranges.",
+        "minProperties": 1,
+        "properties": {
+         "left_arm_shoulder_pan": {
+          "type": "integer",
+          "minimum": 694,
+          "maximum": 3400
+         },
+         "left_arm_shoulder_lift": {
+          "type": "integer",
+          "minimum": 851,
+          "maximum": 3243
+         },
+         "left_arm_elbow_flex": {
+          "type": "integer",
+          "minimum": 948,
+          "maximum": 3146
+         },
+         "left_arm_wrist_flex": {
+          "type": "integer",
+          "minimum": 905,
+          "maximum": 3189
+         },
+         "left_arm_wrist_roll": {
+          "type": "integer",
+          "minimum": 115,
+          "maximum": 3979
+         },
+         "left_arm_gripper": {
+          "type": "integer",
+          "minimum": 1277,
+          "maximum": 2817
+         },
+         "right_arm_shoulder_pan": {
+          "type": "integer",
+          "minimum": 677,
+          "maximum": 3417
+         },
+         "right_arm_shoulder_lift": {
+          "type": "integer",
+          "minimum": 828,
+          "maximum": 3266
+         },
+         "right_arm_elbow_flex": {
+          "type": "integer",
+          "minimum": 936,
+          "maximum": 3158
+         },
+         "right_arm_wrist_flex": {
+          "type": "integer",
+          "minimum": 928,
+          "maximum": 3166
+         },
+         "right_arm_wrist_roll": {
+          "type": "integer",
+          "minimum": 134,
+          "maximum": 3960
+         },
+         "right_arm_gripper": {
+          "type": "integer",
+          "minimum": 1273,
+          "maximum": 2821
+         },
+         "elbow_flex": {
+          "type": "integer"
+         },
+         "gripper": {
+          "type": "integer"
+         },
+         "shoulder_lift": {
+          "type": "integer"
+         },
+         "shoulder_pan": {
+          "type": "integer"
+         },
+         "wrist_flex": {
+          "type": "integer"
+         },
+         "wrist_roll": {
+          "type": "integer"
+         }
+        },
+        "additionalProperties": false
+       }
+      },
+      "duration_s": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 60
+      },
+      "wait": {
+       "type": "boolean",
+       "description": "true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move."
+      },
+      "replace": {
+       "type": "boolean",
+       "description": "true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false."
+      }
+     },
+     "required": [
+      "arm",
+      "waypoints",
+      "duration_s"
+     ],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_auto_calibrate",
+    "description": "Automatic calibration of ONE arm (LeRobot PR #3282, pinned runner): every joint of that arm is driven to both of its mechanical stops, then the result is validated and installed only if it passes; if not, the previous calibration is written back. Use ONLY when the user explicitly asks to calibrate an arm. Before calling, show the user this checklist and get an explicit yes: other arm folded and turned away; nothing on the tray near the arm (paddle, bottle out of reach); camera cables slack and out of the path; the cart front clear; someone watching the whole arm with the 12 V switch in reach. Requires all motors released and a fresh phone camera. The hardware owner stops for the run (other tools are unavailable, about 2-4 minutes); robot_stop interrupts the sweep (motors go limp). Poll robot_get_calibration_job.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "arm": {
+       "type": "string",
+       "enum": [
+        "left",
+        "right"
+       ]
+      },
+      "velocity": {
+       "type": "integer",
+       "enum": [
+        200,
+        300
+       ],
+       "description": "Limit-seeking speed; 300 default, 200 slower"
+      },
+      "user_confirmed_clearance": {
+       "type": "boolean",
+       "description": "true only after the user explicitly confirmed the checklist in this conversation"
+      }
+     },
+     "required": [
+      "arm",
+      "user_confirmed_clearance"
+     ],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_restore_calibration",
+    "description": "No motion. Write the SAVED calibration file values (homing offset, min/max limits, position mode) for one arm back into its six servos with torque off, verify by readback, then restart the robot server. Use when the controller reports a saved-versus-hardware calibration mismatch for that arm (it is then read-only). Requires every motor released; the server is unavailable for about 30 s. Poll robot_get_calibration_job.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "arm": {
+       "type": "string",
+       "enum": [
+        "left",
+        "right"
+       ]
+      }
+     },
+     "required": [
+      "arm"
+     ],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_restart_cameras",
+    "description": "Restart stale camera streams on the robot Mac: wrist publishers and the OAK RGB/depth stream. No motors involved. Takes about 30-60 s; then request robot_get_cameras again. A wrist camera that restarts but still sends no frames is a USB/cable fault for a person to reseat.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_calibration_job",
+    "description": "Progress and result of an automatic calibration job: phase, log tail, whether the result was validated/installed or the previous calibration restored, and evidence location. Without job_id, the latest job.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "job_id": {
+       "type": "string"
+      }
+     },
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_motion",
+    "description": "Live progress of the running or last motion: phase (moving/holding/idle), current waypoint, per-joint current/goal/target ticks and following error, elapsed time, outcome. Cheap; call it repeatedly while a wait=false motion runs.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_halt_motion",
+    "description": "Stop the running motion now and HOLD where the arm is (the base brakes and releases). Nothing is released, unlike robot_stop. Use it when monitoring shows the motion should not continue; then send a new move.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": [],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_set_gripper",
+    "description": "Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success. Validates first, then enables what is released (in the pickup profile all six joints of that arm, which hold where they are; otherwise only this gripper) and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: left: 1313..2781 inclusive ticks; right: 1309..2785 inclusive ticks. Raw calibration endpoints are invalid command targets; no clamping.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "arm": {
+       "type": "string",
+       "enum": [
+        "left",
+        "right"
+       ]
+      },
+      "position_ticks": {
+       "type": "integer",
+       "description": "Commandable integer encoder ticks: left: 1313..2781 inclusive ticks; right: 1309..2785 inclusive ticks"
+      },
+      "duration_s": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 25
+      }
+     },
+     "required": [
+      "arm",
+      "position_ticks"
+     ],
+     "additionalProperties": false,
+     "allOf": [
+      {
+       "if": {
+        "properties": {
+         "arm": {
+          "const": "left"
+         }
+        },
+        "required": [
+         "arm"
+        ]
+       },
+       "then": {
+        "properties": {
+         "position_ticks": {
+          "minimum": 1313,
+          "maximum": 2781
+         }
+        }
+       }
+      },
+      {
+       "if": {
+        "properties": {
+         "arm": {
+          "const": "right"
+         }
+        },
+        "required": [
+         "arm"
+        ]
+       },
+       "then": {
+        "properties": {
+         "position_ticks": {
+          "minimum": 1309,
+          "maximum": 2785
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_move_base",
+    "description": "One guarded base pulse through the sole owner (owner must be started with --wheels): both wheels switch to velocity mode, drive for duration_s, brake, settle, release torque and restore settings; wheels are never left powered. Each wheel is limited to 0.02 m/s (straight: |linear_m_s|<=0.02; turning in place: |angular_rad_s|<=0.16 rad/s, positive turns left), at most 3 s per call (about 6 cm). Requires a fresh phone feed; a stale feed brakes early. Wheel health (status, load<=500, velocity<=400, 10-14 V) is checked every sample; any failure or robot_stop stops the wheels and releases all motors. Allowed while the arm is released or holding, not while an arm move runs. Returns wheel encoder deltas only; slip and actual cart travel are unverified, so check cameras after each pulse.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "linear_m_s": {
+       "type": "number",
+       "minimum": -0.02,
+       "maximum": 0.02
+      },
+      "angular_rad_s": {
+       "type": "number",
+       "minimum": -0.16,
+       "maximum": 0.16
+      },
+      "duration_s": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 3
+      }
+     },
+     "required": [
+      "linear_m_s",
+      "angular_rad_s",
+      "duration_s"
+     ],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_plan_reach",
+    "description": "Read-only existing repository LeRobot/Placo reach planner using fresh sole-owner encoders and measured configuration. Returns proposals only when actual calibration permits; otherwise exact missing configuration. No execution or collision certification.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "arm": {
+       "type": "string",
+       "enum": [
+        "left",
+        "right"
+       ]
+      },
+      "frame": {
+       "type": "string",
+       "enum": [
+        "arm_base",
+        "station"
+       ]
+      },
+      "units": {
+       "type": "string",
+       "enum": [
+        "metres"
+       ]
+      },
+      "orientation": {
+       "type": "string",
+       "enum": [
+        "constrained",
+        "position_only"
+       ]
+      },
+      "tool_poses": {
+       "type": "array",
+       "minItems": 1,
+       "maxItems": 10,
+       "items": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": {
+         "type": "array",
+         "minItems": 4,
+         "maxItems": 4,
+         "items": {
+          "type": "number"
+         }
+        }
+       }
+      }
+     },
+     "required": [
+      "arm",
+      "frame",
+      "units",
+      "orientation",
+      "tool_poses"
+     ],
+     "additionalProperties": false
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "robot_get_arm_pose",
+    "description": "Read-only FK tool pose in arm-base metres from measured repository configuration and live encoders; reports missing geometry explicitly.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "arm": {
+       "type": "string",
+       "enum": [
+        "left",
+        "right"
+       ]
+      }
+     },
+     "required": [
+      "arm"
+     ],
+     "additionalProperties": false
+    }
+   }
+  }
+ ],
+ "metadata": {
+  "ok": true,
+  "tools": [
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_list_motors",
+     "description": "List all16 configured motors and saved ranges. Live owner telemetry when available; explicitly aged historical rows in passive recovery, never asserted as current torque state. No serial owner duplication.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_set_motor_enable",
+     "description": "Explicitly enable or release named motors through the single hardware owner. Enabling HOLDS EACH MOTOR WHERE IT IS: the goal is set to the freshly read encoder before and after torque-on, so no motion happens and goals from earlier sessions are never used. A released joint may rest a little outside commandable_ranges (gravity); enabling is allowed anywhere inside the saved range and the next move must target inside commandable_ranges. Pickup profile: enable all six joints of an arm in one call. Head and wheels are read-only. Never automatically activates at server startup.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "names": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "left_arm_shoulder_pan",
+          "left_arm_shoulder_lift",
+          "left_arm_elbow_flex",
+          "left_arm_wrist_flex",
+          "left_arm_wrist_roll",
+          "left_arm_gripper",
+          "head_motor_1",
+          "head_motor_2",
+          "right_arm_shoulder_pan",
+          "right_arm_shoulder_lift",
+          "right_arm_elbow_flex",
+          "right_arm_wrist_flex",
+          "right_arm_wrist_roll",
+          "right_arm_gripper",
+          "base_left_wheel",
+          "base_right_wheel"
+         ]
+        },
+        "minItems": 1,
+        "maxItems": 16,
+        "uniqueItems": true
+       },
+       "enabled": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "names",
+       "enabled"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_state",
+     "description": "Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "fresh": {
+        "type": "boolean"
+       }
+      },
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_cameras",
+     "description": "Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "cameras": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "enum": [
+          "oak",
+          "phone",
+          "left_wrist",
+          "right_wrist"
+         ]
+        },
+        "minItems": 1,
+        "maxItems": 4
+       },
+       "revive": {
+        "type": "boolean",
+        "description": "Restart a stalled wrist stream to get a frame (default true; previews pass false)"
+       }
+      },
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_clip",
+     "description": "Several recent frames of one camera as a short burst (oldest first, timestamps included): ask for it to see motion, e.g. whether the claw moved toward the object, whether the jaws closed on it, whether anything shifted. Not for distances. Costs several images; keep seconds and fps small.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "camera": {
+        "type": "string",
+        "enum": [
+         "oak",
+         "phone",
+         "left_wrist",
+         "right_wrist"
+        ]
+       },
+       "seconds": {
+        "type": "number",
+        "minimum": 0.5,
+        "maximum": 4,
+        "description": "How far back the burst reaches (default 2)"
+       },
+       "fps": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 8,
+        "description": "Frames per second in the burst (default 4); never more than 12 frames"
+       },
+       "max_width": {
+        "type": "integer",
+        "minimum": 160,
+        "maximum": 640,
+        "description": "Frames are downscaled to this width in pixels (default 480)"
+       }
+      },
+      "required": [
+       "camera"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_capabilities",
+     "description": "Report actual joint ranges, units, supported controller protocol and concrete motion blockers.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_depth",
+     "description": "Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_handoff",
+     "description": "Retrieve the user-authorized complete paddle-task handoff, historical evidence and guards, plus current camera and saved servo ages. Context transfer never arms or binds execution.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_execution",
+     "description": "Read the bound sole-owner execution status; no motor connection.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_stop",
+     "description": "Independent STOP for the current bound owner: releases all motors and cancels any move in progress, which is never resumed. There is no STOP latch and no owner restart is needed; motors stay released until an explicit robot_set_motor_enable. Never enables motors or restarts an owner.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_move_joint_targets",
+     "description": "Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "arm": {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       },
+       "positions": {
+        "type": "object",
+        "description": "Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {\"right_arm_shoulder_lift\": 2000}; select targets from fresh state and commandable_ranges.",
+        "minProperties": 1,
+        "properties": {
+         "left_arm_shoulder_pan": {
+          "type": "integer",
+          "minimum": 694,
+          "maximum": 3400
+         },
+         "left_arm_shoulder_lift": {
+          "type": "integer",
+          "minimum": 851,
+          "maximum": 3243
+         },
+         "left_arm_elbow_flex": {
+          "type": "integer",
+          "minimum": 948,
+          "maximum": 3146
+         },
+         "left_arm_wrist_flex": {
+          "type": "integer",
+          "minimum": 905,
+          "maximum": 3189
+         },
+         "left_arm_wrist_roll": {
+          "type": "integer",
+          "minimum": 115,
+          "maximum": 3979
+         },
+         "left_arm_gripper": {
+          "type": "integer",
+          "minimum": 1277,
+          "maximum": 2817
+         },
+         "right_arm_shoulder_pan": {
+          "type": "integer",
+          "minimum": 677,
+          "maximum": 3417
+         },
+         "right_arm_shoulder_lift": {
+          "type": "integer",
+          "minimum": 828,
+          "maximum": 3266
+         },
+         "right_arm_elbow_flex": {
+          "type": "integer",
+          "minimum": 936,
+          "maximum": 3158
+         },
+         "right_arm_wrist_flex": {
+          "type": "integer",
+          "minimum": 928,
+          "maximum": 3166
+         },
+         "right_arm_wrist_roll": {
+          "type": "integer",
+          "minimum": 134,
+          "maximum": 3960
+         },
+         "right_arm_gripper": {
+          "type": "integer",
+          "minimum": 1273,
+          "maximum": 2821
+         },
+         "elbow_flex": {
+          "type": "integer"
+         },
+         "gripper": {
+          "type": "integer"
+         },
+         "shoulder_lift": {
+          "type": "integer"
+         },
+         "shoulder_pan": {
+          "type": "integer"
+         },
+         "wrist_flex": {
+          "type": "integer"
+         },
+         "wrist_roll": {
+          "type": "integer"
+         }
+        },
+        "additionalProperties": false
+       },
+       "duration_s": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 25
+       },
+       "wait": {
+        "type": "boolean",
+        "description": "true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move."
+       },
+       "replace": {
+        "type": "boolean",
+        "description": "true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false."
+       }
+      },
+      "required": [
+       "arm",
+       "positions",
+       "duration_s"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+       {
+        "if": {
+         "properties": {
+          "arm": {
+           "const": "left"
+          }
+         },
+         "required": [
+          "arm"
+         ]
+        },
+        "then": {
+         "properties": {
+          "positions": {
+           "type": "object",
+           "description": "Selected arm canonical names or explicit-arm aliases",
+           "minProperties": 1,
+           "properties": {
+            "left_arm_shoulder_pan": {
+             "type": "integer",
+             "minimum": 694,
+             "maximum": 3400
+            },
+            "left_arm_shoulder_lift": {
+             "type": "integer",
+             "minimum": 851,
+             "maximum": 3243
+            },
+            "left_arm_elbow_flex": {
+             "type": "integer",
+             "minimum": 948,
+             "maximum": 3146
+            },
+            "left_arm_wrist_flex": {
+             "type": "integer",
+             "minimum": 905,
+             "maximum": 3189
+            },
+            "left_arm_wrist_roll": {
+             "type": "integer",
+             "minimum": 115,
+             "maximum": 3979
+            },
+            "left_arm_gripper": {
+             "type": "integer",
+             "minimum": 1277,
+             "maximum": 2817
+            },
+            "shoulder_pan": {
+             "type": "integer",
+             "minimum": 694,
+             "maximum": 3400
+            },
+            "shoulder_lift": {
+             "type": "integer",
+             "minimum": 851,
+             "maximum": 3243
+            },
+            "elbow_flex": {
+             "type": "integer",
+             "minimum": 948,
+             "maximum": 3146
+            },
+            "wrist_flex": {
+             "type": "integer",
+             "minimum": 905,
+             "maximum": 3189
+            },
+            "wrist_roll": {
+             "type": "integer",
+             "minimum": 115,
+             "maximum": 3979
+            },
+            "gripper": {
+             "type": "integer",
+             "minimum": 1277,
+             "maximum": 2817
+            }
+           },
+           "additionalProperties": false
+          }
+         }
+        }
+       },
+       {
+        "if": {
+         "properties": {
+          "arm": {
+           "const": "right"
+          }
+         },
+         "required": [
+          "arm"
+         ]
+        },
+        "then": {
+         "properties": {
+          "positions": {
+           "type": "object",
+           "description": "Selected arm canonical names or explicit-arm aliases",
+           "minProperties": 1,
+           "properties": {
+            "right_arm_shoulder_pan": {
+             "type": "integer",
+             "minimum": 677,
+             "maximum": 3417
+            },
+            "right_arm_shoulder_lift": {
+             "type": "integer",
+             "minimum": 828,
+             "maximum": 3266
+            },
+            "right_arm_elbow_flex": {
+             "type": "integer",
+             "minimum": 936,
+             "maximum": 3158
+            },
+            "right_arm_wrist_flex": {
+             "type": "integer",
+             "minimum": 928,
+             "maximum": 3166
+            },
+            "right_arm_wrist_roll": {
+             "type": "integer",
+             "minimum": 134,
+             "maximum": 3960
+            },
+            "right_arm_gripper": {
+             "type": "integer",
+             "minimum": 1273,
+             "maximum": 2821
+            },
+            "shoulder_pan": {
+             "type": "integer",
+             "minimum": 677,
+             "maximum": 3417
+            },
+            "shoulder_lift": {
+             "type": "integer",
+             "minimum": 828,
+             "maximum": 3266
+            },
+            "elbow_flex": {
+             "type": "integer",
+             "minimum": 936,
+             "maximum": 3158
+            },
+            "wrist_flex": {
+             "type": "integer",
+             "minimum": 928,
+             "maximum": 3166
+            },
+            "wrist_roll": {
+             "type": "integer",
+             "minimum": 134,
+             "maximum": 3960
+            },
+            "gripper": {
+             "type": "integer",
+             "minimum": 1273,
+             "maximum": 2821
+            }
+           },
+           "additionalProperties": false
+          }
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_move_path",
+     "description": "Continuous arm motion through waypoints (pickup profile). Each waypoint lists the joints that change (others carry forward); the arm passes through intermediate waypoints without stopping and settles only at the last. Legs over 341 ticks are split automatically. Use wait=false to watch it with robot_get_motion and cameras while it moves, then robot_halt_motion to stop and hold or a replace=true move to change course. Cannot close the gripper (do that as its own move).",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "arm": {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       },
+       "waypoints": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "items": {
+         "type": "object",
+         "description": "Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {\"right_arm_shoulder_lift\": 2000}; select targets from fresh state and commandable_ranges.",
+         "minProperties": 1,
+         "properties": {
+          "left_arm_shoulder_pan": {
+           "type": "integer",
+           "minimum": 694,
+           "maximum": 3400
+          },
+          "left_arm_shoulder_lift": {
+           "type": "integer",
+           "minimum": 851,
+           "maximum": 3243
+          },
+          "left_arm_elbow_flex": {
+           "type": "integer",
+           "minimum": 948,
+           "maximum": 3146
+          },
+          "left_arm_wrist_flex": {
+           "type": "integer",
+           "minimum": 905,
+           "maximum": 3189
+          },
+          "left_arm_wrist_roll": {
+           "type": "integer",
+           "minimum": 115,
+           "maximum": 3979
+          },
+          "left_arm_gripper": {
+           "type": "integer",
+           "minimum": 1277,
+           "maximum": 2817
+          },
+          "right_arm_shoulder_pan": {
+           "type": "integer",
+           "minimum": 677,
+           "maximum": 3417
+          },
+          "right_arm_shoulder_lift": {
+           "type": "integer",
+           "minimum": 828,
+           "maximum": 3266
+          },
+          "right_arm_elbow_flex": {
+           "type": "integer",
+           "minimum": 936,
+           "maximum": 3158
+          },
+          "right_arm_wrist_flex": {
+           "type": "integer",
+           "minimum": 928,
+           "maximum": 3166
+          },
+          "right_arm_wrist_roll": {
+           "type": "integer",
+           "minimum": 134,
+           "maximum": 3960
+          },
+          "right_arm_gripper": {
+           "type": "integer",
+           "minimum": 1273,
+           "maximum": 2821
+          },
+          "elbow_flex": {
+           "type": "integer"
+          },
+          "gripper": {
+           "type": "integer"
+          },
+          "shoulder_lift": {
+           "type": "integer"
+          },
+          "shoulder_pan": {
+           "type": "integer"
+          },
+          "wrist_flex": {
+           "type": "integer"
+          },
+          "wrist_roll": {
+           "type": "integer"
+          }
+         },
+         "additionalProperties": false
+        }
+       },
+       "duration_s": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 60
+       },
+       "wait": {
+        "type": "boolean",
+        "description": "true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move."
+       },
+       "replace": {
+        "type": "boolean",
+        "description": "true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false."
+       }
+      },
+      "required": [
+       "arm",
+       "waypoints",
+       "duration_s"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_auto_calibrate",
+     "description": "Automatic calibration of ONE arm (LeRobot PR #3282, pinned runner): every joint of that arm is driven to both of its mechanical stops, then the result is validated and installed only if it passes; if not, the previous calibration is written back. Use ONLY when the user explicitly asks to calibrate an arm. Before calling, show the user this checklist and get an explicit yes: other arm folded and turned away; nothing on the tray near the arm (paddle, bottle out of reach); camera cables slack and out of the path; the cart front clear; someone watching the whole arm with the 12 V switch in reach. Requires all motors released and a fresh phone camera. The hardware owner stops for the run (other tools are unavailable, about 2-4 minutes); robot_stop interrupts the sweep (motors go limp). Poll robot_get_calibration_job.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "arm": {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       },
+       "velocity": {
+        "type": "integer",
+        "enum": [
+         200,
+         300
+        ],
+        "description": "Limit-seeking speed; 300 default, 200 slower"
+       },
+       "user_confirmed_clearance": {
+        "type": "boolean",
+        "description": "true only after the user explicitly confirmed the checklist in this conversation"
+       }
+      },
+      "required": [
+       "arm",
+       "user_confirmed_clearance"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_restore_calibration",
+     "description": "No motion. Write the SAVED calibration file values (homing offset, min/max limits, position mode) for one arm back into its six servos with torque off, verify by readback, then restart the robot server. Use when the controller reports a saved-versus-hardware calibration mismatch for that arm (it is then read-only). Requires every motor released; the server is unavailable for about 30 s. Poll robot_get_calibration_job.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "arm": {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       }
+      },
+      "required": [
+       "arm"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_restart_cameras",
+     "description": "Restart stale camera streams on the robot Mac: wrist publishers and the OAK RGB/depth stream. No motors involved. Takes about 30-60 s; then request robot_get_cameras again. A wrist camera that restarts but still sends no frames is a USB/cable fault for a person to reseat.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_calibration_job",
+     "description": "Progress and result of an automatic calibration job: phase, log tail, whether the result was validated/installed or the previous calibration restored, and evidence location. Without job_id, the latest job.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "job_id": {
+        "type": "string"
+       }
+      },
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_motion",
+     "description": "Live progress of the running or last motion: phase (moving/holding/idle), current waypoint, per-joint current/goal/target ticks and following error, elapsed time, outcome. Cheap; call it repeatedly while a wait=false motion runs.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_halt_motion",
+     "description": "Stop the running motion now and HOLD where the arm is (the base brakes and releases). Nothing is released, unlike robot_stop. Use it when monitoring shows the motion should not continue; then send a new move.",
+     "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_set_gripper",
+     "description": "Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success. Validates first, then enables what is released (in the pickup profile all six joints of that arm, which hold where they are; otherwise only this gripper) and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: left: 1313..2781 inclusive ticks; right: 1309..2785 inclusive ticks. Raw calibration endpoints are invalid command targets; no clamping.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "arm": {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       },
+       "position_ticks": {
+        "type": "integer",
+        "description": "Commandable integer encoder ticks: left: 1313..2781 inclusive ticks; right: 1309..2785 inclusive ticks"
+       },
+       "duration_s": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 25
+       }
+      },
+      "required": [
+       "arm",
+       "position_ticks"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+       {
+        "if": {
+         "properties": {
+          "arm": {
+           "const": "left"
+          }
+         },
+         "required": [
+          "arm"
+         ]
+        },
+        "then": {
+         "properties": {
+          "position_ticks": {
+           "minimum": 1313,
+           "maximum": 2781
+          }
+         }
+        }
+       },
+       {
+        "if": {
+         "properties": {
+          "arm": {
+           "const": "right"
+          }
+         },
+         "required": [
+          "arm"
+         ]
+        },
+        "then": {
+         "properties": {
+          "position_ticks": {
+           "minimum": 1309,
+           "maximum": 2785
+          }
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_move_base",
+     "description": "One guarded base pulse through the sole owner (owner must be started with --wheels): both wheels switch to velocity mode, drive for duration_s, brake, settle, release torque and restore settings; wheels are never left powered. Each wheel is limited to 0.02 m/s (straight: |linear_m_s|<=0.02; turning in place: |angular_rad_s|<=0.16 rad/s, positive turns left), at most 3 s per call (about 6 cm). Requires a fresh phone feed; a stale feed brakes early. Wheel health (status, load<=500, velocity<=400, 10-14 V) is checked every sample; any failure or robot_stop stops the wheels and releases all motors. Allowed while the arm is released or holding, not while an arm move runs. Returns wheel encoder deltas only; slip and actual cart travel are unverified, so check cameras after each pulse.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "linear_m_s": {
+        "type": "number",
+        "minimum": -0.02,
+        "maximum": 0.02
+       },
+       "angular_rad_s": {
+        "type": "number",
+        "minimum": -0.16,
+        "maximum": 0.16
+       },
+       "duration_s": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 3
+       }
+      },
+      "required": [
+       "linear_m_s",
+       "angular_rad_s",
+       "duration_s"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_plan_reach",
+     "description": "Read-only existing repository LeRobot/Placo reach planner using fresh sole-owner encoders and measured configuration. Returns proposals only when actual calibration permits; otherwise exact missing configuration. No execution or collision certification.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "arm": {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       },
+       "frame": {
+        "type": "string",
+        "enum": [
+         "arm_base",
+         "station"
+        ]
+       },
+       "units": {
+        "type": "string",
+        "enum": [
+         "metres"
+        ]
+       },
+       "orientation": {
+        "type": "string",
+        "enum": [
+         "constrained",
+         "position_only"
+        ]
+       },
+       "tool_poses": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 10,
+        "items": {
+         "type": "array",
+         "minItems": 4,
+         "maxItems": 4,
+         "items": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+           "type": "number"
+          }
+         }
+        }
+       }
+      },
+      "required": [
+       "arm",
+       "frame",
+       "units",
+       "orientation",
+       "tool_poses"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   {
+    "type": "function",
+    "function": {
+     "name": "robot_get_arm_pose",
+     "description": "Read-only FK tool pose in arm-base metres from measured repository configuration and live encoders; reports missing geometry explicitly.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "arm": {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       }
+      },
+      "required": [
+       "arm"
+      ],
+      "additionalProperties": false
+     }
+    }
+   }
+  ]
+ }
+}

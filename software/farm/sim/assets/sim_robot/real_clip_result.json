@@ -1,0 +1,63 @@
+{
+ "result": {
+  "camera": "right_wrist",
+  "frames": [
+   {
+    "index": 0,
+    "captured_at": 1791449389.6894236,
+    "received_at": 1791449389.9838061,
+    "seq": 134074,
+    "age_s": 0.828
+   },
+   {
+    "index": 1,
+    "captured_at": 1791449390.2863944,
+    "received_at": 1791449390.4984012,
+    "seq": 134077,
+    "age_s": 0.231
+   }
+  ],
+  "count": 2,
+  "span_s": 0.597,
+  "requested": {
+   "seconds": 1,
+   "fps": 2,
+   "max_width": 320
+  },
+  "downscaled_with": "PIL",
+  "buffer": {
+   "frames": 20,
+   "bytes": 1061923,
+   "samples": 2824,
+   "newest_age_s": 0.231,
+   "oldest_age_s": 4.213,
+   "error": null,
+   "running": true
+  },
+  "note": "oldest first; timestamps from the camera publisher; receipt time is not capture time for the phone"
+ },
+ "images": [
+  {
+   "camera_id": "0x12200005a39230",
+   "camera_name": "right_wrist",
+   "mime_type": "image/jpeg",
+   "captured_at": 1791449389.6894236,
+   "received_at": 1791449389.9838061,
+   "seq": 134074,
+   "frame_index": 0,
+   "width": 320,
+   "height": 240
+  },
+  {
+   "camera_id": "0x12200005a39230",
+   "camera_name": "right_wrist",
+   "mime_type": "image/jpeg",
+   "captured_at": 1791449390.2863944,
+   "received_at": 1791449390.4984012,
+   "seq": 134077,
+   "frame_index": 1,
+   "width": 320,
+   "height": 240
+  }
+ ]
+}

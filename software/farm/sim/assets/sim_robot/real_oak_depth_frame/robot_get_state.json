@@ -1,0 +1,448 @@
+{
+ "ok": true,
+ "result": {
+  "source": "canonical_hardware_owner",
+  "time": 1791451459.441277,
+  "read_age_s": 0.040205955505371094,
+  "cached": false,
+  "motors": [
+   {
+    "name": "left_arm_shoulder_pan",
+    "Present_Position": 2381,
+    "Present_Velocity": 0,
+    "Present_Load": 76,
+    "Present_Voltage": 120,
+    "Present_Temperature": 35,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 2,
+    "Torque_Enable": 1,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.422025,
+    "firmware_position_limits": [
+     690,
+     3404
+    ]
+   },
+   {
+    "name": "left_arm_shoulder_lift",
+    "Present_Position": 2190,
+    "Present_Velocity": 0,
+    "Present_Load": 200,
+    "Present_Voltage": 121,
+    "Present_Temperature": 39,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 21,
+    "Torque_Enable": 1,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.4232829,
+    "firmware_position_limits": [
+     847,
+     3247
+    ]
+   },
+   {
+    "name": "left_arm_elbow_flex",
+    "Present_Position": 1721,
+    "Present_Velocity": 0,
+    "Present_Load": 24,
+    "Present_Voltage": 121,
+    "Present_Temperature": 44,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 1,
+    "Torque_Enable": 1,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.424525,
+    "firmware_position_limits": [
+     944,
+     3150
+    ]
+   },
+   {
+    "name": "left_arm_wrist_flex",
+    "Present_Position": 2552,
+    "Present_Velocity": 0,
+    "Present_Load": 60,
+    "Present_Voltage": 121,
+    "Present_Temperature": 36,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 2,
+    "Torque_Enable": 1,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.4258828,
+    "firmware_position_limits": [
+     901,
+     3193
+    ]
+   },
+   {
+    "name": "left_arm_wrist_roll",
+    "Present_Position": 2119,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 121,
+    "Present_Temperature": 36,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 1,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.427254,
+    "firmware_position_limits": [
+     111,
+     3983
+    ]
+   },
+   {
+    "name": "left_arm_gripper",
+    "Present_Position": 2485,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 120,
+    "Present_Temperature": 35,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 1,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.4286568,
+    "firmware_position_limits": [
+     1273,
+     2821
+    ]
+   },
+   {
+    "name": "head_motor_1",
+    "Present_Position": 1930,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 122,
+    "Present_Temperature": 37,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.429891,
+    "firmware_position_limits": [
+     1019,
+     3151
+    ]
+   },
+   {
+    "name": "head_motor_2",
+    "Present_Position": 2609,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 121,
+    "Present_Temperature": 33,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.431057,
+    "firmware_position_limits": [
+     1932,
+     2665
+    ]
+   },
+   {
+    "name": "right_arm_shoulder_pan",
+    "Present_Position": 1684,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 124,
+    "Present_Temperature": 34,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.432389,
+    "firmware_position_limits": [
+     673,
+     3421
+    ]
+   },
+   {
+    "name": "right_arm_shoulder_lift",
+    "Present_Position": 2516,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 125,
+    "Present_Temperature": 33,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.433805,
+    "firmware_position_limits": [
+     824,
+     3270
+    ]
+   },
+   {
+    "name": "right_arm_elbow_flex",
+    "Present_Position": 2634,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 124,
+    "Present_Temperature": 33,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.4349608,
+    "firmware_position_limits": [
+     932,
+     3162
+    ]
+   },
+   {
+    "name": "right_arm_wrist_flex",
+    "Present_Position": 2261,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 123,
+    "Present_Temperature": 35,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.436188,
+    "firmware_position_limits": [
+     924,
+     3170
+    ]
+   },
+   {
+    "name": "right_arm_wrist_roll",
+    "Present_Position": 1949,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 124,
+    "Present_Temperature": 36,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.437393,
+    "firmware_position_limits": [
+     130,
+     3964
+    ]
+   },
+   {
+    "name": "right_arm_gripper",
+    "Present_Position": 1342,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 124,
+    "Present_Temperature": 35,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.438671,
+    "firmware_position_limits": [
+     1269,
+     2825
+    ]
+   },
+   {
+    "name": "base_left_wheel",
+    "Present_Position": 3267,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 124,
+    "Present_Temperature": 33,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.439944,
+    "firmware_position_limits": [
+     0,
+     4095
+    ]
+   },
+   {
+    "name": "base_right_wheel",
+    "Present_Position": 1940,
+    "Present_Velocity": 0,
+    "Present_Load": 0,
+    "Present_Voltage": 125,
+    "Present_Temperature": 30,
+    "Status": 0,
+    "Moving": 0,
+    "Present_Current": 0,
+    "Torque_Enable": 0,
+    "Operating_Mode": 0,
+    "captured_at": 1791451459.441229,
+    "firmware_position_limits": [
+     0,
+     4095
+    ]
+   }
+  ],
+  "control_mode": "direct_joint",
+  "enabled_motors": [
+   "left_arm_elbow_flex",
+   "left_arm_gripper",
+   "left_arm_shoulder_lift",
+   "left_arm_shoulder_pan",
+   "left_arm_wrist_flex",
+   "left_arm_wrist_roll"
+  ],
+  "all_16_released": false,
+  "commandable_ranges": {
+   "left_arm_shoulder_pan": {
+    "min_ticks": 730,
+    "max_ticks": 3364,
+    "margin_ticks": 40
+   },
+   "left_arm_shoulder_lift": {
+    "min_ticks": 887,
+    "max_ticks": 3207,
+    "margin_ticks": 40
+   },
+   "left_arm_elbow_flex": {
+    "min_ticks": 984,
+    "max_ticks": 3110,
+    "margin_ticks": 40
+   },
+   "left_arm_wrist_flex": {
+    "min_ticks": 941,
+    "max_ticks": 3153,
+    "margin_ticks": 40
+   },
+   "left_arm_wrist_roll": {
+    "min_ticks": 151,
+    "max_ticks": 3943,
+    "margin_ticks": 40
+   },
+   "left_arm_gripper": {
+    "min_ticks": 1313,
+    "max_ticks": 2781,
+    "margin_ticks": 40
+   },
+   "head_motor_1": {
+    "min_ticks": 1059,
+    "max_ticks": 3111,
+    "margin_ticks": 40
+   },
+   "head_motor_2": {
+    "min_ticks": 1972,
+    "max_ticks": 2625,
+    "margin_ticks": 40
+   },
+   "right_arm_shoulder_pan": {
+    "min_ticks": 713,
+    "max_ticks": 3381,
+    "margin_ticks": 40
+   },
+   "right_arm_shoulder_lift": {
+    "min_ticks": 864,
+    "max_ticks": 3230,
+    "margin_ticks": 40
+   },
+   "right_arm_elbow_flex": {
+    "min_ticks": 972,
+    "max_ticks": 3122,
+    "margin_ticks": 40
+   },
+   "right_arm_wrist_flex": {
+    "min_ticks": 964,
+    "max_ticks": 3130,
+    "margin_ticks": 40
+   },
+   "right_arm_wrist_roll": {
+    "min_ticks": 170,
+    "max_ticks": 3924,
+    "margin_ticks": 40
+   },
+   "right_arm_gripper": {
+    "min_ticks": 1309,
+    "max_ticks": 2785,
+    "margin_ticks": 40
+   }
+  },
+  "raw_calibration_ranges": {
+   "left_arm_shoulder_pan": {
+    "min_ticks": 690,
+    "max_ticks": 3404
+   },
+   "left_arm_shoulder_lift": {
+    "min_ticks": 847,
+    "max_ticks": 3247
+   },
+   "left_arm_elbow_flex": {
+    "min_ticks": 944,
+    "max_ticks": 3150
+   },
+   "left_arm_wrist_flex": {
+    "min_ticks": 901,
+    "max_ticks": 3193
+   },
+   "left_arm_wrist_roll": {
+    "min_ticks": 111,
+    "max_ticks": 3983
+   },
+   "left_arm_gripper": {
+    "min_ticks": 1273,
+    "max_ticks": 2821
+   },
+   "head_motor_1": {
+    "min_ticks": 1019,
+    "max_ticks": 3151
+   },
+   "head_motor_2": {
+    "min_ticks": 1932,
+    "max_ticks": 2665
+   },
+   "right_arm_shoulder_pan": {
+    "min_ticks": 673,
+    "max_ticks": 3421
+   },
+   "right_arm_shoulder_lift": {
+    "min_ticks": 824,
+    "max_ticks": 3270
+   },
+   "right_arm_elbow_flex": {
+    "min_ticks": 932,
+    "max_ticks": 3162
+   },
+   "right_arm_wrist_flex": {
+    "min_ticks": 924,
+    "max_ticks": 3170
+   },
+   "right_arm_wrist_roll": {
+    "min_ticks": 130,
+    "max_ticks": 3964
+   },
+   "right_arm_gripper": {
+    "min_ticks": 1269,
+    "max_ticks": 2825
+   },
+   "base_left_wheel": {
+    "min_ticks": 0,
+    "max_ticks": 4095
+   },
+   "base_right_wheel": {
+    "min_ticks": 0,
+    "max_ticks": 4095
+   }
+  },
+  "range_semantics": "raw_calibration_ranges and motor range are saved hardware limits, not command targets; use commandable_ranges (inclusive, 40-tick margin) for targets. A released joint resting outside commandable_ranges is normal (it sags under gravity); enable holds it there and the next target simply has to be inside."
+ }
+}

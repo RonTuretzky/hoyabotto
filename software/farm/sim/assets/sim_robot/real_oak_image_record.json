@@ -1,0 +1,13 @@
+{
+ "camera_id": "oak-1944301091DA1C2E00",
+ "mime_type": "image/jpeg",
+ "captured_at": 1791449390.3396258,
+ "received_at": null,
+ "seq": 3,
+ "stream_id": "f9fe8ada640848d088052bfdba181804",
+ "source": "raw_fallback",
+ "projection": "camera_pinhole_with_factory_distortion",
+ "rgb_depth_pixel_registration_verified": false,
+ "robot_frame_calibrated": false,
+ "sha256": "db13a38c1e1da8c33d374e9e38eeba481e74f42abdc96a597ae2bb896493f27f"
+}
