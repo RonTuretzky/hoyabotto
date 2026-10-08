@@ -76,7 +76,7 @@ class ManualTeleop:
         if mode=='upstream':
             reference=getattr(o,'upstream_reference',None)
             if scope!='wholebody' or reference is None or c.get('reference_id')!=reference.reference_id:
-                raise ValueError('Installed measured upstream Joy-Con reference required')
+                raise ValueError('Installed matching upstream Joy-Con reference required')
             reference.validate_calibration(o.cal)
         if scope == 'wholebody' and mode!='upstream' and not getattr(o, 'simulation_wholebody', False):
             raise ValueError('Whole-body Cartesian control is currently simulation-only')

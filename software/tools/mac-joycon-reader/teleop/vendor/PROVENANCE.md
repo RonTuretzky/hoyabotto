@@ -41,7 +41,8 @@ XLeRobot's five-axis arm does not reproduce independent wrist yaw.
 
 The Windows demo is right-hand-only. The adapter mirrors the controls to the
 left using L/ZL/click/Capture, maps its open/closed gripper scalars to 90/0 logical
-degrees, and maps logical joint degrees to the simulator's radians/zero offsets.
+units, and maps those values to the simulator's radians/zero offsets. That
+simulator conversion is geometric and does not describe the hardware driver.
 The default arms face +X toward the workbench (left pan -pi/2, right +pi/2);
 logical shoulder pan has the opposite sign to the model hinge. Measured
 forward/sideways/up tests cover both arms and both directions.
@@ -58,9 +59,42 @@ elbow convention and does not round-trip (about 32 degrees of elbow discrepancy
 at the initial pose). That method is preserved for comparison but is not used.
 
 `../upstream_simulator.py` is a separate local MuJoCo position-action sink with
-an independent 200 ms input watchdog. The physical adapter in `../upstream_hardware.py` uses the existing pinned mTLS
-velocity protocol and retains its rate limits. Its opt-in owner mode requires a
-matching measured reference and physical rail hold-to-run buttons. It has only
-been exercised against fake motors; no remote installation has been performed. Browser focus, neutral start, explicit
-Stop, reader freshness, and reconnect gates remain in the bridge. This port is
-source reuse with documented adapters, not full Windows/hardware parity.
+an independent 200 ms input watchdog. `../upstream_hardware.py` uses the existing
+pinned mTLS velocity protocol and retains its rate limits and rail hold-to-run.
+Browser focus, neutral start, explicit Stop, reader freshness, and reconnect
+gates remain in the bridge. This is source reuse with documented adapters;
+physical performance and full Windows/hardware parity remain unverified.
+
+## Original hardware units (corrected after initial inactive installation)
+
+The pinned XLeRobot example leaves `use_degrees=False`. Its driver therefore
+uses `RANGE_M100_100` for arm/head joints and `RANGE_0_100` for grippers. Values
+labelled degrees inside its controller are passed directly to that driver;
+they are not geometric degrees at the motor boundary. Gripper target 90 means
+90 percent of saved travel. The previous measured-angle physical adapter is
+an explicit geometric alternative, not native-unit parity.
+
+`native-units-manifest.json` pins complete source snapshots for the original
+XLeRobot config/driver and LeRobot 0.6.1 motors bus/Feetech driver. LeRobot's
+Apache 2.0 license is bundled as `LeRobot-LICENSE`. The two original conversion
+methods and enum are extracted unchanged (AST-equivalent) into the owner-side
+`joycon_native_units.py`. No serial/device constructor or driver import is
+included. The Mac test environment's installed 0.6.1 motors-bus source matches
+that pinned source byte-for-byte.
+
+`NativeReference` applies those methods using exact saved ranges, homing
+registers and drive_mode. Both ends bind the same source/calibration hash;
+the sole owner also checks saved calibration against hardware. Native mode
+needs no invented joint zero, direction, or fully-open/closed geometry.
+Geometric references from the simulator or another IK model are not used.
+
+Physical adaptation still bounds targets 40 ticks inside travel, retains the
+existing speed limits, and suppresses up to two ticks of normalization rounding
+at both target feedback and rate conversion so neutral input cannot creep.
+This small deadband is an explicit adapter difference. Initial pose must fit
+the original IK branch; an incompatible pose is rejected before claiming control.
+The original automatic startup homing remains excluded.
+
+Revision `04dd3ae` was installed inactive with a launch lock on Neooooo. The
+native-unit correction postdates that package; it must be installed separately
+before using native mode. No physical test has been performed.

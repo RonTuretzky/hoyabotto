@@ -240,7 +240,7 @@ def main():
     ap.add_argument('--simulator',choices=('registers','mujoco'),default='registers',help='Local simulator backend')
     ap.add_argument('--model',type=Path,help='Optional XLeRobot MuJoCo model XML')
     ap.add_argument('--control-mode',choices=('joint','cartesian','upstream'),default='joint')
-    ap.add_argument('--upstream-reference',type=Path,help='Measured physical joint reference; required for original controls on a robot')
+    ap.add_argument('--upstream-reference',type=Path,help='Original native-unit calibration binding (or explicit geometric reference)')
     ap.add_argument('--input-backend',choices=('apple','hid','auto'),default='apple')
     ap.add_argument('--connect-robot',action='store_true',help='Explicitly connect to the robot. Default is a local input preview with no network access.')
     ap.add_argument('--config',default=os.environ.get('XLEROBOT_ADMIN_CONFIG',DEFAULT_CONFIG))
@@ -251,7 +251,7 @@ def main():
     if a.connect_robot and a.simulator=='mujoco':ap.error('MuJoCo practice cannot be combined with a robot connection')
     if a.control_mode=='cartesian' and (a.simulator!='mujoco' or a.connect_robot):ap.error('Cartesian control requires local MuJoCo simulation')
     if a.control_mode=='upstream' and not a.connect_robot and a.simulator!='mujoco':ap.error('Local original controls require MuJoCo')
-    if a.control_mode=='upstream' and a.connect_robot and not a.upstream_reference:ap.error('Measured --upstream-reference is required before connecting')
+    if a.control_mode=='upstream' and a.connect_robot and not a.upstream_reference:ap.error('Exact --upstream-reference calibration binding is required before connecting')
     if a.control_mode=='upstream' and a.input_backend=='apple':ap.error('Original controls require --input-backend hid (or auto)')
     if a.connect_robot and a.input_backend!='apple' and a.control_mode!='upstream':ap.error('Physical HID input requires original controls and a measured reference')
     if a.connect_robot and a.control_mode=='upstream':

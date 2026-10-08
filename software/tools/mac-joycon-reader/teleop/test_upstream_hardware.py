@@ -81,9 +81,10 @@ class ReferenceTests(unittest.TestCase):
 
 
 class HardwareAdapterTests(unittest.TestCase):
+    def make_reference(self):return PhysicalReference(reference_record())
     def setUp(self):
         self.no_network=patch('socket.socket',side_effect=AssertionError('Network forbidden in hardware adapter tests'));self.no_network.start()
-        self.ref=PhysicalReference(reference_record())
+        self.ref=self.make_reference()
         self.plant=SimulatedRobot(upstream_reference=self.ref)
         self.robot=UpstreamHardware(self.plant,self.ref);self.robot.refresh()
         self.mapping=self.robot.make_mapping();self.bridge=Bridge(self.robot,None,start=False,mapping=self.mapping,input_backend='hid')

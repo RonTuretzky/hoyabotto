@@ -72,7 +72,7 @@ class SimulatedRobot:
         self.temp = tempfile.TemporaryDirectory(prefix='joycon-simulation-')
         self.folder = Path(self.temp.name)
         self.bus = bus if bus is not None else VirtualBus()
-        cal = {n:SimpleNamespace(range_min=100, range_max=4000, homing_offset=0)
+        cal = {n:SimpleNamespace(range_min=100, range_max=4000, homing_offset=0, drive_mode=0)
                for n in self.bus.motors}
         self.owner = HardwareOwner([self.bus], cal, lambda b,n:dict(b.r[n]),
                                    position_scope=SCOPES['both'], paddle_profile=True,

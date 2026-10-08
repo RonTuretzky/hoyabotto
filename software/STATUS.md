@@ -1,3 +1,31 @@
+## Original Joy-Con hardware units corrected locally — 8 October 2026
+
+- Source audit found a material mismatch in the inactive `04dd3ae` adapter:
+  the original XLeRobot example defaults to `use_degrees=False`, so its arm/head
+  outputs are normalized -100..100 values and grippers 0..100. Treating these
+  values as geometric degrees does not reproduce the original motor commands.
+- Added `NativeReference`, reusing LeRobot 0.6.1's original normalization methods
+  verbatim in a module with no serial/device imports. Config, driver, motors-bus
+  and Feetech sources are pinned with hashes and checked offline. Saved calibration
+  ranges, homing registers and drive modes bind both adapter and sole owner.
+  New geometric zero measurements are not required for this native default path.
+- Retained existing physical rates, 40-tick target margin, rail hold-to-run,
+  watchdogs, reference matching and installation lock. A two-tick quantization
+  deadband prevents repeated integer conversions from causing neutral drift;
+  an unchanged captured position is not pulled to a command limit on rail hold.
+- Local checks: full 56-test suite passed, followed by 10 focused native tests
+  after adding neutral endpoint coverage (57 unique tests). Both unit modes run
+  the original controller through the actual owner/API with fake motors only.
+- Read-only live calibration snapshot had no reported hardware mismatches. A
+  native binding was generated in the ignored Mac reader `.build` directory.
+  The observed arm poses did not round-trip through the original IK branch
+  (about 8 logical units per arm); arming rejects such poses without homing.
+- Another controller was holding all 12 arm motors during this audit, confirmed
+  again with 0.008 s read age. No remote files, services, registers or calibration
+  were changed. The corrected package is not yet installed; `04dd3ae` stays locked.
+  Continue only with fresh all-released readback for the approved inactive update.
+  Physical motion still needs separate authorization and supervised validation.
+
 ## Original Joy-Con adapter installed inactive on Neooooo — 8 October 2026
 
 - User approved installation with motors disabled. Exact adapter revision

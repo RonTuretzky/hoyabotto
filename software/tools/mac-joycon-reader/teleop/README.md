@@ -60,8 +60,9 @@ to settle before Start is enabled.
 
 `upstream_simulator.py` consumes original position actions directly in MuJoCo.
 It has its own 200 ms command watchdog. The old physical owner's tick-rate
-limits remain untouched. Physical use requires explicit `--connect-robot`, a measured
-`--upstream-reference`, and the matching reference installed in the sole owner.
+limits remain untouched. Physical use requires explicit `--connect-robot`, an exact
+native-unit calibration binding in `--upstream-reference`, and that same binding
+installed in the sole owner. The inactive installation lock still blocks connection.
 Apple-only input is rejected. The local UI requires focus and fresh input.
 
 ### Legacy local modes
@@ -182,9 +183,19 @@ This is joint-space control, not Cartesian hand tracking or gyro control.
 
 The shared original controller now produces logical joint values independently
 of MuJoCo. `upstream_simulator.py` converts them to model angles;
-`upstream_hardware.py` converts them using a **measured physical reference** and
-tracks them through the existing pinned mTLS motor-owner protocol. It never opens
-a serial port. The default simulator launcher still rejects robot connections.
+`upstream_hardware.py` uses the **original driver's normalized units** and the
+existing authenticated manual owner protocol. The pinned example defaults to
+`use_degrees=False`: arm/head values are -100..100 over saved travel; grippers
+are 0..100 (the original controller targets 0..90). Its IK's degree-labelled
+outputs go directly to that normalized driver. Our earlier measured-degree
+mapping was not the same conversion.
+
+`joycon_native_units.py` reuses LeRobot 0.6.1's unmodified normalization methods
+without importing devices or serial code. `NativeReference` binds exact saved
+ranges, homing values, drive modes and source hashes. The owner rejects a changed
+calibration or missing/mismatched binding. No extra geometric zero measurements
+are needed to reproduce the original default interface. The older measured
+geometric mode remains explicit and does not claim native-unit parity.
 
 The physical mode uses either **SL or SR on each controller's side rail** as
 hold-to-run, leaving upstream L/R raise and ZL/ZR grip controls intact. Press and
@@ -211,39 +222,34 @@ See `software/STATUS.md` for the installation-time readback and remaining work.
 
 ### What blocks actual hardware use
 
-- The user approved installation with motors disabled. The approved deployment is
-  an isolated inactive copy; loading it into the hardware owner or enabling motors
-  is a separate step. A `MOTOR_CONTROL_DISABLED` marker in the reader directory
-  blocks the physical launcher and bridge before credentials, input readers, or
-  connections are opened. Simulation remains available.
-- No measured upstream-reference file has been supplied. The saved calibration
-  provides travel and homing registers, not each joint's analytical zero/sign or
-  the grippers' measured open/closed positions.
-- The existing geometric references use other conventions. They are not silently
-  reused for the pinned original SO101 IK, which differs from the farm's corrected
-  analytical model.
-- Both real Joy-Cons and physical stop/release behavior still need live checks.
+- The user approved inactive installation only. The `MOTOR_CONTROL_DISABLED`
+  marker blocks both physical launch paths before any transport or reader.
+- The installed `04dd3ae` copy predates the native-unit correction. Replacing it
+  is permitted only while the robot is fully released. The latest read-only
+  snapshot during this audit showed another controller holding both arms;
+  no remote installation or service action was attempted.
+- The live saved calibration was read and bound locally in
+  `../.build/native-reference-neooooo.json`. It reported no calibration
+  mismatches. This is a dated snapshot, not an ongoing live guarantee.
+- The observed arm poses did not round-trip through the original IK branch
+  (about 8 logical units of error per arm). Start will refuse before claiming
+  control. We have not homed or moved either arm to change that.
+- Real controller checks and separately authorized physical validation remain.
 
-`joycon_reference.py` in the commissioning `qwen-bridge` folder creates and
-validates this record **offline**. It binds all 14 position joints to the pinned
-source convention and exact saved ranges/homing offsets. Unfilled templates
-have `verified: false`, null measurements and blank evidence; they cannot enable
-control. `PhysicalReference` refuses missing measurements, changed calibration,
-invalid directions, ambiguous gripper endpoints, and out-of-range values. The
-owner repeats the calibration comparison and requires the same reference hash
-before an upstream whole-body claim. Normal claims remain unchanged.
-
-A task-local unverified template was generated in
-`../.build/physical-reference.unverified.json` from the checked-in calibration.
-It deliberately fails validation. This local calibration snapshot is not proof
-of the current remote motor settings.
+`joycon_reference.py native --calibration PATH --robot-id NAME --evidence TEXT
+--out PATH` creates the native record offline. `validate --reference PATH
+--calibration PATH` checks it. Creating or validating a record neither connects
+to hardware nor proves physical direction/geometry. The sole owner's hardware
+calibration and freshness checks remain mandatory. `template` creates an
+unverified geometric record only for explicitly choosing the alternative mode.
 
 ### Prepared launch sequence (not executed)
 
-After explicit motion authorization, actual measurements, and deliberate removal
-of the installation lock:
+After the other controller has released the robot, explicit motion authorization,
+a matching current calibration binding, a compatible initial pose, and deliberate
+removal of the installation lock:
 
-1. Validate a measured record against the current calibration with
+1. Validate the original native-unit record against the current calibration with
    `joycon_reference.py validate --reference PATH --calibration PATH`.
 2. On the robot Mac, the existing deployment script accepts
    `--joycon-teleop --upstream-joycon-reference PATH`. It requires both arms and
@@ -259,8 +265,9 @@ of the installation lock:
 4. Verify readback, controller identities/rails, scene clearance and Stop before
    explicitly selecting **Arm controls** for an authorized physical test.
 
-The 46-test local suite passed after merging the robot Mac's newer code; focused
-checks also cover the installation lock before connection. Coverage includes source parity, physical-unit
+After the native-unit correction, the complete local suite passed 56 tests.
+Ten focused native-mode tests then passed after adding neutral endpoint coverage
+(57 unique tests total). Coverage includes original-source parity, native and geometric unit
 conversion, calibration rejection, exact-reference claims before enable, all
 14 position joints plus wheels through the original controller and the actual
 owner/API with fake motors, rail release, re-centering, and stale feedback.

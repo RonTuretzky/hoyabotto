@@ -22,7 +22,7 @@ class UpstreamHardware:
     supports_upstream=True
     teleop_keys={'forward':'w','backward':'s','rotate_left':'a','rotate_right':'d'}
     def __init__(self,transport,reference,clock=time.monotonic):
-        if not isinstance(reference,PhysicalReference):raise ValueError('Measured physical reference required')
+        if not isinstance(reference,PhysicalReference):raise ValueError('Exact upstream calibration reference required')
         self.transport=transport;self.reference=reference;self.clock=clock
         self.state=None;self.received=None;self.dead={'left':False,'right':False}
 
@@ -45,7 +45,7 @@ class UpstreamHardware:
         if s.get('ok') is not True:raise ValueError('Robot owner is not healthy')
         if s.get('calibration_mismatches'):raise ValueError('Robot calibration does not match hardware')
         if s.get('teleop',{}).get('upstream_reference_id')!=self.reference.reference_id:
-            raise ValueError('Robot owner has no matching measured upstream reference')
+            raise ValueError('Robot owner has no matching upstream calibration reference')
         if not set(POSITION_NAMES)<=set(s.get('motors',{})):raise ValueError('All arms, grippers and head feedback required')
         return s
 
@@ -58,9 +58,15 @@ class UpstreamHardware:
         for n,value in positions.items():
             side='right' if n.startswith('right_') else 'left'
             q=state['motors'][n]['Present_Position'];lo,hi=self.reference.limits(n)
-            limited=max(lo,min(hi,value));target=self.reference.to_ticks(n,limited)
-            if not self.dead[side]:target=q
-            else:target=max(q-40,min(q+40,target))
+            # Captured neutral positions may be outside command margins (or
+            # the original gripper's 0..90 command span). Holding a rail must
+            # not pull them to a limit without a changed target.
+            current=self.reference.from_ticks(n,q)
+            if not self.dead[side] or math.isclose(value,current,abs_tol=1e-9):target=q
+            else:
+                limited=max(lo,min(hi,value));target=self.reference.to_ticks(n,limited)
+                target=max(q-40,min(q+40,target))
+            if abs(target-q)<=getattr(self.reference,'quantization_ticks',0):target=q
             limited=self.reference.from_ticks(n,target);bounded[n]=limited
             if abs(limited-value)>1e-6:warnings.append(n.replace('_',' ')+' bounded')
         return bounded,warnings
@@ -70,7 +76,12 @@ class UpstreamHardware:
         for n,value in command['positions'].items():
             side='right' if n.startswith('right_') else 'left'
             if not self.dead[side]:rates[n]=0.;continue
-            target=self.reference.to_ticks(n,value);q=s['motors'][n]['Present_Position']
+            q=s['motors'][n]['Present_Position']
+            current=self.reference.from_ticks(n,q)
+            target=q if math.isclose(value,current,abs_tol=1e-9) else self.reference.to_ticks(n,value)
+            # Original LeRobot conversion truncates to integer ticks. A
+            # round-trip rounding tick must not become a slow idle drift.
+            if abs(target-q)<=getattr(self.reference,'quantization_ticks',0):target=q
             limit=60. if n.startswith('head_') else 80.
             # Track the upstream target within the existing physical velocity
             # contract. Do not inherit the simulator's unrestricted positions.
