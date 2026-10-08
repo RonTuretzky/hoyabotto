@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace as C
 from wheel_pulse_executor import WheelPulseExecutor,WHEELS,wheel_ticks_per_s
 L,R=WHEELS
-assert wheel_ticks_per_s(.02,0)=={L:-261,R:261} and wheel_ticks_per_s(-.02,0)=={L:261,R:-261} # matches validated drive-pulse.py
+assert wheel_ticks_per_s(.02,0)=={L:-205,R:205} and wheel_ticks_per_s(-.02,0)=={L:205,R:-205} # 0.02 m/s on a 5-inch (0.0635 m) wheel; same signs as the validated drive-pulse.py
 for bad in [{'linear_m_s':.05,'angular_rad_s':0,'duration_s':1},{'linear_m_s':.02,'angular_rad_s':.2,'duration_s':1},{'linear_m_s':.02,'angular_rad_s':0,'duration_s':4},{'linear_m_s':0,'angular_rad_s':0,'duration_s':1}]:
  try:WheelPulseExecutor.check_request(bad)
  except ValueError:pass
@@ -35,7 +35,7 @@ def run(e,steps=200):
  raise AssertionError('Pulse never finished')
 e=WheelPulseExecutor(lambda n,f:p.r[n][f],lambda n,f,v:p.r[n].__setitem__(f,v),fresh,clock=lambda:t[0],wall=lambda:t[0])
 e.start({'id':1,'session_started':7,'linear_m_s':.02,'angular_rad_s':0,'duration_s':1},rows(),session_started=7)
-assert p.r[L]['Operating_Mode']==1 and p.r[L]['Torque_Enable']==1 and p.r[L]['Goal_Velocity']==-261
+assert p.r[L]['Operating_Mode']==1 and p.r[L]['Torque_Enable']==1 and p.r[L]['Goal_Velocity']==-205
 r=run(e)
 d=r['base_result']['wheel_delta_ticks'];assert d[L]<-200 and d[R]>200 and r['base_result']['released'] and r['base_result']['stopped_early'] is None
 assert all(p.r[n]['Torque_Enable']==0 and p.r[n]['Goal_Velocity']==0 and p.r[n]['Operating_Mode']==0 and p.r[n]['Lock']==1 and p.r[n]['Acceleration']==0 for n in WHEELS)

@@ -7,9 +7,10 @@ A stale phone feed brakes the pulse early. Any failed check raises; the owner th
 """
 import math,time
 WHEELS=('base_left_wheel','base_right_wheel')
-WHEEL_RADIUS_M=0.05;WHEELBASE_M=0.25   # farm/vendor/config_xlerobot_2wheels.py
+WHEEL_RADIUS_M=0.0635   # 5-inch walker wheels per upstream docs/hardware/getting_started/assemble_2wheel.md (upstream's 0.05 default is the 4-inch omni wheel)
+WHEELBASE_M=0.45        # wheel bodies at y=+-0.225 in upstream xlerobot.xml (vendored farm/sim/assets/xlerobot); not tape-measured on this cart
 TICKS_PER_REV=4096
-MAX_WHEEL_M_S=0.02                     # validated pulse speed (261 ticks/s)
+MAX_WHEEL_M_S=0.02                     # 205 ticks/s with the 5-inch wheel; the 261 ticks/s validated on 4 October assumed a 0.05 m radius
 MAX_DURATION_S=3.0
 BRAKE_SETTLE_S=1.5                     # wheels stay powered at zero velocity until two fresh samples agree they are still
 SAVED=('Operating_Mode','Acceleration','Torque_Limit','Lock')
