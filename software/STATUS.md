@@ -1,20 +1,3 @@
-## New Wi-Fi; direct LAN link; left wrist camera fixed by moving ports — 8 October 2026, 10:20–11:25
-
-- Network: both Macs are on the new Wi-Fi (chat Mac 192.168.1.65, robot Mac Neooooo.local = 192.168.1.66). The old quick
-  tunnel died with the network change. The API now also listens on the LAN (mTLS, pinned client certificate), and the
-  chat prefers `lan_url` https://Neooooo.local:1241, with the relay (`dist-spaces-feel-mirror.trycloudflare.com`) as
-  fallback. `work/network.json` and /admin/deploy report both.
-- Left wrist camera: the stall followed the hub port, not the camera. On its old port (0x12140005a39230) it delivered
-  frames for about 4 s after each start, then stopped silently. Codex was quit and the OAK and head camera were turned
-  off one at a time; none of that helped. Moved to another port it streams steadily (0x12400005a39230). Identity was
-  confirmed from the image (left gripper jaws) and pinned with `robot_admin.py wrist-ids ... --verified`. The head USB
-  camera (not used by the software) is now 0x12130005a39230, saved as head_camera_id; the old hard-coded head port
-  was what excluded the left wrist's new port.
-- OAK can be switched off/on remotely (admin modes oak-off / oak-on); it is on.
-- Open: the right servo board (/dev/cu.usbmodem5B790182091, right arm + wheels) has been unplugged since 11:02
-  (moved during the cable tests), so the owner refuses to start with --wheels. The phone camera server on the robot
-  Mac is not running.
-
 ## Tag software deployed (right-arm planner, binding, mover, paddle target) — 7 October 2026, 20:42
 
 Merged tags/right-arm-config, tags/binding-robustness, tags/paddle-target and tags/mover-contract into main
