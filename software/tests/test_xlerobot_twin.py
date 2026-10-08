@@ -142,7 +142,8 @@ def _decode(data):
 def test_output_shape_views_and_jpeg():
     ticks = dict(NEUTRAL, base_left_wheel=1, base_right_wheel=2)
     result = twin.render_twin(ticks, RANGES)
-    assert set(result) == {'images', 'angles_deg', 'unmapped', 'mapping', 'mapping_validated', 'model'}
+    assert set(result) == {'images', 'angles_deg', 'unmapped', 'mapping', 'mapping_validated', 'model', 'claws'}
+    assert result['claws'] == twin.claw_positions(ticks, RANGES)
     assert [i['view'] for i in result['images']] == list(twin.VIEWS)
     for image in result['images']:
         assert image['mime_type'] == 'image/jpeg' and image['data'][:3] == b'\xff\xd8\xff'
@@ -242,3 +243,110 @@ def test_changing_a_joint_changes_the_image():
         assert changed(a, c) < 0.0005   # deterministic
         assert changed(a, b) > 0.003    # elbow visibly moved (measured 0.6-1.8 % of pixels)
         assert changed(b, d) > 0.003    # joint map sign flip bends it the other way
+
+
+# ---------------------------------------------------------------- claw positions (kinematics only)
+
+def _ticks(**degrees):
+    """NEUTRAL with some motors moved by feetech_degrees_v1 degrees."""
+    ticks = dict(NEUTRAL)
+    for motor, deg in degrees.items():
+        ticks[motor] = NEUTRAL[motor] + round(deg * 4096 / 360)
+    return ticks
+
+
+LEVEL = _ticks(left_arm_shoulder_lift=90, left_arm_elbow_flex=-90, right_arm_shoulder_lift=90, right_arm_elbow_flex=-90)
+FOLDED = _ticks(left_arm_shoulder_lift=45, left_arm_elbow_flex=60, left_arm_wrist_flex=30,
+                right_arm_shoulder_lift=45, right_arm_elbow_flex=60, right_arm_wrist_flex=30)
+ARM_KEYS = {'forward_m', 'left_m', 'up_m', 'reach_m', 'shoulder_up_m', 'shoulder_left_m', 'tip_site'}
+
+
+@render
+def test_claw_positions_shape_and_frame():
+    claws = twin.claw_positions(dict(NEUTRAL, base_left_wheel=3, mystery=9), RANGES)
+    assert set(claws) == {'left_arm', 'right_arm', 'frame', 'mapping', 'mapping_validated', 'unmapped', 'model'}
+    for arm in ('left_arm', 'right_arm'):
+        assert set(claws[arm]) == ARM_KEYS
+        assert all(isinstance(claws[arm][k], float) for k in ARM_KEYS - {'tip_site'})
+    assert claws['left_arm']['tip_site'] == 'Fixed_Jaw/twin_tip_L'
+    assert claws['right_arm']['tip_site'] == 'Fixed_Jaw_2/twin_tip_R'
+    assert claws['frame'] == twin.FRAME and 'floor' in claws['frame'] and 'forward' in claws['frame']
+    assert claws['mapping'] == 'feetech_degrees_v1' and claws['mapping_validated'] is False
+    assert claws['unmapped'] == ['mystery'] and claws['model']
+    json.dumps(claws, allow_nan=False)
+
+
+@render
+def test_zero_pose_tips_are_mirrored_and_plausible():
+    """Upper arm up, forearm and gripper forward: tips ahead of and above the shoulders, mirrored in left_m."""
+    claws = twin.claw_positions(NEUTRAL, RANGES)
+    left, right = claws['left_arm'], claws['right_arm']
+    assert left['left_m'] > 0.1 > -0.1 > right['left_m']
+    assert abs(left['left_m'] + right['left_m']) < 0.001
+    assert abs(left['forward_m'] - right['forward_m']) < 0.001 and abs(left['up_m'] - right['up_m']) < 0.001
+    assert left['shoulder_left_m'] == pytest.approx(-right['shoulder_left_m'], abs=1e-6)
+    assert 0.3 < left['forward_m'] < 0.42          # forearm + wrist + jaw ahead of the shoulder line
+    assert left['up_m'] > left['shoulder_up_m'] > 0.7  # above the shoulder; shoulders ~0.9 m up on the cart
+    assert left['up_m'] < 1.1
+
+
+@render
+def test_raising_shoulder_lift_moves_tip_up_monotonically():
+    ups = [twin.claw_positions(_ticks(left_arm_shoulder_lift=deg), RANGES)['left_arm']['up_m']
+           for deg in (60, 40, 20, 0, -20, -40, -60)]  # negative lift = upper arm tilting back/up in the model
+    assert all(b > a + 0.01 for a, b in zip(ups, ups[1:]))
+    rights = [twin.claw_positions(_ticks(left_arm_shoulder_lift=deg), RANGES)['right_arm']['up_m'] for deg in (60, 0)]
+    assert rights[0] == pytest.approx(rights[1])  # the other arm is untouched
+
+
+@render
+def test_reach_within_the_so101_envelope():
+    for ticks in (NEUTRAL, LEVEL, FOLDED):
+        for arm in ('left_arm', 'right_arm'):
+            claw = twin.claw_positions(ticks, RANGES)[arm]
+            assert 0.10 <= claw['reach_m'] <= 0.45
+    level = twin.claw_positions(LEVEL, RANGES)['left_arm']
+    assert level['forward_m'] > 0.4 and abs(level['up_m'] - level['shoulder_up_m']) < 0.05  # straight out, level
+    folded = twin.claw_positions(FOLDED, RANGES)['left_arm']
+    assert folded['reach_m'] < level['reach_m'] - 0.2
+
+
+@render
+def test_claw_positions_respect_joint_map():
+    bent = _ticks(left_arm_shoulder_lift=40)
+    plain = twin.claw_positions(bent, RANGES)
+    flipped = twin.claw_positions(bent, RANGES, joint_map={'validated': True, 'joints': {
+        'left_arm_shoulder_lift': {'sign': -1}}})
+    mirror = twin.claw_positions(_ticks(left_arm_shoulder_lift=-40), RANGES)
+    assert flipped['left_arm']['up_m'] == pytest.approx(mirror['left_arm']['up_m'])
+    assert flipped['left_arm']['up_m'] != pytest.approx(plain['left_arm']['up_m'])
+    assert flipped['mapping'] == 'feetech_degrees_v1+joint_map' and flipped['mapping_validated'] is True
+    with pytest.raises(ValueError):
+        twin.claw_positions(NEUTRAL, RANGES, joint_map={'joints': {'nope': {}}})
+
+
+@render
+def test_claw_positions_fast_and_thread_safe():
+    twin.claw_positions(NEUTRAL, RANGES)  # model load
+    times = []
+    for _ in range(20):
+        start = time.perf_counter()
+        twin.claw_positions(LEVEL, RANGES)
+        times.append(time.perf_counter() - start)
+    assert sorted(times)[len(times) // 2] < 0.02
+    results, errors = [], []
+
+    def call(ticks):
+        try:
+            results.append((ticks is LEVEL, twin.claw_positions(ticks, RANGES)['left_arm']['forward_m']))
+        except Exception as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+    threads = [threading.Thread(target=call, args=(LEVEL if i % 2 else NEUTRAL,)) for i in range(6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=60)
+    assert not errors and len(results) == 6
+    expect = {True: twin.claw_positions(LEVEL, RANGES)['left_arm']['forward_m'],
+              False: twin.claw_positions(NEUTRAL, RANGES)['left_arm']['forward_m']}
+    assert all(value == expect[is_level] for is_level, value in results)

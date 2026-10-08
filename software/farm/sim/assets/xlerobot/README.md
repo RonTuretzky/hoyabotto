@@ -14,8 +14,10 @@ no motors.
   `source.json` lists the sha256 of every file; they match the upstream commit byte for byte.
 
 Nothing here is edited. At load time the twin removes the chassis free joint (base and wheels
-fixed), drops the wheel tendons/actuators, adds a floor, lights and an offscreen buffer, and colours
-the left arm orange and the right arm blue.
+fixed), drops the wheel tendons/actuators, adds a floor, lights and an offscreen buffer, colours
+the left arm orange and the right arm blue, and adds an invisible site `twin_tip_L`/`twin_tip_R` to
+each `Fixed_Jaw` body (the claw tip point `claw_positions` reports: where the two jaw tips meet
+when closed, `TIP_POS` in `xlerobot_twin.py`).
 
 Model facts the twin relies on (checked by printing the joint list):
 

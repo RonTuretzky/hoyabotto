@@ -102,6 +102,14 @@ The tick-to-angle mapping is the unvalidated `feetech_degrees_v1` candidate. If 
 with a photo, write a joint map `{"validated": false, "joints": {"left_arm_elbow_flex": {"zero_tick": 2050, "sign": -1}}}`
 and set `validated: true` only after every joint matches.
 
+`claw_positions(positions_ticks, ranges)` in the same module poses the model without rendering and
+reports each gripper tip (the point where the two jaw tips meet when closed) in the robot frame:
+origin on the floor below the midpoint between the shoulder-pan axes, `forward_m`/`left_m`/`up_m`
+in metres, plus `reach_m` from that arm's shoulder point and `shoulder_up_m`. `render_twin` returns
+the same under `claws`. In the chat these are the read-only tools `robot_get_twin_view` and
+`robot_get_claw_positions` (`farm/perception/twin_robot.py`); both refuse encoder readings older
+than 2 s and both are model estimates, not measurements.
+
 ## What can never happen
 
 - Water moves without rules passing **and** one of: a named person in the viewer, or Jev at `approve` level with p ≥ 0.85 after earning it.

@@ -14,12 +14,22 @@ import numpy as np
 import pytest
 
 from farm.perception import twin_robot
-from farm.perception.twin_robot import TOOL_NAME, TwinRobot
+from farm.perception.twin_robot import CLAW_TOOL_NAME, TOOL_NAME, TwinRobot
 
 NOW = 1000.0
 MOTORS = {"right_arm_shoulder_pan": 2048, "right_arm_elbow_flex": 1500, "left_arm_gripper": 1393,
           "head_motor_1": 1623}
 RANGES = {n: {"min_ticks": 900, "max_ticks": 3100} for n in MOTORS}
+FRAME = "Origin on the floor below the shoulder midpoint; +forward front, +left left, +up; metres."
+
+
+def fake_claws(positions_ticks, joint_map):
+    arm = {"forward_m": 0.358612, "left_m": 0.15561, "up_m": 1.00377, "reach_m": 0.37504, "shoulder_up_m": 0.894,
+           "shoulder_left_m": 0.1552, "tip_site": "Fixed_Jaw/twin_tip_L"}
+    return {"left_arm": arm, "right_arm": dict(arm, left_m=-0.15481, tip_site="Fixed_Jaw_2/twin_tip_R"),
+            "frame": FRAME, "mapping": "feetech_degrees_v1+joint_map" if joint_map else "feetech_degrees_v1",
+            "mapping_validated": bool(joint_map and joint_map.get("validated")),
+            "unmapped": [n for n in positions_ticks if n.startswith("head")], "model": "xlerobot-test"}
 
 
 def jpeg(width, height, color):
@@ -110,10 +120,18 @@ class FakeRenderer:
                     "unmapped": [n for n in positions_ticks if n.startswith("head")],
                     "mapping": "feetech_degrees_v1+joint_map" if joint_map else "feetech_degrees_v1",
                     "mapping_validated": bool(joint_map and joint_map.get("validated")),
-                    "model": "xlerobot-test"}
+                    "model": "xlerobot-test",
+                    "claws": fake_claws(positions_ticks, joint_map)}
         finally:
             with self.guard:
                 self.active -= 1
+
+    def claw_positions(self, positions_ticks, ranges, *, joint_map=None):
+        self.calls.append({"positions": dict(positions_ticks), "ranges": dict(ranges), "views": None,
+                           "joint_map": copy.deepcopy(joint_map)})
+        if self.fail:
+            raise self.fail
+        return fake_claws(positions_ticks, joint_map)
 
 
 @pytest.fixture
@@ -121,6 +139,7 @@ def renderer(monkeypatch):
     fake = FakeRenderer()
     module = types.ModuleType(twin_robot.RENDERER_MODULE)
     module.render_twin = fake.render_twin
+    module.claw_positions = fake.claw_positions
     module.VIEWS = ("front", "left", "right", "top")
     monkeypatch.setitem(sys.modules, twin_robot.RENDERER_MODULE, module)
     return fake
@@ -224,7 +243,110 @@ def test_default_call_reads_state_only_and_returns_four_labelled_images(renderer
     assert result["render_s"] >= 0 and result["motor_writes"] == 0
     assert "UNVALIDATED" in result["note"] and "not a camera" in result["note"]
     assert "compare_with_phone" not in result
+    assert result["claws"]["left_arm"]["forward_m"] == 0.359 and result["claws"]["right_arm"]["left_m"] == -0.155
+    assert result["claws"]["frame"] == FRAME
     json.dumps(answer["result"], allow_nan=False)
+
+
+# ---------------------------------------------------------------- robot_get_claw_positions
+
+def test_catalog_adds_the_claw_tool_with_no_parameters():
+    robot, twin = make()
+    catalog = twin.catalog()
+    names = [t["function"]["name"] for t in catalog["tools"]]
+    assert names.count(CLAW_TOOL_NAME) == 1 and names.index(CLAW_TOOL_NAME) > names.index(TOOL_NAME)
+    assert len(robot.tools) == 5
+    function = next(t["function"] for t in catalog["tools"] if t["function"]["name"] == CLAW_TOOL_NAME)
+    assert function["parameters"] == {"type": "object", "properties": {}, "additionalProperties": False}
+    assert "forward_m" in function["description"] and "older than 2 s" in function["description"]
+    assert catalog["metadata"]["claw_positions"] == {
+        "tool": CLAW_TOOL_NAME, "execution": "local_model_kinematics_from_owner_encoder_status",
+        "motor_access": False, "synthetic_images": False}
+    jsonschema.validate({}, function["parameters"])
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"arm": "left"}, function["parameters"])
+
+
+def test_claw_positions_reads_state_only_and_returns_rounded_metres(renderer):
+    robot, twin = make()
+    answer = twin.call(CLAW_TOOL_NAME, {}, request_id="q1")
+    assert answer["ok"] is True and "images" not in answer
+    assert robot.calls == [("robot_get_state", {"fresh": False})] and robot.request_ids == ["q1:twin-state"]
+    assert renderer.calls == [{"positions": MOTORS, "ranges": {n: (900, 3100) for n in MOTORS}, "views": None,
+                               "joint_map": None}]
+    result = answer["result"]
+    assert set(result) == {"left_arm", "right_arm", "frame", "mapping", "mapping_validated", "unmapped", "model",
+                           "state_time", "state_age_s", "compute_s", "state_source", "state_cached", "stale_motors",
+                           "motors_posed", "joint_map", "motor_writes", "note"}
+    assert result["left_arm"] == {"forward_m": 0.359, "left_m": 0.156, "up_m": 1.004, "reach_m": 0.375,
+                                  "shoulder_up_m": 0.894, "shoulder_left_m": 0.155, "tip_site": "Fixed_Jaw/twin_tip_L"}
+    assert result["right_arm"]["left_m"] == -0.155 and result["right_arm"]["tip_site"] == "Fixed_Jaw_2/twin_tip_R"
+    assert result["frame"] == FRAME and result["model"] == "xlerobot-test"
+    assert result["mapping"] == "feetech_degrees_v1" and result["mapping_validated"] is False
+    assert result["unmapped"] == ["head_motor_1"]
+    assert result["state_time"] == NOW - .3 and result["state_age_s"] == pytest.approx(.3)
+    assert result["compute_s"] >= 0 and result["motor_writes"] == 0 and result["motors_posed"] == 4
+    assert result["note"] == "model estimate from encoder readings with the unvalidated candidate mapping; not measured"
+    assert result["joint_map"] == {"path": None, "loaded": False, "sha256": None, "validated": False}
+    json.dumps(answer, allow_nan=False)
+
+
+def test_claw_positions_refuses_arguments(renderer):
+    robot, twin = make()
+    answer = twin.call(CLAW_TOOL_NAME, {"arm": "left"})
+    assert answer["ok"] is False and "no arguments" in answer["result"]["error"]
+    assert robot.calls == [] and renderer.calls == []
+
+
+@pytest.mark.parametrize("state_time,ok", [(NOW - 2.5, False), (NOW + .5, False), (NOW + .1, True), (NOW - 1.9, True)])
+def test_claw_positions_freshness(renderer, state_time, ok):
+    robot, twin = make(FakeRobot(state_time=state_time))
+    answer = twin.call(CLAW_TOOL_NAME, {})
+    assert answer["ok"] is ok
+    if not ok:
+        assert "encoder reading" in answer["result"]["error"] and renderer.calls == []
+    assert robot.calls == [("robot_get_state", {"fresh": False})]
+
+
+def test_claw_positions_use_the_joint_map(renderer, tmp_path):
+    config = tmp_path / "robot.json"
+    joint_map = {"validated": True, "joints": {"right_arm_shoulder_pan": {"zero_tick": 2047, "sign": -1}}}
+    (tmp_path / "twin-joint-map.json").write_text(json.dumps(joint_map))
+    robot, twin = make(FakeRobot(config=config))
+    result = twin.call(CLAW_TOOL_NAME, {})["result"]
+    assert renderer.calls[0]["joint_map"] == joint_map
+    assert result["mapping"] == "feetech_degrees_v1+joint_map" and result["mapping_validated"] is True
+    assert result["joint_map"]["loaded"] is True and result["joint_map"]["validated"] is True
+    assert result["note"] == "model estimate from encoder readings with the validated joint map; not measured"
+
+
+def test_claw_positions_failures_are_reported_not_raised(renderer, monkeypatch):
+    renderer.fail = RuntimeError("model lacks the shoulder-pan joints")
+    robot, twin = make()
+    answer = twin.call(CLAW_TOOL_NAME, {})
+    assert answer["ok"] is False and "shoulder-pan" in answer["result"]["error"]
+    monkeypatch.setitem(sys.modules, twin_robot.RENDERER_MODULE, None)
+    answer = twin.call(CLAW_TOOL_NAME, {})
+    assert answer["ok"] is False and "unavailable" in answer["result"]["error"]
+
+
+def test_server_native_claw_tool_is_preferred_while_twin_view_is_added():
+    robot, twin = make(FakeRobot(extra_tools=[tool(CLAW_TOOL_NAME)]))
+    names = [t["function"]["name"] for t in twin.catalog()["tools"]]
+    assert names.count(CLAW_TOOL_NAME) == 1 and names.count(TOOL_NAME) == 1
+    assert twin.call(CLAW_TOOL_NAME, {}) == {"ok": True, "result": {"forwarded": CLAW_TOOL_NAME}}
+
+
+def test_claw_tool_stacks_under_the_chat_wrappers(renderer, tmp_path):
+    from farm.perception.gemma_calibration import CalibrationRobot
+    from farm.perception.gemma_tags import TagRobot
+    robot = FakeRobot(config=tmp_path / "robot.json")
+    chat = CalibrationRobot(TagRobot(TwinRobot(robot, clock=lambda: NOW)))
+    names = [t["function"]["name"] for t in chat.catalog()["tools"]]
+    assert names.count(CLAW_TOOL_NAME) == 1
+    answer = chat.call(CLAW_TOOL_NAME, {})
+    assert answer["ok"] is True and answer["result"]["left_arm"]["up_m"] == 1.004
+    assert robot.calls == [("robot_get_state", {"fresh": False})]
 
 
 def test_selected_views_only(renderer):

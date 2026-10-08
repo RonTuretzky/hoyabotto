@@ -22,11 +22,22 @@ A joint map (``{'validated': bool, 'joints': {motor: {'zero_tick': int, 'sign': 
 replaces the midpoint/sign of any listed motor. For a gripper it gives the opening angle from the
 model's closed jaw: ``sign * (tick - zero_tick)`` in degrees.
 
+``claw_positions`` poses the same model and reports where each gripper tip is, by forward
+kinematics alone (no renderer). The tip is a site added at load time to each ``Fixed_Jaw`` body,
+``TIP_POS`` along the jaw: the point where the two jaw tips meet when the gripper is closed (a fixed
+point of the fixed jaw, so it does not move when the gripper opens). Positions are given in the
+ROBOT frame (``FRAME``): origin on the floor directly below the midpoint between the two shoulder-pan
+axes, +forward the robot's front, +left the robot's left, +up, metres. ``reach_m`` is the
+straight-line distance from the arm's shoulder point (where its shoulder-pan axis crosses the
+shoulder-lift axis height, the centre of the arm's workspace) to the tip; ``shoulder_up_m`` is that
+point's height. ``render_twin`` returns the same dict under ``'claws'``.
+
 All MuJoCo/OpenGL work runs on one dedicated worker thread that owns the model and renderers,
-so ``render_twin`` may be called from any thread (e.g. a threaded HTTP server); calls are
-serialised. On macOS (CGL, the default; leave MUJOCO_GL unset or 'cgl', not 'glfw') a Renderer works
-in a non-main thread, but one created on a thread and used from another hangs, hence the single
-owner thread. First call ~0.5-1.3 s (model load), later 3-view 640x480 calls ~50 ms.
+so ``render_twin`` and ``claw_positions`` may be called from any thread (e.g. a threaded HTTP
+server); calls are serialised. On macOS (CGL, the default; leave MUJOCO_GL unset or 'cgl', not
+'glfw') a Renderer works in a non-main thread, but one created on a thread and used from another
+hangs, hence the single owner thread. First call ~0.5-1.3 s (model load), later 3-view 640x480
+calls ~50 ms; ``claw_positions`` well under 1 ms of kinematics plus the thread hand-off.
 
 Model lookup: ``$XLEROBOT_TWIN_MODEL`` (path to an MJCF), else the vendored copy in
 ``farm/sim/assets/xlerobot/`` (see its README for source and licence).
@@ -91,6 +102,21 @@ LEFT_RGBA = (0.95, 0.55, 0.15, 1.0)
 RIGHT_RGBA = (0.25, 0.55, 0.95, 1.0)
 MAX_SIZE = (1920, 1440)
 JPEG_QUALITY = 85
+
+# Claw positions. Robot frame axes in model coordinates (the robot faces model -x, its left is -y).
+FORWARD, LEFT, UP = (-1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, 1.0)
+FRAME = ("Origin is the point on the floor directly below the midpoint between the two shoulder-pan joint axes; "
+         "+forward is the robot's front (the direction the OAK head camera faces at zero pan), +left is the "
+         "robot's left, +up is height above the floor; metres.")
+# Tip site: added to each arm's Fixed_Jaw body (the wrist-roll output) at load time. In that body the jaw runs
+# along -y; x=+0.008 is where the fixed jaw's tip face (x 0.008..0.037) meets the moving jaw's tip (x<0.008) when
+# closed, y=-0.105 is 1.4 mm short of the end of the jaw. Checked against the mesh vertices of the vendored model.
+TIP_POS = '0.008 -0.105 0'
+# arm -> (shoulder-pan joint, shoulder-lift joint, jaw body, tip site)
+ARMS = {
+    'left_arm': ('Rotation_L', 'Pitch_L', 'Fixed_Jaw', 'twin_tip_L'),
+    'right_arm': ('Rotation_R', 'Pitch_R', 'Fixed_Jaw_2', 'twin_tip_R'),
+}
 
 
 # ---------------------------------------------------------------- mapping (pure, no MuJoCo)
@@ -207,9 +233,13 @@ def _scene_xml(path):
     meshdir = compiler.get('meshdir', '')
     compiler.set('meshdir', str((Path(path).parent / meshdir).resolve()))
     world = root.find('worldbody')
+    tip_sites = {jaw: site for _, _, jaw, site in ARMS.values()}
     for body in world.iter('body'):
         for free in body.findall('freejoint'):
             body.remove(free)  # base and wheels are fixed
+        site = tip_sites.get(body.get('name'))
+        if site is not None:  # claw tip marker; group 4 is never drawn (sitegroup is all off anyway)
+            ET.SubElement(body, 'site', name=site, pos=TIP_POS, size='0.003', group='4', rgba='1 0 0 0')
     for tag in ('actuator', 'tendon', 'keyframe', 'sensor'):  # wheel tendons/actuators unused
         for el in root.findall(tag):
             root.remove(el)
@@ -266,6 +296,51 @@ class _Twin:
             cam.lookat[:] = spec['lookat']
             cam.distance, cam.azimuth, cam.elevation = spec['distance'], spec['azimuth'], spec['elevation']
             self.cameras[name] = cam
+        self._find_arms()
+
+    def _find_arms(self):
+        """Resolve each arm's pan/lift joints and tip site; fix the robot frame from the (static) pan axes."""
+        mj, np = self.mj, self.np
+        self.arms = {}
+        for arm, (pan, lift, jaw, site) in ARMS.items():
+            ids = (mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, pan),
+                   mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, lift),
+                   mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, site))
+            if min(ids) >= 0:
+                self.arms[arm] = ids + (f'{jaw}/{site}',)
+        self.origin = None
+        if len(self.arms) == len(ARMS):
+            self.pose({})  # the pan joints sit on the fixed base, so their anchors never move
+            anchors = np.array([self.data.xanchor[ids[0]] for ids in self.arms.values()])
+            self.origin = anchors.mean(axis=0)
+            self.origin[2] = 0.0
+        self.axes = np.array([FORWARD, LEFT, UP])
+
+    def pose(self, model_deg):
+        """Set the joint angles (deg, model convention) and run forward kinematics; no rendering."""
+        self.data.qpos[:] = 0
+        for joint, deg in model_deg.items():
+            if joint in self.qadr:
+                self.data.qpos[self.qadr[joint]] = math.radians(deg)
+        self.mj.mj_kinematics(self.model, self.data)
+
+    def claws(self):
+        """Claw tips in the robot frame for the pose set by ``pose``; None if the frame is undefined."""
+        if self.origin is None:
+            return None
+        np = self.np
+        out = {}
+        for arm, (pan, lift, site, tip_site) in self.arms.items():
+            tip = self.data.site_xpos[site]
+            shoulder = self.data.xanchor[pan].copy()
+            shoulder[2] = self.data.xanchor[lift][2]  # on the pan axis, at the lift axis height
+            f, l, u = (self.axes @ (tip - self.origin)).tolist()
+            _, sl, su = (self.axes @ (shoulder - self.origin)).tolist()
+            out[arm] = {'forward_m': f, 'left_m': l, 'up_m': u,
+                        'reach_m': float(np.linalg.norm(tip - shoulder)),
+                        'shoulder_up_m': su, 'shoulder_left_m': sl, 'tip_site': tip_site}
+        out['frame'] = FRAME
+        return out
 
     def _colour_arms(self):
         m, mj = self.model, self.mj
@@ -287,11 +362,7 @@ class _Twin:
 
     def render(self, model_deg, views, size):
         mj, np = self.mj, self.np
-        self.data.qpos[:] = 0
-        for joint, deg in model_deg.items():
-            if joint in self.qadr:
-                self.data.qpos[self.qadr[joint]] = math.radians(deg)
-        mj.mj_kinematics(self.model, self.data)
+        self.pose(model_deg)
         renderer = self.renderers.get(size)
         if renderer is None:
             renderer = self.renderers[size] = mj.Renderer(self.model, height=size[1], width=size[0])
@@ -351,6 +422,7 @@ def _twin(path):  # worker thread only
 
 
 def _work(path, positions, ranges, joint_map, views, size):
+    """Worker-thread body: pose the model; render ``views`` (None: kinematics only) and read the claws."""
     twin = _twin(path)
     angles, unmapped, model_deg = motor_angles(positions, ranges, joint_map, twin.jaw_deg)
     for motor in list(angles):
@@ -358,14 +430,27 @@ def _work(path, positions, ranges, joint_map, views, size):
             angles.pop(motor)
             unmapped.append(motor)
             model_deg.pop(JOINT_TABLE[motor][0], None)
-    return angles, unmapped, twin.render(model_deg, views, size)
+    if views is None:
+        twin.pose(model_deg)
+        images = None
+    else:
+        images = twin.render(model_deg, views, size)
+    return angles, unmapped, images, twin.claws()
+
+
+def _mapping_fields(joint_map):
+    return {
+        'mapping': MAPPING if joint_map is None else MAPPING + '+joint_map',
+        'mapping_validated': bool(joint_map is not None and joint_map.get('validated') is True),
+    }
 
 
 def render_twin(positions_ticks, ranges, *, views=VIEWS, size=(640, 480), joint_map=None):
     """Render the robot's pose from encoder ticks. See module docstring.
 
     Returns {'images': [{'view', 'mime_type', 'data'}...], 'angles_deg', 'unmapped', 'mapping',
-    'mapping_validated', 'model'}.
+    'mapping_validated', 'model', 'claws'} ('claws' as from ``claw_positions``, or None when the
+    model lacks the arms).
     """
     views = tuple(VIEW_ALIASES.get(v, v) for v in views)
     bad = [v for v in views if v not in CAMERAS]
@@ -376,16 +461,38 @@ def render_twin(positions_ticks, ranges, *, views=VIEWS, size=(640, 480), joint_
         raise ValueError(f'size must be within 16x16..{MAX_SIZE[0]}x{MAX_SIZE[1]}')
     _check_joint_map(joint_map)  # fail on the caller's thread with a clear message
     path, model_id = find_model()
-    angles, unmapped, images = _executor().submit(
+    angles, unmapped, images, claws = _executor().submit(
         _work, path, dict(positions_ticks), dict(ranges), joint_map, views, (width, height)).result()
+    fields = _mapping_fields(joint_map)
+    if claws is not None:
+        claws.update(fields, unmapped=list(unmapped), model=model_id)
     return {
         'images': images,
         'angles_deg': angles,
         'unmapped': unmapped,
-        'mapping': MAPPING if joint_map is None else MAPPING + '+joint_map',
-        'mapping_validated': bool(joint_map is not None and joint_map.get('validated') is True),
+        **fields,
         'model': model_id,
+        'claws': claws,
     }
+
+
+def claw_positions(positions_ticks, ranges, *, joint_map=None):
+    """Where each gripper tip is, in the robot frame, from encoder ticks: forward kinematics, no rendering.
+
+    Returns {'left_arm': {'forward_m', 'left_m', 'up_m', 'reach_m', 'shoulder_up_m', 'shoulder_left_m',
+    'tip_site'}, 'right_arm': {...}, 'frame', 'mapping', 'mapping_validated', 'unmapped', 'model'}. An arm
+    the model lacks is simply absent. Raises RuntimeError if the model has neither shoulder-pan joint
+    (the frame is undefined), ValueError for a bad joint_map, FileNotFoundError for a missing model.
+    """
+    _check_joint_map(joint_map)
+    path, model_id = find_model()
+    _, unmapped, _, claws = _executor().submit(
+        _work, path, dict(positions_ticks), dict(ranges), joint_map, None, None).result()
+    if claws is None:
+        raise RuntimeError(f'model {model_id} lacks the shoulder-pan joints/jaw bodies of {", ".join(ARMS)}: '
+                           'no robot frame for claw positions')
+    claws.update(_mapping_fields(joint_map), unmapped=list(unmapped), model=model_id)
+    return claws
 
 
 # ---------------------------------------------------------------- CLI (renders to files)

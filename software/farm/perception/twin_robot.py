@@ -1,10 +1,12 @@
 """Digital-twin views for the chat's robot tools: a MODEL of the robot posed from live encoder readings.
 
-TwinRobot decorates the chat's robot client the same way TagRobot and CalibrationRobot do. It adds one
-read-only tool, robot_get_twin_view, and passes every other call to the inner robot unchanged. It reads
-the owner's status (robot_get_state with fresh=False, no serial access) and, on request, the phone
-camera; it never calls a motion or enable tool. Rendering is done by farm.sim.xlerobot_twin, imported
-lazily so the chat starts even when the renderer or its dependencies are missing.
+TwinRobot decorates the chat's robot client the same way TagRobot and CalibrationRobot do. It adds two
+read-only tools, robot_get_twin_view (rendered views) and robot_get_claw_positions (gripper tip positions
+in the robot frame, forward kinematics only, no images), and passes every other call to the inner robot
+unchanged. It reads the owner's status (robot_get_state with fresh=False, no serial access) and, on
+request, the phone camera; it never calls a motion or enable tool. Rendering and kinematics are done by
+farm.sim.xlerobot_twin, imported lazily so the chat starts even when the renderer or its dependencies
+are missing.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ import cv2
 import numpy as np
 
 TOOL_NAME = "robot_get_twin_view"
+CLAW_TOOL_NAME = "robot_get_claw_positions"
 VIEWS = ("front", "left", "right", "top")  # left/right: side views from the robot's left and right
 RENDERER_MODULE = "farm.sim.xlerobot_twin"
 JOINT_MAP_NAME = "twin-joint-map.json"
@@ -45,6 +48,20 @@ DESCRIPTION = (
 )
 
 
+CLAW_DESCRIPTION = (
+    "Where each gripper tip (claw) is, in metres in the robot frame, computed from the live servo encoder "
+    "readings by forward kinematics of the robot MODEL (no camera, no image). Frame: origin on the floor directly "
+    "below the midpoint between the two shoulder-pan axes; +forward_m is the robot's front, +left_m the robot's "
+    "left, +up_m height above the floor. Per arm it also gives reach_m (straight-line distance from that arm's "
+    "shoulder point to its tip) and shoulder_up_m. The tick-to-angle mapping is the unvalidated candidate "
+    "feetech_degrees_v1 unless mapping_validated is true, so treat the numbers as an estimate, not a measurement; "
+    "trust the real cameras for contact and clearance. Read-only: reads the owner's last encoder status (no serial "
+    "access) and sends nothing to the motors. Refuses when the encoder reading is older than 2 s. No parameters."
+)
+NOTE_UNVALIDATED = "model estimate from encoder readings with the unvalidated candidate mapping; not measured"
+NOTE_VALIDATED = "model estimate from encoder readings with the validated joint map; not measured"
+
+
 def tool_schema():
     return {"type": "function", "function": {
         "name": TOOL_NAME,
@@ -58,6 +75,26 @@ def tool_schema():
                                                   "with the twin's front view (phone left, twin right)."},
         }, "additionalProperties": False},
     }}
+
+
+def claw_tool_schema():
+    return {"type": "function", "function": {
+        "name": CLAW_TOOL_NAME,
+        "description": CLAW_DESCRIPTION,
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+    }}
+
+
+def _round_claws(claws):
+    """Metres to 3 decimals in each arm's entry; other keys untouched. None stays None."""
+    if not isinstance(claws, dict):
+        return None
+    out = {}
+    for key, value in claws.items():
+        if isinstance(value, dict):
+            value = {k: (round(v, 3) if isinstance(v, float) else v) for k, v in value.items()}
+        out[key] = value
+    return out
 
 
 class Refusal(Exception):
@@ -128,16 +165,24 @@ def _config_path(robot):
     return None
 
 
-def _render_function():
+def _twin_function(name, what):
     try:
         module = importlib.import_module(RENDERER_MODULE)
     except Exception as exc:  # ImportError, or a dependency (mujoco, model files) failing at import time
         raise Refusal(f"Twin renderer {RENDERER_MODULE} is unavailable ({type(exc).__name__}: {exc}). "
-                      "No twin view; use the real cameras.") from None
-    render = getattr(module, "render_twin", None)
-    if not callable(render):
-        raise Refusal(f"Twin renderer {RENDERER_MODULE} has no render_twin function. No twin view.")
-    return render
+                      f"No {what}; use the real cameras.") from None
+    function = getattr(module, name, None)
+    if not callable(function):
+        raise Refusal(f"Twin renderer {RENDERER_MODULE} has no {name} function. No {what}.")
+    return function
+
+
+def _render_function():
+    return _twin_function("render_twin", "twin view")
+
+
+def _claws_function():
+    return _twin_function("claw_positions", "claw positions")
 
 
 def _decode(data, what):
@@ -170,10 +215,11 @@ def compose_side_by_side(phone_bgr, twin_bgr, phone_label, twin_label):
 
 
 class TwinRobot:
-    """Decorate the chat's robot client with robot_get_twin_view; every other call passes through unchanged."""
+    """Decorate the chat's robot client with robot_get_twin_view and robot_get_claw_positions; every other call
+    passes through unchanged."""
 
     def __init__(self, robot, *, joint_map_path=None, clock=time.time, size=(640, 480),
-                 max_age_s=MAX_STATE_AGE_S, renderer=None):
+                 max_age_s=MAX_STATE_AGE_S, renderer=None, claws=None):
         self.robot = robot
         if joint_map_path is None:
             config = _config_path(robot)
@@ -183,10 +229,11 @@ class TwinRobot:
         self.size = tuple(size)
         self.max_age_s = max_age_s
         self._renderer = renderer  # tests may inject; otherwise imported lazily on first use
+        self._claws = claws
         self._lock = threading.Lock()
         self.last_catalog = None
         self._available = False
-        self._native = False
+        self._native = set()  # our tool names the server already publishes itself
         self._phone = False
 
     def __getattr__(self, name):
@@ -201,38 +248,48 @@ class TwinRobot:
     def catalog(self):
         catalog = copy.deepcopy(self.robot.catalog())
         functions = {t["function"]["name"]: t["function"] for t in catalog["tools"]}
-        self._native = TOOL_NAME in functions
-        self._available = not self._native and "robot_get_state" in functions
+        self._native = {name for name in (TOOL_NAME, CLAW_TOOL_NAME) if name in functions}
+        self._available = "robot_get_state" in functions
         cameras = (functions.get("robot_get_cameras", {}).get("parameters", {}).get("properties", {})
                    .get("cameras", {}).get("items", {}).get("enum", []))
         self._phone = isinstance(cameras, list) and "phone" in cameras
         if self._available:
-            catalog["tools"].append(tool_schema())
-            catalog.setdefault("metadata", {})["twin_view"] = {
-                "tool": TOOL_NAME, "execution": "local_model_render_from_owner_encoder_status",
-                "motor_access": False, "synthetic_images": True, "phone_compare_available": self._phone}
+            metadata = catalog.setdefault("metadata", {})
+            if TOOL_NAME not in self._native:
+                catalog["tools"].append(tool_schema())
+                metadata["twin_view"] = {
+                    "tool": TOOL_NAME, "execution": "local_model_render_from_owner_encoder_status",
+                    "motor_access": False, "synthetic_images": True, "phone_compare_available": self._phone}
+            if CLAW_TOOL_NAME not in self._native:
+                catalog["tools"].append(claw_tool_schema())
+                metadata["claw_positions"] = {
+                    "tool": CLAW_TOOL_NAME, "execution": "local_model_kinematics_from_owner_encoder_status",
+                    "motor_access": False, "synthetic_images": False}
         self.last_catalog = catalog
         return catalog
 
     def call(self, name, args, request_id=None):
-        if name != TOOL_NAME:
+        if name not in (TOOL_NAME, CLAW_TOOL_NAME):
             return self._forward(name, args, request_id)
         if self.last_catalog is None:
             self.catalog()
-        if self._native:
+        if name in self._native:
             return self._forward(name, args, request_id)
         if not self._available:
             return _fail("The robot server does not publish robot_get_state, so the twin cannot be posed.")
+        what = "twin view" if name == TOOL_NAME else "claw positions"
         if not self._lock.acquire(timeout=LOCK_TIMEOUT_S):
             return _fail("Another twin render is still running; try again.")
         try:
-            return self._twin_view(args, request_id)
+            if name == TOOL_NAME:
+                return self._twin_view(args, request_id)
+            return self._claw_positions(args, request_id)
         except _NETWORK_ERRORS:
             raise  # the chat retries read-only tools on these while the robot server restarts
         except Refusal as exc:
             return _fail(str(exc))
         except Exception as exc:  # never raise a renderer or decoding fault into the chat
-            return _fail(f"Twin view failed ({type(exc).__name__}: {str(exc)[:300]}). No twin view; use the real cameras.")
+            return _fail(f"Twin {what} failed ({type(exc).__name__}: {str(exc)[:300]}). No {what}; use the real cameras.")
         finally:
             self._lock.release()
 
@@ -396,10 +453,44 @@ class TwinRobot:
                   "joint_map": {"path": str(self.joint_map_path) if self.joint_map_path else None,
                                 "loaded": joint_map is not None, "sha256": joint_map_sha,
                                 "validated": bool(joint_map and joint_map.get("validated") is True)},
+                  "claws": _round_claws(rendered.get("claws")),
                   "synthetic_images": True, "motor_writes": 0, "note": note}
         if compare_info is not None:
             result["compare_with_phone"] = compare_info
         return {"ok": True, "result": result, "images": images}
+
+    def _claw_positions(self, args, request_id):
+        if args not in ({}, None):
+            raise Refusal(f"{CLAW_TOOL_NAME} takes no arguments")
+        state, stamp, positions, ranges, stale = self._read_state(request_id)
+        self._check_age(stamp, "The encoder reading")
+        joint_map, joint_map_sha = load_joint_map(self.joint_map_path)
+        claws_fn = self._claws or _claws_function()
+        started = time.perf_counter()
+        try:
+            claws = claws_fn(positions, ranges, joint_map=joint_map)
+        except Exception as exc:
+            raise Refusal(f"Twin kinematics failed ({type(exc).__name__}: {str(exc)[:300]}). "
+                          "No claw positions; use the real cameras.") from None
+        compute_s = time.perf_counter() - started
+        if not isinstance(claws, dict) or not any(isinstance(claws.get(arm), dict) for arm in ("left_arm", "right_arm")):
+            raise Refusal("Twin kinematics returned no claw positions")
+        validated = claws.get("mapping_validated") is True
+        result = _round_claws(claws)
+        result.setdefault("mapping", CANDIDATE_MAPPING)
+        result["mapping_validated"] = validated
+        result.setdefault("unmapped", [])
+        result.update({
+            "state_time": stamp, "state_age_s": round(max(0.0, self.clock() - stamp), 3),
+            "compute_s": round(compute_s, 3), "state_source": state.get("source"), "state_cached": state.get("cached"),
+            "stale_motors": stale, "motors_posed": len(positions),
+            "joint_map": {"path": str(self.joint_map_path) if self.joint_map_path else None,
+                          "loaded": joint_map is not None, "sha256": joint_map_sha,
+                          "validated": bool(joint_map and joint_map.get("validated") is True)},
+            "motor_writes": 0, "note": NOTE_VALIDATED if validated else NOTE_UNVALIDATED})
+        if stale:
+            result["note"] += f"; rows older than {self.max_age_s} s at state_time: {', '.join(stale)}"
+        return {"ok": True, "result": result}
 
     # -- plumbing -----------------------------------------------------------------------------------
 
