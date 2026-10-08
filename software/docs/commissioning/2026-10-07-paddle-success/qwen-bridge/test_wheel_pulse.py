@@ -60,6 +60,15 @@ try:run(e)
 except RuntimeError as x:assert 'health' in str(x)
 else:raise AssertionError('Overload ignored')
 assert e.abort()==[] and all(p.r[n]['Torque_Enable']==0 and p.r[n]['Goal_Velocity']==0 and p.r[n]['Operating_Mode']==0 for n in WHEELS);p.r[R]['Present_Load']=0
+# Creep of a few mm after torque-off (drive-train strain relaxing) is not rolling: 2026-10-08 pulses crept 8-41 ticks.
+t[0]=250;cam['received_at']=250;e=WheelPulseExecutor(lambda n,f:p.r[n][f],lambda n,f,v:p.r[n].__setitem__(f,v),fresh,clock=lambda:t[0],wall=lambda:t[0])
+e.start({'id':7,'session_started':7,'linear_m_s':.02,'angular_rad_s':0,'duration_s':.5},rows(),session_started=7)
+creep=[0];orig_step2=p.step
+def creeping(dt):
+ orig_step2(dt)
+ if e.phase=='released' and creep[0]<4:creep[0]+=1;p.r[R]['Present_Position']=(p.r[R]['Present_Position']+8)%4096
+p.step=creeping;r=run(e);p.step=orig_step2
+assert r['base_result']['released'],r
 # Rolling after release is a fault.
 t[0]=300;cam['received_at']=300;e=WheelPulseExecutor(lambda n,f:p.r[n][f],lambda n,f,v:p.r[n].__setitem__(f,v),fresh,clock=lambda:t[0],wall=lambda:t[0])
 e.start({'id':4,'session_started':7,'linear_m_s':.02,'angular_rad_s':0,'duration_s':.5},rows(),session_started=7)

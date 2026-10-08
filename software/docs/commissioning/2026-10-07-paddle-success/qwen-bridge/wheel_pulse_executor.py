@@ -12,6 +12,8 @@ WHEELBASE_M=0.45        # wheel bodies at y=+-0.225 in upstream xlerobot.xml (ve
 TICKS_PER_REV=4096
 MAX_WHEEL_M_S=0.02                     # 205 ticks/s with the 5-inch wheel; the 261 ticks/s validated on 4 October assumed a 0.05 m radius
 MAX_DURATION_S=3.0
+RELEASED_CREEP_TICKS=40    # after torque-off a wheel may creep this much over 5 samples (5 mm on the 5-inch wheel: drive-train strain
+                           # relaxing); more means the cart is being pulled (cable, slope). 5 ticks (0.5 mm) refused every pulse on 2026-10-08.
 BRAKE_SETTLE_S=1.5                     # wheels stay powered at zero velocity until two fresh samples agree they are still
 SAVED=('Operating_Mode','Acceleration','Torque_Limit','Lock')
 def wheel_ticks_per_s(linear_m_s,angular_rad_s):
@@ -83,9 +85,9 @@ class WheelPulseExecutor:
    return {'phase':'moving','base_drive_phase':self.phase}
   self.released.append(sample)
   if len(self.released)<5:return {'phase':'moving','base_drive_phase':self.phase}
-  if not self.settled(self.released[-5:],spread=5,use_velocity=False):
+  if not self.settled(self.released[-5:],spread=RELEASED_CREEP_TICKS,use_velocity=False):
    moved={n:max(abs(wrap(x['position'][n]-self.released[-5]['position'][n])) for x in self.released[-5:]) for n in WHEELS}
-   raise RuntimeError(f"Wheels rolling after release: position change over 5 released samples {moved} ticks (limit 5); velocity readings {[x['velocity'] for x in self.released[-5:]]}")
+   raise RuntimeError(f"Wheels rolling after release: position change over 5 released samples {moved} ticks (limit {RELEASED_CREEP_TICKS}); velocity readings {[x['velocity'] for x in self.released[-5:]]}")
   self.restore()
   delta={n:wrap(current[n]-self.before[n]) for n in WHEELS}
   self.active=False
