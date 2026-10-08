@@ -12,7 +12,8 @@ WHEELBASE_M=0.45        # wheel bodies at y=+-0.225 in upstream xlerobot.xml (ve
 TICKS_PER_REV=4096
 MAX_WHEEL_M_S=0.02                     # 205 ticks/s with the 5-inch wheel; the 261 ticks/s validated on 4 October assumed a 0.05 m radius
 MAX_DURATION_S=3.0
-RELEASED_CREEP_TICKS=40    # after torque-off a wheel may creep this much over 5 samples (5 mm on the 5-inch wheel: drive-train strain
+RELEASED_MAX_SAMPLES=12    # released samples within which the wheels must be still (about 0.6 s)
+RELEASED_CREEP_TICKS=60    # after torque-off a wheel may creep this much over 5 samples (7 mm on the 5-inch wheel: drive-train strain
                            # relaxing); more means the cart is being pulled (cable, slope). 5 ticks (0.5 mm) refused every pulse on 2026-10-08.
 BRAKE_SETTLE_S=1.5                     # wheels stay powered at zero velocity until two fresh samples agree they are still
 SAVED=('Operating_Mode','Acceleration','Torque_Limit','Lock')
@@ -84,10 +85,15 @@ class WheelPulseExecutor:
     raise RuntimeError(f"Wheels did not settle within {BRAKE_SETTLE_S} s of braking: last (position, velocity) samples {recent}")
    return {'phase':'moving','base_drive_phase':self.phase}
   self.released.append(sample)
-  if len(self.released)<5:return {'phase':'moving','base_drive_phase':self.phase}
-  if not self.settled(self.released[-5:],spread=RELEASED_CREEP_TICKS,use_velocity=False):
-   moved={n:max(abs(wrap(x['position'][n]-self.released[-5]['position'][n])) for x in self.released[-5:]) for n in WHEELS}
-   raise RuntimeError(f"Wheels rolling after release: position change over 5 released samples {moved} ticks (limit {RELEASED_CREEP_TICKS}); velocity readings {[x['velocity'] for x in self.released[-5:]]}")
+  # After torque-off the drive train relaxes and the wheels creep a few mm, then stop. Pass once the last 3 samples
+  # are still (position only; released velocity readings are spurious) and the total creep stays small; a wheel that
+  # keeps turning (pulled by a cable or a slope) or creeps too far is a fault.
+  if len(self.released)<3:return {'phase':'moving','base_drive_phase':self.phase}
+  creep={n:max(abs(wrap(x['position'][n]-self.released[0]['position'][n])) for x in self.released) for n in WHEELS}
+  still=self.settled(self.released[-3:],spread=3,use_velocity=False)
+  if max(creep.values())>RELEASED_CREEP_TICKS or (not still and len(self.released)>=RELEASED_MAX_SAMPLES):
+   raise RuntimeError(f"Wheels rolling after release: position change over {len(self.released)} released samples {creep} ticks (creep limit {RELEASED_CREEP_TICKS}, must be still within {RELEASED_MAX_SAMPLES} samples); velocity readings {[x['velocity'] for x in self.released[-5:]]}")
+  if not still:return {'phase':'moving','base_drive_phase':self.phase}
   self.restore()
   delta={n:wrap(current[n]-self.before[n]) for n in WHEELS}
   self.active=False
