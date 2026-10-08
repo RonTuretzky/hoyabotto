@@ -55,7 +55,7 @@ e.start({'id':2,'session_started':7,'linear_m_s':.02,'angular_rad_s':0,'duration
 r=run(e);assert r['base_result']['stopped_early']=='phone camera stale' and r['base_result']['pulse_s']<.2
 # Health fault raises; abort zeroes velocity, turns torque off and restores settings.
 t[0]=200;cam['received_at']=200;e=WheelPulseExecutor(lambda n,f:p.r[n][f],lambda n,f,v:p.r[n].__setitem__(f,v),fresh,clock=lambda:t[0],wall=lambda:t[0])
-e.start({'id':3,'session_started':7,'linear_m_s':0,'angular_rad_s':.16,'duration_s':1},rows(),session_started=7);p.r[R]['Present_Load']=600
+e.start({'id':3,'session_started':7,'linear_m_s':0,'angular_rad_s':.08,'duration_s':1},rows(),session_started=7);p.r[R]['Present_Load']=600
 try:run(e)
 except RuntimeError as x:assert 'health' in str(x)
 else:raise AssertionError('Overload ignored')
