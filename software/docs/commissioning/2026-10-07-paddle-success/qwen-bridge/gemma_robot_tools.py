@@ -717,6 +717,7 @@ class Handler(BaseHTTPRequestHandler):
                 size = int(self.headers.get('Content-Length', '0'))
                 if not 0 < size <= 4096: raise ValueError('Invalid request size')
                 saved = remote_admin.set_wrist_ids(ROOT, json.loads(self.rfile.read(size)))
+                configure_wrist_ids(ROOT)  # this API serves the new IDs at once (the camera job only restarts it if it detects a change)
                 job = remote_admin.start_camera_restart(ROOT)
                 print('admin wrist ids '+json.dumps(saved)+' job '+job['id'], flush=True)
                 return self.send_json(202, {'ok': True, 'saved': saved, 'job': job})
