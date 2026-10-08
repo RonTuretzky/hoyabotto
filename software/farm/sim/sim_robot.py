@@ -110,6 +110,7 @@ FOLDED_DEG = {'shoulder_pan': 0.0, 'shoulder_lift': -78.0, 'elbow_flex': 82.0, '
 # "closed" in the 2026-10-08 sessions). Below it the jaws press together; the model's jaw range (-21.5..100 deg) then
 # spans ticks 1400..2783, which matches the saved open end (2821) to 3 deg. Applied as a twin joint map (grippers only).
 GRIPPER_CLOSED_OFFSET_TICKS = 127
+FLAP_FOLDED_DEG = 75.0         # score()['flap_folded'] threshold (farm.sim.box_scene.FLAP_FOLDED_DEG)
 PRESENT_VOLTAGE = 120
 PRESENT_TEMPERATURE = 35
 RANGE_SEMANTICS = ('raw_calibration_ranges and motor range are saved hardware limits, not command targets; use '
@@ -766,6 +767,10 @@ class SimRobot:
         self.origin[2] = 0.0
         self.axes = np.array([twin.FORWARD, twin.LEFT, twin.UP], dtype=float)
         self.box_body = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, 'box')
+        self.flap_bodies = {b for b in (mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, model.body(i).name) for i in range(model.nbody) if model.body(i).name.startswith('box_flap')) if b >= 0}
+        self.box_bodies = self.flap_bodies | ({self.box_body} if self.box_body >= 0 else set())
+        flap_joint = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, 'flap_hinge')
+        self.flap_qadr = int(model.jnt_qposadr[flap_joint]) if flap_joint >= 0 else None
         self.table_body = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, 'table')
         self.scene_geoms = [g for g in range(model.ngeom) if model.geom_bodyid[g] == 0 and model.geom_type[g] != mj.mjtGeom.mjGEOM_PLANE
                             and 'floor' not in (mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, g) or '')]
@@ -991,19 +996,24 @@ class SimRobot:
         mj.mju_mulQuat(out, rz, quat)
         quat[:] = out
 
-    def _box_touching_jaw(self, arm=None):
-        """(fixed jaw touching, moving jaw touching) for ``arm`` (both arms when None), from the current contacts."""
-        if self.box_body < 0:
-            return False
+    def _box_touching_jaw(self, arm=None, bodies=None):
+        """(fixed jaw touching, moving jaw touching) for ``arm`` (both arms when None), from the current contacts.
+        ``bodies``: which box bodies count (default the box and its flap panels)."""
+        bodies = self.box_bodies if bodies is None else bodies
+        if not bodies:
+            return False if arm is None else (False, False)
         model, data = self.model, self.data
         fixed = moving = False
         arms = [arm] if arm else list(self.jaw_bodies)
         for i in range(data.ncon):
             con = data.contact[i]
             b1, b2 = int(model.geom_bodyid[con.geom1]), int(model.geom_bodyid[con.geom2])
-            if self.box_body not in (b1, b2):
+            if b1 in bodies:
+                other = b2
+            elif b2 in bodies:
+                other = b1
+            else:
                 continue
-            other = b2 if b1 == self.box_body else b1
             for a in arms:
                 f, m = self.jaw_bodies[a]
                 fixed |= other == f
@@ -1113,11 +1123,30 @@ class SimRobot:
                     if f and m:
                         closed = True
                 held = closed and lifted >= 0.03
-            return {'box_lifted_m': lifted, 'box_moved_m': moved, 'gripper_closed_on_box': closed, 'box_held_now': held,
+            flap = self._flap_state()
+            return {'box_lifted_m': lifted, 'box_moved_m': moved, 'gripper_closed_on_box': closed, 'box_held_now': held, **flap,
                     'faults': self.counts['faults'], 'refusals': self.counts['refusals'], 'moves': self.counts['moves'],
                     'gripper_closes': self.counts['gripper_closes'], 'base_pulses': self.counts['base_pulses'], 'calls': self.counts['calls'],
                     'sim_time_s': float(self.data.time - self.sim_started), 'wall_time_s': time.monotonic() - self.wall_started,
                     'released_all': all(not m.enabled for m in self.motors.values()), 'last_stop': self.last_stop}
+
+    def _flap_state(self):
+        """flap_angle_deg (0 vertical, 90 flat on the top; None without a hinged flap), flap_pinched_now (both jaws of one
+        arm touch the flap), flap_folded (>= FLAP_FOLDED_DEG and resting on the top: the box upright on the table and
+        no jaw touching the flap, i.e. it stays folded on its own)."""
+        if self.flap_qadr is None:
+            return {'flap_angle_deg': None, 'flap_pinched_now': False, 'flap_folded': False}
+        angle = math.degrees(float(self.data.qpos[self.flap_qadr]))
+        pinched = touched = False
+        for arm in self.jaw_bodies:
+            f, m = self._box_touching_jaw(arm, bodies=self.flap_bodies)
+            pinched |= f and m
+            touched |= f or m
+        rot = self.data.xmat[self.box_body].reshape(3, 3)
+        upright = rot[2, 2] > math.cos(math.radians(10))
+        resting = upright and self.box_start is not None and abs(float(self.data.xpos[self.box_body][2] - self.box_start[2])) < 0.01
+        return {'flap_angle_deg': round(angle, 1), 'flap_pinched_now': pinched,
+                'flap_folded': bool(angle >= FLAP_FOLDED_DEG and resting and not touched)}
 
     def snapshot(self):
         """Positions/ranges for the twin renderer (render_twin(positions, ranges)) plus the box pose in the robot frame."""
@@ -1772,6 +1801,13 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   is unmeasured. Settle corrections (up to 3 x 40 ticks, 57 max overdrive) are ported from the real executor.
 - Released joints keep 0.4 N m of gear friction: the folded arms rest; an extended released arm sags over a few seconds.
 - MuJoCo noslip_iterations=5 so a pinched box does not creep out of the soft jaw contacts.
+- The box's flap is 7 cm of three rigid panels (box_scene.FLAP_SEGMENTS_M): the crease hinge on the near top edge plus two
+  bend joints with friction that stand in for cardboard giving at the pads, so a pinch in the top ~4 cm can fold it while a
+  deeper pinch locks it to the jaws. It folds under about 0.5-1 N at the edge and stays where it is put (crease friction
+  beats its spring), unmeasured on the real carton. Jaw-flap contacts use the flap's friction 1.2 and 5 mm torsion.
+- score(): box_held_now = both jaws of one arm touch the box or flap and the box centre is >= 3 cm up; flap_angle_deg is
+  the crease angle (0 vertical, + inward, 90 flat on the top); flap_folded = >= 75 deg with the box upright and resting
+  on the table and no jaw touching the flap (it stays folded on its own).
 - No lease/idle-hold timeout, no camera-freshness gate, no temperature or voltage checks (constant 12.0 V), no calibration
   mismatch/read-only paths, no robot_get_handoff/robot_get_execution/calibration tools.
 - Base pulses move the table and box the opposite way (fixed-base model): no slip, no wheel dynamics; wheel ticks follow the

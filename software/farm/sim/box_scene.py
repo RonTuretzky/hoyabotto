@@ -6,8 +6,14 @@ sites, the OAK optical site ``HEAD_SITE`` on ``HEAD_CAMERA_BODY``, floor, lights
 - a table (box geom, 0.60 m deep x 0.90 m wide, top at ``table_top_m``) whose near edge is ``TABLE_NEAR_M`` forward
   of the robot origin; four visual legs;
 - a free cardboard box (body ``box``, freejoint ``box_free``, 0.25 kg, friction 1.0, a brown corrugation-striped
-  material) resting on the table's near edge, with a thin ``flap`` plate standing 2 cm above the near top edge
-  (an edge for the jaws); ``seed`` jitters the box +-2 cm in forward/left and +-5 deg of yaw;
+  material) resting on the table's near edge, with an open carton flap: body ``box_flap`` (geom ``flap``, 7 cm tall,
+  3.5 mm thick, the box's full width, 10 g) on hinge joint ``flap_hinge`` along the near top edge (axis along the box
+  width). Angle 0 = vertical, positive = folded inward over the box top, 90 = flat on the top (the joint stops at
+  ``FLAP_RANGE_DEG``; the flap and the box are parent and child, so MuJoCo does not collide them and the stop is
+  the top). It starts ``FLAP_OPEN_DEG`` outward like a real open flap. The crease is modelled as a light spring
+  toward that open angle plus a larger hinge friction, so the flap stays where it is put (a folded flap stays
+  folded) and folds under about 1-2 N at its edge; ``seed`` jitters the box +-2 cm in forward/left and +-5 deg of
+  yaw;
 - a bright lamp on the table behind the box (emissive white sphere on a stand plus a strong spotlight and a weaker
   directional fill, both pointing back at the robot; no shadow maps, which look blocky centimetres from a wrist
   lens), so a wrist camera looking level at the box is backlit;
@@ -43,8 +49,22 @@ AXES = np.array([twin.FORWARD, twin.LEFT, twin.UP], dtype=float)  # rows: robot 
 TABLE_NEAR_M = 0.30           # near edge forward of the robot origin
 TABLE_SIZE_M = (0.60, 0.90)   # depth (forward), width (left-right)
 TABLE_THICKNESS_M = 0.03
-FLAP_HEIGHT_M = 0.02
-FLAP_THICKNESS_M = 0.003
+FLAP_SEGMENTS_M = (0.03, 0.02, 0.02)   # panels bottom up: the crease panel, then two strips on bend joints
+FLAP_HEIGHT_M = sum(FLAP_SEGMENTS_M)    # 7 cm, the real carton's open flap is about 8
+FLAP_THICKNESS_M = 0.0035
+FLAP_MASS_KG = 0.01
+FLAP_FRICTION = 1.2           # sliding friction of the jaw pads on the flap (priority 1: the flap's contact parameters win)
+FLAP_TORSION_M = 0.005        # torsional friction (the jaw meshes' own 0.2 m torsion / 0.1 m rolling lock any pinch rigid)
+FLAP_OPEN_DEG = -8.0          # rest angle: leaning 8 deg outward (toward the robot), like a real open flap
+FLAP_RANGE_DEG = (-60.0, 92.0)
+FLAP_STIFFNESS = 0.01         # N m/rad toward FLAP_OPEN_DEG (crease spring)
+FLAP_FRICTIONLOSS = 0.03      # N m: larger than the spring at 90 deg (0.017), so a folded flap stays down; ~0.5 N at the edge folds it
+FLAP_DAMPING = 0.002          # N m s/rad
+FLAP_BEND_STIFFNESS = 0.01    # N m/rad back to straight
+FLAP_BEND_FRICTIONLOSS = 0.03  # N m: a push at the edge turns the crease (0.03 N m at 7 cm) before it bends the panels
+FLAP_BEND_DAMPING = 0.002
+FLAP_BEND_RANGE_DEG = (-120.0, 120.0)
+FLAP_FOLDED_DEG = 75.0        # robot_frame_of_box / SimRobot.score: folded at or past this angle
 BOX_MASS_KG = 0.25
 BOX_FRICTION = 1.0
 BOX_JITTER_M = 0.02
@@ -187,15 +207,54 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
     ET.SubElement(box, 'geom', name='box_body', type='box', size=_fmt((depth / 2.0, width / 2.0, height / 2.0)),
                   material='scene_cardboard', contype='1', conaffinity='1', condim='4',
                   friction=f'{BOX_FRICTION} 0.005 0.0001', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
-    # Flap: a thin plate standing along the near top edge (the +x face in the box frame faces the robot).
-    ET.SubElement(box, 'geom', name='flap', type='box',
-                  pos=_fmt((depth / 2.0 - FLAP_THICKNESS_M / 2.0, 0.0, height / 2.0 + FLAP_HEIGHT_M / 2.0)),
-                  size=_fmt((FLAP_THICKNESS_M / 2.0, width / 2.0, FLAP_HEIGHT_M / 2.0)), material='scene_flap',
-                  contype='1', conaffinity='1', condim='4', friction=f'{BOX_FRICTION} 0.005 0.0001',
-                  solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
+    # Flap: a plate hinged on the near top edge (the +x face in the box frame faces the robot), its outer face flush
+    # with the near face. Joint axis -y: a positive angle swings the flap's free edge toward -x, i.e. inward over
+    # the top. The body is posed at FLAP_OPEN_DEG and ``ref`` says so, so qpos reads the angle from vertical.
+    # The flap is a chain of panels (FLAP_SEGMENTS_M, bottom up): ``box_flap`` (geom ``flap``) on the crease
+    # ``flap_hinge``, then ``box_flap_1``, ``box_flap_2``... (geoms ``flap_1``...) on bend joints ``flap_bend_1``...
+    # A rigid plate pinched between pads that are not parallel to it is locked to the jaws, and this arm cannot tilt
+    # its jaws past about -60 deg pitch, so a rigid flap could never be folded from a pinch; real cardboard gives
+    # at the edge of the pads. The bend joints are that give: they hold the flap straight (friction larger than the
+    # torque that turns the crease) until a pinch forces them, then stay where they were bent, like crushed board.
+    open_rad = math.radians(FLAP_OPEN_DEG)
+    flap_width = width - 0.002
+    contact = root.find('contact')
+    if contact is None:
+        contact = ET.SubElement(root, 'contact')
+    parent, chain = box, []
+    for i, length in enumerate(FLAP_SEGMENTS_M):
+        name = 'box_flap' if i == 0 else f'box_flap_{i}'
+        if i == 0:
+            body = ET.SubElement(parent, 'body', name=name,
+                                 pos=_fmt((depth / 2.0 - FLAP_THICKNESS_M / 2.0, 0.0, height / 2.0)),
+                                 quat=_fmt((math.cos(open_rad / 2.0), 0.0, -math.sin(open_rad / 2.0), 0.0)))
+            ET.SubElement(body, 'joint', name='flap_hinge', type='hinge', axis='0 -1 0', pos='0 0 0',
+                          ref=f'{open_rad:.6g}', springref=f'{open_rad:.6g}', stiffness=str(FLAP_STIFFNESS),
+                          damping=str(FLAP_DAMPING), frictionloss=str(FLAP_FRICTIONLOSS), armature='1e-5',
+                          limited='true', range=_fmt([math.radians(v) for v in FLAP_RANGE_DEG]))
+        else:
+            body = ET.SubElement(parent, 'body', name=name, pos=_fmt((0.0, 0.0, FLAP_SEGMENTS_M[i - 1])))
+            ET.SubElement(body, 'joint', name=f'flap_bend_{i}', type='hinge', axis='0 -1 0', pos='0 0 0',
+                          stiffness=str(FLAP_BEND_STIFFNESS), damping=str(FLAP_BEND_DAMPING),
+                          frictionloss=str(FLAP_BEND_FRICTIONLOSS), armature='1e-5', limited='true',
+                          range=_fmt([math.radians(v) for v in FLAP_BEND_RANGE_DEG]))
+        mass = FLAP_MASS_KG * length / FLAP_HEIGHT_M
+        ET.SubElement(body, 'inertial', pos=_fmt((0.0, 0.0, length / 2.0)), mass=f'{mass:.6g}',
+                      diaginertia=_fmt((mass / 12.0 * (flap_width ** 2 + length ** 2),
+                                        mass / 12.0 * (FLAP_THICKNESS_M ** 2 + length ** 2),
+                                        mass / 12.0 * (FLAP_THICKNESS_M ** 2 + flap_width ** 2))))
+        ET.SubElement(body, 'geom', name='flap' if i == 0 else f'flap_{i}', type='box', pos=_fmt((0.0, 0.0, length / 2.0)),
+                      size=_fmt((FLAP_THICKNESS_M / 2.0, flap_width / 2.0, length / 2.0)), material='scene_flap',
+                      contype='1', conaffinity='1', condim='4', friction=f'{FLAP_FRICTION} {FLAP_TORSION_M} 0.0001',
+                      priority='1', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
+        # MuJoCo skips parent-child pairs only; panels further down the chain (and the box) would collide once bent.
+        for other in ['box'] + chain[:-1]:
+            ET.SubElement(contact, 'exclude', body1=other, body2=name)
+        chain.append(name)
+        parent = body
     ET.SubElement(box, 'site', name='box_centre', pos='0 0 0', size='0.003', group='4', rgba='0 0 1 0')
-    ET.SubElement(box, 'site', name='box_flap_top', size='0.003', group='4', rgba='0 0 1 0',
-                  pos=_fmt((depth / 2.0 - FLAP_THICKNESS_M / 2.0, 0.0, height / 2.0 + FLAP_HEIGHT_M)))
+    ET.SubElement(parent, 'site', name='box_flap_top', size='0.003', group='4', rgba='0 0 1 0',
+                  pos=_fmt((0.0, 0.0, FLAP_SEGMENTS_M[-1])))
 
     # Lamp behind the box: emissive sphere on a stand plus a strong directional light pointing at the robot.
     if lamp:
@@ -262,8 +321,9 @@ def colour_arms(model):
 def robot_frame_of_box(model, data):
     """Where the box is, in the robot frame, from the current ``data`` (run mj_forward/mj_step first).
 
-    Returns {'forward_m', 'left_m', 'up_m' (box centre), 'top_m' (height of the top face), 'flap_top_m',
-    'near_face_forward_m', 'yaw_deg', 'size_m': [depth, width, height], 'frame'}.
+    Returns {'forward_m', 'left_m', 'up_m' (box centre), 'top_m' (height of the top face), 'flap_top_m' (height of
+    the flap's free edge), 'flap_angle_deg' (0 = vertical/open, 90 = folded flat onto the top; None without a hinged
+    flap), 'near_face_forward_m', 'yaw_deg', 'size_m': [depth, width, height], 'frame'}.
     """
     import mujoco
     bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'box')
@@ -281,8 +341,18 @@ def robot_frame_of_box(model, data):
     flap_top = float(model_to_robot(data.site_xpos[sid])[2]) if sid >= 0 else None
     near_face = float(centre[0] - half[0] * abs(math.cos(math.radians(yaw))) - half[1] * abs(math.sin(math.radians(yaw))))
     return {'forward_m': float(centre[0]), 'left_m': float(centre[1]), 'up_m': float(centre[2]),
-            'top_m': float(top), 'flap_top_m': flap_top, 'near_face_forward_m': near_face, 'yaw_deg': float(yaw),
+            'top_m': float(top), 'flap_top_m': flap_top, 'flap_angle_deg': flap_angle_deg(model, data),
+            'near_face_forward_m': near_face, 'yaw_deg': float(yaw),
             'size_m': [float(2 * v) for v in half], 'frame': twin.FRAME}
+
+
+def flap_angle_deg(model, data):
+    """The flap hinge angle in degrees (0 = vertical, + = folded inward, 90 = flat on the top), or None."""
+    import mujoco
+    jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, 'flap_hinge')
+    if jid < 0:
+        return None
+    return float(math.degrees(data.qpos[model.jnt_qposadr[jid]]))
 
 
 def camera_pose_from_model(model, data, name='oak'):

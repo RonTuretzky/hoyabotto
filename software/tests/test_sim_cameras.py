@@ -88,7 +88,10 @@ def test_scene_builds_with_table_box_lamp_and_cameras(world):
     assert abs(box['left_m'] - 0.21) <= box_scene.BOX_JITTER_M + 1e-6
     assert abs(box['yaw_deg']) <= box_scene.BOX_JITTER_DEG + 1e-6
     assert box['top_m'] == pytest.approx(0.81, abs=0.002)
-    assert box['flap_top_m'] == pytest.approx(0.83, abs=0.002)
+    # the open flap: 7 cm on a hinge along the near top edge, leaning 8 deg outward
+    assert box['flap_angle_deg'] == pytest.approx(box_scene.FLAP_OPEN_DEG, abs=0.01)
+    assert box['flap_top_m'] == pytest.approx(0.81 + 0.07 * math.cos(math.radians(8.0)), abs=0.002)
+    assert mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, 'flap_hinge') >= 0
     assert box['up_m'] == pytest.approx(0.755, abs=0.002)
     # the box mass and friction are what was asked for
     bid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, 'box')

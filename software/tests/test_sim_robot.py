@@ -1,5 +1,6 @@
 """SimRobot: the simulated XLeRobot behind the pilot chat server's tool API (MuJoCo; skipped without it)."""
 import json
+import math
 import time
 
 import pytest
@@ -13,6 +14,7 @@ ARM = ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll'
 LEFT = [f'left_arm_{j}' for j in ARM]
 BOX_SIZE = (0.20, 0.15, 0.11)   # the scene builder's default box
 GRASP_PITCH_DEG = -60.0
+PINCH_DEPTH_M = 0.015           # the claw tip goes this far below the flap's free edge: the pads hold the top strip
 
 
 @pytest.fixture
@@ -31,30 +33,58 @@ def enable_left(r):
     return ok(r.call('robot_set_motor_enable', {'names': LEFT, 'enabled': True}))
 
 
-def reach(r, forward, left, up, pitch):
+def solve(r, forward, left, up, pitch, current=None):
     from farm.kinematics.so101_reach import solve_reach
-    sol = solve_reach('left', {'forward_m': forward, 'left_m': left, 'up_m': up}, r.positions(), r.ranges(), pitch_deg=pitch)
+    return solve_reach('left', {'forward_m': forward, 'left_m': left, 'up_m': up}, current or r.positions(), r.ranges(), pitch_deg=pitch)
+
+
+def reach(r, forward, left, up, pitch, current=None):
+    sol = solve(r, forward, left, up, pitch, current)
     assert sol['ok'], sol['reason']
     return sol['ticks']
 
 
+def reach_at_most(r, forward, left, up, pitch):
+    """Ticks for the highest reachable point at or below ``up`` (1 cm steps): high targets at steep pitch run out of wrist."""
+    for k in range(10):
+        sol = solve(r, forward, left, up - 0.01 * k, pitch)
+        if sol['ok']:
+            return sol['ticks']
+    raise AssertionError(sol['reason'])
+
+
 def box_frame(r):
-    """near face forward, left, top height of the box from its centre pose and the default size."""
-    b = r.box_pose()
-    return b['forward_m'] - BOX_SIZE[0] / 2, b['left_m'], b['up_m'] + BOX_SIZE[2] / 2
+    """(near face forward, left, top height, flap edge height) of the box from the scene."""
+    from farm.sim import box_scene
+    with r.lock:
+        b = box_scene.robot_frame_of_box(r.model, r.data)
+    return b['near_face_forward_m'], b['left_m'], b['top_m'], b['flap_top_m']
 
 
-def grasp(r, frame=None):
-    """Scripted grasp from the validated recipe: pregrasp above the near top edge, lower so the fixed jaw sits just in
-    front of the flap and the moving jaw closes onto the box's near top edge, then close. Returns the close result."""
-    near, left, top = frame or box_frame(r)
+def grasp(r, frame=None, depth=PINCH_DEPTH_M):
+    """Scripted flap pinch: open above the flap edge at pitch -60, lower so the edge sits between the pads (claw tip
+    ``depth`` below the edge, 5 mm in front of the near face), then close to 1400. Returns the close result."""
+    near, left, top, edge = frame or box_frame(r)
     enable_left(r)
-    pre = reach(r, near - 0.005, left, top + 0.07, GRASP_PITCH_DEG)
+    pre = reach_at_most(r, near - 0.015, left, edge + 0.04, GRASP_PITCH_DEG)
     pre['left_arm_gripper'] = 2500
     assert ok(r.call('robot_move_joint_targets', {'arm': 'left', 'positions': pre, 'duration_s': 8}))['completed'] is True
-    low = reach(r, near - 0.005, left, top, GRASP_PITCH_DEG)
+    low = reach(r, near - 0.005, left, edge - depth, GRASP_PITCH_DEG)
     assert ok(r.call('robot_move_joint_targets', {'arm': 'left', 'positions': low, 'duration_s': 6}))['completed'] is True
     return ok(r.call('robot_set_gripper', {'arm': 'left', 'position_ticks': 1400, 'duration_s': 5}))
+
+
+def fold_path(r, near, left, top, radius=0.06, start_deg=-10.0, end_deg=95.0, steps=8):
+    """Waypoints that carry a pinched edge on a quarter circle about the hinge (the near top edge) from vertical to
+    flat on the top, the pitch easing from -60 to -40 (the steepest this arm reaches out there)."""
+    waypoints, current = [], r.positions()
+    for i in range(1, steps + 1):
+        a = i / steps
+        angle = math.radians(start_deg + (end_deg - start_deg) * a)
+        ticks = reach(r, near + radius * math.sin(angle), left, top + radius * math.cos(angle), GRASP_PITCH_DEG + 20 * a, current)
+        current = {**current, **ticks}
+        waypoints.append(ticks)
+    return waypoints
 
 
 # ---------------------------------------------------------------- catalog and state shapes
@@ -205,31 +235,67 @@ def test_gripper_closing_on_nothing_reaches_target(robot):
     assert bad['ok'] is False and bad['result']['error'].startswith('Gripper target out of bounds: left_arm_gripper=1300; valid inclusive range [1313, 2781]')
 
 
-def test_gripper_closing_on_the_box_reports_contact(robot):
-    res = grasp(robot)
-    assert res['completed'] is False and res['closure_outcome'] == 'contact_halt' and res['holding'] is True
-    assert res['gripper_result']['holding'] is True and res['sequence_phase'] == 'stopped_short'
-    assert res['readbacks']['left_arm_gripper'] > 1420   # stopped on the box, not at the closed stop
+def test_flap_stands_open_on_its_hinge(robot):
+    near, left, top, edge = box_frame(robot)
     score = robot.score()
-    assert score['gripper_closed_on_box'] is True and score['faults'] == 0 and score['box_held_now'] is False
+    assert score['flap_angle_deg'] == pytest.approx(-8.0, abs=0.2) and score['flap_folded'] is False
+    assert score['flap_pinched_now'] is False
+    assert edge == pytest.approx(top + 0.07 * math.cos(math.radians(8)), abs=0.002)
+    time.sleep(1.0)   # idle physics at 1x: the flap stays where it is
+    assert robot.score()['flap_angle_deg'] == pytest.approx(-8.0, abs=0.2)
 
 
-def test_scripted_grasp_and_lift_scores_held(robot):
+def test_gripper_closing_on_the_flap_reports_a_pinch(robot):
+    res = grasp(robot)
+    # the 3.5 mm flap stops the jaws ~30 ticks short of their 1400 meeting point: settled_short or contact_halt
+    # (holding) when they stop >= 40 ticks behind the goal; either way the pinch verdict's evidence is there
+    assert res['closure_outcome'] in ('contact_halt', 'settled_short', 'endpoint_settled'), res
+    assert 1420 <= res['readbacks']['left_arm_gripper'] <= 1480
+    score = robot.score()
+    assert score['flap_pinched_now'] is True and score['gripper_closed_on_box'] is True
+    assert score['faults'] == 0 and score['box_held_now'] is False and score['flap_folded'] is False
+    assert -30 < score['flap_angle_deg'] < 0   # the pads turned the flap a little toward themselves, not folded it
+    load = ok(robot.call('robot_get_state', {}))
+    row = next(m for m in load['motors'] if m['name'] == 'left_arm_gripper')
+    assert abs(row['Present_Load']) >= 60   # sustained squeeze: what the pilot's PINCH LIKELY verdict reads
+
+
+def test_scripted_pinch_and_slow_lift_keeps_the_box_held(robot):
     t0 = time.monotonic()
-    near, left, top = box_frame(robot)
-    res = grasp(robot, (near, left, top))
-    assert res['closure_outcome'] == 'contact_halt'
-    # Up 8 cm and 3 cm back toward the robot (keeps the wrist inside the arm's reach at this pitch); the box pivots on its
-    # far edge while the near edge is held, so its centre rises about half the lift.
-    up = reach(robot, near - 0.035, left, top + 0.08, GRASP_PITCH_DEG)
-    lifted = ok(robot.call('robot_move_joint_targets', {'arm': 'left', 'positions': up, 'duration_s': 8}))
+    near, left, top, edge = box_frame(robot)
+    res = grasp(robot, (near, left, top, edge))
+    assert robot.score()['flap_pinched_now'] is True, res
+    # Up 10 cm and 3 cm back toward the robot, slowly, easing the pitch to -45 (pitch -60 tops out near 90 cm here).
+    # The box hangs from its flap and pivots on its far bottom edge, so its centre rises about half the lift.
+    up = reach_at_most(robot, near - 0.035, left, edge - PINCH_DEPTH_M + 0.10, -45)
+    lifted = ok(robot.call('robot_move_joint_targets', {'arm': 'left', 'positions': up, 'duration_s': 12}))
     assert lifted['completed'] is True
+    for _ in range(3):   # hold for a while: a pinched flap must not creep out of the pads
+        time.sleep(0.5)
     score = robot.score()
     assert score['box_lifted_m'] >= 0.03 and score['gripper_closed_on_box'] is True and score['box_held_now'] is True
+    assert score['flap_pinched_now'] is True and score['flap_angle_deg'] < -20   # the box hangs off the hinge
     assert score['faults'] == 0 and score['moves'] == 3 and score['gripper_closes'] == 1 and score['calls'] >= 5
-    assert score['sim_time_s'] > 20 and time.monotonic() - t0 < 30
+    assert score['sim_time_s'] > 20 and time.monotonic() - t0 < 40
     snap = robot.snapshot()
     assert set(snap['positions']) == set(robot.calibration) and snap['box']['up_m'] > 0.78
+
+
+def test_scripted_fold_lays_the_flap_on_the_top(robot):
+    near, left, top, edge = box_frame(robot)
+    grasp(robot, (near, left, top, edge))
+    assert robot.score()['flap_pinched_now'] is True
+    swept = ok(robot.call('robot_move_path', {'arm': 'left', 'waypoints': fold_path(robot, near, left, top), 'duration_s': 12}))
+    assert swept['completed'] is True
+    assert robot.score()['flap_angle_deg'] > 75 and robot.score()['flap_folded'] is False   # still in the jaws
+    ok(robot.call('robot_set_gripper', {'arm': 'left', 'position_ticks': 2200, 'duration_s': 2}))
+    tip = robot.claw_positions()['left_arm']
+    away = reach_at_most(robot, tip['forward_m'] - 0.03, left, tip['up_m'] + 0.06, -30)
+    ok(robot.call('robot_move_joint_targets', {'arm': 'left', 'positions': away, 'duration_s': 6}))
+    time.sleep(1.0)
+    score = robot.score()
+    assert score['flap_folded'] is True and score['flap_angle_deg'] >= 75 and score['flap_pinched_now'] is False
+    assert abs(score['box_lifted_m']) < 0.01 and score['box_moved_m'] < 0.06 and score['faults'] == 0
 
 
 def test_move_base_shifts_the_box(robot):

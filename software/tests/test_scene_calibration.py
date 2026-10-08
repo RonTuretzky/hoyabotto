@@ -105,7 +105,8 @@ def test_sim_table_plane_recovers_the_true_camera_pose_and_the_box_top(world, ca
     point = scene['query'][0]['point_m']
     assert point is not None and abs(point[2] - 0.81) < 0.02 and abs(point[2] - box['top_m']) < 0.02, (point, box)
     assert abs(point[0] - box['forward_m']) < 0.02 and abs(point[1] - box['left_m']) < 0.02
-    assert abs(scene['nearest']['top_m'] - box['top_m']) < 0.03
+    # the blob's top is the open flap's edge, or the box top when the 3.5 mm flap is too thin to resolve at this tilt
+    assert box['top_m'] - 0.03 < scene['nearest']['top_m'] < box['flap_top_m'] + 0.03
     assert scene['nearest']['top_above_table_m'] == pytest.approx(scene['nearest']['top_m'] - TABLE_TOP_M, abs=0.001)
     # the wrong pose had the top more than 5 cm off (as on 8 October)
     bad = ds.scene_points(depth, intrinsics, wrong, pixels=[pixel])['query'][0]['point_m']
@@ -196,7 +197,7 @@ def test_scene_tool_calibrates_on_the_table_plane_when_workspace_json_gives_the_
     point = result["query"][0]["point_m"]
     assert abs(point[2] - 0.81) < 0.02, point
     nearest = result["nearest"]
-    assert abs(nearest["top_m"] - box["top_m"]) < 0.03
+    assert box["top_m"] - 0.03 < nearest["top_m"] < box["flap_top_m"] + 0.03   # box top or the open flap's edge
     assert nearest["top_above_table_m"] == pytest.approx(nearest["top_m"] - 0.7, abs=0.001)
     assert "height_above_table_m" in nearest
     assert result["note"].startswith("robot-frame positions use the head-camera pose self-calibrated on the table plane")
