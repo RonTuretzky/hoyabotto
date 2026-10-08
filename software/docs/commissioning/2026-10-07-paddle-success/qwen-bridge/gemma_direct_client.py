@@ -306,6 +306,14 @@ class DirectJointClient:
                                     'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':False,'owner_status_time':current['time'],
                                     'reason':'Joint came to rest short of its target after bounded goal corrections; motors are holding at the measured position. Re-plan from fresh readbacks or STOP.',
                                     'motor_writes':'canonical owner only','mode':'direct_joint'}
+                            if current.get('execution_profile')=='paddle-success-v1' and current.get('closure_outcome')=='stationary_closure_unverified' and all(n.endswith('gripper') for n in final):
+                                # The jaws stopped on something before the target (a possible grasp): holding, not a failure.
+                                # It cannot have closed past its target.
+                                if any(q<final[n]-96 for n,q in measured.items()):raise RuntimeError('Pickup closure went past its target; contradicts measured endpoint')
+                                return {'accepted':True,'completed':False,'endpoint_reached':False,'closure_outcome':'stationary_closure_unverified','holding':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
+                                    'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':False,'owner_status_time':current['time'],
+                                    'reason':'The jaws stopped on something before the target and are holding there (possible grasp, not verified). Check the wrist camera.',
+                                    'motor_writes':'canonical owner only','mode':'direct_joint'}
                             if current.get('execution_profile')=='paddle-success-v1':
                                 for n,q in measured.items():
                                     tolerance=30 if n.endswith('gripper') else 57
