@@ -1,3 +1,15 @@
+## Misleading "Owner telemetry stale"; refusal pause removed — 8 October 2026, 12:12–12:25
+
+- At 12:12:36 a left gripper closure faulted with "Pickup closure did not become stationary" (the guard is unchanged).
+  The owner's 2 s soft release did not update status.json, so the waiting client reported "Owner telemetry stale"
+  instead of the real reason, and the chat then sent STOP. The owner now writes status at each ramp step
+  (`releasing: true`). Deployed with a released restart at 12:22 (16 motors, no missing bus).
+- Chat (chat Mac, not in git): the pause after 3 refusals in a row is removed. Every refusal goes back to the model,
+  an identical refused request is still never resent, and the 60-step budget per message still applies. The pilot
+  prompt now says to enable all six joints of an arm in the pickup profile, and to re-enable after any STOP or fault.
+- Retired robot tools: robot_move_head, robot_get_readiness, robot_get_keyframes, robot_get_skills, robot_get_evidence.
+  robot_move_motor_targets is hidden from the pilot (the tag mover still uses it). The pilot sees 26 tools.
+
 ## Tag software deployed (right-arm planner, binding, mover, paddle target) — 7 October 2026, 20:42
 
 Merged tags/right-arm-config, tags/binding-robustness, tags/paddle-target and tags/mover-contract into main
