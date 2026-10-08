@@ -16,5 +16,10 @@ assert calls==[2267,2033,1800] and r['completed'] and len(r['closure_parts'])==3
 calls.clear();space['DIRECT_CLIENT'].short_at=2100;r=space['set_gripper']('right',1800,3)
 assert calls==[2267,2033] and not r['completed'],calls   # stops at the first closure that met something
 calls.clear();space['DIRECT_CLIENT'].short_at=None;space['set_gripper']('right',2300,3);assert calls==[2300]  # short closure: one command
-calls.clear();space['set_gripper']('right',2700,3);assert calls==[2700]  # opening: one command
+calls.clear();space['set_gripper']('right',2700,3);assert calls==[2700]  # short opening: one command
+calls.clear();space['set_gripper']('right',2785,3)  # 285 from 2500: one command
+assert calls==[2785]
+space['DIRECT_CLIENT'].status=lambda:{'execution_profile':'paddle-success-v1','rows':{'right_arm_gripper':{'Present_Position':1294}}}
+calls.clear();r=space['set_gripper']('right',2785,3)  # long opening (12:5x refusal): <=300-tick pieces
+assert calls==[1592,1890,2189,2487,2785] and r['completed'],calls
 print('Gripper chunks: long closure split into <=300-tick pieces, stops at the first short piece')

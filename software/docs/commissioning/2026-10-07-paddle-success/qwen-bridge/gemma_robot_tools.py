@@ -126,15 +126,15 @@ GRIPPER_CLOSE_CHUNK = 300  # pickup closures run 10 ticks per 1.5 s; one command
 
 
 def set_gripper(arm, position, duration_s):
-    """Gripper target. Under the pickup profile a long closure runs as consecutive <=300-tick closures, stopping at
-    the first that does not complete (e.g. the jaws met the paddle)."""
+    """Gripper target. Under the pickup profile a long move (closing or opening; the owner takes at most 341 ticks
+    per step) runs as consecutive <=300-tick moves, stopping at the first that does not complete (e.g. jaws met the paddle)."""
     name = arm + '_arm_gripper'
     state = DIRECT_CLIENT.status()
     current = (state.get('rows', {}).get(name) or {}).get('Present_Position')
-    if state.get('execution_profile') != 'paddle-success-v1' or type(current) is not int or current - position <= GRIPPER_CLOSE_CHUNK:
+    if state.get('execution_profile') != 'paddle-success-v1' or type(current) is not int or abs(current - position) <= GRIPPER_CLOSE_CHUNK:
         return DIRECT_CLIENT.set_gripper(arm, position, duration_s)
     generation = DIRECT_CLIENT.cancel_generation
-    pieces = -(-(current - position) // GRIPPER_CLOSE_CHUNK)
+    pieces = -(-abs(current - position) // GRIPPER_CLOSE_CHUNK)
     parts = []
     for i in range(1, pieces + 1):
         if DIRECT_CLIENT.cancel_generation != generation:
