@@ -3,6 +3,15 @@
 URDF and analytical zeros are separate registrations. Saved range endpoints or
 a convenient rest pose do not establish either. Loading this record performs
 no motor I/O and does not commission collision/contact or station coordinates.
+
+``model_sha256`` pins a record to the exact bytes of farm/vendor/so101_kinematics.py,
+so a record is only valid for the kinematic convention it was measured against.
+That file changed on 2026-10-08: the vendored IK had been altered to round-trip
+with upstream's broken FK (forearm term theta1 + theta2 - pi), which put the elbow
+30-70 deg away from the real arm; upstream's IK is now restored verbatim and the FK
+forearm term is theta1 - theta2 (matches the MuJoCo twin to 0.1 mm). Any reference
+record made before that fix fails this check on purpose: its ``reference_degrees``
+were declared in the wrong elbow convention and must be re-measured, not re-hashed.
 """
 import hashlib
 import json
