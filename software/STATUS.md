@@ -1,3 +1,29 @@
+## Original Joy-Con adapter installed inactive on Neooooo — 8 October 2026
+
+- User approved installation with motors disabled. Exact adapter revision
+  `04dd3ae8b04dfcb4e1d9107b4db20f1d451b5334` is installed separately at
+  `/Users/teachera/Documents/Codex/2026-10-05/m/work/joycon-adapter/04dd3ae`.
+  It has not been loaded into the live owner/API, and no motion test was authorized.
+- Remote installation verification: all 833 tracked blobs match the commit;
+  `software/tools/mac-joycon-reader/MOTOR_CONTROL_DISABLED` existed before checks;
+  the launcher and bridge both reject `--connect-robot` with exit 2. Syntax and
+  the installation-lock test passed; `installation.json` records the installation.
+- Remote before/after report: owner PID 35073 and API PID 35541 unchanged,
+  motor writes 0 to 0, all 16 torque bits zero, no enabled motors or active lease.
+  Independent pinned-mTLS readback afterward also reported all 16 released,
+  no enabled motors, and 0.0065 s read age. These are installation-time readings.
+- Original upstream control/IK methods remain vendored and source-tested. The
+  macOS adapter translates controller input to those methods and routes physical
+  output through the existing sole owner. Local verification: 46-test suite,
+  then nine focused hardware-adapter tests including the newly added launch lock;
+  24 owner test files passed after integrating newer main-branch robot fixes.
+- Live checkout/deployed service/configuration/calibration were not changed by
+  this installation. Another task advanced the live checkout to `056031f…`
+  during installation; reconcile its current fixes before any future activation.
+- Remaining: measured joint zero/directions and gripper endpoints for the pinned
+  upstream model, real controller checks, and separately authorized physical
+  validation. No physical parity or carton-task completion is claimed.
+
 ## Misleading "Owner telemetry stale"; refusal pause removed — 8 October 2026, 12:12–12:25
 
 - At 12:12:36 a left gripper closure faulted with "Pickup closure did not become stationary" (the guard is unchanged).

@@ -203,6 +203,12 @@ are intentionally unchanged; this is **not** a promise of the simulator's speed
 or unmodified upstream hardware performance. Loosening physical limits requires
 separate commissioning, not a change to this adapter.
 
+The inactive copy installed on Neooooo on 8 October is revision `04dd3ae`, at
+`/Users/teachera/Documents/Codex/2026-10-05/m/work/joycon-adapter/04dd3ae`.
+Its 833 tracked files were hash-verified; both connection entry points refused
+under the installation lock. The live robot service was not replaced or restarted.
+See `software/STATUS.md` for the installation-time readback and remaining work.
+
 ### What blocks actual hardware use
 
 - The user approved installation with motors disabled. The approved deployment is
