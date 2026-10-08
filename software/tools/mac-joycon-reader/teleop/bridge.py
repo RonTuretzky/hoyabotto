@@ -58,7 +58,7 @@ class Bridge:
         self.worker=threading.Thread(target=self.run,daemon=True);self.worker.start()
     def start_reader(self):
         command=([sys.executable,str(Path(__file__).with_name('hid_reader.py'))] if self.input_backend=='hid' else [str(self.reader)])
-        self.proc=subprocess.Popen(command+['--json','--hz','30','--deadzone','0.12'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1)
+        self.proc=subprocess.Popen(command+['--json','--hz',str(getattr(self.mapping,'reader_hz',30)),'--deadzone','0.12'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1)
         self.reader_thread=threading.Thread(target=self.read_frames,daemon=True);self.reader_thread.start()
     def stop_reader(self):
         if self.proc:
@@ -125,6 +125,7 @@ class Bridge:
                 if not self.robot.simulation:raise ValueError('Reader selection is simulation-only')
                 if self.armed or self.busy or self.release_pending:raise ValueError('Stop practice before switching input')
                 if b.get('backend') not in ('apple','hid'):raise ValueError('Unknown reader')
+                if getattr(self.mapping,'mode',None)=='upstream' and b['backend']!='hid':raise ValueError('Original controls require the Mac HID reader')
                 self.busy=True
             try:
                 self.stop_reader()
@@ -150,7 +151,7 @@ class Bridge:
                 self.mapping.reference_frame=b['frame'];self.mapping.reset();return
             if op=='gyro':
                 if self.armed:raise ValueError('Stop practice before changing gyro mode')
-                if getattr(self.mapping,'mode',None)!='cartesian':raise ValueError('Hand-space mode required')
+                if getattr(self.mapping,'mode',None) not in ('cartesian','upstream'):raise ValueError('Hand-space mode required')
                 if b.get('enabled') is True and not self.valid().get('gyro_available'):raise ValueError('Both independent calibrated gyro streams required')
                 self.mapping.gyro_enabled=b.get('enabled') is True;self.mapping.reset();return
             if op=='layer':
@@ -163,10 +164,11 @@ class Bridge:
             if op=='practice' and not self.robot.simulation:raise ValueError('Practice requires the local simulator')
             d=self.valid()
             if self.armed:raise ValueError('Already armed')
-            if not d['ready'] or not d['neutral']:raise ValueError('Test both hold-to-run buttons, release all buttons, and center sticks before arming')
+            if not d['ready'] or not d['neutral']:
+                raise ValueError('Set both Joy-Cons down to calibrate, release all buttons, and center sticks' if getattr(self.mapping,'mode',None)=='upstream' else 'Test both hold-to-run buttons, release all buttons, and center sticks before arming')
             scope=b.get('scope')
             if scope not in ('left','right','both','head','drive','wholebody'):raise ValueError('Unknown scope')
-            if scope=='wholebody' and (not self.robot.simulation or getattr(self.mapping,'mode',None)!='cartesian'):raise ValueError('Whole-body control requires local Cartesian simulation')
+            if scope=='wholebody' and (not self.robot.simulation or getattr(self.mapping,'mode',None) not in ('cartesian','upstream')):raise ValueError('Whole-body control requires local hand-space simulation')
             if hasattr(self.mapping,'reset'):self.mapping.reset()
             self.busy=True;generation=self.generation;self.scope=scope;self.identity=d['identity'];self.reason='Starting local practice…' if self.robot.simulation else 'Arming at measured positions…'
         try:
@@ -223,7 +225,7 @@ class Bridge:
                 except Exception as e:
                     with self.lock:self.robot_state={'error':str(e)}
                 last_status=time.monotonic()
-            time.sleep(max(.005,.06-(time.monotonic()-started)))
+            time.sleep(max(.001,getattr(self.mapping,'interval',.06)-(time.monotonic()-started)))
     def close(self):
         self.closing=True;self.release('Teleop closed')
         self.stop_reader()
@@ -235,7 +237,7 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     ap.add_argument('--simulator',choices=('registers','mujoco'),default='registers',help='Local simulator backend')
     ap.add_argument('--model',type=Path,help='Optional XLeRobot MuJoCo model XML')
-    ap.add_argument('--control-mode',choices=('joint','cartesian'),default='joint')
+    ap.add_argument('--control-mode',choices=('joint','cartesian','upstream'),default='joint')
     ap.add_argument('--input-backend',choices=('apple','hid','auto'),default='apple')
     ap.add_argument('--connect-robot',action='store_true',help='Explicitly connect to the robot. Default is a local input preview with no network access.')
     ap.add_argument('--config',default=os.environ.get('XLEROBOT_ADMIN_CONFIG',DEFAULT_CONFIG))
@@ -243,19 +245,23 @@ def main():
     ap.add_argument('--no-browser',action='store_true');ap.add_argument('--port',type=int,default=0)
     a=ap.parse_args()
     if a.connect_robot and a.simulator=='mujoco':ap.error('MuJoCo practice cannot be combined with a robot connection')
-    if a.control_mode=='cartesian' and (a.simulator!='mujoco' or a.connect_robot):ap.error('Cartesian control requires local MuJoCo simulation')
+    if a.control_mode in ('cartesian','upstream') and (a.simulator!='mujoco' or a.connect_robot):ap.error('Hand-space control requires local MuJoCo simulation')
+    if a.control_mode=='upstream' and a.input_backend=='apple':ap.error('Original controls require --input-backend hid (or auto)')
     if a.connect_robot and a.input_backend!='apple':ap.error('HID input is currently simulation-only')
     if a.connect_robot:robot=Robot(a.config)
+    elif a.control_mode=='upstream':
+        from upstream_simulator import UpstreamSimulator
+        robot=UpstreamSimulator(a.model)
     elif a.simulator=='mujoco':
         from mujoco_simulator import MujocoRobot
         robot=MujocoRobot(a.model)
     else:
         from simulator import SimulatedRobot
         robot=SimulatedRobot()
-    mapping=None
+    mapping=robot.make_mapping() if a.control_mode=='upstream' else None
     if a.control_mode=='cartesian':
         mapping=robot.make_cartesian_mapping();mapping.feedback=robot.controller_feedback
-    backend=a.input_backend
+    backend='hid' if a.control_mode=='upstream' else a.input_backend
     if backend=='auto':
         try:
             import hid

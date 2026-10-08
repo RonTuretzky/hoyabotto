@@ -8,9 +8,9 @@ pilot while controller inputs are being checked.
 
 ## Whole-body simulator controls
 
-Double-click `run-simulator.command` for coordinated hand-space movement,
-dedicated gripper/head/base controls and optional independent HID gyro input.
-Read [the practice guide](teleop/README.md#hand-space-and-whole-body-practice)
+Double-click `run-simulator.command` to use the original Windows Joy-Con movement
+code and XLeRobot IK through the Mac HID reader, with local MuJoCo output.
+Read [the practice guide](teleop/README.md#original-controls-in-the-local-simulator)
 for the mappings and current verification limits. This mode only controls MuJoCo.
 
 ## Run on the Mac paired with the Joy-Cons

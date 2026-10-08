@@ -1,0 +1,3 @@
+# Preserve upstream source whitespace in snapshots and verbatim extracts.
+sources/*.txt -text whitespace=-blank-at-eol,-blank-at-eof,-cr-at-eol
+*.py whitespace=-blank-at-eol,-blank-at-eof

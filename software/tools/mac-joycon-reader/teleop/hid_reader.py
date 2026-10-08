@@ -43,7 +43,7 @@ def quaternion_product(a,b):
 
 class Sensor:
     """Each controller has its own calibration, bias and orientation state."""
-    def __init__(self,raw):
+    def __init__(self,raw,side="right"):
         if len(raw)!=24 or raw==b'\xff'*24:raise ValueError('Missing IMU calibration')
         values=struct.unpack('<12h',raw)
         self.accel_scale=[4/(values[i+3]-values[i]) for i in range(3)]
@@ -53,11 +53,13 @@ class Sensor:
         self.gyro=[0.,0.,0.];self.accel=[0.,0.,0.];self.bias=[0.,0.,0.]
         self.raw=[0]*6;self.angular=[0.,0.,0.];self.calibration_status='waiting_for_samples'
         self.session=uuid.uuid4().hex
+        self.side=side;self.attitude=None;self.attitude_samples=0
 
     def reset(self,status='waiting_for_samples'):
         self.ready=False;self.samples.clear();self.accel_samples.clear()
         self.quaternion=[1.,0.,0.,0.];self.gyro=[0.,0.,0.];self.bias=[0.,0.,0.]
         self.calibration_status=status;self.session=uuid.uuid4().hex
+        self.attitude=None;self.attitude_samples=0
 
     def update(self,raw):
         vals=struct.unpack('<6h',raw)
@@ -90,6 +92,18 @@ class Sensor:
                 self.bias=[sum(s[i] for s in self.samples)/200 for i in range(3)];self.ready=True;self.calibration_status='ready'
             return
         self.gyro=[angular[i]-self.bias[i] for i in range(3)]
+        # Feed the actual Windows estimator at its declared 100 Hz timestep.
+        # Nintendo packets contain three 5 ms samples. Normalize the mirrored
+        # left sensor axes exactly as the upstream Joy-Con wrapper does.
+        if self.attitude is None:
+            from vendor.windows_attitude import JoyConHIDAPIReader
+            self.attitude=JoyConHIDAPIReader()
+        self.attitude_samples+=1
+        if self.attitude_samples%2==0:
+            signs=(1,-1,-1) if self.side=='left' else (1,1,1)
+            self.attitude.accel[:]=[v*sign for v,sign in zip(self.accel,signs)]
+            self.attitude.gyro[:]=[v*sign for v,sign in zip(self.gyro,signs)]
+            self.attitude._update_attitude()
         # Relative clutch orientation avoids an absolute yaw promise; Home reanchors.
         rate=math.sqrt(sum(v*v for v in self.gyro));angle=rate*.005
         if rate>1e-6:
@@ -113,7 +127,7 @@ class JoyCon:
             stick=user[2:] if user[:2]==b'\xb2\xa1' else self.spi(0x603d if self.side=='left' else 0x6046,9)
             self.cal=stick_calibration(stick,self.side)
             imu=self.spi(0x8026,26)
-            self.sensor=Sensor(imu[2:] if imu[:2]==b'\xb2\xa1' else self.spi(0x6020,24))
+            self.sensor=Sensor(imu[2:] if imu[:2]==b'\xb2\xa1' else self.spi(0x6020,24),self.side)
         except Exception:self.device.close();raise
 
     def subcommand(self,command,data):
@@ -182,12 +196,13 @@ class HIDReader:
         left,right=self.devices['left'],self.devices['right'];l,r=left.state,right.state
         values={'Left Shoulder':bool(l[5]&64),'Right Shoulder':bool(r[3]&64),'Left Trigger':bool(l[5]&128),'Right Trigger':bool(r[3]&128),
                 'Left Thumbstick Button':bool(l[4]&8),'Right Thumbstick Button':bool(r[4]&4),'Button Options':bool(l[4]&1),
-                'Button Menu':bool(r[4]&2),'Button Home':bool(r[4]&16),'Button A':bool(r[3]&8),'Button B':bool(r[3]&4),
+                'Button Capture':bool(l[4]&32),'Button Menu':bool(r[4]&2),'Button Home':bool(r[4]&16),'Button A':bool(r[3]&8),'Button B':bool(r[3]&4),
                 'Button X':bool(r[3]&2),'Button Y':bool(r[3]&1)}
         pads={'Left Thumbstick':normalize_stick(unpack_stick(l[6:9]),left.cal,self.deadzone),'Right Thumbstick':normalize_stick(unpack_stick(r[9:12]),right.cal,self.deadzone)}
         dx=float(bool(l[5]&4))-float(bool(l[5]&8));dy=float(bool(l[5]&2))-float(bool(l[5]&1))
         pads['Direction Pad']={a:dict(raw=v,filtered=v) for a,v in (('x',dx),('y',dy))}
         motion={side:dict(ready=d.sensor.ready,age_s=max(0,time.monotonic()-d.last_received),quaternion=list(d.sensor.quaternion),rotation_rate=list(d.sensor.gyro),session=d.sensor.session,
+                         windows_attitude=({k:float(getattr(d.sensor.attitude,k)) for k in ('roll','pitch','yaw')} if d.sensor.attitude is not None and d.sensor.attitude_samples>=100 else None),
                          calibration=dict(status=d.sensor.calibration_status,samples=len(d.sensor.samples),required=200,acceleration_g=list(d.sensor.accel),angular_rate=list(d.sensor.angular),raw=list(d.sensor.raw))) for side,d in self.devices.items()}
         frame['controllers']=[dict(id=self.session,connected=True,role='pair',name='Original Joy-Con pair (raw HID)',remapped=False,input_event_count=left.sequence+right.sequence,
                                    buttons={n:dict(pressed=v,value=int(v),physical_names=[n]) for n,v in values.items()},pads=pads,independent_motion=motion)]

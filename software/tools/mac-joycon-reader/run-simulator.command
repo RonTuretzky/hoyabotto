@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-swift build -c release
 # Reuse the installed simulator environment; this launcher cannot select robot transport.
 sim_python="${JOYCON_SIM_PYTHON:-/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/.venv/bin/python}"
 if [[ ! -x "$sim_python" ]]; then
@@ -14,4 +13,4 @@ for argument in "$@"; do
     exit 2
   fi
 done
-exec "$sim_python" teleop/bridge.py --simulator mujoco --control-mode cartesian --input-backend auto "$@"
+exec "$sim_python" teleop/bridge.py --simulator mujoco --control-mode upstream --input-backend hid "$@"

@@ -66,7 +66,7 @@ def scene_xml(path):
 class MujocoBus(VirtualBus):
     engine = 'MuJoCo '+mujoco.__version__
     cartesian_capable = True
-    def __init__(self,model_path=None,*,render=True):
+    def __init__(self,model_path=None,*,render=True,forward_arms=False):
         super().__init__()
         path=Path(model_path or os.environ.get('XLEROBOT_MUJOCO_MODEL',DEFAULT_MODEL)).expanduser().resolve()
         if not path.is_file():raise FileNotFoundError(f'XLeRobot model missing: {path}. Set XLEROBOT_MUJOCO_MODEL to xlerobot.xml.')
@@ -90,6 +90,7 @@ class MujocoBus(VirtualBus):
         elbow=t2+math.atan2(.0052,.1349)+offset
         initial={'head_pan':0.,'head_tilt':0.}
         for side,rot in (('L',1.5708),('R',-1.5708)):
+            if forward_arms:rot=-rot
             initial.update({f'Rotation_{side}':rot,f'Pitch_{side}':pitch,f'Elbow_{side}':elbow,
                             f'Wrist_Pitch_{side}':pitch-elbow,f'Wrist_Roll_{side}':1.57,f'Jaw_{side}':-.25})
         self.hold={}
@@ -141,7 +142,7 @@ class MujocoBus(VirtualBus):
         self.sync_registers()
 
     def render_frame(self,force=False):
-        if not self.render_enabled or (not force and time.monotonic()-self.last_render<.08):return
+        if not self.render_enabled or (not force and time.monotonic()-self.last_render<getattr(self,"render_interval",.08)):return
         if self.renderer is None:
             self.renderer=mujoco.Renderer(self.model,height=640,width=960)
             self.camera=mujoco.MjvCamera();self.option=mujoco.MjvOption();self.option.geomgroup[3]=0

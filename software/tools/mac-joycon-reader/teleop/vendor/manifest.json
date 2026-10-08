@@ -1,0 +1,77 @@
+[
+  {
+    "repo": "joycon-robotics",
+    "sha": "3e37ebfdf1db88fe4ecaa7018ae9c8c49efcde0e",
+    "path": "hidapi_for_windows/joycon_hidapi_reader.py",
+    "output": "windows_attitude.py",
+    "source": "sources/windows_attitude.py.txt",
+    "sha256": "559742ec94fdbf0f26f2ee618df727779637357f565dd3985dd045f656517226",
+    "classes": {
+      "JoyConHIDAPIReader": [
+        "__init__",
+        "_update_attitude",
+        "get_state"
+      ]
+    },
+    "assignments": [],
+    "functions": []
+  },
+  {
+    "repo": "joycon-robotics",
+    "sha": "3e37ebfdf1db88fe4ecaa7018ae9c8c49efcde0e",
+    "path": "hidapi_for_windows/joyconrobotic_hidapi.py",
+    "output": "windows_controller.py",
+    "source": "sources/windows_controller.py.txt",
+    "sha256": "0c59ab1faa2542febe9bd8143ec8bb8b15ea08292826bd580784da6250119d47",
+    "classes": {
+      "JoyConController": null
+    },
+    "assignments": [],
+    "functions": []
+  },
+  {
+    "repo": "XLeRobot",
+    "sha": "b017b5e6354bd9f61f4247a920c72622ca0aade0",
+    "path": "software/examples/7_xlerobot_2wheels_teleop_joycon.py",
+    "output": "xlerobot_control.py",
+    "source": "sources/xlerobot_control.py.txt",
+    "sha256": "12f0160bc2c4dd32cda87c8519a1f58da9d7167e254e3c8ff365e57771887f51",
+    "classes": {
+      "SimpleTeleopArm": [
+        "__init__",
+        "handle_joycon_input",
+        "p_control_action"
+      ],
+      "SimpleHeadControl": [
+        "__init__",
+        "handle_joycon_input",
+        "p_control_action"
+      ]
+    },
+    "assignments": [
+      "LEFT_JOINT_MAP",
+      "RIGHT_JOINT_MAP",
+      "HEAD_MOTOR_MAP"
+    ],
+    "functions": [
+      "get_joycon_base_action"
+    ]
+  },
+  {
+    "repo": "XLeRobot",
+    "sha": "b017b5e6354bd9f61f4247a920c72622ca0aade0",
+    "path": "software/src/model/SO101Robot.py",
+    "output": "so101_kinematics.py",
+    "source": "sources/so101_kinematics.py.txt",
+    "sha256": "aa6a6e3ad71c9da29a4c54ee456252bbc98c62fa5bf174da901085fdcdc8b587",
+    "classes": {
+      "SO101Kinematics": [
+        "__init__",
+        "inverse_kinematics",
+        "forward_kinematics"
+      ]
+    },
+    "assignments": [],
+    "functions": []
+  }
+]
