@@ -25,7 +25,12 @@ no physical kinematic calibration or deployment is implied.
 | **Home**, centered controls, both L and R held | Bounded return of arm/head/gripper joints to this session's starting pose; release L/R or command a move to cancel |
 | **−**, Escape, Stop, input loss, page blur | End the local session |
 
-The UI displays live X/Y stick values and held button names for mapping checks.
+The main panel groups controller status, **Gyro mode**, and **Start practice**.
+**Stop** stays visible at the top. A short movement guide sits below Start;
+**All controls** expands the head, driving, return-to-start, and stop shortcuts.
+**More options** contains the reader and stick-direction settings. Its
+**Diagnostics** section displays live X/Y stick values, held button names, and
+virtual motor readbacks for mapping checks.
 The raw HID reader uses Nintendo's printed button labels. Verify the displayed
 button names when using Apple's controller profile; OS remapping is rejected.
 
@@ -42,14 +47,15 @@ limits. The solver is not a collision-free planner.
 
 The launcher selects the HID reader when both original Nintendo controllers
 are visible; otherwise it uses Apple GameController. While practice is stopped,
-use **Controller reader → Independent Joy-Cons + gyro** to try the raw backend.
+use **More options → Controller reader → Independent Joy-Cons + gyro** to try the raw backend.
 You can also run `run-simulator.command --input-backend hid`.
 
 The new reader uses `hidapi` and only opens Nintendo IDs 057e:2006/2007. It
 requests volatile 0x30 reports/IMU streaming, reads factory or user stick/IMU
 calibration from SPI, and integrates all three 5 ms IMU samples per packet.
 Each controller must remain still for 200 samples before its gyro is ready.
-Enable the gyro checkbox while stopped. Each L/R press anchors that controller's
+Enable **Gyro mode**, directly above Start, while stopped. The switch shows why
+it is unavailable and whether each sensor is ready. Each L/R press anchors that controller's
 relative wrist orientation; release/repress to reanchor. A stale/missing gyro
 or changed gyro session stops practice. Long-held yaw/orientation can drift;
 there is no external tracking or absolute heading reference.
