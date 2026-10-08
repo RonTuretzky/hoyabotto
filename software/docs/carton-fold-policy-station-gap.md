@@ -7,6 +7,13 @@ over a station shaped like the simulated one, or the simulation must be rebuilt 
 the policy retrained. This page quantifies the gap from saved evidence only (no camera or robot was
 accessed) and gives the plan and tools to close it.
 
+**Update, later the same day (section 7).** The owner made the XLeRobot model the source of truth.
+- The policy now uses only the robot's own cameras: head OAK `front`, `left_wrist`, `right_wrist`. `top` is dropped as an input.
+- Station: 220 mm base spacing. 318/320 demonstrations recorded.
+- Dataset: `both-shorts-220-v1`.
+
+Sections 1–6 describe the earlier two-camera (`top` + `front`) policy and the measurement plan, which still applies.
+
 **Bottom line.**
 - The robot has no camera that could serve as `top`; one has to be added.
 - The head camera (OAK-D Lite) can serve as `front`, but not with the stream settings it uses today.
@@ -286,6 +293,95 @@ changes nothing.
 - **Materials.** Crease stiffness and friction are assumptions (`docs/carton-real-station-measurements.md` §1).
 - **Real execution path.** None exists for this policy yet (`docs/carton-connected-mac.md` §6).
 
+## 7. The robot model as source of truth: 220 mm station, head and wrist cameras (2026-10-08)
+
+The owner chose the upstream XLeRobot MJCF
+(`/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/upstream/assets/robots/xlerobot/xlerobot.xml`)
+as the reference. `carton/xlerobot_cameras.py` copies its numbers; the tests recompute them from the
+file and agree to below 1e-6. The model-derived station file is `profiles/fold-station-xlerobot-220.json`
+(`"model_derived": true`). The policy cameras are now only what the robot has: `front` (head OAK),
+`left_wrist` and `right_wrist`. `top`/`overhead` stays in the scene but is not a policy input. The
+scripted demonstrator does not use it either: it registers through its own `station` camera.
+
+### Station
+
+| | value | source |
+|---|---|---|
+| base spacing | 220 mm (`Base`/`Base_2` at y = ∓0.11) | model |
+| base height above the carton support | 120 mm | simulation (kept) |
+| base line to table edge | 150 mm | simulation (kept) |
+| carton | near wall 10 mm from the edge, x −25…+5 mm, yaw ±4°, crease stiffness 0.012–0.030 N·m/rad | as batch-01 |
+
+**Caveat to check with a tape.** The model clocks its arm bases sideways: each shoulder-pan axis is 45 mm
+outboard of its `Base` origin, so the pan axes are **310 mm** apart. The simulation's SO101 bases face the
+table, and with their origins at ±0.11 the pan axes are 220 mm apart. Which one the real robot has is a
+physical question. The difference moves each shoulder by 45 mm.
+
+### Demonstrator fix at 220 mm (no in-flight file edited)
+
+- **Cause.** At 220 mm the scripted controller's `--park-back` start targets are fixed world points
+  (∓0.20, −0.18, 0.30) chosen for 300 mm. They put the left gripper in a posture whose housing tag (ID 4)
+  the controller's `station` camera cannot see, so startup registration failed (0/8).
+- **Fix.** `install()` now moves explicit start targets with the bases: the same pose relative to each
+  base, ∓0.16 at 220 mm. It does this by wrapping `FoldingSimulation.__init__` in the trial process. The
+  `station` camera and every stage are unchanged.
+- **Result.** 15/16 in the check (`/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-station-gap/check-220-a`,
+  seeds 3000–3015) and 318/320 in the full batch.
+
+### Policy cameras
+
+| key | mount | pose | field of view | basis |
+|---|---|---|---|---|
+| `front` | head `head_camera_link` | head pan 0, **tilt 58°** (`head_tilt_joint` = +1.012 rad, positive looks down). Arm-base frame (0.002, 0.051, 0.417) m, 0.537 m above the table, pitched 58° down. | 54° vertical / 68° horizontal at 4:3 | Model chain. OAK-D Lite colour spec for the full 4:3 sensor: the model has no `<camera>`. The real stream must be 4:3 full-sensor, undistorted, resized to 320×240. |
+| `left_wrist`, `right_wrist` | each SO101 `gripper_link` | lens at (3.5, 68.0, −13.8) mm, looking along −z (toward the jaw tips), image top away from the jaws | **90° vertical (assumption)** | Model `Left/Right_Arm_Camera` mesh, registered onto the SO101 gripper by ICP of the fixed jaw and its servo (1.7 mm RMS). No wrist intrinsics exist in the model or saved metadata. The claw tips sit about 40° off the optical axis, and the real right-wrist frame shows its claw, so the field must be wide. Calibrate the real wrist cameras and re-render (`tools/restage_fold_scenes.py --in-place`) if it differs. |
+
+**Head tilt choice** (`tools/choose_fold_head_tilt.py`, 1,684 samples from the 15 successful check demos,
+4 px margin):
+- Tilts 58–60° are best:
+  - 79% of the key points in frame on average;
+  - all eight flap free-edge corners in frame in 32% of samples;
+  - both claw tips in frame in 71%.
+- Lower tilts lose the near flap, higher ones the far flap.
+- What leaves the frame is lateral. The head is only 0.42 m above the bases and the OAK's horizontal field is 69°, so these sit just outside the image sides by up to about 12 px:
+  - the near flap's outer corner while it leans out;
+  - the claws while they work the shorts from outside;
+  - the claws at the parked start.
+- The wrist cameras cover their own claw at those moments.
+- No head tilt or pan fits the whole workspace from the model's head position.
+
+![Policy views at 220 mm](img/fold-policy-station-gap/policy-views-220.png)
+
+### Demonstrations and dataset
+
+**Recording:**
+- Output: `/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-demos/batch-220-01`.
+- Run: `tools/record_measured_fold_demos.py --measurement profiles/fold-station-xlerobot-220.json`, seeds 3000–3319, 5 workers, carton randomisation as batch-01.
+- **318/320 (99.4%) folded and held both shorts.** All 320 trial processes exited 0.
+- The two failures: seed 3000, the left-short press stalled; seed 3305, the controller ended early. batch-01 at 300 mm was 304/320.
+- The scenes were then restaged in place with the final camera file (`run/scene.recorded.xml` kept). Only the camera elements changed; the trajectories are untouched.
+
+**Dataset:** `/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-datasets/both-shorts-220-v1`
+- 287 episodes, 162,574 frames, 10 Hz, 9.5 GB on disk.
+- Images: `observation.images.front`, `.left_wrist`, `.right_wrist`, each 240×320×3.
+- State: 12 joints (left six, right six, radians).
+- Action: the next sample's commanded targets.
+- 31 trials with seed % 10 = 0 held out in `holdout.json`; 2 failures skipped.
+- Command:
+  ```sh
+  tools/fold_demos_to_lerobot.py --batches .../batch-220-01 --out .../both-shorts-220-v1 \
+    --cameras front=front left_wrist=left_wrist right_wrist=right_wrist
+  ```
+- Not trained yet.
+
+**Head tilt** on 40 recorded demos (4,381 samples, `img/fold-policy-station-gap/head-tilt-batch-220-01.json`):
+58° again scores best: 79% of key points in frame, all flap edges in 36% of samples, both claw tips in 71%.
+
+**Before training on this for the robot:**
+- Measure the real pan-axis spacing: 220 vs 310 mm, see above.
+- Calibrate the wrist cameras and re-render if their field of view is not 90°: `--in-place` restaging, then re-convert, no re-recording.
+- Set the real head to 58° tilt with a 4:3 OAK stream.
+- The appearance gaps of section 6 remain.
+
 ## Files
 
 - `carton/folding_station_measured.py`: measurement schema and validation, camera pose maths
@@ -296,6 +392,11 @@ changes nothing.
 - `tools/restage_fold_scenes.py`: mirror batches with measured cameras/appearance, without re-recording.
 - `tools/record_measured_fold_demos.py`: `record_fold_demos.py` at a measured station.
 - `tools/camera_pose_from_tag.py`: camera pose in the arm-base frame from saved images of flat AprilTags.
+- `carton/xlerobot_cameras.py`: XLeRobot-model head chain, base layout, wrist-camera mount, and the
+  model-derived station file (`profiles/fold-station-xlerobot-220.json`).
+- `tools/choose_fold_head_tilt.py`: scores head tilts by how much of the flaps and claws stay in the `front` view.
+- `tools/fold_demos_to_lerobot.py --cameras KEY=SCENE_CAMERA ...` (camera set is a parameter).
+- `tools/restage_fold_scenes.py --in-place` (keeps `run/scene.recorded.xml`).
 - `profiles/fold-station-nominal.json`, `profiles/fold-station-measurement.example.json`.
 - `tests/test_folding_station_measured.py`, 23 tests:
   - nominal restage reproduces the simulated cameras;
