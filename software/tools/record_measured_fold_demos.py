@@ -53,11 +53,16 @@ def main(argv=None):
     args, unknown = ap.parse_known_args(own)
     rest = unknown + rest
     measurement = load_measurement(args.measurement)
-    if not measurement.get('measured') and not args.allow_unmeasured:
+    if not (measurement.get('measured') or measurement.get('model_derived')) and not args.allow_unmeasured:
         raise SystemExit('Measurement file is marked "measured": false; pass --allow-unmeasured for a check run')
     path = str(args.measurement.resolve())
     if measurement.get('station') is not None:
         recorder.BASE_ARGS = measured_base_args(recorder.BASE_ARGS, measurement['station'])
+    # Each trial process must end with os._exit after writing its outputs: the controller's renderer is only
+    # closed by FoldingSimulation.save(), which a stopped trial never reaches, and finalizing it at
+    # interpreter shutdown segfaults (macOS crash dialogs). install() also closes renderers at exit.
+    if 'os._exit(0)' not in recorder.TRIAL:
+        raise SystemExit('tools/record_fold_demos.py TRIAL must end with os._exit(0) (commit 153f664)')
     recorder.TRIAL = PRELUDE.format(path=path) + recorder.TRIAL
     recorder.main(rest)
     out = Path(rest[rest.index('--out') + 1])

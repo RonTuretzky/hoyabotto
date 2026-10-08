@@ -195,14 +195,17 @@ def test_install_patches_and_uninstall_restores(tmp_path):
     m['station']['base_spacing_m'] = .26
     path = tmp_path / 'm.json'
     path.write_text(json.dumps(m))
+    original_init = folding_sim.FoldingSimulation.__init__
     try:
         fsm.install(path)
         assert folding_station.FoldingStation is not original_station
         assert folding_sim.build_scene is not original_build
+        assert folding_sim.FoldingSimulation.__init__ is not original_init
         assert folding_station.FoldingStation(.12, .15, .01).base_spacing == pytest.approx(.26)
     finally:
         fsm.uninstall()
     assert folding_station.FoldingStation is original_station and folding_sim.build_scene is original_build
+    assert folding_sim.FoldingSimulation.__init__ is original_init
 
 
 @pytest.mark.skipif(not (SIM_ROOT / 'scene-assets/arm-import.xml').exists(), reason='simulation assets absent')
@@ -279,3 +282,100 @@ def test_camera_pose_from_tag_recovers_rendered_camera(tmp_path, position, look_
     angle = math.degrees(math.acos(min(1., (np.trace(np.asarray(pose['rotation_cv']).T @ expected) - 1) / 2)))
     assert angle < 1.
     assert pose['max_reprojection_px'] < 1.
+
+
+def gripper_scene():
+    """mini_scene plus a gripper body under each base, as in build_scene (SO101 gripper_link)."""
+    root = ET.fromstring(mini_scene())
+    for side in ('left', 'right'):
+        base = next(b for b in root.iter('body') if b.get('name') == side + '_base_link')
+        ET.SubElement(base, 'body', name=side + '_gripper_link', pos='0 .2 .1')
+    return root
+
+
+def test_wrist_cameras_are_created_inside_the_gripper_bodies():
+    from carton.xlerobot_cameras import wrist_camera_spec
+    root = gripper_scene()
+    m = fsm.nominal_measurement()
+    m['cameras'] = {'left_wrist': wrist_camera_spec('left'), 'right_wrist': wrist_camera_spec('right')}
+    report = fsm.restage_root(root, m)
+    for side in ('left', 'right'):
+        body = next(b for b in root.iter('body') if b.get('name') == side + '_gripper_link')
+        cams = [c for c in body.findall('camera') if c.get('name') == side + '_wrist']
+        assert len(cams) == 1
+        assert np.allclose(np.array(cams[0].get('pos').split(), float), [.0035, .068, -.0138])
+        assert report['cameras'][side + '_wrist']['frame'] == side + '_gripper_link'
+    # Restaging again moves rather than duplicates the camera.
+    fsm.restage_root(root, m)
+    assert sum(c.get('name') == 'left_wrist' for c in root.iter('camera')) == 1
+    model = mujoco.MjModel.from_xml_string(ET.tostring(root, encoding='unicode'))
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    # The wrist camera looks along the gripper's -z (toward the jaw tips).
+    cid = model.camera('left_wrist').id
+    gid = model.body('left_gripper_link').id
+    forward_world = -data.cam_xmat[cid].reshape(3, 3)[:, 2]
+    jaw_minus_z = -data.xmat[gid].reshape(3, 3)[:, 2]
+    assert forward_world @ jaw_minus_z > .999
+
+
+def test_unknown_camera_frame_is_refused():
+    m = fsm.nominal_measurement()
+    m['cameras']['front']['frame'] = 'head_link'
+    with pytest.raises(ValueError, match='frame must be one of'):
+        fsm.load_measurement(m)
+
+
+def test_xlerobot_head_camera_from_model_constants():
+    from carton import xlerobot_cameras as xc
+    spec = xc.head_camera_spec(0.)
+    # Tilt 0: the model's head_camera_link (-0.127, 0.002, 1.1811) -> 37 mm ahead of the base origins and
+    # 0.452 m above the SO101 mounting plane, looking horizontally forward.
+    assert spec['position_m'] == pytest.approx([.002, .037, 1.1811 - .7291], abs=1e-4)
+    pos, right, up, fovy = fsm.camera_pose(xc.head_camera_spec(58.), 'front')
+    forward = np.cross(up, right)
+    assert math.degrees(math.asin(-forward[2])) == pytest.approx(58., abs=1e-6)
+    assert fovy == xc.OAK_D_LITE_FOVY_DEG
+    with pytest.raises(ValueError, match='outside the model range'):
+        xc.head_camera_spec(90.)
+    m = xc.station_measurement(58.)
+    fsm.load_measurement(m)
+    assert m['station']['base_spacing_m'] == pytest.approx(.22)
+    assert 'top' not in m['cameras']
+
+
+@pytest.mark.skipif(not Path('/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/upstream/assets/robots/'
+                             'xlerobot/xlerobot.xml').exists(), reason='XLeRobot model absent')
+@pytest.mark.parametrize('tilt, pan', [(0., 0.), (.9, .2), (-.5, -1.)])
+def test_xlerobot_constants_match_the_model_file(tilt, pan):
+    from carton.xlerobot_cameras import model_check
+    check = model_check(tilt_rad=tilt, pan_rad=pan)
+    assert max(check.values()) < 1e-6, check
+
+
+@pytest.mark.skipif(not (SIM_ROOT / 'scene-assets/arm-import.xml').exists(), reason='simulation assets absent')
+def test_installed_simulation_moves_parked_targets_with_the_bases(tmp_path):
+    import carton.folding_sim as folding_sim
+    import carton.folding_station as folding_station
+    from carton.xlerobot_cameras import station_measurement
+    path = tmp_path / 'm.json'
+    path.write_text(json.dumps(station_measurement(58.)))
+    try:
+        fsm.install(path)
+        station = folding_station.FoldingStation(.12, .15, .01, table_marker_xy=(-.5, .55),
+                                                 backup_table_marker_xy=(.45, .70))
+        sim = folding_sim.FoldingSimulation(SIM_ROOT, tmp_path / 'run', station=station,
+                                            initial_arm_targets={'left': [-.20, -.18, .30], 'right': [.20, -.18, .30]})
+    finally:
+        fsm.uninstall()
+    try:
+        report = json.loads((tmp_path / 'run/measured-station.json').read_text())
+        assert report['initial_arm_targets_world_m']['left'] == pytest.approx([-.16, -.18, .30])
+        assert report['initial_arm_targets_world_m']['right'] == pytest.approx([.16, -.18, .30])
+        tip = sim.data.site('left_tip').xpos
+        assert tip[0] == pytest.approx(-.16, abs=.01)
+        names = {sim.model.camera(i).name for i in range(sim.model.ncam)}
+        assert {'front', 'left_wrist', 'right_wrist', 'station'} <= names
+    finally:
+        if sim.renderer:
+            sim.renderer.close()

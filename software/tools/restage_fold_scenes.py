@@ -13,6 +13,9 @@ recorded scene is refused: that moves the arms relative to the carton and needs 
 
     PYTHONPATH=. python tools/restage_fold_scenes.py --measurement station.json \
         --batches .../fold-demos/batch-01 .../fold-demos/batch-02 --out .../fold-demos/restaged-01
+
+`--in-place` instead rewrites each trial's `run/scene.xml`, keeping the recorded one as
+`run/scene.recorded.xml` and always restaging from that copy, so it can be repeated.
 """
 from __future__ import annotations
 
@@ -50,18 +53,44 @@ def restage_batch(batch, measurement, out, *, copy_files=False):
     return done
 
 
+def restage_in_place(batch, measurement):
+    done = []
+    for trial in sorted(batch.glob('trial-*')):
+        scene = trial / 'run/scene.xml'
+        if not (trial / 'demo.json').exists() or not scene.exists():
+            continue
+        recorded = trial / 'run/scene.recorded.xml'
+        if not recorded.exists():
+            recorded.write_bytes(scene.read_bytes())
+        report = restage_scene_xml(recorded, scene, measurement)
+        (trial / 'run/restaged-cameras.json').write_text(json.dumps(report, indent=1))
+        done.append(trial.name)
+    return done
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--measurement', type=Path, required=True)
     ap.add_argument('--batches', type=Path, nargs='+', required=True)
-    ap.add_argument('--out', type=Path, required=True)
+    ap.add_argument('--out', type=Path, help='mirror batch directory (or use --in-place)')
+    ap.add_argument('--in-place', action='store_true')
     ap.add_argument('--copy', action='store_true', help='copy demo files instead of symlinking them')
     ap.add_argument('--allow-unmeasured', action='store_true',
                     help='accept a file with "measured": false (examples, rendering checks)')
     args = ap.parse_args(argv)
     measurement = load_measurement(args.measurement)
-    if not measurement.get('measured') and not args.allow_unmeasured:
+    if not (measurement.get('measured') or measurement.get('model_derived')) and not args.allow_unmeasured:
         raise SystemExit('Measurement file is marked "measured": false; pass --allow-unmeasured for a check run')
+    if args.in_place:
+        for batch in args.batches:
+            trials = restage_in_place(batch, measurement)
+            (batch / 'restage.json').write_text(json.dumps({'measurement': measurement, 'trials': trials,
+                                                            'measurement_file': str(args.measurement.resolve()),
+                                                            'simulation_only': True}, indent=1))
+            print(f'{batch}: {len(trials)} trials restaged in place', flush=True)
+        return
+    if args.out is None:
+        raise SystemExit('Give --out or --in-place')
     if args.out.exists():
         raise SystemExit(f'{args.out} exists; choose a new output directory')
     args.out.mkdir(parents=True)

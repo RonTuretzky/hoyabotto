@@ -1,5 +1,6 @@
-"""Render what the fold policy sees (`top` = scene camera `overhead`, `front` = `front`) for one recorded
-demonstration, and report both cameras' intrinsics/extrinsics in the arm-base frame. Simulation only.
+"""Render what the fold policy sees for one recorded demonstration (default `top` = scene camera `overhead`
+and `front`; `--cameras` for others, e.g. the wrist cameras) and report each camera's intrinsics/extrinsics
+in the arm-base frame. Simulation only.
 
 States: the first sample, the task end (both shorts folded and held 3 s, as tools/fold_demos_to_lerobot.py
 cuts episodes) and the sample halfway between. With `--measurement`, the scene is first restaged with
@@ -23,7 +24,7 @@ import mujoco
 import numpy as np
 from PIL import Image, ImageDraw
 
-from carton.folding_station_measured import (POLICY_CAMERAS, camera_report, restage_scene_xml,
+from carton.folding_station_measured import (camera_report, restage_scene_xml,
                                               scene_station)
 
 FOLDED, HOLD = 80., 3.
@@ -82,7 +83,10 @@ def main(argv=None):
     ap.add_argument('--sizes', type=size, nargs='+', default=[(320, 240), (960, 720)])
     ap.add_argument('--real', nargs='*', default=[], help='KEY=IMAGE pairs (KEY top or front) for the sheet')
     ap.add_argument('--title', default='')
+    ap.add_argument('--cameras', nargs='+', default=['top=overhead', 'front=front'],
+                    help='policy KEY=SCENE_CAMERA pairs, e.g. front=front left_wrist=left_wrist right_wrist=right_wrist')
     args = ap.parse_args(argv)
+    cameras = dict(item.split('=', 1) for item in args.cameras)
     args.out.mkdir(parents=True, exist_ok=True)
     scene = args.trial / 'run/scene.xml'
     report = {'trial': str(args.trial), 'scene': str(scene), 'simulation_only': True}
@@ -107,29 +111,32 @@ def main(argv=None):
     images = {}
     for w, h in args.sizes:
         renderer = mujoco.Renderer(model, h, w)
-        for state, k in states.items():
-            data.qpos[:] = z['qpos'][k]
-            mujoco.mj_forward(model, data)
-            for key, cam in POLICY_CAMERAS.items():
-                renderer.update_scene(data, camera=cam)
-                im = Image.fromarray(renderer.render())
-                im.save(args.out / f'{key}-{state}-{w}x{h}.png')
-                images[(key, state, (w, h))] = im
-                if state == 'start':
-                    report['cameras'].setdefault(key, {})[f'{w}x{h}'] = camera_report(model, data, cam, origin, h, w)
-        renderer.close()
+        try:  # an open renderer finalized at interpreter shutdown segfaults
+            for state, k in states.items():
+                data.qpos[:] = z['qpos'][k]
+                mujoco.mj_forward(model, data)
+                for key, cam in cameras.items():
+                    renderer.update_scene(data, camera=cam)
+                    im = Image.fromarray(renderer.render())
+                    im.save(args.out / f'{key}-{state}-{w}x{h}.png')
+                    images[(key, state, (w, h))] = im
+                    if state == 'start':
+                        report['cameras'].setdefault(key, {})[f'{w}x{h}'] = camera_report(model, data, cam, origin,
+                                                                                          h, w)
+        finally:
+            renderer.close()
     real = dict(item.split('=', 1) for item in args.real)
     w0, h0 = args.sizes[0]
     cells, labels = [], []
-    for key in POLICY_CAMERAS:
+    for key in cameras:
         for state in states:
             cells.append(images[(key, state, (w0, h0))])
-            labels.append(f'sim {key} ({POLICY_CAMERAS[key]}) {state}')
+            labels.append(f'sim {key} ({cameras[key]}) {state}')
         if real:
             cells.append(crop_to_policy(Image.open(real[key]), w0, h0) if key in real else None)
             labels.append(f'real {key}: {Path(real[key]).name}' if key in real else f'real {key}: no camera')
     cols = len(states) + (1 if real else 0)
-    sheet(cells, labels, len(POLICY_CAMERAS), cols, w0, h0,
+    sheet(cells, labels, len(cameras), cols, w0, h0,
           args.title or f'{args.trial.name} policy views {w0}x{h0}').save(args.out / 'sheet.png')
     (args.out / 'cameras.json').write_text(json.dumps(report, indent=1))
     for key, rep in report['cameras'].items():

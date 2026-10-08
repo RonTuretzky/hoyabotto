@@ -1,10 +1,12 @@
 """Set the fold policy's simulated cameras and station from a measurement file. Simulation only.
 
-The short-flap fold policy (tools/fold_demos_to_lerobot.py) sees two simulated cameras: `top` is the
-scene camera `overhead` and `front` is `front`. This module replaces those two cameras (pose and vertical
-field of view), optionally the visual appearance (arm/table colour, table size, printed markers), and the
-station geometry (arm-base height, base line to table edge, base spacing) with measured values, without
-editing the scene builder or the scripted controller:
+The short-flap fold policy (tools/fold_demos_to_lerobot.py) sees simulated cameras named by
+`POLICY_CAMERAS`: `top` (scene camera `overhead`, simulation only), `front` (the head camera) and the
+wrist cameras `left_wrist`/`right_wrist` (created inside the gripper bodies). This module sets those
+cameras (pose and vertical field of view), optionally the visual appearance (arm/table colour, table size,
+printed markers), and the station geometry (arm-base height, base line to table edge, base spacing) from a
+measurement or model-derived file (carton/xlerobot_cameras.py), without editing the scene builder or the
+scripted controller:
 
 - `restage_scene_xml` rewrites an existing recorded `scene.xml`. Cameras and appearance only: the scripted
   controller never looks through `overhead` or `front`, so recorded demonstrations can be re-rendered with
@@ -12,7 +14,10 @@ editing the scene builder or the scripted controller:
 - `install` patches `carton.folding_station.FoldingStation` and `carton.folding_sim.build_scene` in the
   current process, so a new recording (tools/record_measured_fold_demos.py) builds the measured station and
   cameras (not the appearance, which would hide the controller's markers; restage afterwards). Station
-  changes move the arms relative to the carton and need new demonstrations.
+  changes move the arms relative to the carton and need new demonstrations. When the base spacing differs
+  from 300 mm, the controller's explicit parked start targets are moved with the bases (same pose relative
+  to each base), because the 300 mm targets leave the left gripper tag hidden from the controller's
+  `station` camera at 220 mm (0/8 starts registered).
 
 Measurement frame (`arm_base`): origin midway between the two SO101 `base_link` origins (the base mounting
 plane, centre of the base's mounting footprint), +x to the robot's right, +y horizontally toward the table
@@ -20,16 +25,26 @@ plane, centre of the base's mounting footprint), +x to the robot's right, +y hor
 """
 from __future__ import annotations
 
+import atexit
 import copy
 import json
 import math
+import weakref
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
 
 SCHEMA = 'xlerobot-fold-station-measurement/1'
-POLICY_CAMERAS = {'top': 'overhead', 'front': 'front'}
+# Measurement key -> scene camera name. `top` (the overhead camera) exists only in simulation; the robot's
+# policy cameras are the head camera (`front`) and the two wrist cameras.
+POLICY_CAMERAS = {'top': 'overhead', 'front': 'front', 'left_wrist': 'left_wrist', 'right_wrist': 'right_wrist'}
+# Frames a camera position/orientation may be given in: the arm-base frame, or a gripper body (the camera
+# then moves with that gripper).
+CAMERA_FRAMES = ('arm_base', 'left_gripper_link', 'right_gripper_link')
+# Base spacing of the recorded batch-01/02 station; the scripted controller's parked start targets
+# (tools/diagnose_short_flap_brace.py --park-back) were chosen for it.
+REFERENCE_BASE_SPACING_M = .30
 POLICY_ASPECT = 4 / 3  # the policy's 320x240 images
 # The recorded demonstrations place the carton's near wall 10 mm from the table edge
 # (tools/diagnose_short_flap_brace.py computes the carton offset with that value).
@@ -122,6 +137,8 @@ def camera_pose(spec, name):
     """(position, right, up, fovy_deg) of one camera spec in the arm_base frame."""
     if not isinstance(spec, dict):
         raise ValueError(f'camera {name}: object required')
+    if spec.get('frame', 'arm_base') not in CAMERA_FRAMES:
+        raise ValueError(f'camera {name}: frame must be one of {CAMERA_FRAMES}')
     position = _vec(spec.get('position_m'), f'camera {name} position_m')
     has_look, has_rot = spec.get('look_at_m') is not None, spec.get('rotation_cv') is not None
     if has_look == has_rot:
@@ -151,7 +168,7 @@ def load_measurement(source):
     cams = m.get('cameras') or {}
     unknown = set(cams) - set(POLICY_CAMERAS)
     if unknown:
-        raise ValueError(f'Unknown policy cameras {sorted(unknown)}; use top and/or front')
+        raise ValueError(f'Unknown policy cameras {sorted(unknown)}; use {sorted(POLICY_CAMERAS)}')
     for key, spec in cams.items():
         camera_pose(spec, key)
     station = m.get('station')
@@ -213,11 +230,30 @@ def station_mismatch(recorded, station, tolerance_m=.002):
             if abs(recorded[k] - float(station[k])) > tolerance_m}
 
 
-def _set_camera(world, name, origin, position, right, up, fovy):
+def _set_camera(root, name, origin, position, right, up, fovy, frame='arm_base'):
+    """Pose camera `name`. In the arm_base frame it must already exist in the worldbody; a gripper-frame
+    camera is created (or moved) inside that gripper body."""
+    world = root.find('worldbody')
     cams = [c for c in world.iter('camera') if c.get('name') == name]
-    if len(cams) != 1:
-        raise ValueError(f'Scene must contain exactly one {name!r} camera')
-    cam = cams[0]
+    if frame == 'arm_base':
+        if len(cams) != 1:
+            raise ValueError(f'Scene must contain exactly one {name!r} camera')
+        cam = cams[0]
+    else:
+        body = _bodies(root).get(frame)
+        if body is None:
+            raise ValueError(f'Scene has no {frame!r} body for camera {name!r}')
+        if len(cams) > 1:
+            raise ValueError(f'Scene has several {name!r} cameras')
+        if cams and cams[0] in list(body):
+            cam = cams[0]
+        else:
+            for parent in world.iter():
+                for c in list(parent):
+                    if c.tag == 'camera' and c.get('name') == name:
+                        parent.remove(c)
+            cam = ET.SubElement(body, 'camera', name=name)
+        origin = np.zeros(3)
     for attr in ('quat', 'axisangle', 'euler', 'zaxis', 'xyaxes', 'focal', 'focalpixel', 'principal',
                  'principalpixel', 'sensorsize', 'resolution', 'ipd'):
         cam.attrib.pop(attr, None)
@@ -282,7 +318,6 @@ def _hide_marker(body):
 def restage_root(root, measurement, *, allow_station_change=False):
     """Apply cameras (+ appearance) of a validated measurement to a parsed scene root, in place."""
     measurement = load_measurement(measurement)
-    world = root.find('worldbody')
     recorded = scene_station(root)
     report = {'recorded_station': recorded, 'cameras': {}}
     if measurement.get('station') is not None:
@@ -294,9 +329,11 @@ def restage_root(root, measurement, *, allow_station_change=False):
     origin = np.asarray(recorded['arm_base_origin_world_m'])
     for key, spec in (measurement.get('cameras') or {}).items():
         position, right, up, fovy = camera_pose(spec, key)
-        _set_camera(world, POLICY_CAMERAS[key], origin, position, right, up, fovy)
-        report['cameras'][key] = {'scene_camera': POLICY_CAMERAS[key], 'position_arm_base_m': position.tolist(),
-                                  'fovy_deg': fovy, 'right': right.tolist(), 'up': up.tolist()}
+        frame = spec.get('frame', 'arm_base')
+        _set_camera(root, POLICY_CAMERAS[key], origin, position, right, up, fovy, frame)
+        report['cameras'][key] = {'scene_camera': POLICY_CAMERAS[key], 'frame': frame,
+                                  'position_m': position.tolist(), 'fovy_deg': fovy,
+                                  'right': right.tolist(), 'up': up.tolist()}
     report['appearance'] = apply_appearance(root, measurement.get('appearance'))
     return report
 
@@ -344,6 +381,18 @@ def camera_report(model, data, camera, arm_base_origin, height, width):
 # ---------------------------------------------------------------- live recording patch
 
 _INSTALLED = {}
+# Renderers created by simulations in an installed process. A mujoco.Renderer finalized during interpreter
+# shutdown segfaults in glDeleteTextures (macOS crash dialogs); close any still open before teardown.
+_RENDERERS = weakref.WeakSet()
+
+
+@atexit.register
+def _close_renderers():
+    for renderer in list(_RENDERERS):
+        try:
+            renderer.close()
+        except Exception:
+            pass
 
 
 def measured_station_class(base_class, station):
@@ -378,6 +427,34 @@ def install(source):
     uninstall()
     _INSTALLED['FoldingStation'] = folding_station.FoldingStation
     _INSTALLED['build_scene'] = folding_sim.build_scene
+    _INSTALLED['FoldingSimulation.__init__'] = folding_sim.FoldingSimulation.__init__
+    shift = (measurement.get('station') or {}).get('park_targets_follow_bases', True)
+    original_init = _INSTALLED['FoldingSimulation.__init__']
+
+    def __init__(self, source_dir, out, width=960, height=720, initial_right_roll=None, initial_flaps=None,
+                 initial_arm_targets=None, **kwargs):
+        # Explicit start targets (the controller's --park-back) are world points chosen for 300 mm base
+        # spacing; keep each target at the same place relative to its own base when the spacing differs.
+        station = kwargs.get('station')
+        if (shift and initial_arm_targets and station is not None and not station.reference_layout):
+            dx = (station.base_spacing - REFERENCE_BASE_SPACING_M) / 2
+            initial_arm_targets = {side: [float(v[0]) + (dx if side == 'right' else -dx), *map(float, v[1:])]
+                                   for side, v in initial_arm_targets.items()}
+        _INSTALLED['initial_arm_targets'] = initial_arm_targets
+        original_init(self, source_dir, out, width, height, initial_right_roll, initial_flaps,
+                      initial_arm_targets, **kwargs)
+
+    folding_sim.FoldingSimulation.__init__ = __init__
+    _INSTALLED['FoldingSimulation.render'] = folding_sim.FoldingSimulation.render
+    original_render = _INSTALLED['FoldingSimulation.render']
+
+    def render(self, *args, **kwargs):
+        image = original_render(self, *args, **kwargs)
+        if getattr(self, 'renderer', None) is not None:
+            _RENDERERS.add(self.renderer)
+        return image
+
+    folding_sim.FoldingSimulation.render = render
     if measurement.get('station') is not None:
         folding_station.FoldingStation = measured_station_class(_INSTALLED['FoldingStation'],
                                                                measurement['station'])
@@ -391,6 +468,7 @@ def install(source):
         # finished recordings with tools/restage_fold_scenes.py instead.
         report = restage_scene_xml(path, path, {**measurement, 'appearance': None})
         report['measurement'] = measurement
+        report['initial_arm_targets_world_m'] = _INSTALLED.get('initial_arm_targets')
         (Path(out) / 'measured-station.json').write_text(json.dumps(report, indent=1))
         return mujoco.MjModel.from_xml_path(str(path))
 
@@ -405,6 +483,10 @@ def uninstall():
         folding_station.FoldingStation = _INSTALLED.pop('FoldingStation')
     if 'build_scene' in _INSTALLED:
         folding_sim.build_scene = _INSTALLED.pop('build_scene')
+    if 'FoldingSimulation.__init__' in _INSTALLED:
+        folding_sim.FoldingSimulation.__init__ = _INSTALLED.pop('FoldingSimulation.__init__')
+    if 'FoldingSimulation.render' in _INSTALLED:
+        folding_sim.FoldingSimulation.render = _INSTALLED.pop('FoldingSimulation.render')
 
 
 def nominal_measurement():
