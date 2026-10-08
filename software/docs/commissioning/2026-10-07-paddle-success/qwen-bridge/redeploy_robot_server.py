@@ -134,7 +134,8 @@ def _setup_wrist_cameras(dry_run):
   elif ids[n]!=WRIST_CAMERA_IDS[n]:say(f'{n}: ID changed {WRIST_CAMERA_IDS[n]} -> {ids[n]}; left/right auto-assigned and marked unverified')
  if changed and not dry_run:
   WRIST_CAMERA_IDS.update(ids);IDENTITY_VERIFIED.update(verified)
-  (WORK/WRIST_CONFIG).write_text(json.dumps({**{n:{'camera_id':WRIST_CAMERA_IDS[n],'identity_verified':IDENTITY_VERIFIED[n]} for n in WRIST_CAMERA_IDS},'detected_at':time.time(),'available':listed},indent=2))
+  import wrist_cameras as _wc  # head_camera_id is a saved setting; keep it
+  (WORK/WRIST_CONFIG).write_text(json.dumps({**{n:{'camera_id':WRIST_CAMERA_IDS[n],'identity_verified':IDENTITY_VERIFIED[n]} for n in WRIST_CAMERA_IDS},'head_camera_id':_wc.HEAD_CAMERA_ID,'detected_at':time.time(),'available':listed},indent=2))
   say(f'saved wrist camera IDs to {WORK/WRIST_CONFIG}')
  for name in WRIST_CAMERA_IDS:
   if name in missing:continue

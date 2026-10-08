@@ -152,6 +152,28 @@ def processes():
     return rows
 
 
+CAMERA_ID=re.compile(r'^0x[0-9a-f]{14}$')
+
+def set_wrist_ids(root,body):
+    """Pin which camera is which (IDs are USB port paths, so they change when cables move). Writes
+    work/wrist-cameras.json; the caller then restarts the camera streams. No motors involved."""
+    if not isinstance(body,dict) or not body or set(body)-{'left_wrist','right_wrist','head_camera','verified'}:
+        raise ValueError('Give left_wrist, right_wrist and/or head_camera IDs (and optionally verified)')
+    ids={k:v for k,v in body.items() if k!='verified'}
+    if not ids or any(not isinstance(v,str) or not CAMERA_ID.match(v) for v in ids.values()):raise ValueError('Camera IDs look like 0x12400005a39230')
+    if len(set(ids.values()))!=len(ids):raise ValueError('Each camera ID can be used once')
+    path=paths(root)['work']/'wrist-cameras.json'
+    try:config=json.loads(path.read_text())
+    except (OSError,ValueError):config={}
+    for name in ('left_wrist','right_wrist'):
+        if name in ids:config[name]={'camera_id':ids[name],'identity_verified':body.get('verified') is True,'set_by':'admin','set_at':time.time()}
+    if 'head_camera' in ids:config['head_camera_id']=ids['head_camera']
+    wrists={config.get(n,{}).get('camera_id') for n in ('left_wrist','right_wrist')}
+    if config.get('head_camera_id') in wrists:raise ValueError('The head camera cannot also be a wrist camera')
+    tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(config,indent=2));tmp.replace(path)
+    return {k:config.get(k) for k in ('left_wrist','right_wrist','head_camera_id')}
+
+
 def start_camera_restart(root,python=sys.executable):
     """Detached job: run the restart script's camera step only (wrist publishers + OAK stream). No motors, no git."""
     p=paths(root)

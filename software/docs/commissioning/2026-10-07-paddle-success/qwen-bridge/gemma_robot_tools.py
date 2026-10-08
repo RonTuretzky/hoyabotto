@@ -711,6 +711,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(202, {'ok': True, 'job': job, 'note': 'Runs detached; a restart replaces this API for a few seconds. Poll /admin/job?id=...'})
             except (ValueError, OSError, KeyError, TypeError, AttributeError) as e:
                 return self.send_json(400, {'ok': False, 'error': str(e)})
+        if self.path == '/admin/wrist-ids':
+            # Pin wrist/head camera IDs after cables moved, then restart only the camera streams.
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 4096: raise ValueError('Invalid request size')
+                saved = remote_admin.set_wrist_ids(ROOT, json.loads(self.rfile.read(size)))
+                job = remote_admin.start_camera_restart(ROOT)
+                print('admin wrist ids '+json.dumps(saved)+' job '+job['id'], flush=True)
+                return self.send_json(202, {'ok': True, 'saved': saved, 'job': job})
+            except (ValueError, OSError, KeyError, TypeError, AttributeError) as e:
+                return self.send_json(400, {'ok': False, 'error': str(e)})
         if self.path != '/call':
             return self.send_json(404, {'ok': False, 'error': 'Unknown route'})
         request_id = None

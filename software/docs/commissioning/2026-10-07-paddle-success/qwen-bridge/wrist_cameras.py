@@ -10,7 +10,9 @@ ENV={'right_wrist':'XLEROBOT_RIGHT_WRIST_ID','left_wrist':'XLEROBOT_LEFT_WRIST_I
 WRIST_CAMERA_IDS={'right_wrist':os.environ.get(ENV['right_wrist'],'0x12200005a39230'),
                   'left_wrist':os.environ.get(ENV['left_wrist'],'0x12140005a39230')}
 IDENTITY_VERIFIED={'right_wrist':True,'left_wrist':True}  # False when left/right was auto-assigned
-HEAD_CAMERA_ID=os.environ.get('XLEROBOT_HEAD_CAMERA_ID','0x12400005a39230')
+# The head's own USB camera is the same model as the wrists. Its ID is a port path, so it is a saved setting
+# (work/wrist-cameras.json head_camera_id, set with robot_admin.py wrist-ids), never a hard-coded port.
+HEAD_CAMERA_ID=os.environ.get('XLEROBOT_HEAD_CAMERA_ID') or None
 NOT_A_WRIST=re.compile(r'iphone|ipad|facetime|desk view|continuity|oak|luxonis|depthai|macbook|built-in|virtual|obs',re.I)
 CONFIG='wrist-cameras.json'
 FRESH_S=1
@@ -18,8 +20,10 @@ FRESH_S=1
 
 def configure(root):
     """Load the wrist IDs the restart script detected (work/wrist-cameras.json); environment variables still win."""
+    global HEAD_CAMERA_ID
     try:saved=json.loads((Path(root)/'work'/CONFIG).read_text())
     except (OSError,ValueError):return
+    if not os.environ.get('XLEROBOT_HEAD_CAMERA_ID') and isinstance(saved.get('head_camera_id'),str):HEAD_CAMERA_ID=saved['head_camera_id']
     for name in WRIST_CAMERA_IDS:
         entry=saved.get(name) or {}
         if os.environ.get(ENV[name]) or not isinstance(entry.get('camera_id'),str):continue

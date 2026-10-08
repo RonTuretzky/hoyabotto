@@ -36,12 +36,19 @@ def main():
     lg=sub.add_parser('logs');lg.add_argument('names',nargs='?',default='');lg.add_argument('--lines',type=int,default=80)
     dp=sub.add_parser('deploy');dp.add_argument('ref',nargs='?',default='main');dp.add_argument('--mode',default='restart');dp.add_argument('--no-wait',action='store_true')
     jb=sub.add_parser('job');jb.add_argument('id')
+    wi=sub.add_parser('wrist-ids',help='pin camera IDs after cables moved, e.g. left_wrist=0x12400005a39230 head_camera=0x12130005a39230')
+    wi.add_argument('pairs',nargs='+');wi.add_argument('--verified',action='store_true',help='left/right confirmed from the images')
     a=ap.parse_args()
     if a.cmd=='status':return show(request('/admin/deploy'))
     if a.cmd=='processes':return show(request('/admin/processes'))
     if a.cmd=='logs':return show(request(f'/admin/logs?names={a.names}&lines={a.lines}'))
     if a.cmd=='job':return show(request(f'/admin/job?id={a.id}'))
-    started=request('/admin/deploy',{'ref':a.ref,'mode':a.mode})
+    if a.cmd=='wrist-ids':
+        body=dict(p.split('=',1) for p in a.pairs);body['verified']=a.verified
+        started=request('/admin/wrist-ids',body);a.no_wait=False;a.ref='(deployed)';a.mode='cameras-only'
+        if not started.get('ok'):return show(started)
+        print('saved '+json.dumps(started['saved']),flush=True)
+    else:started=request('/admin/deploy',{'ref':a.ref,'mode':a.mode})
     if not started.get('ok') or a.no_wait:return show(started)
     job_id=started['job']['id'];print(f'job {job_id} started ({a.ref}, {a.mode}); waiting…',flush=True)
     deadline=time.time()+600
