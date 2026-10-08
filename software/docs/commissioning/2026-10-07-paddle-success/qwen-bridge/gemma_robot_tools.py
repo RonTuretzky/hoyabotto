@@ -297,7 +297,30 @@ def camera_status():
     return result
 
 
-def select_oak_manifest():
+OAK_RESTART_WAIT_S = 15     # the watchdog restarts a crashed OAK (X_LINK_ERROR) in about 10 s
+OAK_RECENT_S = 45           # only wait when the stream was fresh this recently (i.e. it is restarting, not down)
+
+
+def select_oak_manifest(wait_s=OAK_RESTART_WAIT_S, clock=time.time, sleep=time.sleep):
+    """Fresh OAK manifest. If the stream went stale moments ago (a crash the watchdog is restarting), wait for
+    it to come back rather than failing the caller; a stream that has been down longer fails at once."""
+    deadline = clock() + wait_s
+    while True:
+        try:
+            return _select_oak_manifest()
+        except RuntimeError:
+            last = _oak_last_frame_time()
+            if clock() >= deadline or last is None or clock() - last > OAK_RECENT_S:
+                raise
+            sleep(.5)
+
+
+def _oak_last_frame_time():
+    try:return json.loads((OAK_RAW_DIR / 'oak.json').read_text())['captured_at']
+    except (OSError, ValueError, KeyError, TypeError):return None
+
+
+def _select_oak_manifest():
     # Never synthesize fresh timestamps or relabel distorted RGB as rectified.
     errors = []
     for source, folder in [('rectified', OAK_RECTIFIED_DIR),
