@@ -137,7 +137,9 @@ class DirectJointClient:
             names=request['names']
             if not set(names)<=set(state.get('supported_motors',[])):raise ValueError('Unknown motor names')
             if not request['enabled']:return
-            if not set(names)<=set(state.get('commandable_motors',state.get('supported_motors',[]))):raise ValueError('UNSUPPORTED_OWNER_SCOPE: requested motors are read-only')
+            readonly=sorted(set(names)-set(state.get('commandable_motors',state.get('supported_motors',[]))))
+            if readonly:raise ValueError('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: '+', '.join(readonly)+
+                                         '. The head cannot be moved (aim cameras by moving the arm instead); the wheels move only through robot_move_base, which needs no enable. Enable only arm joints.')
             for n in names:
                 if n not in state.get('supportsselectedjoints',[]):
                     row=state.get('rows',{}).get(n,{})
