@@ -1,242 +1,111 @@
-# Handoff to the robot agent: how to fold the carton's four flaps with the two bare claws
+# Carton fold: procedure for the robot agent
 
-For the agent controlling the robot through the robot API, with the owner at
-the STOP button. Everything here comes from the MuJoCo simulation (about 300
-simulated trials, branch `RonTuretzky/carton-handoff-pick-up`). **Nothing has
-been done on the real robot yet.** Treat the numbers as a starting point, and
-correct them with what the cameras and `robot_get_arm_pose` show.
+Close all four flaps with the two bare claws and hold them. Untested on the
+real robot; positions come from the simulation and need checking against the
+cameras and `robot_get_arm_pose`.
 
-Result in simulation: all four flaps closed and **held by the two claws** in
-20 of 30 trials, and 10 of 20 with creases twice as stiff. Taping is not
-solved: at the end both claws are still holding the flaps, and letting go
-lets them spring open.
+## Practical details
 
-## Rules
+- Tell the owner what moves before each motion and wait for "go".
+  `robot_halt_motion` holds; `robot_stop` releases everything (the flaps
+  spring open).
+- Near the carton: `duration_s` ≥ 2 s, steps ≤ 5 mm or ≤ 3° of flap rotation.
+- Stop if the carton moves more than 15 mm, or if anything other than a jaw
+  pushes cardboard.
+- While holding flaps, send a command at least every 100 s or the motors
+  release. Re-sending `robot_set_motor_enable` (`enabled: true`) renews this.
+  If that is refused (a loaded claw), move a joint a few ticks instead.
+- A move ending `contact_halt` means the arm stopped pushing and is holding.
+  Re-measure, then continue in smaller steps.
 
-- Before every motion, tell the owner in one sentence what moves and where,
-  then wait for "go". `robot_halt_motion` stops and holds. `robot_stop`
-  releases every motor, so the flaps spring open and a held flap is lost.
-- Move slowly near the carton: `duration_s` of at least 2 s, contact steps of
-  at most 5 mm or 2–3° of flap rotation, and check the cameras after each step.
-- Never relax limits. Stop and report if the carton slides more than 15 mm or
-  turns more than about 3°, if any part other than a jaw is pushing cardboard,
-  or if an arm touches the table or a carton wall.
-- Owner behaviour that matters here:
-  - Motors are released if no command arrives for about 120 s. While holding
-    flaps, keep commanding: re-sending `robot_set_motor_enable` with
-    `enabled: true` for motors that are already enabled renews the timer
-    without moving them.
-  - A joint with load at 600 or more that lags 20 or more ticks behind its
-    command ends the move `contact_halt`. It stops pushing and holds; that is
-    not a failure.
-  - A holding joint more than 96 ticks off its goal faults and releases
-    everything. Press with small overdrive, a few millimetres past contact,
-    never a large one.
-  - The heartbeat renewal is refused when a gripper's load is over 500 or an
-    arm joint's is over 800. Then send a real move of a few ticks: a move to
-    the current targets is a no-op and may not count.
-- Joint ticks to angles: the only mapping is the unvalidated LeRobot midpoint
-  candidate (0° at the middle of each saved range). Check it before relying
-  on it in contact.
+## Carton and frame
 
-## The carton and the frame used below
-
-- Carton 379 × 283 × 108 mm, 140 mm flaps, 3 mm cardboard, 272 g empty.
+- Carton 379 × 283 × 108 mm, flaps 140 mm, cardboard 3 mm.
 - Carton frame:
-  - origin at the centre of the carton's bottom on the tabletop;
-  - **+x toward the robot's right**, **+y away from the robot**, +z up;
-  - the near wall is at y = −141.5 mm and the far wall at y = +141.5 mm.
-- Hinges:
-  - short (end) flaps at x = ±189.5 mm, z = 108;
-  - long flaps at y = ±141.5 mm, z = 111.5 (the long flaps fold on top of
-    the shorts).
-- Flap angles are measured from upright: 0° = vertical, 90° = closed (flat),
-  negative = leaning outward.
-- With the shorts flat, their free edges sit at x = ±49.5 mm, leaving a
-  99 mm gap at the centre.
-- The simulated station:
-  - arm bases at (−150, −301.5, 120) and (+150, −301.5, 120) mm, so the base
-    origins are 120 mm above the tabletop and 150 mm behind the table's near
-    edge;
-  - carton near wall 10 mm in from the table edge, square to it.
+  - origin at the centre of the carton bottom, on the table;
+  - +x to the robot's right, +y away from the robot, +z up;
+  - all positions in mm.
+- Hinges: short flaps at x = ±189.5, z = 108; long flaps at y = ±141.5,
+  z = 111.5.
+- Angles: 0° = upright, 90° = closed, negative = leaning outward.
+- Folded shorts leave a 99 mm gap at the centre (x = −49.5 to +49.5).
+- First measure the carton's pose in each arm's frame (touch its rim, see
+  `carton-crease-self-measurement-handoff.md` step 1), then convert the points
+  below. In the simulation, the arm bases were at (∓150, −301.5, 120):
+  120 mm above the table, 150 mm behind its edge, carton 10 mm in from the
+  edge.
+- Before starting: near flap leaning slightly out, far flap upright to
+  about 1° inward.
 
-  Arm-base frame (x forward, y left, z up) from carton-frame point p, for a
-  base at b: x_b = p_y − b_y, y_b = −(p_x − b_x), z_b = p_z − b_z. **The real
-  station is different** (8 October camera check: bases well above a small
-  table). Measure the real carton pose in each arm's frame first. The touch
-  procedure in `docs/carton-crease-self-measurement-handoff.md`, step 1, does
-  this. Then convert the points below with the measured pose.
+## Procedure
 
-## Sequence
+**0. Near flap out to −15° (right claw, closed).** From inside the carton
+above the near flap, about (6, −108, 257), lower to z 254 and push outward
+toward (5, −155, 223) until the flap is at −15°. Lift to z 317 and park.
 
-"Closed claw" means the gripper is fully closed; its tip pushes like a
-finger. The left claw does the left short and the far flap. The right claw
-does the near flap, the right short and the two-short hold.
+**1. Brace the left short (left claw).** Open the claw about 34° (0.6 rad).
+Lower it over the left short's top edge at (−173, −100), from z 255 to z 220.
+Close it on the flap.
 
-### 0. Open the near flap a little outward (right claw)
+**2. Fold the right short (right claw, closed).** Contact its outer face near
+the top at about (234, −108, 245). Push it inward along an arc about its hinge,
+about 2° per step, to 90°. Tip path (x, z): (234, 245) → (162, 240) →
+(106, 212) → (90, 178) → (88, 150) → (94, 117). Hold it there.
 
-The near long flap must lean outward, out of the way, while the shorts are
-done. Close the right claw in the air. Go above the inside face of the near
-flap (about (6, −108, 257)), lower to about z 254, then push outward toward
-y −155 at about z 223 until the flap is at about **−15°**. Lift straight up
-(to about z 317) and park the right arm away.
+**3. Fold the left short (left claw).** Open, lift out to (−213, −101, 260)
+and close the claw. Go to (−255, −101, 216) and push the outer face along the
+mirror arc to 90°, ending at about (−93, −99, 114). Hold.
 
-- Keep the near flap at −15°. At −17° the success rate fell from 20/30 to
-  9/20.
-- If the far flap leans outward, set it to about **+1° inward** (nearly
-  upright) by hand before starting. The left claw can only reach its top edge
-  from about +1°, and above about +1.6° it hits the upright shorts.
+**4. Right claw holds both shorts.** Roll the right wrist while still holding
+the right short. Open the claw gradually to about 77° (1.35 rad) while sliding
+left. It ends at about (−49, −42, 113), one jaw resting on each short:
+- jaws must overlap each short by at least 10 mm (span about ±60 mm);
+- jaw underside about 5 mm above the rim (z 113).
 
-### 1. Left claw braces the left short (pinch)
+Lift the left claw off in four 1.5 mm steps, then clear.
 
-Open the left claw to about 34° (0.6 rad). Lower it over the left short near
-its near end, around (−173, −100), from z 255 to z 220, so the jaws straddle
-the short. Close the claw on it (pinch). The left short tilts to about 9° and
-the carton is braced.
+**5. Pin the far flap at 34° (left claw, closed).**
+1. Go above its top edge at (−156, 146, 283).
+2. Lower onto the edge (z ≈ 263), 2 mm outside the edge's centre line, and
+   press 0–3 mm.
+3. Drag it toward the robot.
+4. If it slips: lift, re-measure the edge, re-grip (up to 4 times).
+5. Once past about 4°, place the tip 1–2.5 mm behind the outer face and push.
+6. Stop at 34°: tip about (−156, 76, 234).
 
-### 2. Right claw folds the right short to flat
+**6. Right claw lets go.** Lift 15 mm, close the claw in the air, and park at
+(200, −180, 300). The far flap now holds the shorts down.
 
-Right claw closed:
-1. Approach the right short's **outer face** from outside, near its top, at
-   about (238, −108, 245). Make contact at about x 234.
-2. Push it inward along an arc about its hinge (189.5, z 108), about 2° of
-   flap rotation per step. The tip path in simulation: (234, 245) → (162, 240)
-   → (106, 212) → (90, 178) → (88, 150) → (94, 117) (x, z in mm, y ≈ −110).
-3. Stop at about **90°**. Hold it there; the right claw keeps holding it
-   during step 3.
+**7. Far flap to 70° (left claw, never let go from here on).** Push on to 70°
+(tip about (−157, 27, 166)), so the left forearm is clear of the near flap's
+swing. Re-grip if it slips.
 
-### 3. Left claw folds the left short to flat
+**8. Near flap to 88° (right claw, closed).**
+1. Go outside the near flap at (−39, −184, 267).
+2. Contact its outer face 25 mm below the free edge, at x = +25 to +40
+   (between the shorts).
+3. Push it closed along its arc to 88°: tip about (31, −30, 121).
+4. Hold it there.
 
-1. Open the pinch and lift the left claw out (to about (−213, −101, 260)).
-   The left short springs back to about −9°.
-2. Close the claw in the air.
-3. Go outside the left short to about (−255, −101, 216), then push its outer
-   face inward along the mirror arc to about **90°**. In simulation it ends
-   at (−93, −99, 114).
+If there is no contact, back out and try a nearby spot (up to 3 times).
 
-Both claws now hold one short each, flat.
+**9. Far flap to 88° (left claw).** Keep pushing with the same contact,
+sliding down the panel at most 5 mm per step, to 88°: tip about
+(−157, 34, 129).
 
-### 4. Right claw takes both shorts (open-claw hold)
+**10. Hold.** Done when the shorts are at 85–110° and both long flaps at
+85–95°. Keep both claws holding and keep the motors from timing out. The
+owner tapes if wanted.
 
-1. Turn the right claw (wrist roll) while it still holds the right short.
-2. Open it gradually (to about 77°, 1.35 rad) while sliding it across the gap
-   toward the left. It ends at about (−49, −42, 113), jaws open across the
-   gap, **one jaw resting on each short**.
-3. Let the left claw take the load off slowly: lift it in 4 steps of about
-   1.5 mm, then fully. In simulation the left short stays at 91° for 5 s.
+## If something goes wrong
 
-Details that mattered:
-- **Span: the jaws must overlap each short by about 10 mm**, about ±60 mm
-  across the gap. With 2.5 mm overlap, a few millimetres of carton motion in
-  the next step dropped a short. That was the single largest cause of
-  failures.
-- Jaw underside about 113 mm above the table, i.e. about 5 mm above the rim.
-  At 111 mm a jaw dug into the right short.
-- Judge whether the claw is really carrying the shorts over about half a
-  second, not one reading: a resting contact chatters.
-
-### 5. Left claw pins the far flap at 34° (from its top edge)
-
-The far flap is nearly upright, and from the robot's side only its **top
-edge** is reachable.
-
-1. Close the left claw. Go above the far flap's top edge, around
-   (−156, 146, 283).
-2. Lower the tip onto the edge (about z 263), 2 mm on the outer side of the
-   edge's centre line. Use the flap's own depth pixels to find the edge,
-   since registration error is comparable to the 3 mm edge. Press it 0–3 mm.
-3. **Drag it inward toward the robot.**
-4. If the drag slips: lift, re-measure the edge, re-grip (up to 4 tries).
-   Past about 4°, put the tip 1–2.5 mm behind the outer face (a "hook") so it
-   pushes the panel instead of relying on friction.
-5. Stop at **34°**. In simulation the tip ends at about (−156, 76, 234).
-
-34° matters: the far flap now rests on the shorts and keeps them at about
-88°. At 17° the shorts rose to 86° and the closing near flap later jammed on
-their corners.
-
-The **main remaining failure** in simulation is this drag pushing more than
-1 mm into the cardboard (5 of 30). Go slowly and watch the edge.
-
-### 6. Right claw lets go of the shorts
-
-1. Lift the right claw 15 mm straight up.
-2. **Close it in the air above the shorts.** Left open, its moving jaw stood
-   in the far flap's later sweep.
-3. Park it away (about (200, −180, 300)).
-
-The held far flap alone keeps the shorts down (about 88°).
-
-### 7. Left claw keeps the far flap and takes it to 70°
-
-**Do not let go of the far flap at any point from here to the end.** With
-real crease resistance it springs back and the shorts pop up. The let-go
-version closed 0 of 20 with stiffer creases; keeping hold closed 10 of 20.
-
-Push it on to **70°** (tip about (−157, 27, 166)). At 70° the left forearm is
-out of the near flap's path. Choose the far-edge grip spot so the left
-forearm stays clear of where the near flap will swing. If the held contact
-slips, re-grip.
-
-### 8. Right claw closes the near flap to 88°
-
-Right claw closed:
-1. Go outside the near flap, around (−39, −184, 267), then to its **outer
-   face**, about **25 mm below its free edge** (115 mm from the hinge), at
-   **x ≈ +25 to +40 mm**. That is right of centre, and it falls in the 99 mm
-   gap between the folded shorts, so the claw does not land on them.
-2. Push it closed along the arc about the near hinge to **88°**. In
-   simulation it ends at about (31, −30, 121).
-3. Hold it there.
-
-If there is no clear contact, back out along the same approach and try a
-nearby spot (up to 3 tries). Do not retry after an unexpected contact,
-carton motion or excess load.
-
-### 9. Left claw closes the far flap to 88°
-
-From the 70° hold, keep pushing with the same contact. As the flap turns
-toward the robot, move the contact down the panel by at most 5 mm per
-command. Stop at **88°** (tip about (−157, 34, 129)).
-
-### 10. Done: both claws hold
-
-Pass: shorts 85–110° (a closing long flap can press them a little below flat
-into the empty carton), long flaps 85–95°. Stop at 88°, not 90°: pushing to
-90° pressed the shorts down into the carton.
-
-Keep holding, and keep the 120 s heartbeat alive. Tape is not part of this.
-If the owner wants to tape, they tape the seam while the claws hold.
-
-## Watch-outs from the simulation
-
-- **Bands while moving:** shorts must stay at 80–110° from step 4 on.
-- **Camera blind spots.** A flap seen edge-on by the camera has no reliable
-  angle: the near flap at about 20–25°, the far flap at about 38–46° (for the
-  simulated overhead camera; the real ones differ). Across that band:
-  - estimate the angle from the claw position (`robot_get_arm_pose`) and the
-    hinge line;
-  - do at most about 12 commands that way;
-  - re-check with the camera as soon as the flap is visible again.
-- **The near flap creeps back.** With stiffer creases the outward near flap
-  creeps from −15° toward −6° and can touch the right forearm while it holds
-  the shorts (steps 4–5). If it does, push it back out first.
-- **Pre-folded (soft) creases:** an empty pre-folded carton's shorts will
-  probably sag past flat (about 101°) when released, because the flap's
-  weight beats the crease. That is fine for the result (85–110° passes);
-  just don't push a short further once it is past 90°.
-- **Carton slides:** a hard push on the far or near flap can slide the empty
-  carton. Push in small steps. If it moves more than about 15 mm, stop. Having
-  a person hold the carton, or putting the contents in, helps.
-- **Do not reorder.** Closing the long flaps before the shorts failed in
-  simulation: rigid shorts collide with half-closed long flaps during their
-  middle rotation and stall at about +1°.
-
-## What is not known
-
-Crease stiffness and friction, the real station geometry, camera poses, jaw
-friction, and servo compliance under load were all assumed. Measuring them
-first (`docs/carton-crease-self-measurement-handoff.md`) and reporting back
-lets the simulation be rebuilt to match. More detail:
-`docs/carton-four-flap-shorts-first.md` and
-`docs/carton-real-station-measurements.md`.
+- **A short rises above 110° or drops below 80° (steps 4 to 9):** stop and
+  re-press it.
+- **The near flap creeps back toward upright and touches the right forearm:**
+  push it back out to −15°.
+- **A pre-folded short sags past 90° by itself:** that is fine. Don't push it
+  further.
+- **The camera loses a flap that is edge-on to it:** estimate its angle from
+  the claw position and the hinge line. Take only a few steps that way, then
+  re-check with the camera.
+- **Don't change the order.** Long flaps before the shorts jams.
