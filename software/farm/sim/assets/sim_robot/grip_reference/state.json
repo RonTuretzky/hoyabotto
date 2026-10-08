@@ -1,0 +1,22 @@
+{
+ "captured": {
+  "left_wrist": 1791462287.6506073,
+  "right_wrist": 1791462287.5242388,
+  "oak": 1791462287.793104,
+  "phone": 1791462287.80883
+ },
+ "time": 1791462287.952209,
+ "grippers": {
+  "left_arm_gripper": {
+   "Present_Position": 1340,
+   "Present_Load": 0,
+   "Torque_Enable": 0
+  },
+  "right_arm_gripper": {
+   "Present_Position": 1716,
+   "Present_Load": 0,
+   "Torque_Enable": 1
+  }
+ },
+ "note": "left gripper pinching the box flap (owner confirmed by eye); relaxed, motors released"
+}
