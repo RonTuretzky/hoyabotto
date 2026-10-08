@@ -1,3 +1,28 @@
+## Joy-Con update waits for controller handoff; wheel geometry synchronized — 8 October 2026
+
+- A fresh read-only preflight briefly reported all 16 motors released. The final
+  remote check caught new motion with all 12 arm motors enabled and an active
+  lease, so the inactive `135f6a7` installation was aborted before directory
+  creation. Only that Git commit was fetched. No stop, release, restart, servo
+  write, or deployment was performed by this work; the earlier locked `04dd3ae`
+  copy remains unchanged. Remote report: owner PID 36752, API PID 36787,
+  owner session 1791448804.245714, live checkout `056031f`.
+- A matching local native calibration binding was prepared at Mac reader
+  `.build/native-reference-neooooo-135f6a7.json`, fingerprint
+  `91ff2251b8559d2c0e1e59c9db438b896e316a5b750e133e2109a53b72d121b3`.
+  It was not installed on the robot Mac. Calibration must be rechecked later.
+- Merged `056031f` locally to retain the live owner's wheel-radius/track updates.
+  The manual owner now reports wheelbase/radius/speed limits. Both native and
+  legacy Joy-Con drive scaling consume reported geometry instead of assuming
+  a 0.25 m track. Missing/invalid geometry blocks driving. Limits remain at most
+  2 cm/s per wheel (about 0.089 rad/s in-place with the current 0.45 m track).
+- Verification: complete local suite 59/59; owner wheel and manual teleop tests
+  pass, including rejection of the former 0.16 rad/s turn before wheel writes.
+  All testing used simulated/fake motors. No physical drive test is claimed.
+- User clarification is pending: continue motors-off only or arrange handoff
+  from the active controller for supervised physical setup. Until then retain
+  the launch lock and do not interrupt the current robot session.
+
 ## Original Joy-Con hardware units corrected locally — 8 October 2026
 
 - Source audit found a material mismatch in the inactive `04dd3ae` adapter:

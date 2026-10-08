@@ -47,6 +47,10 @@ class UpstreamHardware:
         if s.get('teleop',{}).get('upstream_reference_id')!=self.reference.reference_id:
             raise ValueError('Robot owner has no matching upstream calibration reference')
         if not set(POSITION_NAMES)<=set(s.get('motors',{})):raise ValueError('All arms, grippers and head feedback required')
+        for key in ('wheelbase_m','wheel_limit_m_s'):
+            value=s.get('teleop',{}).get(key)
+            if type(value) not in (int,float) or not math.isfinite(value) or value<=0:
+                raise ValueError('Robot owner must report its wheel geometry and limit')
         return s
 
     def get_observation(self):
@@ -89,7 +93,9 @@ class UpstreamHardware:
         linear,angular=command['linear'],command['angular']
         if not all(self.dead.values()):linear=angular=0.
         # Keep the commissioned 2 cm/s *per wheel* cap and 0.16 rad/s cap.
-        scale=max(1.,abs(linear-angular*.125)/.02,abs(linear+angular*.125)/.02,abs(angular)/.16)
+        half_track=s['teleop']['wheelbase_m']/2
+        wheel_limit=min(.02,s['teleop']['wheel_limit_m_s'])
+        scale=max(1.,abs(linear-angular*half_track)/wheel_limit,abs(linear+angular*half_track)/wheel_limit,abs(angular)/.16)
         return dict(rates=rates,deadman=dict(self.dead),linear=linear/scale,angular=angular/scale)
 
     def _from_keyboard_to_base_action(self,keys):

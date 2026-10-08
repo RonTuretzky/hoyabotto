@@ -209,7 +209,9 @@ homing is used to force it to fit.
 
 The original physical target stays 40 ticks inside saved travel and at most 40 ticks ahead of
 feedback. Commands retain 80 ticks/s for arms, 60 for head, the owner's 100 ticks/s
-ceiling, and 2 cm/s per-wheel / 0.16 rad/s driving limits. These physical limits
+ceiling, and a 2 cm/s per-wheel driving limit. Drive scaling uses the owner's
+reported wheel spacing; with the current 0.45 m track, in-place turns are bounded
+to about 0.089 rad/s (also subject to the existing 0.16 rad/s ceiling). These physical limits
 are intentionally unchanged; this is **not** a promise of the simulator's speed
 or unmodified upstream hardware performance. Loosening physical limits requires
 separate commissioning, not a change to this adapter.
@@ -265,9 +267,9 @@ removal of the installation lock:
 4. Verify readback, controller identities/rails, scene clearance and Stop before
    explicitly selecting **Arm controls** for an authorized physical test.
 
-After the native-unit correction, the complete local suite passed 56 tests.
-Ten focused native-mode tests then passed after adding neutral endpoint coverage
-(57 unique tests total). Coverage includes original-source parity, native and geometric unit
+After the native-unit and owner-reported wheel-geometry corrections, the
+complete local suite passed 59 tests. The owner wheel and manual teleop tests
+also passed with the current 0.45 m track. Coverage includes original-source parity, native and geometric unit
 conversion, calibration rejection, exact-reference claims before enable, all
 14 position joints plus wheels through the original controller and the actual
 owner/API with fake motors, rail release, re-centering, and stale feedback.

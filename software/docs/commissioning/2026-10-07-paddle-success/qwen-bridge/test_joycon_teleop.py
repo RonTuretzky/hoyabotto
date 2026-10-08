@@ -94,12 +94,18 @@ try:r.send({n:10},left=True)
 except RuntimeError:pass
 else:raise AssertionError('Held trigger survived arm')
 # Drive/turn both directions; deadman release brakes, observes rest, restores settings.
-for lin,ang in ((.02,0),(-.02,0),(0,.16),(0,-.16)):
+for lin,ang in ((.02,0),(-.02,0),(0,.08),(0,-.08)):
     r=Rig();r.claim('drive')
     for _ in range(5):r.send(left=True,right=True,linear=lin,angular=ang);r.step()
     assert all(r.b.r[n]['Torque_Enable']==1 for n in WHEELS)
     for _ in range(12):r.send();r.step()
     assert all(r.b.r[n]['Torque_Enable']==0 and r.b.r[n]['Goal_Velocity']==0 and r.b.r[n]['Operating_Mode']==0 for n in WHEELS)
+# The previous 0.16 rad/s turn exceeds 2 cm/s per wheel at the current 0.45 m track.
+r=Rig();r.claim('drive');before=list(r.b.writes)
+try:r.send(left=True,right=True,angular=.16)
+except ValueError:pass
+else:raise AssertionError('Old narrow-track turn exceeded current wheel limits')
+assert r.b.writes==before
 # Network loss and camera loss zero both wheels even while moving.
 for camera in (False,True):
     r=Rig();r.claim('drive');r.send(left=True,right=True,linear=.02);r.step()

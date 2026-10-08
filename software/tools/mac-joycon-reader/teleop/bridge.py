@@ -188,7 +188,8 @@ class Bridge:
             with self.lock:
                 if generation!=self.generation:raise ValueError('STOP cancelled arm')
                 self.valid()
-                self.session=result;self.armed=True
+                self.session=result;self.robot_state=result.get('status',self.robot_state)
+                self.mapping.update_robot_status(self.robot_state);self.armed=True
                 self.reason='PRACTICE — simulated components only' if self.robot.simulation else 'Armed — hold trigger to move'
         except Exception as e:
             self.release('Start failed: '+str(e));raise
@@ -205,6 +206,7 @@ class Bridge:
                 if d['identity']!=self.identity:raise ValueError('Controller reconnected; re-arm required')
                 if generation!=self.generation:return
                 self.sequence+=1
+                self.mapping.update_robot_status(self.robot_state)
                 body=self.mapping.command(d,self.scope) | {k:session[k] for k in ('token','permit','owner_started')} | {'sequence':self.sequence}
             result=self.robot.call('input',body)
             with self.lock:

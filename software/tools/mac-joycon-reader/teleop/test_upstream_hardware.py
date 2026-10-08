@@ -141,6 +141,20 @@ class HardwareAdapterTests(unittest.TestCase):
         command=self.mapping.command(self.bridge.decoded,'wholebody')
         self.assertLess(abs(command['rates']['right_arm_wrist_roll']),.01)
 
+    def test_turns_use_reported_owner_track_and_pass_actual_wheel_guard(self):
+        from wheel_pulse_executor import WheelPulseExecutor,WHEELBASE_M
+        self.start();self.rails(True);self.c['buttons']['Button Menu']['pressed']=True
+        self.c['buttons']['Button X']['pressed']=True;self.tick(3)
+        self.assertEqual(self.robot.state['teleop']['wheelbase_m'],WHEELBASE_M)
+        command=self.mapping.command(self.bridge.decoded,'wholebody')
+        self.assertNotEqual(command['angular'],0)
+        WheelPulseExecutor.check_request(dict(linear_m_s=command['linear'],angular_rad_s=command['angular'],duration_s=.2))
+        self.assertLessEqual(abs(command['angular'])*WHEELBASE_M/2,.020000001)
+        # The adapter uses reported geometry even when it differs from its local copy.
+        self.robot.state['teleop']['wheelbase_m']=.6
+        command=self.mapping.command(self.bridge.decoded,'wholebody')
+        self.assertLessEqual(abs(command['angular'])*.3,.020000001)
+
     def test_plus_without_both_rails_neither_drives_nor_uses_x_hand_shortcut(self):
         self.start();self.c['buttons']['Right Rail SL']['pressed']=True
         self.c['buttons']['Button Menu']['pressed']=True;self.c['buttons']['Button X']['pressed']=True

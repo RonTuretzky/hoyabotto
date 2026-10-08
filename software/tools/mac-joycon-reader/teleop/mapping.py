@@ -9,6 +9,14 @@ class Mapping:
         self.checked = set()
         self.layer = 0
         self.previous_menu = False
+        self.wheelbase_m = self.wheel_limit_m_s = None
+
+    def update_robot_status(self,state):
+        manual=state.get('teleop') or {}
+        width,limit=manual.get('wheelbase_m'),manual.get('wheel_limit_m_s')
+        valid=all(type(v) in (int,float) and math.isfinite(v) and v>0 for v in (width,limit))
+        self.wheelbase_m=width if valid else None
+        self.wheel_limit_m_s=min(.02,limit) if valid else None
 
     def decode(self, f, now=None):
         now = time.time() if now is None else now
@@ -68,8 +76,10 @@ class Mapping:
                 out['rates'][joint]=d['axes']['left'+axis]*60 if d['deadman']['left'] else 0.
         elif scope=='drive':
             if all(d['deadman'].values()):
+                if self.wheelbase_m is None:raise ValueError('Owner wheel geometry unavailable')
                 forward,turn=d['axes']['lefty'],d['axes']['rightx']
                 scale=max(1,abs(forward)+abs(turn))
-                out['linear']=forward*.02/scale;out['angular']=-turn*.16/scale
+                out['linear']=forward*self.wheel_limit_m_s/scale
+                out['angular']=-turn*min(.16,2*self.wheel_limit_m_s/self.wheelbase_m)/scale
         else:raise ValueError('Unknown control scope')
         return out

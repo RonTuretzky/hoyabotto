@@ -5,7 +5,7 @@ re-arm. Position rates are encoder ticks/s; the base uses the commissioned wheel
 signs and 2 cm/s limit. The normal robot API cannot move while this session owns it.
 """
 import math
-from wheel_pulse_executor import WheelPulseExecutor, WHEELS
+from wheel_pulse_executor import WheelPulseExecutor, WHEELS, WHEELBASE_M, WHEEL_RADIUS_M, MAX_WHEEL_M_S
 
 INPUT_TTL = .45
 MAX_RATE = 100.0
@@ -59,7 +59,8 @@ class ManualTeleop:
             'available': True, 'active': self.active,
             'scope': getattr(self, 'scope', None), 'sequence': self.sequence,
             'reason': self.last_reason, 'input_timeout_s': INPUT_TTL,
-            'position_rate_limit_ticks_s': MAX_RATE, 'wheel_limit_m_s': .02,
+            'position_rate_limit_ticks_s': MAX_RATE, 'wheel_limit_m_s': MAX_WHEEL_M_S,
+            'wheelbase_m': WHEELBASE_M, 'wheel_radius_m': WHEEL_RADIUS_M,
             'head_motors': [n for n in SCOPES['head'] if n in self.o.ranges],
             'upstream_reference_id':getattr(getattr(self.o,'upstream_reference',None),'reference_id',None),
         }

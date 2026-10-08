@@ -21,7 +21,9 @@ class Tests(unittest.TestCase):
             m.layer=layer;c=m.command(d,'both');names.update(c['rates']);self.assertTrue(all(v==80 for v in c['rates'].values()))
         self.assertEqual(len(names),12)
         self.assertEqual(set(m.command(d,'head')['rates']),{'head_motor_1','head_motor_2'})
-        c=m.command(d,'drive');self.assertAlmostEqual(abs(c['linear'])+abs(c['angular'])*.125,.02)
+        with self.assertRaisesRegex(ValueError,'geometry'):m.command(d,'drive')
+        m.update_robot_status({'teleop':{'wheelbase_m':.45,'wheel_limit_m_s':.02}})
+        c=m.command(d,'drive');self.assertAlmostEqual(abs(c['linear'])+abs(c['angular'])*.225,.02)
         f['controllers'][0]['buttons']['Left Trigger']['pressed']=False
         d=m.decode(f,10.);self.assertFalse(any(m.command(d,'left')['rates'].values()));self.assertEqual(m.command(d,'drive')['linear'],0)
     def test_layer_change_only_neutral(self):
