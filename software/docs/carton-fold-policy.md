@@ -40,12 +40,34 @@ Artifacts (local, not in git): demos `…/Hackatuson/output/fold-demos/batch-01`
 `…/fold-datasets/both-shorts-v1`, checkpoints `…/fold-train/act-both-shorts-v1/checkpoints/025000`,
 evaluations and videos `…/fold-evals/act-v1-0*`.
 
+## Robot-model station (220 mm, robot cameras) — 8 October 2026, evening
+
+Rebuilt to the XLeRobot model (`upstream/assets/robots/xlerobot/xlerobot.xml`): arm bases 220 mm apart, policy
+cameras are the robot's own head camera (`front`, tilt 58°) and the two wrist cameras; the overhead camera is not a
+policy input. Station tooling and camera poses: branch `RonTuretzky/fold-policy-station-gap`
+(`docs/carton-fold-policy-station-gap.md` §7). The scripted demonstrator succeeds 318/320 there; 287 episodes
+(162,574 frames, 3 cameras at 240×320) form `both-shorts-220-v1` (private Hub dataset
+`RonTuretzky/carton_both_shorts_220_sim`).
+
+Trained on Hugging Face Jobs (A100 80 GB, `lerobot-train --job.target=a100-large`; 0.069 s/step at batch 16,
+about 5× this Mac). Closed loop, temporal ensembling 0.01, held-out starts:
+
+| run | checkpoint | success | carton slide (median / max) | robot–flap penetration |
+|---|---|---|---|---|
+| batch 32, 15k steps | 5k | 0/31 | 17 / — mm | — |
+| batch 32, 15k steps | 15k | 0/16 | 18 / 106 mm | 0.47 mm |
+| batch 16, 25k steps | 20k | 8/16 | 14 / 62 mm | 0.60 mm |
+| **batch 16, 25k steps** | **25k** | **24/31** | 15 / 82 mm | 1.02 mm |
+
+All seven 25k failures fold the right short but not the left. Batch 32 at the same learning rate is undertrained.
+Cloud cost for these two runs: 58 min, about $2.43. Checkpoints load into lerobot 0.6.1 after dropping the newer
+trainer's `dtype: null` config field.
+
 ## Limits and next
 
-- Simulated station and cameras: the robot model (`upstream/assets/robots/xlerobot/xlerobot.xml`) puts the
-  arm bases 220 mm apart and has head and wrist cameras, no overhead camera. The policy above cannot transfer
-  as is. Next: rebuild the sim to the robot model, record at 220 mm, train on head + wrist cameras
-  (branch `RonTuretzky/fold-policy-station-gap`).
+- The first policy (300 mm, overhead camera) cannot transfer; the 220 mm robot-camera policy is the one to
+  carry forward. Its wrist-camera field of view (90°) is assumed and the head tilt chosen in simulation; measure
+  both on the robot and re-render if they differ.
 - Robot execution path: branch `RonTuretzky/fold-policy-robot-adapter` (`docs/carton-fold-policy-robot.md`)
   has a dry-run-by-default runner and its blockers: per-arm joint zero/sign and jaw mappings are unmeasured,
   the owner cannot stream gripper closures (the policy needs them: 0/3 without, 2/3 with, in simulation),
