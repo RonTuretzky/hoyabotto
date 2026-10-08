@@ -199,6 +199,12 @@ for entry in TOOLS:
         fn['description'] += ' Validates first, then enables only this gripper if released and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: '+message+'. Raw calibration endpoints are invalid command targets; no clamping.'
         params['properties']['position_ticks']['description']='Commandable integer encoder ticks: '+message
         params['allOf']=[{'if':{'properties':{'arm':{'const':a}},'required':['arm']},'then':{'properties':{'position_ticks':{'minimum':b['min_ticks'],'maximum':b['max_ticks']}}}} for a,b in ranges.items()]
+# Retired 2026-10-08: the head is read-only in every owner scope, and the rest were historical context (old evidence,
+# simulated keyframes, an empty skills list) that only cost the pilot context. Their calls are now rejected.
+RETIRED = {'robot_move_head', 'robot_get_readiness', 'robot_get_keyframes', 'robot_get_skills', 'robot_get_evidence'}
+TOOLS = [t for t in TOOLS if t['function']['name'] not in RETIRED]
+# Callable, but not offered to the pilot: the tag-calibration mover's raw one-joint steps (the pilot uses robot_move_joint_targets).
+PILOT_HIDDEN = {'robot_move_motor_targets'}
 SCHEMAS = {t['function']['name']: t['function']['parameters'] for t in TOOLS}
 
 
@@ -675,7 +681,7 @@ class Handler(BaseHTTPRequestHandler):
                                         'camera_status': camera_status(),
                                         'client_certificate_pinned': True, 'motor_owner_active': execution()['active']})
         if self.path == '/tools':
-            return self.send_json(200, {'ok': True, 'tools': TOOLS})
+            return self.send_json(200, {'ok': True, 'tools': [t for t in TOOLS if t['function']['name'] not in PILOT_HIDDEN]})
         if self.path.startswith('/admin/'):
             return self.admin_get()
         return self.send_json(404, {'ok': False, 'error': 'Unknown route'})
