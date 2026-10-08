@@ -192,13 +192,19 @@ class Bridge:
 
 
 def main():
-    ap=argparse.ArgumentParser(description=__doc__)
+    ap=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
+    ap.add_argument('--simulator',choices=('registers','mujoco'),default='registers',help='Local simulator backend')
+    ap.add_argument('--model',type=Path,help='Optional XLeRobot MuJoCo model XML')
     ap.add_argument('--connect-robot',action='store_true',help='Explicitly connect to the robot. Default is a local input preview with no network access.')
     ap.add_argument('--config',default=os.environ.get('XLEROBOT_ADMIN_CONFIG',DEFAULT_CONFIG))
     ap.add_argument('--reader',type=Path,default=Path(__file__).resolve().parents[1]/'.build/release/MacJoyConReader')
     ap.add_argument('--no-browser',action='store_true');ap.add_argument('--port',type=int,default=0)
     a=ap.parse_args()
+    if a.connect_robot and a.simulator=='mujoco':ap.error('MuJoCo practice cannot be combined with a robot connection')
     if a.connect_robot:robot=Robot(a.config)
+    elif a.simulator=='mujoco':
+        from mujoco_simulator import MujocoRobot
+        robot=MujocoRobot(a.model)
     else:
         from simulator import SimulatedRobot
         robot=SimulatedRobot()
@@ -218,6 +224,10 @@ def main():
             if self.path=='/':return self.send(200,Path(__file__).with_name('index.html').read_bytes(),'text/html; charset=utf-8')
             if not self.authorized():return self.send(403,{'error':'Local session required'})
             if self.path=='/state':return self.send(200,bridge.snapshot())
+            if self.path=='/frame.jpg' and hasattr(robot,'frame'):
+                frame=robot.frame()
+                if frame is None:return self.send(503,{'error':'Waiting for simulator renderer'})
+                return self.send(200,frame,'image/jpeg')
             return self.send(404,{'error':'Not found'})
         def do_POST(self):
             if not self.authorized():return self.send(403,{'error':'Local session required'})
@@ -228,6 +238,7 @@ def main():
                 if self.path=='/heartbeat':
                     if b.get('focused') is True:bridge.ui_seen=time.monotonic()
                     else:bridge.ui_seen=0
+                elif self.path=='/view' and hasattr(robot,'set_view'):robot.set_view(b.get('view'))
                 elif self.path=='/action':bridge.action(b)
                 else:raise ValueError('Unknown route')
                 self.send(200,{'ok':True})

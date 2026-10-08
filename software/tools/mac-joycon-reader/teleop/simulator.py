@@ -68,10 +68,10 @@ class SimulatedRobot:
     preview = True
     simulation = True
 
-    def __init__(self):
+    def __init__(self,bus=None):
         self.temp = tempfile.TemporaryDirectory(prefix='joycon-simulation-')
         self.folder = Path(self.temp.name)
-        self.bus = VirtualBus()
+        self.bus = bus if bus is not None else VirtualBus()
         cal = {n:SimpleNamespace(range_min=100, range_max=4000, homing_offset=0)
                for n in self.bus.motors}
         self.owner = HardwareOwner([self.bus], cal, lambda b,n:dict(b.r[n]),
@@ -97,9 +97,9 @@ class SimulatedRobot:
         try:
             while not self.stopping.is_set():
                 now = time.monotonic()
-                self.bus.step(min(now-previous, .1))
-                previous = now
+                dt=min(now-previous,.1);previous=now
                 try:
+                    self.bus.step(dt)
                     mailbox = self.folder/'teleop-input.json'
                     if self.owner.teleop.active and mailbox.exists():
                         self.owner.teleop.accept(json.loads(mailbox.read_text()))
@@ -118,10 +118,14 @@ class SimulatedRobot:
                             self.owner.state['failed_command_id'] = c['id']
                             self.owner.release_all(str(e))
                 self.persist()
+                if hasattr(self.bus,'render_frame'):
+                    try:self.bus.render_frame()
+                    except Exception as e:self.bus.render_error=str(e)
                 self.stopping.wait(.02)
         finally:
             self.owner.release_all('Simulation closed')
             self.persist()
+            if hasattr(self.bus,'close'):self.bus.close()
 
     def call(self, path, body=None, timeout=None):
         if self.stopping.is_set(): raise ValueError('Simulation closed')

@@ -140,3 +140,5 @@ the robot's existing controller: it opens motor buses and commands a zero pose.
 ## Prepared teleoperation
 
 The [local teleoperation preview](teleop/README.md) adds control mappings for both arms, grippers, head and driving. `run-teleop.command` defaults to local practice with virtual joints and a virtual base, with no robot connection. Robot-side integration remains local and undeployed.
+
+For the full 3D MuJoCo model, use `run-simulator.command`. It opens the same controls with live robot rendering and physics feedback, entirely on this Mac. See [simulator setup and limits](teleop/README.md#mujoco-3d-simulator).

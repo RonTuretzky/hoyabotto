@@ -5,7 +5,53 @@ The code in this branch is prepared locally. No teleoperation code was deployed,
 no owner/API was restarted, and no motor activation or movement was requested.
 Physical teleoperation has **not** been validated.
 
-## Local preview
+## MuJoCo 3D simulator
+
+Double-click `../run-simulator.command` for the live 3D XLeRobot in MuJoCo.
+This launcher rejects robot-connection flags. It uses the existing local Python
+3.12 environment with MuJoCo 3.14.0 and the existing full XLeRobot mesh model.
+No remote service or motor connection is used. Orbit, front, side and top views
+are available beside the same Joy-Con controls; rendered frames stay on localhost.
+
+The Joy-Con mapping and guarded owner drive simulated position actuators and
+wheel velocity actuators. Register readback comes from MuJoCo joint positions
+and velocities after `mj_step`. The base is free to move on the floor through
+wheel contacts; it is not repositioned with a scripted animation. The scene
+includes a reference workbench and a free solid box.
+
+The model is the existing local copy of
+[MuJoCo-GS-Web's XLeRobot](https://github.com/Vector-Wangel/MuJoCo-GS-Web/tree/0d60421c6cd8b16525695f32d2f8c5ba1329d45d/assets/robots/xlerobot).
+The local XML SHA-256 is reported in the simulator status. The source asset tree
+is read without modification; scene additions are generated in memory.
+
+For another installation, set `JOYCON_SIM_PYTHON` to a Python environment with
+`teleop/requirements-simulator.txt` installed, and set `XLEROBOT_MUJOCO_MODEL`
+to the full model's `xlerobot.xml` (its `assets` folder must be beside it).
+The current defaults point to the already installed simulator under
+`/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/`.
+The [MuJoCo Python API](https://mujoco.readthedocs.io/en/stable/python.html)
+provides the physics stepping and offscreen rendering.
+
+**Model limits:** synthetic encoder calibration maps 100–4000 ticks to the
+model's joint ranges. Disarmed joints hold their pose for practice. Voltage,
+load and temperature fields are synthetic, not physical predictions. The
+upstream cart geometry/wheel spacing is not a measured replica of the user's
+robot. The solid box has no foldable flaps. This setup supports teleoperation
+practice, not hardware calibration or validated carton folding.
+
+Run the optional physics tests with the MuJoCo Python environment:
+
+```sh
+python -m unittest discover -s teleop -p 'test_mujoco_simulator.py' -v
+```
+
+Both integration tests passed: real MuJoCo feedback changed for all 14 position
+joints in both directions; the wheeled base translated about 18 mm and turned
+about 0.075 rad in the test; input timeout released the virtual session. The
+renderer produced distinct orbit/top scene images. No robot network was allowed
+in the controller-to-physics test.
+
+## Lightweight local preview
 
 Double-click `../run-teleop.command`. It builds the native reader and opens a
 loopback operator screen. The default preview does not load robot credentials,
@@ -102,7 +148,9 @@ From `software/docs/commissioning/2026-10-07-paddle-success/qwen-bridge`:
 python3 test_joycon_teleop.py
 ```
 
-Seven native tests and eleven local mapping/bridge tests passed. All 20 files in the
+Seven native tests and eleven local mapping/bridge tests passed. With the MuJoCo
+environment, all 13 Python tests passed, including the two physics tests above.
+All 20 files in the
 robot deployment's fake-hardware suite passed, including new tests for all 16
 fake servos, scope exclusion, neutral gating, dropped/expired/replayed inputs,
 wheel braking, camera loss, partial wheel startup failure and retry after a
@@ -113,9 +161,11 @@ cancelling the manual session.
 They fail if the simulated robot opens a socket. The local HTTP preview was
 also started with a nonexistent credential file; real arm requests are rejected.
 
-The practice interface was opened and visually checked in Chrome. The native
-reader again detected the real paired Joy-Cons and the left trigger check passed.
-The new screen has not yet been fully exercised with physical controller input
+The practice interface and live MuJoCo scene were opened and visually checked
+in Chrome. An earlier native-reader check detected the paired Joy-Cons and the
+left trigger check passed; the latest check saw only the right controller.
+Wake or reconnect the left controller to restore the combined pair. The new
+screen has not yet been fully exercised with physical controller input
 across all modes. Synthetic test inputs are distinct from that operator check.
 No physical motion, end-to-end live network timing, gripper direction, head
 axis direction or physical stopping distance has been verified.
