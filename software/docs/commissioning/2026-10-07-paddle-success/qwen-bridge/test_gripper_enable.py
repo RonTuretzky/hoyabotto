@@ -27,3 +27,19 @@ with tempfile.TemporaryDirectory() as tmp:
     assert enabled==[sorted(arm)],enabled                      # the whole arm, not only the gripper
     assert moved[0]['positions']=={g:2300} and sorted(result['auto_enabled_motors'])==sorted(arm) and result['completed']
 print('Gripper enable: pickup profile auto-enables all six joints of the arm, then moves only the gripper')
+
+# A gripper that stops short while holding is a reported outcome, not an error.
+with tempfile.TemporaryDirectory() as tmp:
+    folder=Path(tmp);state.update(time=time.time(),phase='holding',enabled_motors=sorted(arm),lease_remaining=100)
+    for n in arm:state['rows'][n]['Torque_Enable']=1
+    atomic_json(folder/'status.json',state)
+    c=DirectJointClient(folder,{n:{'range_min':826,'range_max':3268} for n in arm})
+    c.readiness=lambda:{'available_to_accept_authorized_command':True,'joint_blockers':{},'blockers':[]}
+    c._command=lambda request,wait=True:{'accepted':True,'completed':False,'holding':True,'closure_outcome':'settled_short','readbacks':{g:1960}}
+    r=c.set_gripper('right',1900,3)
+    assert r['sequence_phase']=='stopped_short' and r['holding'] and 'object' in r['note']
+    c._command=lambda request,wait=True:{'accepted':True,'completed':False,'holding':False,'closure_outcome':'halted'}
+    try:c.set_gripper('right',1900,3)
+    except RuntimeError as e:assert 'not completed' in str(e)
+    else:raise AssertionError('released failure reported as success')
+print('Gripper: stopped-short-and-holding reported as an outcome; other failures still raise')

@@ -122,6 +122,31 @@ def execute_targets(positions, duration_s, wait=True, replace=False):
     return final
 
 
+GRIPPER_CLOSE_CHUNK = 300  # pickup closures run 10 ticks per 1.5 s; one command fits about 340 ticks in its deadline
+
+
+def set_gripper(arm, position, duration_s):
+    """Gripper target. Under the pickup profile a long closure runs as consecutive <=300-tick closures, stopping at
+    the first that does not complete (e.g. the jaws met the paddle)."""
+    name = arm + '_arm_gripper'
+    state = DIRECT_CLIENT.status()
+    current = (state.get('rows', {}).get(name) or {}).get('Present_Position')
+    if state.get('execution_profile') != 'paddle-success-v1' or type(current) is not int or current - position <= GRIPPER_CLOSE_CHUNK:
+        return DIRECT_CLIENT.set_gripper(arm, position, duration_s)
+    generation = DIRECT_CLIENT.cancel_generation
+    pieces = -(-(current - position) // GRIPPER_CLOSE_CHUNK)
+    parts = []
+    for i in range(1, pieces + 1):
+        if DIRECT_CLIENT.cancel_generation != generation:
+            raise RuntimeError('STOP cancelled the remaining gripper closure; motors released, no automatic resume')
+        target = current - round((current - position) * i / pieces)
+        result = DIRECT_CLIENT.set_gripper(arm, target, duration_s)
+        parts.append({'target': target, 'closure_outcome': result.get('closure_outcome'), 'readback': (result.get('readbacks') or {}).get(name)})
+        if not result.get('completed'):
+            break
+    return dict(result, closure_parts=parts, final_target=position)
+
+
 def execute_path(waypoints, duration_s, wait=True, replace=False):
     """Continuous multi-waypoint motion (pickup profile): fill missing joints, split long legs, run as one command."""
     state = DIRECT_CLIENT.status()
@@ -679,7 +704,7 @@ def dispatch(name, args):
     if name == 'robot_move_base':
         return DIRECT_CLIENT.drive_base(args['linear_m_s'], args['angular_rad_s'], args['duration_s']), None
     if name == 'robot_set_gripper':
-        return DIRECT_CLIENT.set_gripper(args['arm'], args['position_ticks'], args.get('duration_s', 3)), None
+        return set_gripper(args['arm'], args['position_ticks'], args.get('duration_s', 3)), None
     return {'accepted': False, 'motor_writes': 0, 'reason': 'UNSUPPORTED_OWNER_SCOPE_OR_WHEELS_DISABLED',
             'requested_tool': name, 'readiness': capabilities()}, None
 

@@ -214,7 +214,13 @@ class DirectJointClient:
                 latest=self.status()
                 if latest['started']!=started or generation!=self.cancel_generation:raise RuntimeError('Owner/STOP changed during gripper sequence')
                 phase='moving';result=self._command(request) if arm=='right' else self.execute({name:position},duration)
-                if not result.get('completed'):raise RuntimeError('Gripper move not completed: '+json.dumps(result))
+                if not result.get('completed'):
+                    # Stopping short while still holding is a motion outcome (often the jaws met an object), reported
+                    # like robot_move_joint_targets does, not a failure; anything else is still an error.
+                    if result.get('holding') and result.get('closure_outcome') in ('settled_short','contact_halt','stationary_closure_unverified'):
+                        return dict(result,gripper_auto_enabled=enabled_here,auto_enabled_motors=to_enable,gripper=name,sequence_phase='stopped_short',
+                                    note='The jaw stopped before the target and is holding (often an object between the jaws). Look at the wrist camera before the next step.')
+                    raise RuntimeError('Gripper move not completed: '+json.dumps(result))
                 return dict(result,gripper_auto_enabled=enabled_here,auto_enabled_motors=to_enable,gripper=name,sequence_phase='completed')
             except BaseException as exc:
                 cleanup='not_requested'
