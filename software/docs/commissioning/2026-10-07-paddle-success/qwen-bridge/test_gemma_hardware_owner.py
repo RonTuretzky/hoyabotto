@@ -59,10 +59,25 @@ def corrupt_once(bus,name):
  return telemetry(bus,name)
 o.telemetry=corrupt_once;assert o.read_telemetry('left_arm_test')['Present_Position']==500
 assert len(calls)==2 and o.state['idle_read_recovery']['recovered_count']==1
+# Powered: one timeout (-6) or corruption (-7) is retried once; a second failure or a port-busy (-1) stops at once.
 calls.clear();o.enabled.add('left_arm_test')
+def timeout_once(bus,name):
+ calls.append(name)
+ if len(calls)==1:raise RuntimeError('Coherent servo read communication failure: -6; transaction=fake')
+ return telemetry(bus,name)
+o.telemetry=timeout_once;assert o.read_telemetry('left_arm_test')['Present_Position']==500
+assert len(calls)==2 and o.state['idle_read_recovery']['recovered_count']==2 and o.state['idle_read_recovery']['events'][-1]['powered'] is True
+calls.clear()
+def busy_port(bus,name):calls.append(name);raise RuntimeError('Coherent servo read communication failure: -1; transaction=fake')
+o.telemetry=busy_port
 try:o.read_telemetry('left_arm_test')
 except RuntimeError:assert len(calls)==1
-else:raise AssertionError('Powered communication fault masked')
+else:raise AssertionError('Port-busy failure masked while powered')
+calls.clear();o.telemetry=corrupt_once
+o.telemetry=lambda bus,name:(calls.append(name),(_ for _ in ()).throw(RuntimeError('Coherent servo read communication failure: -6; transaction=fake')))[1]
+try:o.read_telemetry('left_arm_test')
+except RuntimeError:assert len(calls)==2
+else:raise AssertionError('Repeated powered timeout masked')
 o.enabled.clear();calls.clear()
 def always_bad(bus,name):calls.append(name);raise RuntimeError('Coherent servo read communication failure: -7')
 o.telemetry=always_bad
@@ -71,32 +86,34 @@ except RuntimeError:assert len(calls)==2
 else:raise AssertionError('Persistent corruption masked')
 calls.clear();o.rows['right_arm_test']['Torque_Enable']=1
 try:o.read_telemetry('left_arm_test')
-except RuntimeError:assert len(calls)==1
-else:raise AssertionError('Powered row masked')
+except RuntimeError:assert len(calls)==2 and o.state['idle_read_recovery']['events'][-1]['powered'] is True
+else:raise AssertionError('Persistent corruption masked with a powered row')
 print({'idle_recovery_checks':4,'hardware_access':False})
 
+# Since 2026-10-08 one -6/-7 retry no longer depends on a fresh released proof: stale rows, unknown rows and
+# powered scopes all get exactly one retry; any other failure code is still immediate.
 o,b=make();o.telemetry=always_bad;calls.clear()
 for row in o.rows.values():row['captured_at']=o.wall()-2
 try:o.read_telemetry('left_arm_test')
-except RuntimeError:assert len(calls)==1
-else:raise AssertionError('Stale released proof allowed retry')
-print({'stale_release_no_retry_check':True})
-for reason in ['Coherent servo read packet fault: 1','Coherent servo read communication failure: -6']:
+except RuntimeError:assert len(calls)==2
+else:raise AssertionError('Persistent corruption masked with stale rows')
+print({'stale_release_single_retry_check':True})
+for reason,expected in [('Coherent servo read packet fault: 1',1),('Coherent servo read communication failure: -6',2),('Coherent servo read communication failure: -1',1),('Coherent servo read communication failure: -3',1)]:
  o,b=make();calls.clear()
  def fault(bus,name):calls.append(name);raise RuntimeError(reason)
  o.telemetry=fault
  try:o.read_telemetry('left_arm_test')
- except RuntimeError:assert len(calls)==1
- else:raise AssertionError('Non-corrupt failure retried')
-print({'no_servo_fault_or_timeout_retry_checks':2})
+ except RuntimeError:assert len(calls)==expected,(reason,calls)
+ else:raise AssertionError('Failure masked: '+reason)
+print({'retry_policy_by_code_checks':4})
 for unknown in ['missing_row','unknown_torque']:
  o,b=make();o.telemetry=always_bad;calls.clear()
  if unknown=='missing_row':o.rows.pop('right_arm_test')
  else:o.rows['right_arm_test']['Torque_Enable']=None
  try:o.read_telemetry('left_arm_test')
- except RuntimeError:assert len(calls)==1
- else:raise AssertionError('Unknown torque/rows retried')
-print({'unknown_release_no_retry_checks':2})
+ except RuntimeError:assert len(calls)==2
+ else:raise AssertionError('Persistent corruption masked with unknown rows')
+print({'unknown_release_single_retry_checks':2})
 o,b=make();o.enable(['left_arm_test'],True);d=o.state['enable_register_diagnostics']['left_arm_test'];assert d['pre_enable']['registers']['Torque_Limit']==1000 and d['applied']['registers']['Torque_Limit']==400
 assert o.state['last_write_readbacks']['left_arm_test']['Goal_Position']['readback']==500
 print({'pre_enable_applied_and_goal_diagnostics_checks':2})

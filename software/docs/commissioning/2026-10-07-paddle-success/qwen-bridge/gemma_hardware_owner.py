@@ -92,12 +92,14 @@ class HardwareOwner:
  def register_diagnostics(self,n):
   return {'captured_at':self.wall(),'registers':{f:self.read(n,f) for f in DIAGNOSTIC_REGISTERS},'read_only':True}
  def read_telemetry(self,n):
-  # Retry one transport corruption/timeout only in a fully observed released idle scope.
+  # One dropped or corrupt reply (-6 timeout, -7 corrupt) is retried once, powered or not (owner approval
+  # 2026-10-08: a single lost packet on the left bus was ending whole runs). A second failure, or any other
+  # code (-1 port busy, -2/-3 tx/rx fail), stops the owner at once as before.
   idle_released=(not self.enabled and not (self.engine and self.engine.active)
                  and len(self.rows)==len(self.names)
                  and all(row.get('Torque_Enable')==0 and type(row.get('captured_at')) in (int,float)
                          and 0<=self.wall()-row['captured_at']<=1 for row in self.rows.values()))
-  for attempt in range(2 if idle_released else 1):
+  for attempt in range(2):
    try:
     row=self.telemetry(self.by_name[n],n)
     evidence=getattr(self.by_name[n],'last_telemetry_sample',None)
@@ -108,11 +110,11 @@ class HardwareOwner:
      self.state['idle_read_recovery']['events'][-1]['recovered_at']=self.wall()
     return row
    except RuntimeError as exc:
-    transport_failure=str(exc).startswith('Coherent servo read communication failure: -7')
-    if not idle_released or not transport_failure:raise
-    report=self.state.setdefault('idle_read_recovery',{'failure_count':0,'recovered_count':0,'events':[],'max_attempts':2,'powered_retries':False})
+    transport_failure=str(exc).startswith(('Coherent servo read communication failure: -6','Coherent servo read communication failure: -7'))
+    if not transport_failure:raise
+    report=self.state.setdefault('idle_read_recovery',{'failure_count':0,'recovered_count':0,'events':[],'max_attempts':2,'powered_retries':True})
     report['failure_count']+=1
-    report['events'].append({'time':self.wall(),'motor':n,'attempt':attempt+1,'outcome':'retry_pending' if attempt==0 else 'retry_failed','diagnostic':str(exc),'transaction':getattr(self.by_name[n],'last_telemetry_failure',None)})
+    report['events'].append({'time':self.wall(),'motor':n,'attempt':attempt+1,'powered':not idle_released,'outcome':'retry_pending' if attempt==0 else 'retry_failed','diagnostic':str(exc),'transaction':getattr(self.by_name[n],'last_telemetry_failure',None)})
     report['events']=report['events'][-16:]
     if attempt:raise
     time.sleep(.01)
