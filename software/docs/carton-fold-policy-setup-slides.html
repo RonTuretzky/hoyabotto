@@ -522,91 +522,62 @@ python tools/oak_intrinsics.py --width 640 --height 480 --out oak-640x480.json</
 
 <!-- 11 -->
 <section class="slide" aria-hidden="true">
-  <div class="eyebrow kicker">Step 8 · joint maps, using the digital twin</div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8a · joint maps</div><h2>Arm maps are accepted; bind them on the robot Mac</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge exists">Nothing moves</span><span class="badge time">5 min</span></div></div>
+  <div class="body"><div class="cols">
+    <div class="panel">
+      <p>The maps are in <code>profiles/fold-joint-maps/</code>. They use the digital twin's mapping: each arm joint's zero is the
+        <b>middle of its saved range</b> (tick 2047 for every arm joint today), sign +1. The jaw is closed at the bottom of its range.
+        You accepted this on 8 October; the files say "accepted, not measured".</p>
+      <p style="margin-top:8px">On the robot Mac, tie them to the live calibration file:</p>
+<pre><code>cd software
+python tools/bind_fold_joint_maps.py \
+  --calibration &lt;live saved calibration .json&gt; --out bound-maps/</code></pre>
+      <p class="note">It refuses if any arm motor's homing offset or range changed since 8 October, meaning the arms were recalibrated. Then the maps get regenerated from a fresh read.</p></div>
+    <div class="panel risk"><b>The head is the exception</b><p>The twin's head angles were off by about 15° tilt and 17° pan in the live check.
+      Don't use them. The head camera pose comes from the tags in step 6.</p></div>
+  </div></div>
+  <div class="footer"><span>Step 8a · bind maps</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8b · hand pose</div><h2>Pose the arms at the training start, by hand</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge exists">Motors released</span><span class="badge time">10 min</span></div></div>
   <div class="body">
-    <h2>The twin already maps encoder ticks to angles; we just confirm it</h2>
-    <div class="grid-3" style="margin-top:18px">
-      <div class="card ok"><h3>What already exists</h3><p>The robot server's digital twin (<code>farm/sim/xlerobot_twin.py</code>) turns live ticks into model joint angles from the saved calibration:
-        each joint's zero is the <b>middle of its calibrated range</b>, and positive is increasing ticks. That is the map the policy needs.</p></div>
-      <div class="card blocked"><h3>What isn't confirmed</h3><p>Nobody has checked that "middle of the range" equals the model's zero on <i>this</i> robot.
-        The twin marks it unvalidated, and the robot runner refuses an unvalidated map. A few degrees off at the shoulder is centimetres at the claw.</p></div>
-      <div class="card"><h3>How we confirm it, no motors</h3><p>Overlay the twin's rendered arms on a real head-camera image taken at the same ticks.
-        If they line up, the map is right. If a joint is off, the image shows by how much. The agent does the reading and maths; you only move the released arms by hand.</p></div>
+    <img src="img/fold-policy-setup/training-start-pose.png" alt="Training start pose: shoulders folded low, wrists bent up, jaws closed, claws parked either side of the carton's near wall" style="width:100%;max-height:30vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
+    <div class="cols" style="margin-top:10px">
+      <table>
+        <tr><th>Joint</th><th>Left tick</th><th>Right tick</th><th>What it looks like</th></tr>
+        <tr><td>shoulder pan</td><td>1691</td><td>2401</td><td>each arm turned ~31° outward</td></tr>
+        <tr><td>shoulder lift</td><td>909</td><td>909</td><td>folded down, near its stop</td></tr>
+        <tr><td>elbow flex</td><td>2396</td><td>2396</td><td>+31°</td></tr>
+        <tr><td>wrist flex</td><td>3128</td><td>3128</td><td>bent up, +95°</td></tr>
+        <tr><td>wrist roll</td><td>2050</td><td>3024</td><td>right wrist rolled ~86°</td></tr>
+        <tr><td>jaw</td><td>≈1276</td><td>≈1272</td><td>closed</td></tr>
+      </table>
+      <div class="panel"><ol>
+        <li>Arms released, nothing enabled.</li>
+        <li>Move each arm by hand toward the picture and support it.</li>
+        <li>Read the ticks (<code>robot_get_state</code>, read-only) and adjust until every joint is within <b>±30 ticks</b> (±3°).</li>
+        <li>The policy only ever started here: the dry run warns until you're close.</li></ol></div>
     </div>
-    <p class="note" style="margin-top:14px">Reading state, calibration and a camera frame is read-only. The robot API was not answering at 22:30 on 8 October; restart the robot server first if needed (<code>./restart-robot-server.sh</code> on the robot Mac).</p>
   </div>
-  <div class="footer"><span>Step 8 · twin</span><span class="pg"></span></div>
+  <div class="footer"><span>Step 8b · start pose</span><span class="pg"></span></div>
 </section>
 
 <section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 8a · joint maps</div><h2>Agent reads the robot (read-only)</h2></div>
-    <div class="meta"><span class="badge agent">Agent</span><span class="badge exists">Nothing moves</span><span class="badge time">5 min</span></div></div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8c · optional</div><h2>Later: confirm the maps with three overlay poses</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge exists">Motors released</span><span class="badge time">15 min</span></div></div>
   <div class="body"><div class="cols">
-    <div class="panel"><ol>
-      <li>Owner: make sure the robot server is up and the arms are <b>released and resting</b>, with STOP in reach as always.</li>
-      <li>Agent, through the pilot's read-only tools only (<code>robot_get_*</code>, <code>robot_calibration_status</code>):
-        <ul><li>the live calibration file and its ranges;</li><li>all 16 encoder ticks;</li><li>one head-OAK frame, plus the head pan/tilt ticks.</li></ul></li>
-      <li>Agent writes <b>draft</b> maps: zero = middle of each saved range, sign +1, jaw linear from closed to open. They're marked <b>unvalidated</b>.</li>
-    </ol></div>
-    <div class="panel done"><b>Guard</b><p>The read-only client refuses any tool that isn't a read. It can't enable, move, stop or release anything.</p></div>
+    <div class="panel"><p>Skippable: you accepted the maps. If a run ever looks off, this gives the evidence. Do it after step 6, <b>sleeves off</b>:</p><ol>
+      <li>Move the released arms by hand into a pose with both grippers in the head camera's view, and support them.</li>
+      <li>The agent reads the ticks and one frame (read-only), renders the twin from the measured head camera, and overlays them.</li>
+      <li>Repeat at three different poses (elbows bent, wrists turned, jaws open).</li>
+      <li>If a joint is off, the agent fits its zero and sign and rewrites the maps.</li></ol></div>
+    <div class="panel"><h3>The 8 October check</h3><p>Arms in sleeves, head pose unknown: after fitting a head offset, the twin arms covered the real arms roughly (overlap 0.52).
+      It's plausible, but too coarse to prove a few degrees per joint.</p></div>
   </div></div>
-  <div class="footer"><span>Step 8a · read</span><span class="pg"></span></div>
-</section>
-
-<section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 8b · joint maps</div><h2>Check the twin against the camera at three poses</h2></div>
-    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge exists">Motors off</span><span class="badge time">15 min</span></div></div>
-  <div class="body"><div class="cols">
-    <div class="panel"><ol>
-      <li>Owner: with the arms <b>released</b>, move them by hand into a pose where both grippers are in the head camera's view, and support them.</li>
-      <li>Agent: read the ticks and one frame, render the twin at those ticks from the head camera's pose, and <b>overlay</b> the two.</li>
-      <li>Repeat at <b>three different poses</b> (e.g. elbows bent, wrists turned, jaws open). Different poses separate the joints and confirm each sign.</li>
-      <li>Agent: if a joint is off, fit its zero and sign from the three overlays, then re-check.</li>
-    </ol></div>
-    <div class="panel"><h3>Pass</h3><ul>
-      <li>Rendered arms sit on the real arms within a few pixels at the gripper, in all three images.</li>
-      <li>You look at the three overlay pictures and agree.</li></ul>
-      <p class="note">First live check, 8 Oct 22:40 (read-only, motors released): the twin's <b>head</b> mapping was off by about 15° tilt and 17° pan,
-        so do step 6 (tags) first to measure the head camera. Take the <b>black sleeves off</b> the arms for the overlay frames: they hide the joints.</p></div>
-  </div></div>
-  <div class="footer"><span>Step 8b · overlay check</span><span class="pg"></span></div>
-</section>
-
-<section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 8c · joint maps</div><h2>Validated map files</h2></div>
-    <div class="meta"><span class="badge agent">Agent</span><span class="badge time">5 min</span></div></div>
-  <div class="body"><div class="cols">
-    <div class="panel"><p>The agent writes <code>left-joint-map.json</code> and <code>right-joint-map.json</code>:</p>
-<pre><code>{"schema": 1, "arm": "left",
- "calibration_file": "&lt;live calibration&gt;", "calibration_sha256": "&lt;its hash&gt;",
- "joints": {"shoulder_pan": {"model_zero_tick": 2047, "model_sign": 1}, ...},
- "gripper": {"model_zero_tick": ..., "model_sign": ...},
- "evidence": {"joints": "twin overlays 8b, poses 1-3",
-              "gripper": "jaw open/closed overlays"}}</code></pre>
-      <p class="note">The 2047 shown is the middle of the current ranges recorded in <code>STATUS.md</code>: every joint's range is centred on 2047. It's a placeholder until the overlays confirm it.</p></div>
-    <div class="panel"><h3>Check</h3>
-<pre><code>python -c "from carton.fold_policy_runner import load_arm_maps; \
-load_arm_maps({'left':'left-joint-map.json','right':'right-joint-map.json'})"</code></pre>
-      <p>Recalibrating the arms changes the ticks: redo 8a–8c after any recalibration.</p></div>
-  </div></div>
-  <div class="footer"><span>Step 8c · map files</span><span class="pg"></span></div>
-</section>
-
-<section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Fallback · if the camera check isn't possible</div><h2>Measure the zeros by hand</h2></div>
-    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">30 min per arm</span></div></div>
-  <div class="body"><div class="cols">
-    <div><img src="img/fold-policy-setup/urdf-zero-pose.png" alt="SO101 URDF zero pose" style="width:100%;border-radius:12px;border:1px solid var(--line)">
-      <img src="img/fold-policy-setup/urdf-joint-directions.png" alt="Positive direction of each joint" style="width:100%;margin-top:8px;border-radius:12px;border:1px solid var(--line)"></div>
-    <div class="panel"><ol>
-      <li>Release and <b>support</b> the arm. Pose it like the top picture: pan straight forward, upper arm vertical, forearm and wrist level, jaw closed. Check with the inclinometer.</li>
-      <li>Read the six ticks (read-only): these are the zero ticks.</li>
-      <li>Move one joint 20–30° the way the lower pictures show. Positive pan is toward the arm's own right; shoulder lift tips forward; elbow and wrist tip down; the jaw opens.
-        Ticks went up → sign +1, down → −1.</li>
-      <li>Send the readings and photos; the agent writes the files as in 8c.</li>
-    </ol></div>
-  </div></div>
-  <div class="footer"><span>Fallback · by hand</span><span class="pg"></span></div>
+  <div class="footer"><span>Step 8c · overlay check</span><span class="pg"></span></div>
 </section>
 
 <section class="slide" aria-hidden="true">
@@ -632,10 +603,10 @@ load_arm_maps({'left':'left-joint-map.json','right':'right-joint-map.json'})"</c
   <div class="body">
     <div class="cols">
       <div class="panel">
-        <p>Arms released and supported, no carton. No <code>--execute</code>, so no command reaches the motors.</p>
+        <p>Arms released, supported <b>at the training start pose (8b)</b>, no carton. No <code>--execute</code>, so no command reaches the motors.</p>
 <pre><code>python -m carton.fold_policy_runner --checkpoint &lt;ckpt&gt; \
   --transport api --pilot-root "$PILOT" \
-  --joint-map left=left-joint-map.json --joint-map right=right-joint-map.json \
+  --joint-map left=bound-maps/left-joint-map.json --joint-map right=bound-maps/right-joint-map.json \
   --camera front=&lt;head OAK&gt; --camera left_wrist=&lt;cam&gt; --camera right_wrist=&lt;cam&gt; \
   --out &lt;run dir&gt; --max-steps 100</code></pre>
       </div>
@@ -704,7 +675,7 @@ load_arm_maps({'left':'left-joint-map.json','right':'right-joint-map.json'})"</c
       <li>Wrist cameras see their claw tips</li>
       <li>Tags printed, measured and laid out; head set to 58°; OAK lens read</li><li>Head pose solved; wrist lenses calibrated</li>
       <li>Measurements sent; refitted policy received</li>
-      <li>Twin overlays match at three poses; map files pass the check</li>
+      <li>Joint maps bound to the live calibration; arms at the training start pose</li>
       <li>Gripper streaming, link speed and joint speed confirmed</li>
       <li>Dry run clean</li>
       <li>Free-air 10-step run clean</li>
@@ -712,7 +683,7 @@ load_arm_maps({'left':'left-joint-map.json','right':'right-joint-map.json'})"</c
     </ul>
     <p class="note" style="margin-top:14px">Details: <code>docs/carton-fold-policy.md</code> (results),
       <code>docs/carton-fold-policy-station-gap.md</code> (layout and cameras),
-      <code>docs/carton-fold-policy-robot.md</code> (robot path and commissioning).</p>
+      <code>docs/carton-fold-policy-robot.md</code> (robot path and commissioning), <code>docs/carton-fold-policy-handoff-2026-10-08.md</code> (handoff).</p>
   </div>
   <div class="footer"><span>Checklist</span><span class="pg"></span></div>
 </section>
