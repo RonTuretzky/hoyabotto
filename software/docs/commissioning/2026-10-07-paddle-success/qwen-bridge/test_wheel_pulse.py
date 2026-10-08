@@ -73,6 +73,19 @@ except RuntimeError as x:assert 'rolling' in str(x)
 else:raise AssertionError('Rolling after release accepted')
 p.step=orig;p.roll_after_release=0
 
+# Wheels that keep turning after the zero command fault with the samples in the message.
+t[0]=400;cam['received_at']=400;e=WheelPulseExecutor(lambda n,f:p.r[n][f],lambda n,f,v:p.r[n].__setitem__(f,v),fresh,clock=lambda:t[0],wall=lambda:t[0])
+e.start({'id':5,'session_started':7,'linear_m_s':.01,'angular_rad_s':0,'duration_s':.5},rows(),session_started=7)
+def dragging(dt):
+ orig(dt)
+ if e.phase=='braking':
+  for n in WHEELS:p.r[n]['Present_Velocity']=30;p.r[n]['Present_Position']=(p.r[n]['Present_Position']+2)%4096
+p.step=dragging
+try:run(e)
+except RuntimeError as x:assert 'did not settle within 1.5 s' in str(x) and 'samples' in str(x) and str(30) in str(x),str(x)
+else:raise AssertionError('Wheels still turning while braking accepted')
+p.step=orig;assert e.abort()==[] and all(p.r[n]['Torque_Enable']==0 for n in WHEELS)
+
 # Owner: base pulse runs beside a released arm, STOP mid-drive stops the wheels, scope flag is required.
 from gemma_hardware_owner import HardwareOwner
 arm=['right_arm_'+s for s in ['shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper']]
