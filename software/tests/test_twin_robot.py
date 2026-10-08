@@ -93,7 +93,7 @@ class FakeRenderer:
         self.max_active = 0
         self.guard = threading.Lock()
 
-    def render_twin(self, positions_ticks, ranges, *, views=("front", "side", "top"), size=(640, 480), joint_map=None):
+    def render_twin(self, positions_ticks, ranges, *, views=("front", "left", "right", "top"), size=(640, 480), joint_map=None):
         with self.guard:
             self.active += 1
             self.max_active = max(self.max_active, self.active)
@@ -103,7 +103,7 @@ class FakeRenderer:
                                "size": size, "joint_map": copy.deepcopy(joint_map)})
             if self.fail:
                 raise self.fail
-            colors = {"front": (0, 200, 0), "side": (200, 0, 0), "top": (200, 200, 200)}
+            colors = {"front": (0, 200, 0), "left": (0, 0, 200), "right": (200, 0, 0), "top": (200, 200, 200)}
             return {"images": [{"view": v, "mime_type": "image/jpeg", "data": jpeg(size[0], size[1], colors[v])}
                                for v in views],
                     "angles_deg": {n: 0.0 for n in positions_ticks if n.startswith(("left_arm", "right_arm"))},
@@ -121,7 +121,7 @@ def renderer(monkeypatch):
     fake = FakeRenderer()
     module = types.ModuleType(twin_robot.RENDERER_MODULE)
     module.render_twin = fake.render_twin
-    module.VIEWS = ("front", "side", "top")
+    module.VIEWS = ("front", "left", "right", "top")
     monkeypatch.setitem(sys.modules, twin_robot.RENDERER_MODULE, module)
     return fake
 
@@ -157,9 +157,9 @@ def test_catalog_adds_the_tool_once_with_the_published_schema():
         "real cameras for contact and clearance.")
     params = function["parameters"]
     assert params["additionalProperties"] is False
-    assert params["properties"]["views"]["items"]["enum"] == ["front", "side", "top"]
+    assert params["properties"]["views"]["items"]["enum"] == ["front", "left", "right", "top"]
     assert params["properties"]["views"]["uniqueItems"] is True
-    assert params["properties"]["views"]["default"] == ["front", "side", "top"]
+    assert params["properties"]["views"]["default"] == ["front", "left", "right", "top"]
     assert params["properties"]["compare_with_phone"] == {
         "type": "boolean", "default": False, "description": params["properties"]["compare_with_phone"]["description"]}
     assert catalog["metadata"]["twin_view"]["motor_access"] is False
@@ -200,7 +200,7 @@ def test_server_native_tool_is_preferred():
     assert twin.call(TOOL_NAME, {}) == {"ok": True, "result": {"forwarded": TOOL_NAME}}
 
 
-def test_default_call_reads_state_only_and_returns_three_labelled_images(renderer):
+def test_default_call_reads_state_only_and_returns_four_labelled_images(renderer):
     robot, twin = make()
     answer = twin.call(TOOL_NAME, {})
     assert answer["ok"] is True
@@ -208,15 +208,15 @@ def test_default_call_reads_state_only_and_returns_three_labelled_images(rendere
     call = renderer.calls[0]
     assert call["positions"] == MOTORS
     assert call["ranges"] == {n: (900, 3100) for n in MOTORS}
-    assert call["views"] == ("front", "side", "top") and call["size"] == (640, 480) and call["joint_map"] is None
-    assert [i["camera_id"] for i in answer["images"]] == ["twin-front", "twin-side", "twin-top"]
+    assert call["views"] == ("front", "left", "right", "top") and call["size"] == (640, 480) and call["joint_map"] is None
+    assert [i["camera_id"] for i in answer["images"]] == ["twin-front", "twin-left", "twin-right", "twin-top"]
     for image in answer["images"]:
         assert image["mime_type"] == "image/jpeg" and image["synthetic"] is True
         assert image["captured_at"] == NOW - .3 and image["received_at"] is None
         assert image["camera_name"] == "twin_" + image["view"]
         assert decode(image).shape == (480, 640, 3)
     result = answer["result"]
-    assert result["views"] == ["front", "side", "top"]
+    assert result["views"] == ["front", "left", "right", "top"]
     assert result["mapping"] == "feetech_degrees_v1" and result["mapping_validated"] is False
     assert result["unmapped"] == ["head_motor_1"] and result["model"] == "xlerobot-test"
     assert set(result["angles_deg"]) == {n for n in MOTORS if "arm" in n}
@@ -240,7 +240,7 @@ def test_compare_with_phone_composes_one_side_by_side_jpeg(renderer):
     assert answer["ok"] is True
     assert robot.calls == [("robot_get_state", {"fresh": False}),
                            ("robot_get_cameras", {"cameras": ["phone"], "revive": False})]
-    assert [i["camera_id"] for i in answer["images"]] == ["twin-compare-phone", "twin-side", "twin-top"]
+    assert [i["camera_id"] for i in answer["images"]] == ["twin-compare-phone", "twin-left", "twin-right", "twin-top"]
     composite = answer["images"][0]
     pixels = decode(composite)
     # phone 320x240 scaled to the twin's 480 height (640 wide), 4 px gap, twin 640 wide, 46 px label bars
@@ -267,12 +267,12 @@ def test_compare_without_a_phone_frame_still_returns_the_twin(renderer):
     robot = FakeRobot()
     robot.phone_error = "phone image is stale"
     robot, twin = make(robot)
-    answer = twin.call(TOOL_NAME, {"compare_with_phone": True, "views": ["side"]})
+    answer = twin.call(TOOL_NAME, {"compare_with_phone": True, "views": ["right"]})
     assert answer["ok"] is True
     assert answer["result"]["compare_with_phone"]["ok"] is False
     assert "stale" in answer["result"]["compare_with_phone"]["error"]
-    assert [i["camera_id"] for i in answer["images"]] == ["twin-side"]
-    assert renderer.calls[0]["views"] == ("side",)
+    assert [i["camera_id"] for i in answer["images"]] == ["twin-right"]
+    assert renderer.calls[0]["views"] == ("right",)
 
 
 def test_stale_phone_frame_is_not_compared(renderer):
@@ -280,7 +280,7 @@ def test_stale_phone_frame_is_not_compared(renderer):
     answer = twin.call(TOOL_NAME, {"compare_with_phone": True})
     assert answer["result"]["compare_with_phone"]["ok"] is False
     assert "phone frame" in answer["result"]["compare_with_phone"]["error"]
-    assert [i["camera_id"] for i in answer["images"]] == ["twin-front", "twin-side", "twin-top"]
+    assert [i["camera_id"] for i in answer["images"]] == ["twin-front", "twin-left", "twin-right", "twin-top"]
 
 
 def test_joint_map_next_to_the_robot_config_is_loaded_and_passed(renderer, tmp_path):
@@ -397,6 +397,6 @@ def test_stacks_under_the_chat_wrappers(renderer, tmp_path):
     chat = CalibrationRobot(TagRobot(TwinRobot(robot, clock=lambda: NOW)))
     names = [t["function"]["name"] for t in chat.catalog()["tools"]]
     assert names.count(TOOL_NAME) == 1 and "robot_get_tags" in names
-    answer = chat.call(TOOL_NAME, {"views": ["side"]})
-    assert answer["ok"] is True and [i["camera_id"] for i in answer["images"]] == ["twin-side"]
+    answer = chat.call(TOOL_NAME, {"views": ["right"]})
+    assert answer["ok"] is True and [i["camera_id"] for i in answer["images"]] == ["twin-right"]
     assert robot.calls == [("robot_get_state", {"fresh": False})]

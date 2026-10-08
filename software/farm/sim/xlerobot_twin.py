@@ -1,7 +1,7 @@
 """Read-only digital twin: render the XLeRobot's current arm/head pose from encoder ticks.
 
 Give it the raw STS3215 ticks the robot reports and the saved calibration ranges; it poses the
-upstream XLeRobot MuJoCo model and returns third-person JPEGs ('front', 'side', 'top') so an
+upstream XLeRobot MuJoCo model and returns third-person JPEGs ('front', 'left', 'right', 'top') so an
 LLM pilot can see how the arms are placed. It never opens a bus, calls the robot API or writes
 anything: rendering only.
 
@@ -42,7 +42,8 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-VIEWS = ('front', 'side', 'top')
+VIEWS = ('front', 'left', 'right', 'top')
+VIEW_ALIASES = {'side': 'right'}  # the first version had one side view, from the robot's right
 MAPPING = 'feetech_degrees_v1'
 TICKS_PER_TURN = 4096
 MODEL_ENV = 'XLEROBOT_TWIN_MODEL'
@@ -79,8 +80,10 @@ JOINT_TABLE = {
 CAMERAS = {
     'front': dict(lookat=(-0.2, 0.0, 0.8), distance=1.4, azimuth=0.0, elevation=-10.0,
                   caption="FRONT: facing the robot. Robot's LEFT arm (orange) is on image RIGHT"),
-    'side': dict(lookat=(-0.25, 0.0, 0.8), distance=1.4, azimuth=-90.0, elevation=-8.0,
-                 caption="SIDE: from robot's right. Robot faces image RIGHT; RIGHT arm (blue) nearest"),
+    'left': dict(lookat=(-0.25, 0.0, 0.8), distance=1.4, azimuth=90.0, elevation=-8.0,
+                 caption="LEFT SIDE: from robot's left. Robot faces image LEFT; LEFT arm (orange) nearest"),
+    'right': dict(lookat=(-0.25, 0.0, 0.8), distance=1.4, azimuth=-90.0, elevation=-8.0,
+                  caption="RIGHT SIDE: from robot's right. Robot faces image RIGHT; RIGHT arm (blue) nearest"),
     'top': dict(lookat=(-0.25, 0.0, 0.75), distance=1.25, azimuth=180.0, elevation=-89.9,
                 caption="TOP: robot front at image TOP, LEFT arm (orange) on image LEFT. Floor grid 10 cm"),
 }
@@ -364,7 +367,7 @@ def render_twin(positions_ticks, ranges, *, views=VIEWS, size=(640, 480), joint_
     Returns {'images': [{'view', 'mime_type', 'data'}...], 'angles_deg', 'unmapped', 'mapping',
     'mapping_validated', 'model'}.
     """
-    views = tuple(views)
+    views = tuple(VIEW_ALIASES.get(v, v) for v in views)
     bad = [v for v in views if v not in CAMERAS]
     if bad or not views:
         raise ValueError(f'unknown view(s) {bad}; choose from {VIEWS}')

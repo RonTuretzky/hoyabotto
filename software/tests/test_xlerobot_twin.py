@@ -224,7 +224,7 @@ def test_render_from_non_main_threads():
     for t in threads:
         t.join(timeout=60)
     assert not errors and len(results) == 3
-    assert all(len(r['images']) == 3 for r in results)
+    assert all(len(r['images']) == len(twin.VIEWS) for r in results)
 
 
 @render

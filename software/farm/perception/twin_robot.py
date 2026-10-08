@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 
 TOOL_NAME = "robot_get_twin_view"
-VIEWS = ("front", "side", "top")
+VIEWS = ("front", "left", "right", "top")  # left/right: side views from the robot's left and right
 RENDERER_MODULE = "farm.sim.xlerobot_twin"
 JOINT_MAP_NAME = "twin-joint-map.json"
 CANDIDATE_MAPPING = "feetech_degrees_v1"
@@ -245,7 +245,7 @@ class TwinRobot:
         views = args.get("views", list(VIEWS))
         if (not isinstance(views, list) or not 1 <= len(views) <= len(VIEWS) or len(set(map(str, views))) != len(views)
                 or any(not isinstance(v, str) or v not in VIEWS for v in views)):
-            raise Refusal("views must be distinct names from front, side, top")
+            raise Refusal("views must be distinct names from front, left, right, top")
         compare = args.get("compare_with_phone", False)
         if type(compare) is not bool:
             raise Refusal("compare_with_phone must be true or false")
