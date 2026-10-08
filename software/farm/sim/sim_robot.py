@@ -740,6 +740,12 @@ class SimRobot:
             a = q_lo - b * lo
             aid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_ACTUATOR, motor)
             grip = motor.endswith('gripper')
+            if '_arm_' in motor and not grip:
+                # The vendored MJCF's joint ranges are narrower than the servos' calibrated travel (e.g. Rotation_R stops at
+                # feetech -34 deg where the saved range reaches -120): the saved range IS the mechanical travel (calibration
+                # drives each joint to both stops), so the model limits follow it. The gripper keeps the model's jaw stops.
+                model.jnt_range[jid] = sorted((q_lo, q_hi))
+                model.jnt_limited[jid] = 1
             self.motors[motor] = _Motor(motor, joint, int(model.jnt_qposadr[jid]), int(model.jnt_dofadr[jid]), aid if aid >= 0 else None,
                                         a, b, lo, hi, KP_GRIP if grip else KP_ARM, KV_GRIP if grip else KV_ARM)
         self.arm_motors = [n for n in self.motors if '_arm_' in n]
