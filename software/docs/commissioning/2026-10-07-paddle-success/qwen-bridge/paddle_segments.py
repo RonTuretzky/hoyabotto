@@ -5,6 +5,8 @@ PADDLE_MAX_SEGMENT_TICKS = 341
 PADDLE_SEGMENT_TICKS = 280
 
 
+PADDLE_MARGIN_TICKS = 40  # paddle_joint_executor.MARGIN: targets stay this far inside the saved range
+
 def paddle_target_segments(targets, state):
     """Split model targets into pickup-profile segments that move the requested joints together.
 
@@ -30,8 +32,14 @@ def paddle_target_segments(targets, state):
         count = max(spans.values())
         # Every joint moves a share of its travel in every segment, so all segments name the same joints (the
         # owner refuses a path whose waypoints differ) and the arm moves as one; no leg exceeds 280 ticks.
+        # A resting joint may sit a few ticks outside the commandable band (enable allows the saved range minus 4;
+        # targets need 40), so intermediate waypoints interpolated from it are clamped into the band.
+        ranges = state.get('ranges') or {}
+        def band(n, q):
+            r = ranges.get(n)
+            return min(max(q, r[0] + PADDLE_MARGIN_TICKS), r[1] - PADDLE_MARGIN_TICKS) if isinstance(r, (list, tuple)) and len(r) == 2 else q
         for i in range(1, count + 1):
-            segments.append({n: s + round((t - s) * i / count) for n, (s, t) in group.items()})
+            segments.append({n: (t if i == count else band(n, s + round((t - s) * i / count))) for n, (s, t) in group.items()})
     return segments
 
 

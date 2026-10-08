@@ -26,3 +26,10 @@ prev={r+'shoulder_lift':1002,r+'shoulder_pan':2051,r+'elbow_flex':3131,r+'wrist_
 for x in s:
     assert all(abs(x[n]-prev[n])<=341 for n in x);prev=x
 print('Paddle segments: same joints in every segment, proportional motion, legs within limits')
+
+# A joint resting just outside the commandable band (16:1x today: lift at 3210, band ends at 3207) must not produce
+# intermediate waypoints outside the band when a long move of another joint forces several segments.
+st={'rows':{r+'shoulder_lift':{'Present_Position':3210},r+'elbow_flex':{'Present_Position':2097}},'ranges':{r+'shoulder_lift':[847,3247],r+'elbow_flex':[944,3150]}}
+s=paddle_target_segments({r+'shoulder_lift':3200,r+'elbow_flex':1000},st)
+assert len(s)==4 and all(x[r+'shoulder_lift']<=3207 for x in s) and s[-1]=={r+'shoulder_lift':3200,r+'elbow_flex':1000},s
+print('Paddle segments: intermediate waypoints clamped into the 40-tick band')
