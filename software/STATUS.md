@@ -1,3 +1,15 @@
+## Emoji show service (software only) — 8 October 2026, 23:00
+
+- `robot_emoji/` (`python3 -m robot_emoji`, docs `docs/robot-emoji.md`): kiosk, big screen and operator page on the
+  chat Mac. Each emoji is a gesture run through the robot API (enable the arm's six joints, raise, gesture,
+  return to rest, release only those joints). Starts paused; waits while anyone else holds a motor.
+- First gesture 👋 (right arm): raised hand pan 2100, lift 2300, elbow 1150, wrist flex 1600; the wrist flaps ±170 while
+  the pan sways 1990..2210. The poses come from the digital twin and are **not yet run on hardware**
+  (`verified_on_hardware: false`). Watch the first run with STOP and the 12 V switch in reach.
+- Read-only observation at 22:58: the left arm was holding over a carton (pilot session), and the right arm was
+  released at pan 1930, lift 2375, elbow 1350, wrist flex 3000. From there a wave takes about 14 s up, 15 s waving
+  and 14 s back at the owner's pace. No motion was sent from this session.
+
 ## Misleading "Owner telemetry stale"; refusal pause removed — 8 October 2026, 12:12–12:25
 
 - At 12:12:36 a left gripper closure faulted with "Pickup closure did not become stationary" (the guard is unchanged).

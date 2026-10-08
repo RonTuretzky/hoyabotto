@@ -25,16 +25,18 @@ twin = ["mujoco>=3.1", "pillow"]
 farm = "farm.cli:main"
 carton = "carton.cli:main"
 carton-servo = "carton.servo.cli:main"
+robot-emoji = "robot_emoji.server:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["farm*", "carton*"]
+include = ["farm*", "carton*", "robot_emoji*"]
 
 [tool.setuptools.package-data]
 "farm.kinematics" = ["so101-assets.json"]
+"robot_emoji" = ["gestures.json", "static/*.html"]
 "farm.vendor.autocal.upstream_pr3282" = ["provenance.json"]
 "farm.sim" = ["assets/xlerobot/*.xml", "assets/xlerobot/*.md", "assets/xlerobot/*.json", "assets/xlerobot/LICENSE", "assets/xlerobot/assets/*.stl"]
 

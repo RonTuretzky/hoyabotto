@@ -1,0 +1,19 @@
+{
+  "_about": "Emoji gestures. Ticks are raw encoder targets for one arm (short joint names). 'raise' moves from wherever the arm rests to the gesture's start pose; 'motion' is the gesture itself, each leg at most 341 ticks per joint from the previous waypoint. The arm then returns to where it started and is released. The gripper is never part of a gesture (a closing gripper cannot run in a path). Poses were chosen in the digital twin, whose tick-to-angle mapping is unvalidated: keep verified_on_hardware false until a supervised run on the robot matches the twin.",
+  "wave": {
+    "emoji": "👋",
+    "label": "Wave",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "raise": [
+      {"shoulder_pan": 2100, "shoulder_lift": 2300, "elbow_flex": 1150, "wrist_flex": 1600}
+    ],
+    "motion": [
+      {"shoulder_pan": 1990, "wrist_flex": 1430},
+      {"shoulder_pan": 2210, "wrist_flex": 1770},
+      {"shoulder_pan": 1990, "wrist_flex": 1430},
+      {"shoulder_pan": 2210, "wrist_flex": 1770},
+      {"shoulder_pan": 2100, "wrist_flex": 1600}
+    ]
+  }
+}
