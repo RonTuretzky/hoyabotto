@@ -61,6 +61,7 @@ class ManualTeleop:
             'reason': self.last_reason, 'input_timeout_s': INPUT_TTL,
             'position_rate_limit_ticks_s': MAX_RATE, 'wheel_limit_m_s': .02,
             'head_motors': [n for n in SCOPES['head'] if n in self.o.ranges],
+            'upstream_reference_id':getattr(getattr(self.o,'upstream_reference',None),'reference_id',None),
         }
         if self.active:
             self.o.state['teleop'].update(token=self.token, neutral_seen=self.neutral_seen)
@@ -70,7 +71,14 @@ class ManualTeleop:
         scope, token = c.get('scope'), c.get('token')
         if scope not in SCOPES or not isinstance(token, str) or not 20 <= len(token) <= 128:
             raise ValueError('Known scope and unique session token required')
-        if scope == 'wholebody' and not getattr(o, 'simulation_wholebody', False):
+        mode=c.get('control_mode','joint')
+        if mode not in ('joint','upstream'):raise ValueError('Unknown manual control mode')
+        if mode=='upstream':
+            reference=getattr(o,'upstream_reference',None)
+            if scope!='wholebody' or reference is None or c.get('reference_id')!=reference.reference_id:
+                raise ValueError('Installed measured upstream Joy-Con reference required')
+            reference.validate_calibration(o.cal)
+        if scope == 'wholebody' and mode!='upstream' and not getattr(o, 'simulation_wholebody', False):
             raise ValueError('Whole-body Cartesian control is currently simulation-only')
         if self.active or o.enabled or (o.engine and o.engine.active) or any(r.get('Torque_Enable') != 0 for r in o.rows.values()):
             raise ValueError('Robot must be fully released before manual control')
@@ -92,6 +100,7 @@ class ManualTeleop:
             raise
         self.active = True
         self.token, self.scope, self.names = token, scope, names
+        self.control_mode=mode
         self.sequence = 0
         self.received = self.last_tick = o.clock()
         self.expires = self.received + INPUT_TTL

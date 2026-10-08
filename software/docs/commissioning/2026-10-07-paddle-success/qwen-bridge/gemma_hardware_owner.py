@@ -28,7 +28,7 @@ def recover_ports(buses,reason,state,now):
  return recovered
 
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,teleop=False):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,teleop=False,upstream_reference=None):
   self.read_only=read_only
   self.soft_release_s=soft_release_s;self.sleep=sleep;self.writer=None  # writer(): persist self.state now (set by main)  # >0: STOP/faults ease torque off over this many seconds
   self.paddle_profile=paddle_profile
@@ -55,6 +55,10 @@ class HardwareOwner:
   self.enabled=set();self.old={};self.goals={};self.rows={};self.limits={};self.last_tick=clock();self.lease=clock()+30
   self.started=wall();self.engine=None;self.current_command=None
   self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','base_drive_supported':bool(self.wheel_names),'base_drive_limits':{'max_wheel_m_s':.02,'max_duration_s':3.0} if self.wheel_names else None,'motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
+  self.upstream_reference=upstream_reference
+  if upstream_reference is not None:
+   if not teleop:raise ValueError('Upstream Joy-Con reference requires manual teleop support')
+   upstream_reference.validate_calibration(self.cal)
   self.teleop=None
   if teleop:
    from joycon_teleop import ManualTeleop
@@ -354,6 +358,11 @@ def main():
   except Exception as exc:
    transaction.update(finished_at=time.time(),error=str(exc));bus.last_telemetry_failure=transaction
    raise RuntimeError(str(exc)+'; transaction='+json.dumps(transaction)) from exc
+ upstream_reference=None
+ if '--upstream-joycon-reference' in sys.argv:
+  if '--teleop' not in sys.argv:raise ValueError('Upstream Joy-Con mode requires --teleop')
+  from joycon_reference import PhysicalReference
+  upstream_reference=PhysicalReference.load(sys.argv[sys.argv.index('--upstream-joycon-reference')+1])
  r=LeRobotXLeRobot(load_profile(PROFILE).robot).robot;buses=[r.bus1,r.bus2];owner=None;ownership=None;stop=threading.Event()
  signal.signal(signal.SIGTERM,lambda *_:stop.set());signal.signal(signal.SIGINT,lambda *_:stop.set())
  last=None
@@ -376,7 +385,7 @@ def main():
   if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
   if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)  # before any check that needs it
   buses=live
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0,teleop='--teleop' in sys.argv);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0,teleop='--teleop' in sys.argv,upstream_reference=upstream_reference);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
   owner.state['missing_buses']=missing
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)

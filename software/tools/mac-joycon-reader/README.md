@@ -11,7 +11,9 @@ pilot while controller inputs are being checked.
 Double-click `run-simulator.command` to use the original Windows Joy-Con movement
 code and XLeRobot IK through the Mac HID reader, with local MuJoCo output.
 Read [the practice guide](teleop/README.md#original-controls-in-the-local-simulator)
-for the mappings and current verification limits. This mode only controls MuJoCo.
+for the mappings and current verification limits. This launcher only controls MuJoCo.
+The separately prepared [physical adapter](teleop/README.md#prepared-original-controller-robot-adapter)
+requires measured references and explicit opt-in; it has not been deployed.
 
 ## Run on the Mac paired with the Joy-Cons
 

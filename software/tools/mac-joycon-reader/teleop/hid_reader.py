@@ -194,7 +194,8 @@ class HIDReader:
         frame=dict(source='live',backend='Nintendo HID',input_only=True,schema_version=1,event='sample',timestamp=time.time(),session_id=self.session,sequence=self.sequence,controllers=[],diagnostics=dict(self.errors))
         if set(self.devices)!={'left','right'} or any(d.state is None or time.monotonic()-d.last_received>.12 for d in self.devices.values()):return frame
         left,right=self.devices['left'],self.devices['right'];l,r=left.state,right.state
-        values={'Left Shoulder':bool(l[5]&64),'Right Shoulder':bool(r[3]&64),'Left Trigger':bool(l[5]&128),'Right Trigger':bool(r[3]&128),
+        values={'Left Rail SL':bool(l[5]&32),'Left Rail SR':bool(l[5]&16),'Right Rail SL':bool(r[3]&32),'Right Rail SR':bool(r[3]&16),
+                'Left Shoulder':bool(l[5]&64),'Right Shoulder':bool(r[3]&64),'Left Trigger':bool(l[5]&128),'Right Trigger':bool(r[3]&128),
                 'Left Thumbstick Button':bool(l[4]&8),'Right Thumbstick Button':bool(r[4]&4),'Button Options':bool(l[4]&1),
                 'Button Capture':bool(l[4]&32),'Button Menu':bool(r[4]&2),'Button Home':bool(r[4]&16),'Button A':bool(r[3]&8),'Button B':bool(r[3]&4),
                 'Button X':bool(r[3]&2),'Button Y':bool(r[3]&1)}

@@ -118,6 +118,7 @@ $('viewChoice').onchange=()=>call('/view',{view:$('viewChoice').value}).catch(e=
 function draw(s){
   latest=s;
   const upstream=s.control_mode==='upstream',cart=upstream||s.control_mode==='cartesian',d=s.controller||{},a=d.axes||{},dead=d.deadman||{},r=s.robot||{};
+  const physicalUpstream=upstream&&!s.simulation;
   const busy=s.busy||pending>0,locked=s.armed||busy,unavailable=!connected||!!s.reader_error||!Object.keys(d).length;
   const canStart=!unavailable&&!locked&&d.ready&&d.neutral&&!(s.preview&&!s.simulation);
   $('title').textContent=s.simulation?'Joy-Con practice':'Joy-Con controls';
@@ -129,7 +130,7 @@ function draw(s){
   $('stopReason').textContent=s.reason||'';
   $('controllerStatus').textContent=unavailable?'Joy-Cons unavailable':'Joy-Cons connected';
   for(const side of ['left','right']){
-    const key=cart?(side==='left'?'L':'R'):(side==='left'?'ZL':'ZR');
+    const key=physicalUpstream?(side==='left'?'Left rail':'Right rail'):cart?(side==='left'?'L':'R'):(side==='left'?'ZL':'ZR');
     $(side+'Trigger').textContent=key+' · '+(unavailable?'offline':dead[side]?'held':'released');
     $(side+'Trigger').dataset.held=!!dead[side];
     $(side+'Dot').style.transform=`translate(${(a[side+'x']||0)*20}px,${-(a[side+'y']||0)*20}px)`;
@@ -187,7 +188,14 @@ function draw(s){
     $('instructions').textContent=scope==='drive'?'Hold both ZL and ZR. Left stick up / down drives; right stick left / right turns.':scope==='head'?'Hold ZL. The left stick turns and tilts the head.':'Hold ZL for the left arm, ZR for the right. '+desc[layer];
     $('extraHelp').textContent='+ cycles arm layers with neutral controls. −, Escape or Stop ends control. Release a trigger to stop its component; release either to brake. Ten idle seconds ends practice.';
   }
-  $('limits').textContent=upstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':'Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.';
+  if(physicalUpstream){
+    $('check').textContent=s.reader_error||(!d.ready?'Press and release a rail SL or SR button on each Joy-Con.':'Both hold-to-run controls checked.');
+    $('movementHeading').textContent='Hold rail SL / SR, then move';
+    $('startHelp').textContent=s.armed?'Hold a rail SL / SR button on each hand you want to move. Release to hold position.':!d.ready?'Calibrate gyros and check both rail buttons first.':!d.neutral?'Release buttons and center sticks.':'Arm uses measured positions. There is no automatic homing.';
+    $('extraHelp').innerHTML+='<p><b>Physical hold-to-run:</b> hold either small rail SL / SR button on the matching Joy-Con. Head requires the left rail; driving requires both rails. Release to stop that component. The existing motor speed limits still apply.</p>';
+    $('gyroStatus').textContent=d.gyro_available?(gyro?'Tilt while holding the matching rail button. Release it to recenter.':'Gyro is off.'):$('gyroStatus').textContent;
+  }
+  $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':'Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.';
   $('ikStatus').textContent=(s.control_info?.warnings||[]).join(' · ');
   $('scenePanel').hidden=!r.simulator;
   $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':'Live simulation · Solid practice box')):'';

@@ -58,9 +58,11 @@ class TeleopAPI:
         if not self.lock.acquire(blocking=False): raise ValueError('Manual request in progress')
         try:
             if action == 'claim':
-                if set(body) != {'scope'} or body['scope'] not in SCOPES: raise ValueError('Select a valid scope')
+                fields={'scope','control_mode','reference_id'} if body.get('control_mode')=='upstream' else {'scope'}
+                if set(body)!=fields or body.get('scope') not in SCOPES:raise ValueError('Select a valid scope and control mode')
+                if 'reference_id' in body and (not isinstance(body['reference_id'],str) or len(body['reference_id'])!=64):raise ValueError('Exact upstream reference fingerprint required')
                 token = secrets.token_urlsafe(32)
-                s = self.command('teleop_claim', token=token, scope=body['scope'])
+                s = self.command('teleop_claim', token=token, **body)
                 self.token, self.scope, self.started, self.sequence = token, body['scope'], s['started'], 0
                 return self.renew()
             if action == 'release':

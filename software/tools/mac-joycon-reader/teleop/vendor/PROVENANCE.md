@@ -30,7 +30,7 @@ original Joy-Con wrapper, and feeds calibrated acceleration/rate to the original
 Windows filter every two 5 ms IMU samples (100 Hz, its declared `dt=0.01`).
 It does not use the original fixed stick center or its Windows Bluetooth setup.
 
-`../upstream.py` calls `JoyConController.get_control()` at 50 Hz, then
+`../upstream.py` emits logical joint values through a destination interface. It calls `JoyConController.get_control()` at 50 Hz, then
 `SimpleTeleopArm.handle_joycon_input()` and `p_control_action()`. That Windows
 controller advances 3 mm per call; upstream's demo has no fixed control cadence,
 so our fixed cadence is an explicit integration choice. The original XLeRobot
@@ -58,7 +58,9 @@ elbow convention and does not round-trip (about 32 degrees of elbow discrepancy
 at the initial pose). That method is preserved for comparison but is not used.
 
 `../upstream_simulator.py` is a separate local MuJoCo position-action sink with
-an independent 200 ms input watchdog. The existing physical motor owner, its
-limits, and its transport are unchanged. Browser focus, neutral start, explicit
+an independent 200 ms input watchdog. The physical adapter in `../upstream_hardware.py` uses the existing pinned mTLS
+velocity protocol and retains its rate limits. Its opt-in owner mode requires a
+matching measured reference and physical rail hold-to-run buttons. It has only
+been exercised against fake motors; no remote installation has been performed. Browser focus, neutral start, explicit
 Stop, reader freshness, and reconnect gates remain in the bridge. This port is
 source reuse with documented adapters, not full Windows/hardware parity.

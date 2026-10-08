@@ -60,8 +60,9 @@ to settle before Start is enabled.
 
 `upstream_simulator.py` consumes original position actions directly in MuJoCo.
 It has its own 200 ms command watchdog. The old physical owner's tick-rate
-limits remain untouched. This mode is rejected with `--connect-robot` and with
-Apple-only input. The local UI requires focus and fresh input.
+limits remain untouched. Physical use requires explicit `--connect-robot`, a measured
+`--upstream-reference`, and the matching reference installed in the sole owner.
+Apple-only input is rejected. The local UI requires focus and fresh input.
 
 ### Legacy local modes
 
@@ -176,6 +177,85 @@ released triggers. Minus (`Button Options`), Escape or Stop ends the session.
 The UI also selects a layer. Changing component groups requires stopping first.
 Physical signs of arm/head motion still need an observed commissioning test.
 This is joint-space control, not Cartesian hand tracking or gyro control.
+
+## Prepared original-controller robot adapter
+
+The shared original controller now produces logical joint values independently
+of MuJoCo. `upstream_simulator.py` converts them to model angles;
+`upstream_hardware.py` converts them using a **measured physical reference** and
+tracks them through the existing pinned mTLS motor-owner protocol. It never opens
+a serial port. The default simulator launcher still rejects robot connections.
+
+The physical mode uses either **SL or SR on each controller's side rail** as
+hold-to-run, leaving upstream L/R raise and ZL/ZR grip controls intact. Press and
+release one rail button on each side before Arm. Hold the left rail for the left
+arm/head, the right rail for the right arm, and both for driving. Release holds
+measured positions and re-centers wrist input; released input cannot accumulate
+a jump for the next hold. Plus still selects driving instead of the X/B hand
+shortcut. Stop, focus/input/feedback loss, owner restart, and changed controller
+identity stop the session. Initial pose must fit the upstream IK branch; no
+homing is used to force it to fit.
+
+The original target is bounded to saved travel and at most 40 ticks ahead of
+feedback. Commands retain 80 ticks/s for arms, 60 for head, the owner's 100 ticks/s
+ceiling, and 2 cm/s per-wheel / 0.16 rad/s driving limits. These physical limits
+are intentionally unchanged; this is **not** a promise of the simulator's speed
+or unmodified upstream hardware performance. Loosening physical limits requires
+separate commissioning, not a change to this adapter.
+
+### What blocks actual hardware use
+
+- The current user instruction prohibits touching the remote robot or activating
+  motors. Remote installation has not been performed.
+- No measured upstream-reference file has been supplied. The saved calibration
+  provides travel and homing registers, not each joint's analytical zero/sign or
+  the grippers' measured open/closed positions.
+- The existing geometric references use other conventions. They are not silently
+  reused for the pinned original SO101 IK, which differs from the farm's corrected
+  analytical model.
+- Both real Joy-Cons and physical stop/release behavior still need live checks.
+
+`joycon_reference.py` in the commissioning `qwen-bridge` folder creates and
+validates this record **offline**. It binds all 14 position joints to the pinned
+source convention and exact saved ranges/homing offsets. Unfilled templates
+have `verified: false`, null measurements and blank evidence; they cannot enable
+control. `PhysicalReference` refuses missing measurements, changed calibration,
+invalid directions, ambiguous gripper endpoints, and out-of-range values. The
+owner repeats the calibration comparison and requires the same reference hash
+before an upstream whole-body claim. Normal claims remain unchanged.
+
+A task-local unverified template was generated in
+`../.build/physical-reference.unverified.json` from the checked-in calibration.
+It deliberately fails validation. This local calibration snapshot is not proof
+of the current remote motor settings.
+
+### Prepared launch sequence (not executed)
+
+After the remote restriction is clarified and the actual measurements verified:
+
+1. Validate a measured record against the current calibration with
+   `joycon_reference.py validate --reference PATH --calibration PATH`.
+2. On the robot Mac, the existing deployment script accepts
+   `--joycon-teleop --upstream-joycon-reference PATH`. It requires both arms and
+   wheels, refuses API-only installation for this mode, starts released, and
+   verifies that the new owner loaded that exact reference. Existing release
+   and rollback guards still apply. No reference is fabricated or copied by
+   the deployment script.
+3. On the Joy-Con Mac, explicitly run
+   `run-robot-joycon.command --connect-robot --upstream-reference PATH --config PATH`.
+   The config is the existing pinned mTLS configuration. Launch without
+   `--connect-robot` refuses; invalid references fail before loading credentials
+   or making a connection. Connection alone cannot activate motors.
+4. Verify readback, controller identities/rails, scene clearance and Stop before
+   explicitly selecting **Arm controls** for an authorized physical test.
+
+The complete local suite passed 45 tests; an additional focused source-binding/
+pre-connection rejection test also passed (46 tests total), including source parity, physical-unit
+conversion, calibration rejection, exact-reference claims before enable, all
+14 position joints plus wheels through the original controller and the actual
+owner/API with fake motors, rail release, re-centering, and stale feedback.
+All 20 existing owner test files also passed. These fake-motor checks forbid network sockets. They do not prove physical
+calibration, safe collision geometry, or actual robot operation.
 
 ## Prepared robot integration
 

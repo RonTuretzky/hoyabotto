@@ -68,7 +68,7 @@ class SimulatedRobot:
     preview = True
     simulation = True
 
-    def __init__(self,bus=None):
+    def __init__(self,bus=None,*,upstream_reference=None):
         self.temp = tempfile.TemporaryDirectory(prefix='joycon-simulation-')
         self.folder = Path(self.temp.name)
         self.bus = bus if bus is not None else VirtualBus()
@@ -77,7 +77,7 @@ class SimulatedRobot:
         self.owner = HardwareOwner([self.bus], cal, lambda b,n:dict(b.r[n]),
                                    position_scope=SCOPES['both'], paddle_profile=True,
                                    camera_metadata=lambda:dict(received_at=time.time(), seq=1),
-                                   wheels=True, teleop=True)
+                                   wheels=True, teleop=True,upstream_reference=upstream_reference)
         self.owner.inspect()
         self.owner.simulation_wholebody = getattr(self.bus, 'cartesian_capable', False)
         self.persist()

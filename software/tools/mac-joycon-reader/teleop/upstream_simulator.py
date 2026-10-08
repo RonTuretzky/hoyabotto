@@ -9,7 +9,7 @@ import threading
 import time
 
 from mujoco_simulator import MujocoBus
-from upstream import WindowsMapping, from_model
+from upstream import WindowsMapping, from_model, to_model
 from wheel_pulse_executor import WHEELS, WHEEL_RADIUS_M, WHEELBASE_M
 
 
@@ -45,6 +45,17 @@ class UpstreamSimulator:
         k=self.teleop_keys;s=self.speed_levels[self.speed_index]
         return {'x.vel':s['linear']*(int(k['forward'] in keys)-int(k['backward'] in keys)),
                 'theta.vel':s['angular']*(int(k['rotate_left'] in keys)-int(k['rotate_right'] in keys))}
+
+    def bound_upstream_positions(self,positions):
+        bounded={};warnings=[]
+        for name,value in positions.items():
+            target=to_model(name,value);lo,hi=self.bus.map[name][3:]
+            limited=max(lo,min(hi,target));bounded[name]=from_model(name,limited)
+            if abs(limited-target)>.00001:warnings.append(name.replace('_',' ')+' limit')
+        return bounded,warnings
+
+    def encode_upstream_command(self,command,decoded):
+        return dict(command,positions={n:to_model(n,v) for n,v in command['positions'].items()})
 
     def make_mapping(self):return WindowsMapping(self)
 

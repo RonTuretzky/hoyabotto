@@ -1,6 +1,7 @@
 """Boundary adapters for pinned Windows Joy-Con + XLeRobot control definitions.
 
-This mapping only emits local MuJoCo positions. No robot transport is supported.
+The controller emits original logical joint values. Destination adapters own
+unit conversion, limits, transport, and physical hold-to-run gating.
 The movement/filter/IK implementations live unchanged in vendor/.
 """
 import math
@@ -99,26 +100,33 @@ class WindowsMapping(Mapping):
         return d
 
     def initialize(self,d):
-        obs=self.robot.get_observation();kin=SO101Kinematics()
-        for side in ('left','right'):
-            joints={j:f'{side}_arm_{j}' for j in JOINTS}
-            arm=SimpleTeleopArm(joints,obs,kin,prefix=side)
-            current={j:obs[n+'.pos'] for j,n in joints.items()}
-            x,z=position_for_upstream_ik(kin,current['shoulder_lift'],current['elbow_flex'])
-            reader=SimpleNamespace(state=None);reader.get_state=lambda reader=reader:reader.state
-            controller=JoyConController(reader,init_gpos=[x-.1629,current['shoulder_pan']/250,z-.1131,0,0,0])
-            # Windows gripper scalar is not a LeRobot angle; start from readback.
-            controller.gripper_state=controller.gripper_open if current['gripper']>45 else controller.gripper_close
-            self.readers[side]=reader;self.controllers[side]=controller;self.arms[side]=arm
-            a=d['motion'][side]['windows_attitude']
-            self.origins[side]=dict(attitude=dict(a),roll=current['wrist_roll']/45,
-                pitch=(10-current['wrist_flex']-current['shoulder_lift']-current['elbow_flex'])/60,
-                gripper=current['gripper'],last_gripper=controller.gripper_state)
-            arm.target_positions=dict(current)
+        obs=self.robot.get_observation()
+        for side in ('left','right'):self.initialize_side(d,side,obs)
         self.head=SimpleHeadControl(obs)
 
+    def initialize_side(self,d,side,obs):
+        kin=SO101Kinematics();joints={j:f'{side}_arm_{j}' for j in JOINTS}
+        arm=SimpleTeleopArm(joints,obs,kin,prefix=side)
+        current={j:obs[n+'.pos'] for j,n in joints.items()}
+        x,z=position_for_upstream_ik(kin,current['shoulder_lift'],current['elbow_flex'])
+        recovered=kin.inverse_kinematics(x,z)
+        if max(abs(recovered[i]-current[j]) for i,j in enumerate(('shoulder_lift','elbow_flex')))>.5:
+            raise ValueError(side+': current pose does not fit the original IK branch; no automatic homing')
+        reader=SimpleNamespace(state=None);reader.get_state=lambda reader=reader:reader.state
+        controller=JoyConController(reader,init_gpos=[x-.1629,current['shoulder_pan']/250,z-.1131,0,0,0])
+        controller.gripper_state=controller.gripper_open if current['gripper']>45 else controller.gripper_close
+        self.readers[side]=reader;self.controllers[side]=controller;self.arms[side]=arm
+        a=d['motion'][side]['windows_attitude']
+        self.origins[side]=dict(attitude=dict(a),roll=current['wrist_roll']/45,
+            pitch=(10-current['wrist_flex']-current['shoulder_lift']-current['elbow_flex'])/60,
+            gripper=current['gripper'],last_gripper=controller.gripper_state)
+        arm.target_positions=dict(current)
+
     def command(self,d,scope):
-        if scope!='wholebody':raise ValueError('Original controls use the whole local simulator')
+        return self.robot.encode_upstream_command(self.logical_command(d,scope),d)
+
+    def logical_command(self,d,scope):
+        if scope!='wholebody':raise ValueError('Original controls require whole-body scope')
         if not d['gyro_available']:raise ValueError('Independent motion data unavailable; set both Joy-Cons down')
         if not self.controllers:
             self.initialize(d)
@@ -149,21 +157,14 @@ class WindowsMapping(Mapping):
         # The original X/B hand shortcuts remain intact. Plus explicitly selects
         # the existing XLeRobot base mapping, so X/B cannot drive and reach at once.
         base=get_joycon_base_action(joycon,self.robot) if driving else {}
-        positions={}
-        for key,angle in actions.items():
-            name=key.removesuffix('.pos');target=to_model(name,angle)
-            lo,hi=self.robot.bus.map[name][3:]
-            bounded=max(lo,min(hi,target));positions[name]=bounded
-            if abs(bounded-target)>.00001:warnings.append(name.replace('_',' ')+' limit')
-            # Prevent accumulated commands outside model travel from causing a
-            # long delay when the operator reverses direction.
-            if name.startswith('head_'):self.head.target_positions[name]=from_model(name,bounded)
+        positions,warnings=self.robot.bound_upstream_positions({key.removesuffix('.pos'):value for key,value in actions.items()})
+        for name,value in positions.items():
+            if name.startswith('head_'):self.head.target_positions[name]=value
         for side in ('left','right'):
             arm=self.arms[side];kin=arm.kinematics
-            lift=from_model(side+'_arm_shoulder_lift',positions[side+'_arm_shoulder_lift'])
-            elbow=from_model(side+'_arm_elbow_flex',positions[side+'_arm_elbow_flex'])
+            lift=positions[side+'_arm_shoulder_lift'];elbow=positions[side+'_arm_elbow_flex']
             x,z=position_for_upstream_ik(kin,lift,elbow)
-            pan=from_model(side+'_arm_shoulder_pan',positions[side+'_arm_shoulder_pan'])
+            pan=positions[side+'_arm_shoulder_pan']
             self.controllers[side].set_position([x-.1629,pan/250,z-.1131])
         self.info['warnings']=warnings
         self.info['driving']=driving
