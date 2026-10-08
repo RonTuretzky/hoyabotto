@@ -5,12 +5,24 @@
   python robot_admin.py deploy [REF] [--mode restart|cameras-only|dry-run|checkout-only] [--no-wait]
   python robot_admin.py job JOB_ID
 """
-import argparse,json,os,ssl,sys,time,urllib.error,urllib.request
+import argparse,socket,urllib.parse,json,os,ssl,sys,time,urllib.error,urllib.request
 CONFIG=os.environ.get('XLEROBOT_ADMIN_CONFIG','/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/.private/robot.json')
+
+def base_url(c):
+    """The direct LAN address when it answers (both Macs on one network), else the Cloudflare relay."""
+    lan=c.get('lan_url')
+    if lan:
+        u=urllib.parse.urlsplit(lan)
+        try:
+            with socket.create_connection((u.hostname,u.port or 443),timeout=.8):return lan.rstrip('/'),True
+        except OSError:pass
+    return c['url'].rstrip('/'),False
 
 def request(path,payload=None,timeout=20):
     c=json.load(open(CONFIG));ctx=ssl.create_default_context(cafile=c['server_certificate']);ctx.load_cert_chain(c['client_certificate'],c['client_key'])
-    req=urllib.request.Request(c['url'].rstrip('/')+path,data=None if payload is None else json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
+    base,lan=base_url(c)
+    if lan:ctx.check_hostname=False  # still verified against the robot's pinned certificate; its SAN lacks the LAN name
+    req=urllib.request.Request(base+path,data=None if payload is None else json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
     try:
         with urllib.request.urlopen(req,context=ctx,timeout=timeout) as r:return json.loads(r.read())
     except urllib.error.HTTPError as e:return json.loads(e.read() or b'{}')
@@ -20,15 +32,23 @@ def show(value):print(json.dumps(value,indent=2))
 def main():
     ap=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     sub=ap.add_subparsers(dest='cmd',required=True)
-    sub.add_parser('status')
+    sub.add_parser('status');sub.add_parser('processes')
     lg=sub.add_parser('logs');lg.add_argument('names',nargs='?',default='');lg.add_argument('--lines',type=int,default=80)
     dp=sub.add_parser('deploy');dp.add_argument('ref',nargs='?',default='main');dp.add_argument('--mode',default='restart');dp.add_argument('--no-wait',action='store_true')
     jb=sub.add_parser('job');jb.add_argument('id')
+    wi=sub.add_parser('wrist-ids',help='pin camera IDs after cables moved, e.g. left_wrist=0x12400005a39230 head_camera=0x12130005a39230')
+    wi.add_argument('pairs',nargs='+');wi.add_argument('--verified',action='store_true',help='left/right confirmed from the images')
     a=ap.parse_args()
     if a.cmd=='status':return show(request('/admin/deploy'))
+    if a.cmd=='processes':return show(request('/admin/processes'))
     if a.cmd=='logs':return show(request(f'/admin/logs?names={a.names}&lines={a.lines}'))
     if a.cmd=='job':return show(request(f'/admin/job?id={a.id}'))
-    started=request('/admin/deploy',{'ref':a.ref,'mode':a.mode})
+    if a.cmd=='wrist-ids':
+        body=dict(p.split('=',1) for p in a.pairs);body['verified']=a.verified
+        started=request('/admin/wrist-ids',body);a.no_wait=False;a.ref='(deployed)';a.mode='cameras-only'
+        if not started.get('ok'):return show(started)
+        print('saved '+json.dumps(started['saved']),flush=True)
+    else:started=request('/admin/deploy',{'ref':a.ref,'mode':a.mode})
     if not started.get('ok') or a.no_wait:return show(started)
     job_id=started['job']['id'];print(f'job {job_id} started ({a.ref}, {a.mode}); waiting…',flush=True)
     deadline=time.time()+600

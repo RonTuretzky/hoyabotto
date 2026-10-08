@@ -52,6 +52,10 @@ class Owner:
         return dict(accepted=True, completed=True, command_id=self.command,
                     owner_started=self.started, owner_status_time=self.now, readbacks=readbacks)
 
+    def rows(self):
+        return {n: dict(Present_Position=q, Present_Velocity=0, Present_Load=0, Moving=0, Status=0,
+                        Torque_Enable=int(n in self.enabled), captured_at=self.now-.001) for n, q in self.q.items()}
+
     def call(self, name, args, request_id=None):
         self.now += .02
         self.calls.append((name, copy.deepcopy(args)))
@@ -59,15 +63,16 @@ class Owner:
             r = dict(motion_units='encoder_ticks; positioning-joint degrees use4095 ticks/rev',
                      motion_ready=not self.stopped, joint_blockers={}, blockers=[])
         elif name == 'robot_get_execution':
-            r = dict(time=self.now, started=self.started, ok=True, control_mode='direct_joint',
+            # As the qwen-bridge API serves it: the owner's status.json, including its own telemetry rows.
+            r = dict(time=self.now, started=self.started, ok=True, control_mode='direct_joint', hardware_server=True,
                      phase='stopped' if self.stopped else ('holding' if self.enabled and self.phase == 'idle' else self.phase), operator_armed=not self.stopped,
                      stop_latched=self.stopped, enabled_motors=sorted(self.enabled), accepted=self.command,
-                     completed=self.command, motor_writes=self.writes, lease_remaining=self.lease)
+                     completed=self.command, motor_writes=self.writes, lease_remaining=self.lease,
+                     stop_count=int(self.stopped), rows=self.rows(), status_age_s=.001)
         elif name == 'robot_get_state':
             r = dict(cached=False, time=self.now, commandable_ranges=copy.deepcopy(self.ranges),
-                     raw_calibration_ranges=copy.deepcopy(self.ranges), motors=[dict(name=n, Present_Position=q,
-                     Present_Velocity=0, Present_Load=0, Moving=0, Status=0, Torque_Enable=int(n in self.enabled),
-                     captured_at=self.now-.001) for n, q in self.q.items()])
+                     raw_calibration_ranges=copy.deepcopy(self.ranges),
+                     motors=[dict(name=n, **row) for n, row in self.rows().items()])
         elif name == 'robot_get_arm_pose':
             r = {'status': 'CANDIDATE', 'configuration': {'config': {'arm': self.arm,
                  'mapping': 'feetech_degrees_v1', 'calibration_sha256': 'motors'}}}
@@ -146,7 +151,9 @@ def test_left_tag_readiness_and_local_probe_use_only_left_binding(rig, tmp_path)
     assert outcome['cleanup']['release_confirmed'] and not owner.enabled
     assert all(args['tag_ids'] == [1, 4] for name, args in owner.calls if name == 'robot_get_tags')
     enabled = [args for name, args in owner.calls if name == 'robot_set_motor_enable' and args['enabled']]
-    assert enabled and all(n.startswith('left_arm_') and not n.endswith('gripper') for n in enabled[0]['names'])
+    # The pickup-profile owner moves an arm only with all six of its motors enabled; the jaw just holds.
+    assert enabled and enabled[0]['names'] == [f'left_arm_{n}' for n in ARM_JOINTS]
+    assert all(not n.endswith('gripper') for name, args in owner.calls if name == 'robot_move_motor_targets' for n in args['positions'])
     sample = json.loads((tmp_path/'left/baseline/sample.json').read_text())
     assert sample['arm'] == 'left' and sample['gripper_tag_id'] == 4
 
@@ -178,8 +185,9 @@ def test_existing_experiment_runs_bidirectional_probes_and_independent_holdouts(
     assert r['cleanup']['release_confirmed'] and not owner.enabled and not owner.stopped
     assert set(owner.q.values()) == {2000}
     enable = [a for n, a in owner.calls if n == 'robot_set_motor_enable']
-    assert len(enable) == 2 and len(enable[0]['names']) == 5
-    assert all(n.startswith('right_arm_') and not n.endswith('gripper') for n in enable[0]['names'])
+    assert len(enable) == 2 and enable[0]['names'] == enable[1]['names'] == [f'right_arm_{n}' for n in ARM_JOINTS]
+    moves = [args['positions'] for name, args in owner.calls if name == 'robot_move_motor_targets']
+    assert moves and all(len(p) == 1 and not next(iter(p)).endswith('gripper') for p in moves)
 
 
 @pytest.mark.parametrize('failure', ['no_motion', 'stop', 'restart', 'tag_loss', 'foreign_write', 'lease'])
@@ -282,7 +290,7 @@ def test_wrapper_shared_lock_blocks_mutations_but_not_stop_or_reads(rig, tmp_pat
     path = tmp_path/'config.json'
     path.write_text(json.dumps(cfg))
     wrapped = CalibrationRobot(owner, path)
-    assert {t['function']['name'] for t in wrapped.catalog()['tools']} == {'robot_calibration_status', 'robot_calibrate_tags', 'robot_get_registered_tags'}
+    assert {t['function']['name'] for t in wrapped.catalog()['tools']} == {'robot_calibration_status', 'robot_calibrate_tags', 'robot_get_registered_tags', 'robot_get_paddle_target'}
     with motion_lock(path.with_name('tag-calibration.lock')):
         with pytest.raises(Refused):wrapped.call('robot_set_motor_enable', {'names': [], 'enabled': True})
         assert wrapped.call('robot_get_state', {'fresh': True})['ok']
@@ -348,3 +356,56 @@ def test_response_acceptance_without_completion_does_not_count_as_motion(rig, tm
         run_calibration(owner, cfg, 'local_model', tmp_path/'rejected', clock=owner.clock)
     assert owner.stopped
     assert len([n for n, a in owner.calls if n == 'robot_move_motor_targets']) == 1
+
+
+@pytest.mark.parametrize('outcome', ['settled_short', 'contact_halt', 'halted'])
+def test_owner_closure_outcomes_without_completion_stop_and_name_the_outcome(rig, tmp_path, outcome):
+    """Today's owner answers completed=false with a closure_outcome while still holding; never retried."""
+    owner, cfg = rig
+    original = owner.call
+    def call(name, args, request_id=None):
+        r = original(name, args, request_id)
+        if name == 'robot_move_motor_targets':
+            r['result'].update(completed=False, endpoint_reached=False, closure_outcome=outcome, holding=True)
+        return r
+    owner.call = call
+    with pytest.raises(Refused, match=outcome):
+        run_calibration(owner, cfg, 'local_model', tmp_path/outcome, clock=owner.clock)
+    assert owner.stopped and len([n for n, a in owner.calls if n == 'robot_move_motor_targets']) == 1
+    failure = json.loads((tmp_path/outcome/'failure.json').read_text())
+    assert failure['cleanup']['release_confirmed'] is True and failure['automatic_retry'] is False
+
+
+def test_steps_below_the_owner_minimum_segment_are_refused_before_dispatch(rig):
+    owner, cfg = rig
+    transport = GemmaTransport(owner, 'right', cfg['joints'], execute=True, clock=owner.clock)
+    transport.preflight()
+    observer = GemmaTagObserver(owner, transport, clock=owner.clock)
+    transport.enable()
+    observer.observe()
+    for ticks in (1, -2):
+        with pytest.raises(Refused, match='3..68'):
+            transport.move('right_arm_shoulder_pan', ticks)
+    assert not any(n == 'robot_move_motor_targets' for n, _ in owner.calls)
+    transport.move('right_arm_shoulder_pan', 3)
+
+
+def test_stop_without_immediate_confirmation_waits_for_fresh_torque_zero(rig):
+    """Soft release: robot_stop can return before torque is off; fresh reads confirm it afterwards."""
+    owner, cfg = rig
+    transport = GemmaTransport(owner, 'right', cfg['joints'], execute=True, clock=owner.clock)
+    transport.preflight()
+    transport.enable()
+    original, ramp = owner.call, []
+    def call(name, args, request_id=None):
+        if name == 'robot_stop':
+            ramp.append(owner.now)
+            return {'ok': True, 'result': {'stop_requested': True, 'release_confirmed': False,
+                    'release_reason': 'Fresh same-session all16 torque-zero readback not observed'}}
+        if ramp and owner.enabled and owner.now-ramp[0] >= .1:
+            owner.enabled.clear()
+        return original(name, args, request_id)
+    owner.call = call
+    transport.finish(failed=True)
+    assert transport.cleanup['release_confirmed'] is True and transport.cleanup['stop']['release_confirmed'] is False
+    assert not owner.enabled

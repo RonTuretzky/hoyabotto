@@ -45,6 +45,9 @@ def test_known_eye_to_hand_geometry_recovered_with_independent_validation():
     assert np.array(result['gripper_from_tag']) == pytest.approx(tag, abs=1e-8)
     assert result['residuals']['validation']['position_max_mm'] < 1e-6
     assert not result['motion_ready'] and result['motor_writes'] == 0
+    # Bound to camera identity + geometry hash; the publisher session is provenance only.
+    assert 'stream_id' not in result['binding'] and result['source_stream_id'] == 'one'
+    assert result['binding']['camera_id'] == 'test' and result['binding']['camera_calibration_sha256'] == 'K'
 
 
 def test_held_out_bad_pose_rejects_transform_instead_of_fitting_it_away():
@@ -67,6 +70,7 @@ def test_consistently_relabeling_right_tag_as_left_cannot_validate_a_fit():
 
 @pytest.mark.parametrize('change', [
     lambda d: d['samples'][1].update(frame=d['samples'][0]['frame']),
+    lambda d: d['samples'][1]['frame'].update(stream_id='restarted-mid-collection'),
     lambda d: d['samples'][2].update(head_ticks=[2020, 2400]),
     lambda d: d['samples'][3].update(anchor_center_camera_mm=[60, 20, 600]),
     lambda d: d['samples'][4].update(orientation_ambiguous=True),

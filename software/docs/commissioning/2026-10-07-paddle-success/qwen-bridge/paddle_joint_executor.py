@@ -41,7 +41,7 @@ class PaddleJointExecutor:
   if not isinstance(legs,list) or not 1<=len(legs)<=MAX_WAYPOINTS:raise ValueError(f'Pickup path needs 1..{MAX_WAYPOINTS} waypoints')
   for p in legs:
    if not isinstance(p,dict) or not p or set(p)!=set(self.joints):raise ValueError('Pickup command joints must match the executor joints')
-   if any(not n.startswith('right_arm_') or type(t) is not int for n,t in p.items()):raise ValueError('Integer right-arm target required')
+   if any(not n.startswith(('right_arm_','left_arm_')) or type(t) is not int for n,t in p.items()):raise ValueError('Integer arm-joint target required')
   if type(duration) not in (int,float) or not math.isfinite(duration) or not 0<duration<=(60 if path else 25):raise ValueError('Finite duration (0,25] required (paths: (0,60])')
   goals={}
   for n in self.joints:
@@ -148,6 +148,11 @@ class PaddleJointExecutor:
   settled=final and all(self.stable[n]>=3 for n in self.joints)
   if contact_stop or (settled and (now-self.last_write>=self.interval if not self.contact else self.quiet_since is not None and now-self.quiet_since>=.3)):
    return self.finish(current,'stationary_closure_unverified' if contact_stop else 'endpoint_settled')
+  # A closing gripper that is stationary on its final target step but outside tolerance and short of the 40-tick
+  # contact_stop band (e.g. 33 ticks short, light load) has stopped: report it as settled_short and keep holding.
+  # One that keeps moving still trips 'did not become stationary' below.
+  if self.contact and final and self.goal[c]==self.targets[c] and self.quiet_since is not None and now-self.quiet_since>=.3:
+   return self.finish(current,'settled_short')
   ramp_done=all(self.goal[n]==self.aim(n) for n in self.joints)
   if not self.contact and final and ramp_done and now-self.last_write>=self.interval and all(self.still[n]>=3 for n in self.joints):
    # Everything is at rest: correct joints that are not settled, or finish if none can be corrected further.

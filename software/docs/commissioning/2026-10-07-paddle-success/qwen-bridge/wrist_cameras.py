@@ -4,13 +4,15 @@ The publisher (work/capture-single, built from software/docs/session-archive-202
 writes <name>.json next to an immutable hashed JPEG. Each wrist is pinned to its AVFoundation uniqueID so
 a swapped or re-enumerated camera is refused rather than mislabelled.
 """
-import json,os,re,time
+import json,os,re,signal,subprocess,threading,time
 from pathlib import Path
 ENV={'right_wrist':'XLEROBOT_RIGHT_WRIST_ID','left_wrist':'XLEROBOT_LEFT_WRIST_ID'}
 WRIST_CAMERA_IDS={'right_wrist':os.environ.get(ENV['right_wrist'],'0x12200005a39230'),
                   'left_wrist':os.environ.get(ENV['left_wrist'],'0x12140005a39230')}
 IDENTITY_VERIFIED={'right_wrist':True,'left_wrist':True}  # False when left/right was auto-assigned
-HEAD_CAMERA_ID=os.environ.get('XLEROBOT_HEAD_CAMERA_ID','0x12400005a39230')
+# The head's own USB camera is the same model as the wrists. Its ID is a port path, so it is a saved setting
+# (work/wrist-cameras.json head_camera_id, set with robot_admin.py wrist-ids), never a hard-coded port.
+HEAD_CAMERA_ID=os.environ.get('XLEROBOT_HEAD_CAMERA_ID') or None
 NOT_A_WRIST=re.compile(r'iphone|ipad|facetime|desk view|continuity|oak|luxonis|depthai|macbook|built-in|virtual|obs',re.I)
 CONFIG='wrist-cameras.json'
 FRESH_S=1
@@ -18,8 +20,10 @@ FRESH_S=1
 
 def configure(root):
     """Load the wrist IDs the restart script detected (work/wrist-cameras.json); environment variables still win."""
+    global HEAD_CAMERA_ID
     try:saved=json.loads((Path(root)/'work'/CONFIG).read_text())
     except (OSError,ValueError):return
+    if not os.environ.get('XLEROBOT_HEAD_CAMERA_ID') and isinstance(saved.get('head_camera_id'),str):HEAD_CAMERA_ID=saved['head_camera_id']
     for name in WRIST_CAMERA_IDS:
         entry=saved.get(name) or {}
         if os.environ.get(ENV[name]) or not isinstance(entry.get('camera_id'),str):continue
@@ -71,6 +75,39 @@ def select_wrist_manifest(name,dirs,now=None):
     stamp,folder,meta=max(found,key=lambda f:f[0])
     if not 0<=now-stamp<=FRESH_S:raise RuntimeError(f'{name} image is stale age_s={round(now-stamp,3)}')
     return folder,meta
+
+
+_revive_lock=threading.Lock();_last_revive={}
+REVIVE_EVERY_S=10;REVIVE_WAIT_S=8
+
+
+def capture_pids(camera_id):
+    """Native capture publishers (executable named capture*) started with this camera ID."""
+    out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout;found=[]
+    for line in out.splitlines():
+        parts=line.split()
+        if len(parts)>2 and Path(parts[1]).name.startswith('capture') and any(a.endswith('='+camera_id) for a in parts[2:]):found.append(int(parts[0]))
+    return found
+
+
+def revive(name,root,clock=time.time,sleep=time.sleep):
+    """On-demand restart of a wrist publisher whose camera stopped sending frames (the left wrist stalls about 15 s
+    after each start: a USB fault). Returns True once a fresh frame exists. At most one attempt per 10 s per camera."""
+    work=Path(root)/'work';capture=work/'capture-single';stream=work/'wrist-camera-stream';cid=WRIST_CAMERA_IDS[name]
+    with _revive_lock:
+        if clock()-_last_revive.get(name,0)<REVIVE_EVERY_S or not capture.exists():return False
+        _last_revive[name]=clock()
+        for pid in capture_pids(cid):
+            try:os.kill(pid,signal.SIGTERM)
+            except OSError:pass
+        sleep(.5);stream.mkdir(parents=True,exist_ok=True)
+        with open(stream/(name+'.log'),'ab') as log:
+            subprocess.Popen([str(capture),str(stream),f'{name}={cid}'],cwd=str(root),stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+        deadline=clock()+REVIVE_WAIT_S
+        while clock()<deadline:
+            try:select_wrist_manifest(name,wrist_dirs(root));return True
+            except (RuntimeError,ValueError):sleep(.2)
+        return False
 
 
 def setup_report(root):

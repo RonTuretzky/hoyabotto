@@ -8,8 +8,8 @@ PADDLE_SEGMENT_TICKS = 280
 def paddle_target_segments(targets, state):
     """Split model targets into pickup-profile segments that move the requested joints together.
 
-    A joint travelling <=341 ticks takes one segment (as in the pilot); a longer one spreads over the last
-    ceil(travel/280) segments, so every joint ends on the final segment. A closing gripper runs after the other joints, alone, as the profile requires.
+    A move whose joints all travel <=341 ticks is one segment (as in the pilot); a longer one becomes
+    ceil(travel/280) segments in which every joint moves proportionally, so all segments name the same joints. A closing gripper runs after the other joints, alone, as the profile requires.
     Joints already within two ticks are dropped."""
     rows = state.get('rows', {})
     travel = {}
@@ -28,13 +28,10 @@ def paddle_target_segments(targets, state):
         spans = {n: 1 if abs(t - s) <= PADDLE_MAX_SEGMENT_TICKS else -(-abs(t - s) // PADDLE_SEGMENT_TICKS)
                  for n, (s, t) in group.items()}
         count = max(spans.values())
+        # Every joint moves a share of its travel in every segment, so all segments name the same joints (the
+        # owner refuses a path whose waypoints differ) and the arm moves as one; no leg exceeds 280 ticks.
         for i in range(1, count + 1):
-            segment = {}
-            for n, (s, t) in group.items():
-                done = i - (count - spans[n])
-                if done > 0:
-                    segment[n] = s + round((t - s) * done / spans[n])
-            segments.append(segment)
+            segments.append({n: s + round((t - s) * i / count) for n, (s, t) in group.items()})
     return segments
 
 
