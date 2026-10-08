@@ -129,12 +129,24 @@ def main(argv=None) -> int:
     speed = dai.UsbSpeed.HIGH if args.usb2 else dai.UsbSpeed.SUPER
     with dai.Device(matches[0], speed) as device:
         pipeline = dai.Pipeline()
-        rgb = pipeline.create(dai.node.Camera)
-        rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
-        rgb.setSize(640, 360)
-        rgb.setVideoSize(640, 360)
-        rgb.setFps(15)
-        rgb.setMeshSource(dai.CameraProperties.WarpMeshSource.NONE if args.wide else dai.CameraProperties.WarpMeshSource.CALIBRATION)
+        if args.wide:
+            # Explicit full-field path: the 1080p sensor mode (full-width binned readout) scaled by the ISP to
+            # 640x360 and taken from the `isp` output, which is never cropped. The Camera node's `video` output
+            # is a crop of its ISP image when the two sizes differ, which is impossible to verify remotely.
+            rgb = pipeline.create(dai.node.ColorCamera)
+            rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
+            rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+            rgb.setIspScale(1, 3)
+            rgb.setFps(15)
+            rgb_out, rgb_pipeline = rgb.isp, "ColorCamera 1080p, isp scaled 1/3 (full field, no crop)"
+        else:
+            rgb = pipeline.create(dai.node.Camera)
+            rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
+            rgb.setSize(640, 360)
+            rgb.setVideoSize(640, 360)
+            rgb.setFps(15)
+            rgb.setMeshSource(dai.CameraProperties.WarpMeshSource.CALIBRATION)
+            rgb_out, rgb_pipeline = rgb.video, "Camera node 640x360 with the factory undistortion mesh"
         # Keep autofocus from changing the calibrated RGB/depth geometry.
         calibration = device.readCalibration2()
         lens_position = calibration.getLensPosition(dai.CameraBoardSocket.CAM_A)
@@ -160,7 +172,7 @@ def main(argv=None) -> int:
         stereo.setOutputSize(640, 360)
         left.out.link(stereo.left)
         right.out.link(stereo.right)
-        rgb.video.link(sync.inputs["rgb"])
+        rgb_out.link(sync.inputs["rgb"])
         stereo.depth.link(sync.inputs["depth"])
         output = pipeline.create(dai.node.XLinkOut)
         output.setStreamName("rgbd")
@@ -169,7 +181,7 @@ def main(argv=None) -> int:
                     "usb_speed": str(device.getUsbSpeed()), "alignment": "CAM_A RGB",
                     "stereo_size": [640, 400], "extended_disparity": True,
                     "left_right_check": True, "subpixel": False, "fps": 15,
-                    "rgb_undistortion": "disabled; wide ISP preview" if args.wide else "factory calibration", "calibrated_lens_position": lens_position,
+                    "rgb_undistortion": "disabled; wide ISP preview" if args.wide else "factory calibration", "rgb_pipeline": rgb_pipeline, "calibrated_lens_position": lens_position,
                     "intrinsics": calibration.getCameraIntrinsics(dai.CameraBoardSocket.CAM_A, 640, 360),
                     **({"distortion_coefficients": calibration.getDistortionCoefficients(dai.CameraBoardSocket.CAM_A),
                         "distortion_model": distortion_model,
