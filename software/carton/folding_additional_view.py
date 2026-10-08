@@ -206,6 +206,13 @@ def _with_additional_tagged_shorts(packet, decoded_poses, configuration):
     return result, evidence
 
 
+def _measured_majors(angles):
+    """Same-packet major angles, used only to remove their own pixels."""
+    return {name: angles[name]['degrees'] for name in MAJORS
+            if isinstance(angles.get(name), dict) and isinstance(angles[name].get('degrees'), (float, int))
+            and not isinstance(angles[name]['degrees'], bool)}
+
+
 def _primary_carton_absent(primary, configuration):
     partial = (primary.get('source') == PARTIAL_VIEW_SOURCE
                or 'packet_schema' in primary or 'carton_status' in primary)
@@ -311,7 +318,7 @@ def _with_primary_open_shorts(primary, cache, configuration, *, timestamp, prior
     frame = cache.read_current(expected_seq=seq, timestamp_s=timestamp,
                                clock_id=configuration.clock_id)
     planes = depth_open_short_flap_angles(frame['rgb'], frame['exposed_depth'],
-        frame['intrinsics'], camera, box, priors)
+        frame['intrinsics'], camera, box, priors, majors=_measured_majors(primary.get('angles', {})))
     packet = copy.deepcopy(primary)
     original = {name: copy.deepcopy(primary['angles'][name]) for name in SHORTS if name in primary['angles']}
     comparisons = {}
@@ -597,7 +604,8 @@ class AdditionalViewPixelPort:
                 self.additional_observer.world_from_camera, box, self.additional_priors)
             if self.configuration.observe_open_shorts:
                 angles.update(depth_open_short_flap_angles(rgb, depth, k,
-                    self.additional_observer.world_from_camera, box, self.additional_priors))
+                    self.additional_observer.world_from_camera, box, self.additional_priors,
+                    majors=_measured_majors(angles)))
             secondary = dict(seq=seq, camera=camera, tags=sorted(tags),
                 world_from_box=box.tolist(), box_registration=registration, angles=angles,
                 world_from_camera=self.additional_observer.world_from_camera.tolist(),

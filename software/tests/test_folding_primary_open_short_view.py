@@ -48,7 +48,7 @@ def enable_primary(rig, monkeypatch, *, enabled=True):
             timestamp_s=primary.sim.data.time, intrinsics=np.eye(3))
         return row
 
-    def shorts(rgb, depth, k, camera, box, priors):
+    def shorts(rgb, depth, k, camera, box, priors, majors=None):
         if rgb[0, 0, 0] == 0:
             controls.primary_inputs.append(dict(rgb=rgb.copy(), depth=depth.copy(),
                 k=k.copy(), camera=camera.copy(), box=box.copy(), priors=copy.deepcopy(priors)))

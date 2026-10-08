@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "arm": "right",
+ "calibration_file": "calibration-2026-10-08.json",
+ "calibration_sha256": "4c713271e6982a94d4fd99ec89008403397c8fec26ada72829909de140fe880e",
+ "mapping": "feetech_degrees_v1",
+ "mapping_validated": true,
+ "joints": {
+  "shoulder_pan": {
+   "model_zero_tick": 2047.0,
+   "model_sign": 1
+  },
+  "shoulder_lift": {
+   "model_zero_tick": 2047.0,
+   "model_sign": 1
+  },
+  "elbow_flex": {
+   "model_zero_tick": 2047.0,
+   "model_sign": 1
+  },
+  "wrist_flex": {
+   "model_zero_tick": 2047.0,
+   "model_sign": 1
+  },
+  "wrist_roll": {
+   "model_zero_tick": 2047.0,
+   "model_sign": 1
+  }
+ },
+ "gripper": {
+  "model_zero_tick": 1382.8,
+  "model_sign": 1
+ },
+ "evidence": {
+  "joints": "ACCEPTED BY THE OWNER, NOT MEASURED (2026-10-08 22:50): zero = middle of the saved range, sign +1 (the digital twin's feetech_degrees_v1 mapping). Live read-only twin overlay at 22:40 agreed roughly (silhouette IoU 0.52 after a fitted head offset; arms in black sleeves). STATUS.md 2026-10-08 22:40.",
+  "gripper": "ASSUMED: saved range_min = jaw closed = URDF -10 deg (twin convention), 360/4096 deg per tick."
+ }
+}

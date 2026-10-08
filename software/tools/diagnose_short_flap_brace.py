@@ -54,6 +54,16 @@ def run(args):
     if args.center_floor_marker:
         from carton.folding_markers import BOX_MARKERS
         BOX_MARKERS[25]=('box_tag_floor_center',[0,0,.0038],[1,0,0,0,1,0])
+    if getattr(args, 'extra_wall_markers', False):
+        # Explicit proposed extra printed wall markers (same 45 mm size and
+        # mounting convention as IDs 10/21). One reaching arm can hide the
+        # single near-wall or left-wall marker from the station camera.
+        from carton.folding_markers import BOX_MARKERS
+        from carton.geometry import Box
+        box = Box()
+        BOX_MARKERS[26] = ('box_tag_near_left', [-.12, -box.width/2-.0018, box.height/2], [1,0,0,0,0,1])
+        BOX_MARKERS[27] = ('box_tag_near_right', [.12, -box.width/2-.0018, box.height/2], [1,0,0,0,0,1])
+        BOX_MARKERS[28] = ('box_tag_left_near', [-box.length/2-.0018, -.08, box.height/2], [0,-1,0,0,0,1])
     from tools.simulate_bimanual_folding import PixelPort
     if getattr(args, 'privileged_near_angle', False):
         from carton.folding_mechanics_probe import PrivilegedNearAngleProbe
@@ -66,16 +76,20 @@ def run(args):
         if not getattr(args, 'probe_shorts_after_release', False):
             raise ValueError('Alternative short camera requires the explicit paired-short probe')
         options['additional_view_camera'] = short_camera
+    if getattr(args, 'close_majors_after_open_claw', False) and args.majors_view_camera not in ('none', 'front'):
+        options['additional_view_camera'] = args.majors_view_camera
     yaw=math.radians(args.carton_yaw_degrees)
     offset_y=-.1515+.01+.379/2*abs(math.sin(yaw))+.283/2*abs(math.cos(yaw))
     if args.park_back:
         options['initial_arm_targets']={'left':[-.20,-.18,.30],'right':[.20,-.18,.30]}
     sim = cls(Path(args.simulation_root), out,
-        station=FoldingStation(.06, .15, .01, table_marker_xy=(-.5, .55),
+        station=FoldingStation(args.base_height, args.base_to_table_edge, .01, table_marker_xy=(-.5, .55),
                                backup_table_marker_xy=(.45, .70)),
-        material=CartonMaterial(), width=args.width, height=args.height,
+        material=CartonMaterial(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction,
+                                hinge_rest_degrees=args.hinge_rest_degrees),
+        width=args.width, height=args.height,
         offset=(args.carton_offset_x, offset_y), yaw=yaw, initial_right_roll=1.5,
-        initial_flaps={'short_left':.1,'short_right':.1,'long_far':-.1,
+        initial_flaps={'short_left':.1,'short_right':.1,'long_far':math.radians(args.far_open_degrees),
                        'long_near':math.radians(args.near_open_degrees)},
         solver=FoldingSolver.friction(), **options)
     sim.capture_images = args.video
@@ -91,6 +105,7 @@ def run(args):
               'proposed_tool_tag_x_m': .180 if args.tool == 'paddle' else None,
               'proposed_floor_tag_24_x_m':args.floor_marker_x,
               'proposed_center_floor_tag_25':args.center_floor_marker,
+              'proposed_extra_wall_tags_26_27_28':getattr(args, 'extra_wall_markers', False),
               'stage': 'left minor pinch'}
 
     def grasp():
@@ -115,7 +130,7 @@ def run(args):
         start = math.radians(reading['angles']['short_left']['degrees'])
         point, orientation = pose(start)
         pre = point + [0, 0, args.pre_height]
-        port.set_grippers({'left': .6}, .4, 'Open left claw above minor')
+        port.set_grippers({'left': args.left_pinch_opening}, .4, 'Open left claw above minor')
         world = controller.box[:3, :3]@pre + controller.box[:3, 3]
         ori = {k: (controller.box[:3, :3]@v).tolist() if k in ('direction','tangent') else v
                for k, v in orientation.items()}
@@ -194,7 +209,8 @@ def run(args):
                     result['partial_short_probe'] = probe_shorts_against_passive_majors(
                         sim, controller, capture=True, target_degrees=10.,
                         contact_policy=getattr(args, 'short_contact_policy', 'measured_v2'),
-                        approach_policy=getattr(args, 'short_approach_policy', 'elevated_v2'))
+                        approach_policy=getattr(args, 'short_approach_policy', 'elevated_v2'),
+                        stroke_step_degrees=getattr(args, 'short_stroke_step_degrees', .25))
         if args.fold_right:
             result['stage'] = 'right minor fold with left-minor brace'
             right_reading=controller.sense('Register the moved carton before right-minor approach')
@@ -260,7 +276,32 @@ def run(args):
                     from carton.folding_retention import transfer_to_open_claw
                     result['stage'] = 'Transfer both short-flap holds to one open right claw'
                     result['open_claw_transfer'] = transfer_to_open_claw(sim, controller,
-                        capture=True, support_height=args.support_height)
+                        capture=True, support_height=args.support_height,
+                        # Opt-in with the four-flap stage: alternative declared
+                        # heights are planned only if the first plan is refused.
+                        fallback_support_heights=tuple(h for h in (.115, .117) if h > args.support_height)
+                        if getattr(args, 'close_majors_after_open_claw', False) else (),
+                        support_half_spans=(.060, .056, .052) if getattr(args, 'close_majors_after_open_claw', False)
+                        else (.052,),
+                        support_samples=5 if getattr(args, 'close_majors_after_open_claw', False) else 1)
+                    if getattr(args, 'close_majors_after_open_claw', False):
+                        from carton.folding_majors_over_shorts import close_majors_over_held_shorts
+                        if args.majors_view_camera != 'none':
+                            from carton.folding_additional_view import AdditionalViewPixelPort, AdditionalViewConfiguration
+                            # Explicit hypothetical second calibrated camera, as
+                            # for the far45 component: the station view sees the
+                            # far flap nearly edge-on near 39 degrees.
+                            port = AdditionalViewPixelPort(port,
+                                configuration=AdditionalViewConfiguration(
+                                    assumption_id='offline:front-additional-majors-over-shorts-v1',
+                                    clock_id='offline:simulation', required_flaps=('long_near', 'long_far'),
+                                    camera=args.majors_view_camera),
+                                seed=args.seed)
+                            controller.port = port
+                        result['stage'] = 'Close both majors over shorts held by the open right claw'
+                        result['majors_over_shorts'] = close_majors_over_held_shorts(sim, controller,
+                            capture=True, far_pin_degrees=args.far_hold_degrees if args.far_hold_degrees <= 45 else 34.,
+                            release_far=args.release_far)
                     if args.near_after_open_claw:
                         from carton.folding_cascade import press_near_over_short
                         result['stage'] = 'Transfer open-claw support to near major'
@@ -314,6 +355,7 @@ def run(args):
                   far_edge_attempt=getattr(controller, 'far_edge_attempt', None),
                   partial_major_release=getattr(controller, 'partial_major_release', None),
                   partial_short_probe=getattr(controller, 'partial_short_probe', None),
+                  majors_over_shorts=getattr(controller, 'majors_over_shorts', None),
                   additional_view_history=getattr(port, 'additional_view_history', None),
                   additional_view_declaration=getattr(port, 'declaration', None),
                   additional_view_assumptions_sha256=getattr(port, 'assumptions_sha256', None),
@@ -370,8 +412,10 @@ if __name__ == '__main__':
                         default='front', help='Explicit hypothetical camera mount for the short probe only')
     parser.add_argument('--allow-primary-carton-absence', action='store_true',
                         help='Opt in to fully fresh additional-view geometry when only the primary carton identity is absent')
-    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3'),
+    parser.add_argument('--short-contact-policy', choices=('measured_v2','setpoint_feedback_v3','tangent_deadband_v4','jaw_surface_v5'),
                         default='measured_v2', help='Explicit bounded Cartesian feedback variant for the short probe')
+    parser.add_argument('--short-stroke-step-degrees', type=float, choices=(.25, .5, 1.), default=.25,
+                        help='Declared measured-angle advance per bounded short stroke command')
     parser.add_argument('--observe-primary-open-shorts', action='store_true',
                         help='Use strict hinge-plane evidence from current primary pixels during the short probe')
     parser.add_argument('--short-approach-policy', choices=('elevated_v2', 'whole_jaw_normal_v1'),
@@ -390,6 +434,28 @@ if __name__ == '__main__':
     parser.add_argument('--paddle-end-degrees', type=float, default=75.)
     parser.add_argument('--right-hold-min-degrees', type=float, default=85.)
     parser.add_argument('--near-open-degrees', type=float, default=math.degrees(-.1))
+    parser.add_argument('--base-height', type=float, default=.06,
+                        help='Assumed arm-base origin height above the tabletop (m)')
+    parser.add_argument('--base-to-table-edge', type=float, default=.15,
+                        help='Assumed arm-base origin line to near table edge (m); the cart front sits 115 mm ahead of it')
+    parser.add_argument('--majors-view-camera', default='none', choices=('none', 'front', 'front_left_back', 'front_right_back'),
+                        help='Explicit hypothetical additional camera for closing majors over held shorts')
+    parser.add_argument('--release-far', action='store_true',
+                        help='Comparison variant: let go of the far major before closing the near one')
+    parser.add_argument('--hinge-stiffness', type=float, default=.018,
+                        help='Assumed crease stiffness (N m/rad) for all four flaps')
+    parser.add_argument('--hinge-rest-degrees', type=float, default=0.,
+                        help='Assumed crease rest angle from upright (pre-folded cartons settle partway closed)')
+    parser.add_argument('--hinge-friction', type=float, default=.004,
+                        help='Assumed crease dry friction (N m) for all four flaps')
+    parser.add_argument('--left-pinch-opening', type=float, default=.6,
+                        help='Left claw opening (rad) while inserting around the left minor')
+    parser.add_argument('--extra-wall-markers', action='store_true',
+                        help='Add proposed printed carton markers 26/27 (near wall) and 28 (left wall)')
+    parser.add_argument('--close-majors-after-open-claw', action='store_true',
+                        help='After the open-claw short hold, close far then near majors over the shorts')
+    parser.add_argument('--far-open-degrees', type=float, default=math.degrees(-.1),
+                        help='Initial far-flap presentation angle (an assumption, not an executed motion)')
     parser.add_argument('--prepare-near-degrees', type=float)
     parser.add_argument('--open-claw-transfer', action='store_true')
     parser.add_argument('--support-height', type=float, default=.1094)
@@ -455,6 +521,8 @@ if __name__ == '__main__':
         parser.error('Primary open-short observation requires the explicit paired-short probe')
     if args.short_approach_policy != 'elevated_v2' and not args.probe_shorts_after_release:
         parser.error('Alternative short approach requires the explicit paired-short probe')
+    if args.short_stroke_step_degrees != .25 and not args.probe_shorts_after_release:
+        parser.error('Alternative short stroke increment requires the explicit paired-short probe')
     if args.center_floor_marker and args.floor_marker_x is not None and abs(args.floor_marker_x)<.057:
         parser.error('Declared floor markers would overlap')
     run(args)

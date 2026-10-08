@@ -109,3 +109,38 @@ def test_nonfinite_prior_and_invalid_task_dimensions_refuse():
         depth_open_short_flap_angles(*inputs, {'short_left': np.nan})
     with pytest.raises(ValueError, match='dimensions'):
         depth_open_short_flap_angles(*inputs, box=Box(flap=.25))
+
+
+MAJORS = {'long_near': 39., 'long_far': 34.}
+
+
+def test_measured_major_pixels_do_not_make_a_visible_short_ambiguous():
+    # A partly hidden short beside two inward majors: near the corners the
+    # majors form a second hinge-aligned plane in the short sector.
+    inputs = _render([_short(-8., half_width=.05), _major(39., 'long_near'), _major(34., 'long_far')],
+                     camera=(-.2, -.85, 1.05))
+    assert 'short_left' not in depth_open_short_flap_angles(*inputs)
+    row = depth_open_short_flap_angles(*inputs, majors=MAJORS)['short_left']
+    assert row['degrees'] == pytest.approx(-8., abs=.5)
+    assert row['competing_plane_support_ratio'] == 0.
+    assert row['measured_major_panels_excluded'] == ['long_far', 'long_near']
+
+
+def test_major_panel_fragments_are_not_misread_as_an_open_short():
+    inputs = _render([_short(-8., half_width=.04), _major(39., 'long_near'), _major(34., 'long_far')],
+                     camera=(-.2, -.85, 1.05))
+    wrong = depth_open_short_flap_angles(*inputs)['short_left']
+    assert wrong['degrees'] > 0.
+    assert depth_open_short_flap_angles(*inputs, majors=MAJORS) == {}
+
+
+def test_major_exclusion_keeps_refusing_two_credible_short_planes():
+    inputs = _render([_short(-15., half_width=.060, along_shift=-.075),
+                      _short(10., half_width=.060, along_shift=.075)], camera=(-.5, -.35, .65))
+    assert 'short_left' not in depth_open_short_flap_angles(*inputs, {'short_left': 0.}, majors=MAJORS)
+
+
+@pytest.mark.parametrize('majors', [{'long_near': float('nan')}, {'long_far': True}, {'long_near': 120.}])
+def test_major_exclusion_requires_finite_measured_angles(majors):
+    with pytest.raises(ValueError, match='measured major'):
+        depth_open_short_flap_angles(*_render([_short(-8.)]), majors=majors)

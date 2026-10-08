@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carton fold policy: station setup, step by step</title>
+<style>
+  :root {
+    --ink: #f4f6ed;
+    --text: #dce5dc;
+    --muted: #aebbb3;
+    --night: #07100d;
+    --panel: rgba(255, 255, 255, .035);
+    --line: rgba(226, 239, 221, .14);
+    --lime: #c9f65b;
+    --mint: #72e2b0;
+    --aqua: #5ed6de;
+    --amber: #ffc56e;
+    --coral: #ff8a70;
+    --code-bg: rgba(0, 0, 0, .35);
+    --shadow: 0 22px 80px rgba(0, 0, 0, .34);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 16% 8%, rgba(93, 173, 126, .17), transparent 28%),
+      radial-gradient(circle at 90% 90%, rgba(55, 135, 138, .14), transparent 28%),
+      var(--night);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; }
+  .deck { height: 100%; width: 100%; position: relative; }
+  .slide {
+    position: absolute; inset: 0;
+    display: grid; grid-template-rows: auto 1fr auto;
+    gap: clamp(10px, 1.6vh, 22px);
+    padding: clamp(24px, 3.6vw, 56px) clamp(26px, 5vw, 84px) clamp(50px, 6vh, 74px);
+    opacity: 0; visibility: hidden;
+    transform: translateX(34px) scale(.992);
+    transition: opacity .38s ease, transform .48s cubic-bezier(.2,.8,.2,1), visibility .38s;
+    pointer-events: none; overflow: auto;
+  }
+  .slide.active { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+  .slide.leaving { transform: translateX(-34px) scale(.992); }
+  .slide::before {
+    content: ""; position: absolute; inset: 14px;
+    border: 1px solid rgba(226, 239, 221, .07); border-radius: 24px; pointer-events: none;
+  }
+  .kicker { color: var(--mint); font-size: 12px; font-weight: 750; letter-spacing: .18em; text-transform: uppercase; }
+  .eyebrow { display: flex; align-items: center; gap: 11px; }
+  .eyebrow::before { content: ""; width: 28px; height: 2px; background: var(--lime); }
+  h1, h2, h3, p { margin: 0; }
+  h1 { font-size: clamp(42px, 6.4vw, 96px); line-height: .93; letter-spacing: -.055em; max-width: 13ch; }
+  h2 { font-size: clamp(26px, 3.1vw, 48px); line-height: 1.02; letter-spacing: -.035em; }
+  h3 { font-size: clamp(12px, .95vw, 14px); color: var(--mint); text-transform: uppercase; letter-spacing: .1em; margin: 12px 0 6px; }
+  h3:first-child { margin-top: 0; }
+  p, li { font-size: clamp(12px, 1.02vw, 15.5px); line-height: 1.45; color: var(--muted); }
+  b, strong { color: var(--text); }
+  ul, ol { margin: 0; padding-left: 1.25em; }
+  li { margin: 3px 0; }
+  .accent { color: var(--lime); }
+  .lead { max-width: 980px; font-size: clamp(16px, 1.7vw, 25px); line-height: 1.4; color: var(--text); }
+  .small { font-size: 12px; color: var(--muted); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { font-size: .9em; color: var(--text); background: var(--code-bg); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+  pre {
+    margin: 6px 0; padding: 9px 12px; background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 10px; font-size: clamp(10.5px, .82vw, 12.5px); line-height: 1.5; color: var(--text);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .body { min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+  .title-meta { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+  .pill { border: 1px solid var(--line); color: var(--text); border-radius: 999px; padding: 8px 13px; font-size: 12px; letter-spacing: .03em; background: var(--panel); }
+  .grid-2, .grid-3 { display: grid; gap: clamp(12px, 1.4vw, 20px); }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .card {
+    border: 1px solid var(--line);
+    background: linear-gradient(150deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+    border-radius: 16px; padding: clamp(13px, 1.4vw, 20px); box-shadow: var(--shadow);
+  }
+  .card.ok { border-top: 3px solid var(--mint); }
+  .card.blocked { border-top: 3px solid var(--amber); }
+  .card.missing { border-top: 3px solid var(--coral); }
+  .card h3 { margin-top: 0; }
+
+  /* Step slides */
+  .step-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: clamp(10px, 1.4vh, 18px); }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 5px 11px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line); color: var(--text); }
+  .badge.owner { border-color: var(--amber); color: var(--amber); }
+  .badge.agent { border-color: var(--aqua); color: var(--aqua); }
+  .badge.both { border-color: var(--lime); color: var(--lime); }
+  .badge.exists { background: rgba(114,226,176,.12); border-color: var(--mint); color: var(--mint); }
+  .badge.build { background: rgba(255,138,112,.12); border-color: var(--coral); color: var(--coral); }
+  .badge.manual { background: rgba(255,197,110,.10); border-color: var(--amber); color: var(--amber); }
+  .badge.time { color: var(--muted); }
+  .cols { display: grid; grid-template-columns: 1.25fr .95fr; gap: clamp(14px, 1.8vw, 28px); align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 14px; padding: clamp(11px, 1.2vw, 16px); background: var(--panel); }
+  .panel + .panel { margin-top: 12px; }
+  .panel.done { border-left: 3px solid var(--mint); }
+  .panel.risk { border-left: 3px solid var(--coral); }
+  .panel.build { border-left: 3px solid var(--coral); background: rgba(255,138,112,.05); }
+  .why { color: var(--text); }
+  .note { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--line); font-size: clamp(11.5px, .95vw, 14.5px); line-height: 1.38; color: var(--muted); }
+  th { color: var(--mint); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  td:first-child { color: var(--text); }
+
+  .diagram { width: 100%; max-height: 58vh; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid; }
+
+  .checklist { columns: 2; column-gap: 34px; list-style: none; padding: 0; margin: 0; }
+  .checklist li { break-inside: avoid; display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .checklist li::before { content: ""; width: 14px; height: 14px; border: 2px solid var(--lime); border-radius: 3px; margin-top: 3px; }
+
+  .footer { display: flex; justify-content: space-between; align-items: center; color: #77877e; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+  .controls { position: fixed; z-index: 20; right: 28px; bottom: 21px; display: flex; align-items: center; gap: 9px; }
+  .nav-btn { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: rgba(7,16,13,.8); cursor: pointer; transition: .2s ease; }
+  .nav-btn:hover { background: var(--lime); color: var(--night); transform: translateY(-2px); }
+  .counter { min-width: 56px; text-align: center; color: var(--muted); font: 600 11px ui-monospace, monospace; }
+  .progress { position: fixed; z-index: 20; left: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, var(--lime), var(--aqua)); transition: width .35s ease; }
+  .help { position: fixed; z-index: 20; left: 28px; bottom: 25px; color: #687970; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+  .footer .pg { visibility: hidden; }
+
+  @media (max-width: 900px) {
+    .cols, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .checklist { columns: 1; }
+  }
+  @media (max-width: 560px) {
+    html, body { overflow: auto; }
+    .slide { position: relative; display: none; min-height: 100vh; padding: 28px 20px 78px; }
+    .slide.active { display: grid; }
+    .help { display: none; }
+  }
+  @page { size: A4 landscape; margin: 9mm; }
+  @media print {
+    :root {
+      --ink: #111; --text: #111; --muted: #333; --night: #fff; --panel: #fff;
+      --line: #c8c8c8; --lime: #3d6b00; --mint: #08664a; --aqua: #06656c;
+      --amber: #8a5300; --coral: #a3341b; --code-bg: #f1f1f1; --shadow: none;
+    }
+    html, body { height: auto; overflow: visible; background: #fff !important; }
+    .slide {
+      position: relative; display: grid !important; opacity: 1 !important; visibility: visible !important;
+      transform: none !important; height: auto; min-height: 0; overflow: visible;
+      padding: 6mm 4mm; page-break-after: always; break-after: page;
+    }
+    .slide::before { display: none; }
+    .controls, .progress, .help { display: none; }
+    .card { background: #fff; }
+    .footer { color: #555; }
+    .footer .pg { visibility: visible; }
+    .cols { grid-template-columns: 1.25fr .95fr; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .checklist { columns: 2; }
+    p, li { font-size: 11px; }
+    pre { font-size: 9.5px; }
+    th, td { font-size: 10.5px; }
+    h2 { font-size: 26px; }
+    .diagram { max-height: none; }
+    svg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" aria-live="polite">
+
+<!-- 1 -->
+<section class="slide active" aria-hidden="false">
+  <div class="eyebrow kicker">Carton fold policy · station setup</div>
+  <div class="body">
+    <h1>Set up the box for the learned <span class="accent">two-flap fold</span></h1>
+    <p class="lead" style="margin-top:22px">A step-by-step guide to laying out the robot, table, carton and cameras so the
+      simulation-trained policy sees what it was trained on, then to running it safely for the first time.</p>
+    <div class="title-meta">
+      <span class="pill">Task: fold both short flaps and hold them</span>
+      <span class="pill">Simulation: 28 of 31 unseen starts (best so far)</span>
+      <span class="pill">Robot: not run yet</span>
+    </div>
+  </div>
+  <div class="footer"><span>XLeRobot farm · carton</span><span class="pg"></span></div>
+</section>
+
+<!-- 2 -->
+<section class="slide" aria-hidden="true">
+  <div class="eyebrow kicker">Before you start</div>
+  <div class="body">
+    <h2>Safety first, then gather the kit</h2>
+    <div class="grid-2" style="margin-top:20px">
+      <div class="card missing">
+        <h3>Safety rules</h3>
+        <ul>
+          <li>Someone holds <b>STOP</b> (<code>robot_stop</code>) whenever a motor is enabled.</li>
+          <li>The <b>12 V switch</b> is within reach. Switch it off before touching any servo wire.</li>
+          <li>Nobody inside the arms' sweep while they move.</li>
+          <li>First motion runs use <b>no carton</b>, free air, 10 steps.</li>
+          <li>Never relax limits in <code>farm/safety/rules.py</code> to make it work.</li>
+        </ul>
+      </div>
+      <div class="card ok">
+        <h3>What you need</h3>
+        <ul>
+          <li>Tape measure (mm) and painter's tape</li>
+          <li>Phone with an inclinometer app</li>
+          <li>An empty carton, <b>379 × 283 × 108 mm</b>, 140 mm flaps</li>
+          <li>A flat platform or table you can set to the right height</li>
+          <li>Four printed AprilTags (tag36h11, 60–100 mm): <code>tools/carton_tags_pdf.py</code></li>
+          <li>The robot: both SO101 arms, head OAK-D Lite, both wrist cameras</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Before you start</span><span class="pg"></span></div>
+</section>
+
+<!-- 3 -->
+<section class="slide" aria-hidden="true">
+  <div class="eyebrow kicker">The target</div>
+  <div class="body">
+    <h2>This is the layout the policy learned</h2>
+    <div class="cols" style="margin-top:14px">
+      <svg class="diagram" viewBox="0 0 620 560" role="img" aria-label="Top view of the station">
+        <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c9f65b"/></marker></defs>
+        <text x="10" y="22" fill="#aebbb3" font-size="13">TOP VIEW · robot at the bottom, looking up at the table</text>
+        <!-- table -->
+        <rect x="20" y="40" width="580" height="330" rx="6" fill="rgba(255,197,110,.08)" stroke="#ffc56e" stroke-dasharray="6 5"/>
+        <text x="30" y="60" fill="#ffc56e" font-size="13">table / platform (top surface 120 mm below the arm bases)</text>
+        <!-- carton: x -199.5..179.5, y 160..443 ; sx = x+310, sy = 520-y -->
+        <rect x="110.5" y="77" width="379" height="283" fill="rgba(201,246,91,.10)" stroke="#c9f65b" stroke-width="2"/>
+        <text x="300" y="215" fill="#f4f6ed" font-size="16" text-anchor="middle">carton 379 × 283 mm</text>
+        <text x="300" y="237" fill="#aebbb3" font-size="12" text-anchor="middle">centre 10 mm left of the middle (range 25 left … 5 right)</text>
+        <text x="122" y="225" fill="#72e2b0" font-size="12" transform="rotate(-90 122 225)">left short flap</text>
+        <text x="478" y="160" fill="#72e2b0" font-size="12" transform="rotate(90 478 160)">right short flap</text>
+        <text x="300" y="95" fill="#aebbb3" font-size="12" text-anchor="middle">far long flap</text>
+        <text x="300" y="352" fill="#aebbb3" font-size="12" text-anchor="middle">near long flap</text>
+        <!-- table edge at y=150 -> sy=370 -->
+        <line x1="20" y1="370" x2="600" y2="370" stroke="#ffc56e" stroke-width="2"/>
+        <text x="26" y="388" fill="#ffc56e" font-size="12">table edge</text>
+        <!-- near wall 10 mm -->
+        <line x1="505" y1="360" x2="505" y2="370" stroke="#c9f65b" marker-start="url(#ar)" marker-end="url(#ar)"/>
+        <text x="512" y="368" fill="#c9f65b" font-size="12">10 mm</text>
+        <!-- base line y=0 -> sy=520 -->
+        <line x1="60" y1="520" x2="560" y2="520" stroke="#5ed6de" stroke-dasharray="4 4"/>
+        <circle cx="200" cy="520" r="16" fill="rgba(94,214,222,.2)" stroke="#5ed6de" stroke-width="2"/>
+        <circle cx="420" cy="520" r="16" fill="rgba(94,214,222,.2)" stroke="#5ed6de" stroke-width="2"/>
+        <text x="200" y="525" fill="#f4f6ed" font-size="12" text-anchor="middle">L</text>
+        <text x="420" y="525" fill="#f4f6ed" font-size="12" text-anchor="middle">R</text>
+        <line x1="216" y1="548" x2="404" y2="548" stroke="#5ed6de" marker-start="url(#ar)" marker-end="url(#ar)"/>
+        <text x="310" y="544" fill="#5ed6de" font-size="13" text-anchor="middle">220 mm between arm bases</text>
+        <line x1="575" y1="520" x2="575" y2="370" stroke="#5ed6de" marker-start="url(#ar)" marker-end="url(#ar)"/>
+        <text x="570" y="450" fill="#5ed6de" font-size="13" text-anchor="end">150 mm</text>
+        <text x="570" y="466" fill="#aebbb3" font-size="11" text-anchor="end">base line → table edge</text>
+        <circle cx="310" cy="469" r="7" fill="#ff8a70"/>
+        <text x="298" y="473" fill="#ff8a70" font-size="12" text-anchor="end">head camera (51 mm forward, 417 mm up)</text>
+      </svg>
+      <div>
+        <table>
+          <tr><th>Item</th><th>Target</th></tr>
+          <tr><td>Arm base spacing</td><td>220 mm (robot model)</td></tr>
+          <tr><td>Arm bases above carton surface</td><td>120 mm</td></tr>
+          <tr><td>Base line → table edge</td><td>150 mm</td></tr>
+          <tr><td>Carton near wall → table edge</td><td>10 mm</td></tr>
+          <tr><td>Carton sideways</td><td>10 mm left of centre (−25 … +5)</td></tr>
+          <tr><td>Carton rotation</td><td>square, within ±4°</td></tr>
+          <tr><td>Head camera</td><td>pan 0°, tilt 58° down</td></tr>
+        </table>
+        <p class="note">The policy only works near these numbers. If something can't be matched, measure it and send it:
+          the simulation gets rebuilt to match (step 7).</p>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Target layout</span><span class="pg"></span></div>
+</section>
+
+<!-- 4 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 1 · do this first</div><h2>Measure the arm spacing</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">5 min</span></div></div>
+  <div class="body">
+    <div class="cols">
+      <div class="panel">
+        <ol>
+          <li>Find the <b>shoulder-pan axis</b> of each arm: the centre of the round plate that turns, above the base servo.</li>
+          <li>Tape-measure between the two centres.</li>
+          <li>Photograph the tape.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel risk"><b>Go / no-go</b><p>The policy was trained with the arm-base origins <b>220 mm</b> apart, as in the robot model.
+          The model turns its bases sideways, which would put the pan axes about <b>310 mm</b> apart instead.</p>
+          <p class="note">Whatever you measure, send it. If it isn't 220 mm, new demonstrations get recorded at your number before training: a few hours of compute, not days.</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 1 · arm spacing</span><span class="pg"></span></div>
+</section>
+
+<!-- 5 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 2</div><h2>Set the carton surface 120 mm below the arm bases</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15–30 min</span></div></div>
+  <div class="body">
+    <div class="cols">
+      <svg class="diagram" viewBox="0 0 560 330" role="img" aria-label="Side view">
+        <text x="10" y="20" fill="#aebbb3" font-size="13">SIDE VIEW · robot on the left</text>
+        <rect x="40" y="120" width="70" height="170" fill="rgba(94,214,222,.12)" stroke="#5ed6de"/>
+        <text x="75" y="210" fill="#5ed6de" font-size="12" text-anchor="middle" transform="rotate(-90 75 210)">cart</text>
+        <rect x="70" y="104" width="60" height="16" fill="rgba(94,214,222,.3)" stroke="#5ed6de"/>
+        <text x="100" y="98" fill="#f4f6ed" font-size="12" text-anchor="middle">arm base</text>
+        <line x1="130" y1="120" x2="520" y2="120" stroke="#5ed6de" stroke-dasharray="4 4"/>
+        <rect x="230" y="240" width="320" height="14" fill="rgba(255,197,110,.25)" stroke="#ffc56e"/>
+        <text x="390" y="272" fill="#ffc56e" font-size="12" text-anchor="middle">platform / table top</text>
+        <rect x="250" y="132" width="283" height="108" fill="rgba(201,246,91,.12)" stroke="#c9f65b" stroke-width="2"/>
+        <text x="391" y="190" fill="#f4f6ed" font-size="14" text-anchor="middle">carton (108 mm tall)</text>
+        <line x1="170" y1="120" x2="170" y2="240" stroke="#c9f65b" stroke-width="2"/>
+        <text x="178" y="185" fill="#c9f65b" font-size="15">120 mm</text>
+        <text x="230" y="314" fill="#aebbb3" font-size="12">bases 120 mm above the surface the carton sits on</text>
+      </svg>
+      <div class="panel">
+        <ol>
+          <li>Measure from the platform top up to the <b>underside of each SO101 base</b>.</li>
+          <li>Raise or lower the platform (boards, books, a box) until both arms read <b>120 mm</b>.</li>
+          <li>Left and right must agree within <b>3 mm</b>. If not, the cart or platform is tilted: shim it.</li>
+          <li>If the base underside is hidden, measure floor → base and floor → platform, then subtract.</li>
+        </ol>
+      </div>
+      <div class="panel risk" style="margin-top:12px"><b>Your 70 cm table</b><p>Measure the floor → underside of each arm base and subtract 70 cm.
+        You want <b>12 cm</b>, i.e. bases at about <b>82 cm</b> off the floor.</p>
+        <ul><li><b>About 82 cm</b> (as <code>docs/carton.md</code> says): the 70 cm table is right as it is.</li>
+        <li><b>About 77.5 cm</b> (as the robot model says): the table is about 4.5 cm too high. Use a lower table (about 65.5 cm),
+          or send the number and the demos get re-recorded at your height (untested below 12 cm; a few hours of compute).</li></ul></div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 2 · height</span><span class="pg"></span></div>
+</section>
+
+<!-- 6 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 3</div><h2>Square the cart, then tape the carton's spot</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15 min</span></div></div>
+  <div class="body">
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Cart to table edge</h3>
+        <ol>
+          <li>From each shoulder-pan axis, measure straight out to the near table edge.</li>
+          <li>Move the cart until both sides read <b>111 mm</b>. That is 150 mm from the base line; the pan axis sits 39 mm in front of it.</li>
+          <li>If left and right differ, the cart is turned. Rotate it until they match.</li>
+        </ol>
+      </div>
+      <div class="panel">
+        <h3>Carton position</h3>
+        <ol>
+          <li>Near wall of the carton <b>10 mm</b> back from the table edge.</li>
+          <li>Carton centre <b>10 mm to the robot's left</b> of the midpoint between the arms (anywhere from 25 mm left to 5 mm right works).</li>
+          <li>Square to the table edge, within <b>4°</b>.</li>
+          <li><b>Tape around the carton's footprint</b>, so every run starts in the same place.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 3 · setback and carton spot</span><span class="pg"></span></div>
+</section>
+
+<!-- 7 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4</div><h2>Prepare the carton</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">5 min</span></div></div>
+  <div class="body">
+    <div class="cols">
+      <div class="panel">
+        <ol>
+          <li>Use an <b>empty</b> carton. Check it is 379 × 283 × 108 mm with 140 mm flaps.</li>
+          <li>Stand all four flaps <b>straight up</b>, open.</li>
+          <li>Turn it so the <b>short flaps face the arms</b>: one on the robot's left, one on its right. The long flaps are far and near.</li>
+          <li>Place it in the taped footprint.</li>
+        </ol>
+      </div>
+      <div class="panel risk"><b>Material is a guess</b><p>The simulation assumed a crease stiffness and friction, and trained across a range of them.
+        Pre-folded, softer cartons can sag past flat. If you can, measure the crease with a luggage scale and send the reading.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 4 · carton</span><span class="pg"></span></div>
+</section>
+
+<!-- 8 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 5</div><h2>Point the cameras the way the policy expects</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge time">30 min</span></div></div>
+  <div class="body">
+    <div class="cols">
+      <img src="img/fold-policy-setup/policy-views-220.png" alt="Simulated policy camera views: head front view and both wrist views at start, middle and end of a fold" style="width:100%;max-height:60vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
+      <div>
+        <div class="panel">
+          <h3>Head camera (OAK-D Lite) = "front"</h3>
+          <ul>
+            <li>Head pan <b>0°</b>, tilt <b>58° down</b>.</li>
+            <li>Use the <b>4:3 full-sensor</b> stream, not 640×360.</li>
+            <li>Check the view shows all four flaps and both claws (top row).</li>
+            <li>Note the head pan/tilt encoder ticks, so the pose can be repeated.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Wrist cameras = "left_wrist", "right_wrist"</h3>
+          <ul>
+            <li>Mounted as in the robot model, looking along the jaws.</li>
+            <li>The claw tips appear at the <b>bottom</b> of the image (middle and bottom rows).</li>
+            <li>The simulation assumed a 90° field of view. Calibrate the real cameras and send the numbers.</li>
+          </ul>
+        </div>
+        <p class="note">These are the simulated views. Take one still from each real camera with the carton in place and compare.</p>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 5 · cameras</span><span class="pg"></span></div>
+</section>
+
+<!-- 9 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 6a · camera poses</div><h2>Print the tags and lay them out</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15 min</span></div></div>
+  <div class="body"><div class="cols">
+    <div class="panel"><ol>
+      <li>Print <code>fold-pose-tags-40-43.pdf</code> at <b>100% / actual size</b> (no "fit to page").</li>
+      <li>Measure one tag's <b>black square</b> with a ruler. It should be 80 mm; write down what you get.</li>
+      <li>Cut the four tags out, leaving the white border.</li>
+      <li><b>Before the carton goes down</b>, tape them flat on the platform, printed text upright, <b>"TOP EDGE" pointing away from the robot</b>:
+        <table style="margin-top:6px"><tr><th>Tag</th><th>Sideways</th><th>Out from the base line</th></tr>
+        <tr><td>40</td><td>12 cm left</td><td>25 cm</td></tr><tr><td>41</td><td>12 cm right</td><td>25 cm</td></tr>
+        <tr><td>42</td><td>12 cm left</td><td>40 cm</td></tr><tr><td>43</td><td>12 cm right</td><td>40 cm</td></tr></table></li>
+    </ol></div>
+    <div class="panel"><h3>How to measure a tag spot</h3><ul>
+      <li><b>Sideways:</b> from the midpoint between the two shoulder-pan axes. Robot's left is negative.</li>
+      <li><b>Out:</b> from the line through the two shoulder-pan axes, toward the table, then <b>add 39 mm</b>. The base line sits 39 mm behind the pan axes.</li>
+      <li>Measure to the <b>centre</b> of each tag. Write the four actual spots down; exact placement doesn't matter, knowing it does.</li>
+      <li>Height: the tags lie on the carton surface, which is 120 mm below the bases after step 2.</li></ul></div>
+  </div></div>
+  <div class="footer"><span>Step 6a · tags</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 6b · camera poses</div><h2>Set the head, read its lens, take a still</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15 min</span></div></div>
+  <div class="body"><div class="cols">
+    <div class="panel"><ol>
+      <li>With STOP in reach, set the head to <b>pan 0°, tilt 58° down</b> with the robot's head controls.
+        Check with the phone inclinometer on the camera body: <b>58° below horizontal</b>.</li>
+      <li>Read the head pan/tilt <b>encoder ticks</b> (read-only) and write them down.</li>
+      <li>On the robot Mac, <b>in Terminal</b> (camera permission), read the OAK's factory lens calibration. This only reads; it moves nothing:
+<pre><code>cd software
+python tools/oak_intrinsics.py --width 640 --height 480 --out oak-640x480.json</code></pre></li>
+      <li>Save <b>one still</b> from the head OAK at <b>640×480</b>, with all four tags visible: <code>front.png</code>.</li>
+    </ol></div>
+    <div class="panel done"><b>Why 4:3</b><p>The policy saw a 4:3 image with a 54° vertical view. The usual 640×360 stream is cropped and too narrow.</p></div>
+  </div></div>
+  <div class="footer"><span>Step 6b · head camera</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 6c · camera poses</div><h2>Compute the head camera's pose</h2></div>
+    <div class="meta"><span class="badge both">Owner or agent</span><span class="badge time">5 min</span></div></div>
+  <div class="body"><div class="cols">
+    <div class="panel"><p>Run this with your measured tag size and spots, in metres. Sideways: left negative. Out: as in 6a. Height: −0.120.</p>
+<pre><code>python tools/camera_pose_from_tag.py --image front.png --camera front \
+  --intrinsics oak-640x480.json --tag-size 0.080 \
+  --tag 40 -0.12 0.25 -0.12  --tag 41 0.12 0.25 -0.12 \
+  --tag 42 -0.12 0.40 -0.12  --tag 43 0.12 0.40 -0.12 \
+  --update station.json</code></pre>
+      <p class="note">This writes the camera's position and angle into <code>station.json</code>. Start from <code>profiles/fold-station-xlerobot-220.json</code>, set <code>"measured": true</code>, and fill in your step 1–3 numbers.
+        Or just send me <code>front.png</code>, <code>oak-640x480.json</code> and your numbers, and I'll run it.</p></div>
+    <div class="panel"><h3>Check the answer</h3><ul>
+      <li>Lens about <b>42 cm above</b> the bases and about <b>5 cm forward</b>.</li>
+      <li>Pitch about <b>58° down</b>.</li>
+      <li>If it's far off, a tag was probably turned the wrong way or a spot was mis-measured.</li></ul></div>
+  </div></div>
+  <div class="footer"><span>Step 6c · solve the pose</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 6d · wrist cameras</div><h2>Calibrate each wrist camera's lens</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15 min per camera</span></div></div>
+  <div class="body"><div class="cols">
+    <div class="panel"><ol>
+      <li>Print <code>fold-checkerboard-9x6-25mm.pdf</code> at actual size. Measure one square (should be 25 mm). Tape it flat to a board.</li>
+      <li>From each wrist camera, at the resolution the policy will use, save <b>15–20 photos</b> of the board: near, far, tilted, in the corners. The whole board must be in every photo.</li>
+      <li>Run, for each camera:
+<pre><code>python tools/calibrate_camera_checkerboard.py \
+  --images 'left_wrist/*.png' --inner 9 6 --square-mm 25 \
+  --out left_wrist-640x480.json</code></pre></li>
+      <li>Send the two JSON files.</li>
+    </ol></div>
+    <div class="panel"><h3>What it tells us</h3><ul>
+      <li>The <b>field of view</b>. The simulation assumed 90° vertical. If yours differs, the demos are re-filmed with your lens and the policy retrained (no re-recording).</li>
+      <li>Where a wrist camera sits is fixed by its mount on the gripper, so it needs no tags; just confirm it's mounted as in the robot model.</li></ul></div>
+  </div></div>
+  <div class="footer"><span>Step 6d · wrist cameras</span><span class="pg"></span></div>
+</section>
+
+<!-- 10 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 7</div><h2>Send the measurements; the policy is refitted</h2></div>
+    <div class="meta"><span class="badge agent">Agent</span><span class="badge time">1–3 h compute</span></div></div>
+  <div class="body">
+    <div class="grid-3">
+      <div class="card ok"><h3>Layout matched (steps 1–4)</h3><p>Only the cameras changed. The existing demonstrations are <b>re-filmed</b> from the measured camera positions (about 1 minute). Then the dataset is converted, the policy retrained on the cloud GPU (~30–60 min) and re-tested.</p></div>
+      <div class="card blocked"><h3>Layout differs</h3><p>Spacing, height or setback can't be matched. New demonstrations are <b>recorded</b> at your measured layout (~20–40 min), then converted and trained the same way.</p></div>
+      <div class="card"><h3>What you send</h3><ul><li><code>station.json</code> (measured: true)</li><li>Photos of each tape measurement</li><li>One still per camera</li><li>Head pan/tilt ticks</li></ul></div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 7 · refit</span><span class="pg"></span></div>
+</section>
+
+<!-- 11 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8a · joint maps</div><h2>Arm maps are accepted; bind them on the robot Mac</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge exists">Nothing moves</span><span class="badge time">5 min</span></div></div>
+  <div class="body"><div class="cols">
+    <div class="panel">
+      <p>The maps are in <code>profiles/fold-joint-maps/</code>. They use the digital twin's mapping: each arm joint's zero is the
+        <b>middle of its saved range</b> (tick 2047 for every arm joint today), sign +1. The jaw is closed at the bottom of its range.
+        You accepted this on 8 October; the files say "accepted, not measured".</p>
+      <p style="margin-top:8px">On the robot Mac, tie them to the live calibration file:</p>
+<pre><code>cd software
+python tools/bind_fold_joint_maps.py \
+  --calibration &lt;live saved calibration .json&gt; --out bound-maps/</code></pre>
+      <p class="note">It refuses if any arm motor's homing offset or range changed since 8 October, meaning the arms were recalibrated. Then the maps get regenerated from a fresh read.</p></div>
+    <div class="panel risk"><b>The head is the exception</b><p>The twin's head angles were off by about 15° tilt and 17° pan in the live check.
+      Don't use them. The head camera pose comes from the tags in step 6.</p></div>
+  </div></div>
+  <div class="footer"><span>Step 8a · bind maps</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8b · hand pose</div><h2>Pose the arms at the training start, by hand</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge exists">Motors released</span><span class="badge time">10 min</span></div></div>
+  <div class="body">
+    <img src="img/fold-policy-setup/training-start-pose.png" alt="Training start pose: shoulders folded low, wrists bent up, jaws closed, claws parked either side of the carton's near wall" style="width:100%;max-height:30vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
+    <div class="cols" style="margin-top:10px">
+      <table>
+        <tr><th>Joint</th><th>Left tick</th><th>Right tick</th><th>What it looks like</th></tr>
+        <tr><td>shoulder pan</td><td>1691</td><td>2401</td><td>each arm turned ~31° outward</td></tr>
+        <tr><td>shoulder lift</td><td>909</td><td>909</td><td>folded down, near its stop</td></tr>
+        <tr><td>elbow flex</td><td>2396</td><td>2396</td><td>+31°</td></tr>
+        <tr><td>wrist flex</td><td>3128</td><td>3128</td><td>bent up, +95°</td></tr>
+        <tr><td>wrist roll</td><td>2050</td><td>3024</td><td>right wrist rolled ~86°</td></tr>
+        <tr><td>jaw</td><td>≈1276</td><td>≈1272</td><td>closed</td></tr>
+      </table>
+      <div class="panel"><ol>
+        <li>Arms released, nothing enabled.</li>
+        <li>Move each arm by hand toward the picture and support it.</li>
+        <li>Read the ticks (<code>robot_get_state</code>, read-only) and adjust until every joint is within <b>±30 ticks</b> (±3°).</li>
+        <li>The policy only ever started here: the dry run warns until you're close.</li></ol></div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 8b · start pose</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8c · optional</div><h2>Later: confirm the maps with three overlay poses</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge exists">Motors released</span><span class="badge time">15 min</span></div></div>
+  <div class="body"><div class="cols">
+    <div class="panel"><p>Skippable: you accepted the maps. If a run ever looks off, this gives the evidence. Do it after step 6, <b>sleeves off</b>:</p><ol>
+      <li>Move the released arms by hand into a pose with both grippers in the head camera's view, and support them.</li>
+      <li>The agent reads the ticks and one frame (read-only), renders the twin from the measured head camera, and overlays them.</li>
+      <li>Repeat at three different poses (elbows bent, wrists turned, jaws open).</li>
+      <li>If a joint is off, the agent fits its zero and sign and rewrites the maps.</li></ol></div>
+    <div class="panel"><h3>The 8 October check</h3><p>Arms in sleeves, head pose unknown: after fitting a head offset, the twin arms covered the real arms roughly (overlap 0.52).
+      It's plausible, but too coarse to prove a few degrees per joint.</p></div>
+  </div></div>
+  <div class="footer"><span>Step 8c · overlay check</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8d · robot software</div><h2>Link speed, joint speed and gripper streaming</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge build">Not done yet</span></div></div>
+  <div class="body">
+    <table>
+      <tr><th>#</th><th>Step</th><th>Who</th></tr>
+      <tr><td>1</td><td>On the chat Mac, measure the link (read-only, nothing moves): <code>tools/measure_robot_link.py --pilot-root "$PILOT"</code>. Send the output. The policy needs 4 calls inside 0.1 s.</td><td>Owner</td></tr>
+      <tr><td>2</td><td>If the link is too slow, the runner moves onto the robot Mac (<code>--transport direct-client</code>), so there's no network hop.</td><td>Agent</td></tr>
+      <tr><td>3</td><td>I read the robot server's servo speed setting from the code and work out the real joint speed limit. If it's near 9°/s, I slow the demonstrations to match and retrain, or propose a speed change for you to approve.</td><td>Agent</td></tr>
+      <tr><td>4</td><td>I write the server change that lets the jaw close during streamed motion (today it's refused, and the policy needs it). You review it and deploy it with the restart script.</td><td>Agent → owner</td></tr>
+      <tr><td>5</td><td>Supervised jaw test in free air, STOP in hand: open, close on nothing, open. Record it in <code>STATUS.md</code>.</td><td>Owner</td></tr>
+    </table>
+  </div>
+  <div class="footer"><span>Step 8d · software</span><span class="pg"></span></div>
+</section>
+
+<!-- 12 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 9</div><h2>Dry run: the policy thinks, the arms don't move</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge exists">Nothing is sent</span></div></div>
+  <div class="body">
+    <div class="cols">
+      <div class="panel">
+        <p>Arms released, supported <b>at the training start pose (8b)</b>, no carton. No <code>--execute</code>, so no command reaches the motors.</p>
+<pre><code>python -m carton.fold_policy_runner --checkpoint &lt;ckpt&gt; \
+  --transport api --pilot-root "$PILOT" \
+  --joint-map left=bound-maps/left-joint-map.json --joint-map right=bound-maps/right-joint-map.json \
+  --camera front=&lt;head OAK&gt; --camera left_wrist=&lt;cam&gt; --camera right_wrist=&lt;cam&gt; \
+  --out &lt;run dir&gt; --max-steps 100</code></pre>
+      </div>
+      <div class="panel">
+        <h3>Check in the log</h3>
+        <ul>
+          <li>Joint angles match what you measure by hand.</li>
+          <li>No "start outside training" warning. Pose the arms by hand at the training start pose until it clears.</li>
+          <li>Proposed moves are small and sensible.</li>
+          <li>Speed: the effective rate is close to 10 per second.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 9 · dry run</span><span class="pg"></span></div>
+</section>
+
+<!-- 13 -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 10</div><h2>First motion, then the carton</h2></div>
+    <div class="meta"><span class="badge owner">Owner holds STOP</span></div></div>
+  <div class="body">
+    <div class="grid-3">
+      <div class="card"><h3>A · Free air</h3><ol><li>Enable each arm (it holds in place).</li><li>Add <code>--execute --operator &lt;your name&gt; --max-steps 10</code>.</li><li>No carton, claws open, nothing in reach.</li><li>The run ends holding. Support the arms, then <code>robot_stop</code>.</li></ol></div>
+      <div class="card"><h3>B · Longer free-air runs</h3><p>Raise <code>--max-steps</code> only after reading <code>ticks.jsonl</code> from the last run: clamps, warnings, timing.</p></div>
+      <div class="card ok"><h3>C · Empty carton</h3><p>Only after every gap in step 8 is closed and the policy was refitted for your measurements. Start with enough steps for <b>one short flap</b>, STOP in hand, then both flaps.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 10 · first motion</span><span class="pg"></span></div>
+</section>
+
+<!-- 14 -->
+<section class="slide" aria-hidden="true">
+  <div class="eyebrow kicker">Know when it worked, and when to stop</div>
+  <div class="body">
+    <div class="grid-2" style="margin-top:14px">
+      <div class="card ok"><h3>Success looks like</h3><ul>
+        <li>The left claw braces the left short flap, the right claw folds the right short flap in, then the left one follows.</li>
+        <li>Both short flaps end <b>flat (about 90°)</b> and are held by the claws.</li>
+        <li>The carton barely moves (the simulation median was 14 mm).</li>
+        <li>About 55 seconds from start to both flaps held.</li></ul></div>
+      <div class="card missing"><h3>Press STOP if</h3><ul>
+        <li>An arm presses down on the table, the cart or the other arm.</li>
+        <li>The carton slides more than a few centimetres or lifts.</li>
+        <li>A joint stalls or buzzes against a load.</li>
+        <li>Anything moves that you didn't expect.</li></ul>
+        <p class="note">Write what happened in <code>software/STATUS.md</code>, with the run directory.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>Success and stop</span><span class="pg"></span></div>
+</section>
+
+<!-- 15 -->
+<section class="slide" aria-hidden="true">
+  <div class="eyebrow kicker">One-page checklist</div>
+  <div class="body">
+    <h2>Setup checklist</h2>
+    <ul class="checklist" style="margin-top:16px">
+      <li>STOP holder and 12 V switch ready</li>
+      <li>Arm spacing measured and photographed</li>
+      <li>Arm bases 120 mm above the carton surface, both sides within 3 mm</li>
+      <li>Cart squared: 111 mm from each pan axis to the table edge</li>
+      <li>Carton footprint taped: near wall 10 mm in, 10 mm left of centre</li>
+      <li>Empty carton, flaps up, short flaps facing the arms</li>
+      <li>Head at pan 0°, tilt 58°, 4:3 stream; ticks noted</li>
+      <li>Wrist cameras see their claw tips</li>
+      <li>Tags printed, measured and laid out; head set to 58°; OAK lens read</li><li>Head pose solved; wrist lenses calibrated</li>
+      <li>Measurements sent; refitted policy received</li>
+      <li>Joint maps bound to the live calibration; arms at the training start pose</li>
+      <li>Gripper streaming, link speed and joint speed confirmed</li>
+      <li>Dry run clean</li>
+      <li>Free-air 10-step run clean</li>
+      <li>Empty carton, one short flap, then both</li>
+    </ul>
+    <p class="note" style="margin-top:14px">Details: <code>docs/carton-fold-policy.md</code> (results),
+      <code>docs/carton-fold-policy-station-gap.md</code> (layout and cameras),
+      <code>docs/carton-fold-policy-robot.md</code> (robot path and commissioning), <code>docs/carton-fold-policy-handoff-2026-10-08.md</code> (handoff).</p>
+  </div>
+  <div class="footer"><span>Checklist</span><span class="pg"></span></div>
+</section>
+
+</div>
+<div class="help">← → or space · F fullscreen</div>
+<div class="controls"><button class="nav-btn" id="prev" aria-label="Previous slide">‹</button><span class="counter" id="counter"></span><button class="nav-btn" id="next" aria-label="Next slide">›</button></div>
+<div class="progress" id="progress"></div>
+<script>
+  (() => {
+    const slides = [...document.querySelectorAll('.slide')];
+    const counter = document.getElementById('counter');
+    const progress = document.getElementById('progress');
+    const pad = n => String(n).padStart(2, '0');
+    slides.forEach((slide, i) => {
+      const pg = slide.querySelector('.pg');
+      if (pg) pg.textContent = `${pad(i + 1)} / ${pad(slides.length)}`;
+    });
+    let index = Math.max(0, Math.min(slides.length - 1, Number(location.hash.slice(1)) - 1 || 0));
+
+    function show(next) {
+      next = Math.max(0, Math.min(slides.length - 1, next));
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === next);
+        slide.classList.toggle('leaving', i < next);
+        slide.setAttribute('aria-hidden', i === next ? 'false' : 'true');
+      });
+      index = next;
+      history.replaceState(null, '', '#' + (index + 1));
+      counter.textContent = `${pad(index + 1)} / ${pad(slides.length)}`;
+      progress.style.width = `${((index + 1) / slides.length) * 100}%`;
+    }
+
+    document.getElementById('prev').addEventListener('click', () => show(index - 1));
+    document.getElementById('next').addEventListener('click', () => show(index + 1));
+    addEventListener('keydown', event => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); show(index + (event.shiftKey && event.key === ' ' ? -1 : 1)); }
+      if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) { event.preventDefault(); show(index - 1); }
+      if (event.key === 'Home') show(0);
+      if (event.key === 'End') show(slides.length - 1);
+      if (event.key.toLowerCase() === 'f') document.documentElement.requestFullscreen?.();
+    });
+    addEventListener('hashchange', () => {
+      const n = Number(location.hash.slice(1)) - 1;
+      if (Number.isInteger(n) && n !== index) show(n);
+    });
+    let startX = 0;
+    addEventListener('touchstart', e => { startX = e.changedTouches[0].clientX; }, { passive: true });
+    addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) > 55) show(index + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+    show(index);
+  })();
+</script>
+</body>
+</html>

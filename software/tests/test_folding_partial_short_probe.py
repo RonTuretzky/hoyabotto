@@ -8,7 +8,8 @@ import pytest
 from carton.folding_partial_short_probe import (
     _PanelStepAudit, _ShortStroke, _contact_reading, _bounded_contact_goals,
     _validated_jaw_vertex, _subdivide_reversed_joint_paths, _exact_waypoint_details,
-    _entry_route_endpoint_drifts,
+    _entry_route_endpoint_drifts, _fold_frame, _jaw_panel_clearance, _jaw_surface_increment,
+    _sensed_panels, _WHOLE_JAW,
     probe_shorts_against_passive_majors,
 )
 from carton.folding_far_contact import mesh_contact_vertices
@@ -34,6 +35,12 @@ def test_unknown_contact_policy_refuses_before_plant_access():
 def test_unknown_approach_policy_refuses_before_plant_access():
     with pytest.raises(ValueError, match='approach policy'):
         probe_shorts_against_passive_majors(None, None, approach_policy='unchecked')
+
+
+@pytest.mark.parametrize('step', [.3, 2., 0., float('nan'), True, '0.5'])
+def test_undeclared_stroke_increment_refuses_before_plant_access(step):
+    with pytest.raises(ValueError, match='stroke increment'):
+        probe_shorts_against_passive_majors(None, None, stroke_step_degrees=step)
 
 
 def test_missing_short_observation_stops_before_planning_and_cannot_be_retried():
@@ -235,6 +242,115 @@ def test_control_range_remains_required_when_joint_range_is_wider():
                                contact_policy='setpoint_feedback_v3')
 
 
+def world_frame(fold=(1., 0., 0.), radial=(0., 0., 1.), hinge=(0., 1., 0.)):
+    return {a: dict(fold=np.array(fold), radial=np.array(radial), hinge=np.array(hinge))
+            for a in ('left', 'right')}
+
+
+def test_tangent_policy_requires_a_current_orthonormal_fold_frame():
+    sim = feedback_sim()
+    ik = {a: LinearIK() for a in ('left', 'right')}
+    targets = {a: [.003, 0., 0.] for a in ik}
+    with pytest.raises(ValueError, match='fold frame'):
+        _bounded_contact_goals(sim, ik, targets, contact_policy='tangent_deadband_v4')
+    skewed = world_frame(radial=(1., 0., 1.))
+    with pytest.raises(ValueError, match='Orthonormal'):
+        _bounded_contact_goals(sim, ik, targets, contact_policy='tangent_deadband_v4', frames=skewed)
+    assert np.array_equal(sim.data.ctrl, np.zeros(10))
+
+
+def test_tangent_policy_spends_the_increment_on_fold_lead_not_registration_jitter():
+    # Recorded V3 strokes jitter about 1 mm radially and along the hinge per
+    # command while the useful fold-direction lead is a few tenths of a mm.
+    sim = feedback_sim()
+    ik = {a: LinearIK() for a in ('left', 'right')}
+    targets = {'left': [.0003, .002, -.0025], 'right': [.0012, -.0029, .0028]}
+    goals, points, details = _bounded_contact_goals(sim, ik, targets,
+        contact_policy='tangent_deadband_v4', frames=world_frame())
+    assert goals['left'][:3] == pytest.approx([.0003, 0., 0.])
+    assert goals['right'][:3] == pytest.approx([.0005, 0., 0.])
+    assert details['left']['gap_fold_m'] == pytest.approx(.0003)
+    assert details['left']['gap_hinge_m'] == pytest.approx(.002)
+    assert details['left']['gap_radial_m'] == pytest.approx(-.0025)
+    assert details['left']['radial_correction_m'] == details['left']['hinge_correction_m'] == 0.
+    assert details['right']['fold_lead_increment_m'] == pytest.approx(.0005)
+    assert details['right']['deadbands_m'] == dict(radial=.003, hinge=.003)
+
+
+def test_tangent_policy_corrects_only_beyond_declared_deadbands_within_the_same_cap():
+    sim = feedback_sim()
+    ik = {a: LinearIK() for a in ('left', 'right')}
+    targets = {'left': [.0003, .004, 0.], 'right': [.0001, 0., -.0035]}
+    goals, _, details = _bounded_contact_goals(sim, ik, targets,
+        contact_policy='tangent_deadband_v4', frames=world_frame())
+    for a in goals:
+        assert np.linalg.norm(goals[a][:3]) == pytest.approx(.0005)
+        assert details[a]['commanded_fk_increment_m'] <= .000500001
+    assert details['left']['hinge_correction_m'] == pytest.approx(.004)
+    assert goals['left'][:3] == pytest.approx(np.array([.0003, .004, 0.])*.0005/np.hypot(.0003, .004))
+    assert details['right']['radial_correction_m'] == pytest.approx(-.0035)
+    assert goals['right'][2] < 0
+
+
+def test_tangent_policy_never_retreats_along_the_fold_direction():
+    sim = feedback_sim()
+    ik = {a: LinearIK() for a in ('left', 'right')}
+    goals, _, details = _bounded_contact_goals(sim, ik, {a: [-.002, .001, -.001] for a in ik},
+        contact_policy='tangent_deadband_v4', frames=world_frame())
+    for a in goals:
+        assert goals[a] == pytest.approx(np.zeros(5))
+        assert details[a]['gap_fold_m'] == pytest.approx(-.002)
+        assert details[a]['fold_lead_increment_m'] == 0.
+        assert details[a]['fold_direction_retreat_allowed'] is False
+        assert details[a]['requested_distance_m'] == pytest.approx(np.sqrt(6e-6))
+
+
+def test_tangent_policy_keeps_setpoint_reference_without_accumulating_sag():
+    sim = feedback_sim()
+    sim.data.qpos[[2, 7]] = -.001
+    ik = {a: LinearIK() for a in ('left', 'right')}
+    frames = world_frame(fold=(0., 0., -1.), radial=(1., 0., 0.))
+    for _ in range(25):
+        goals, _, details = _bounded_contact_goals(sim, ik, {a: [0., 0., -.010] for a in ik},
+            contact_policy='tangent_deadband_v4', frames=frames)
+        for a in ik:
+            ix = sim.arm_indices[a]
+            assert np.linalg.norm(goals[a][:3]-sim.data.ctrl[ix][:3]) <= .000500001
+            assert details[a]['actual_minus_setpoint_world'][2] == pytest.approx(-.001)
+            sim.data.ctrl[ix] = goals[a]
+            sim.data.qpos[ix] = goals[a] + [0., 0., -.001, 0., 0.]
+    assert sim.data.qpos[[2, 7]] == pytest.approx([-.010, -.010])
+    assert sim.data.ctrl[[2, 7]] == pytest.approx([-.009, -.009])
+
+
+def test_fold_frame_follows_panel_angle_side_and_registration():
+    right = _fold_frame(np.eye(4), 'right', -15.)
+    assert right['fold'] == pytest.approx([-np.cos(np.radians(15)), 0., np.sin(np.radians(15))])
+    assert right['radial'] == pytest.approx([np.sin(np.radians(15)), 0., np.cos(np.radians(15))])
+    assert right['hinge'] == pytest.approx([0., 1., 0.])
+    left = _fold_frame(np.eye(4), 'left', -15.)
+    assert left['fold'][0] == pytest.approx(-right['fold'][0])
+    assert left['fold'][2] == pytest.approx(right['fold'][2])
+    for frame in (left, right):
+        axes = np.array([frame['fold'], frame['radial'], frame['hinge']])
+        assert np.allclose(axes @ axes.T, np.eye(3))
+    flat = _fold_frame(np.eye(4), 'right', 90.)
+    assert flat['fold'] == pytest.approx([0., 0., -1.])
+    yawed = np.eye(4)
+    yawed[:3, :3] = [[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]]
+    assert _fold_frame(yawed, 'right', 0.)['fold'] == pytest.approx([0., -1., 0.])
+    assert _fold_frame(yawed, 'right', 0.)['hinge'] == pytest.approx([-1., 0., 0.])
+
+
+@pytest.mark.parametrize('box, side, degrees', [
+    (np.eye(4), 'right', float('nan')), (np.eye(4), 'left', 104.), (np.eye(4), 'front', 0.),
+    (np.diag([2., 1., 1., 1.]), 'right', 0.), (np.eye(4), 'right', True),
+])
+def test_fold_frame_refuses_nonrigid_pose_unknown_side_or_invalid_angle(box, side, degrees):
+    with pytest.raises(ValueError):
+        _fold_frame(box, side, degrees)
+
+
 def test_feedback_still_refuses_ik_that_expands_the_command_increment():
     sim = feedback_sim()
     with pytest.raises(ValueError, match='CAD substep bound'):
@@ -394,3 +510,52 @@ def test_missing_actual_step_coverage_cannot_be_called_complete(tmp_path):
         assert 'Incomplete' in sim.step_diagnostic()
         assert not audit.coverage_complete()
     assert not report['panel_panel_audit']['complete_coverage']
+
+
+FRAME = dict(fold=np.array([1., 0., 0.]), radial=np.array([0., 0., 1.]), hinge=np.array([0., 1., 0.]))
+
+
+def test_jaw_clearance_uses_the_nearest_hull_point_over_the_sensed_panel():
+    # Surface point at radius .10 m and along 0; fold points into the panel.
+    surface = np.zeros(3)
+    points = np.array([[-.004, 0., 0.], [-.0013, .02, .01],   # outside, nearest is 1.3 mm
+                       [.002, 0., .06],                         # past the tip: not over the panel
+                       [.001, .20, 0.]])                        # beyond the panel width
+    clearance, name = _jaw_panel_clearance(points, ['a', 'b', 'tip', 'side'], surface, FRAME,
+                                           radius=.10, along=0.)
+    assert clearance == pytest.approx(.0013) and name == 'b'
+    with pytest.raises(ValueError, match='over the sensed short panel'):
+        _jaw_panel_clearance(points[2:], ['tip', 'side'], surface, FRAME, radius=.10, along=0.)
+
+
+def test_jaw_surface_lead_closes_a_standoff_plus_press_within_the_cap():
+    # The recorded V4 right stroke held the jaw 1.3 mm off the panel.
+    increment, detail = _jaw_surface_increment(np.zeros(3), FRAME, .0013, .0005)
+    assert increment == pytest.approx([.0005, 0., 0.])
+    increment, detail = _jaw_surface_increment(np.zeros(3), FRAME, -.0002, .0005)
+    assert increment == pytest.approx([.0003, 0., 0.])
+    assert detail['jaw_press_m'] == .0005 and detail['jaw_panel_clearance_m'] == -.0002
+
+
+def test_jaw_surface_lead_never_retreats_and_keeps_tangent_deadbands():
+    increment, detail = _jaw_surface_increment(np.array([0., .002, -.001]), FRAME, -.003, .0005)
+    assert increment == pytest.approx(np.zeros(3))
+    assert detail['fold_lead_increment_m'] == 0. and detail['fold_direction_retreat_allowed'] is False
+    increment, detail = _jaw_surface_increment(np.array([0., .004, 0.]), FRAME, -.003, .0005)
+    assert detail['hinge_correction_m'] == pytest.approx(.004)
+    assert np.linalg.norm(increment) == pytest.approx(.0005)
+    with pytest.raises(ValueError, match='Finite jaw-to-panel clearance'):
+        _jaw_surface_increment(np.zeros(3), FRAME, float('nan'), .0005)
+
+
+def test_sensed_panel_is_the_outer_face_of_the_registered_short():
+    profile = dict(along=0., per_side=_WHOLE_JAW)
+    sources = {a: dict(world_from_box=np.eye(4).tolist()) for a in ('left', 'right')}
+    panels = _sensed_panels(sources, profile, {'left': 0., 'right': 0.})
+    # Upright shorts: hinge midplanes at x = -/+ L/2; outer faces 1.5 mm outside.
+    from carton.folding_sim import L, H
+    assert panels['left']['surface'][0] == pytest.approx(-L/2-.0015)
+    assert panels['right']['surface'][0] == pytest.approx(L/2+.0015)
+    assert panels['left']['surface'][2] == pytest.approx(H+.14)
+    assert panels['left']['frame']['fold'] == pytest.approx([1., 0., 0.])
+    assert panels['right']['along'] == -.10

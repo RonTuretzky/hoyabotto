@@ -177,5 +177,43 @@ def depth_major_flap_angles(rgb, depth, k, world_from_camera, world_from_box,
         if (len(candidates) > 1
                 and candidates[1]['pixel_support'] >= .35 * candidates[0]['pixel_support']):
             continue
-        result[name] = candidates[0]
+        row = candidates[0]
+        row.update(_measured_free_edge(points, inward, box, hinge_height_offset, row,
+                                       np.linalg.inv(world_from_box) @ world_from_camera))
+        result[name] = row
     return result
+
+
+CARDBOARD_THICKNESS_M = .003
+
+
+def _measured_free_edge(points, inward, box, hinge_height_offset, row, box_from_camera):
+    """Free-edge radius and midplane offset of a fitted major, from its own pixels.
+
+    Measured in the same registered frame as the plane, so a registration
+    offset cancels when the result is mapped back with that frame. The free
+    edge is the 99th percentile of the radial position of every cardboard
+    pixel within 2.5 mm of the fitted face (the angle fit excludes the top
+    4 mm). The midplane is the visible face moved half the declared 3 mm
+    thickness away from the camera. Reported only with 30 near-edge pixels.
+    """
+    theta = np.radians(row['degrees'])
+    normal = np.array([0., np.cos(theta), -np.sin(theta)])
+    direction = np.array([0., np.sin(theta), np.cos(theta)])
+    local = points.copy()
+    local[:, 1] = inward * points[:, 1] + box.width / 2
+    local[:, 2] -= box.height + hinge_height_offset
+    offset = row['hinge_plane_offset_mm'] / 1000
+    near = ((np.abs(np.einsum('ij,j->i', local, normal) - offset) < .0025)
+            & (np.abs(local[:, 0]) < box.length / 2 - .008))
+    radius = np.einsum('ij,j->i', local[near], direction)
+    radius = radius[(radius > .100) & (radius < box.flap + .020)]
+    camera = box_from_camera[:3, 3].copy()
+    camera[1] = inward * camera[1] + box.width / 2
+    camera[2] -= box.height + hinge_height_offset
+    toward_camera = 1. if float(np.dot(camera, normal)) > offset else -1.
+    measured = dict(visible_face_toward_inside=bool(toward_camera > 0),
+                    midplane_offset_mm=(offset - toward_camera * CARDBOARD_THICKNESS_M / 2) * 1000,
+                    free_edge_pixel_support=int(len(radius)))
+    measured['free_edge_radius_mm'] = (float(np.percentile(radius, 99)) * 1000 if len(radius) >= 30 else None)
+    return measured

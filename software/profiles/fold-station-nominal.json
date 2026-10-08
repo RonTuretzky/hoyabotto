@@ -1,0 +1,44 @@
+{
+ "schema": "xlerobot-fold-station-measurement/1",
+ "note": "The simulated station of fold-demos batch-01/02 (carton.folding_sim.build_scene, --base-height .12). Restaging with this file reproduces the recorded cameras exactly. Not a measurement.",
+ "station": {
+  "base_height_above_table_m": 0.12,
+  "base_line_to_table_edge_m": 0.15,
+  "base_spacing_m": 0.3,
+  "carton_near_wall_to_table_edge_m": 0.01
+ },
+ "cameras": {
+  "top": {
+   "position_m": [
+    0.0,
+    0.3015,
+    0.73
+   ],
+   "look_at_m": [
+    0.0,
+    0.3015,
+    -0.06
+   ],
+   "up_hint": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "fovy_deg": 48.0
+  },
+  "front": {
+   "position_m": [
+    0.0,
+    -0.08,
+    0.45
+   ],
+   "look_at_m": [
+    0.0,
+    0.2865,
+    -0.02
+   ],
+   "fovy_deg": 48.0
+  }
+ },
+ "measured": false
+}

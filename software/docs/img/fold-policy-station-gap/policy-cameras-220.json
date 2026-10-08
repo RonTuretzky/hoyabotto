@@ -1,0 +1,494 @@
+{
+ "trial": "/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-demos/batch-220-01/trial-001",
+ "scene": "/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-demos/batch-220-01/trial-001/run/scene.xml",
+ "simulation_only": true,
+ "station": {
+  "arm_base_origin_world_m": [
+   0.0,
+   -0.3015,
+   0.12
+  ],
+  "base_height_above_table_m": 0.12,
+  "base_line_to_table_edge_m": 0.14999999999999997,
+  "base_spacing_m": 0.22,
+  "table_edge_y_world_m": -0.15150000000000002,
+  "table_top_z_world_m": 0.0
+ },
+ "frame": "arm_base: origin midway between the SO101 base_link origins; +x robot right, +y toward the table, +z up; metres. Tabletop z = -base_height_above_table_m.",
+ "states": {
+  "start": {
+   "index": 0,
+   "time_s": 0.002
+  },
+  "mid": {
+   "index": 273,
+   "time_s": 27.299999999995748
+  },
+  "end": {
+   "index": 547,
+   "time_s": 54.700000000020886
+  }
+ },
+ "cameras": {
+  "front": {
+   "320x240": {
+    "scene_camera": "front",
+    "width": 320,
+    "height": 240,
+    "fovy_deg": 54.0,
+    "fovx_deg": 68.38180955042496,
+    "K": [
+     [
+      235.51326066061807,
+      0,
+      160.0
+     ],
+     [
+      0,
+      235.51326066061807,
+      120.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.002,
+     -0.25081,
+     0.53675
+    ],
+    "position_arm_base_m": [
+     0.002,
+     0.05069,
+     0.41675
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      1.0,
+      -0.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -0.848048,
+      0.529919
+     ],
+     [
+      0.0,
+      -0.529919,
+      -0.848048
+     ]
+    ],
+    "pitch_below_horizontal_deg": 58.00000000779538,
+    "yaw_deg_from_plus_y": -0.0,
+    "height_above_table_m": 0.536746,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.6288,
+      0.944,
+      -0.12
+     ],
+     "top_right": [
+      0.6328,
+      0.944,
+      -0.12
+     ],
+     "bottom_left": [
+      -0.3241,
+      0.0976,
+      -0.12
+     ],
+     "bottom_right": [
+      0.3281,
+      0.0976,
+      -0.12
+     ],
+     "centre": [
+      0.002,
+      0.3861,
+      -0.12
+     ]
+    }
+   },
+   "960x720": {
+    "scene_camera": "front",
+    "width": 960,
+    "height": 720,
+    "fovy_deg": 54.0,
+    "fovx_deg": 68.38180955042496,
+    "K": [
+     [
+      706.5397819818543,
+      0,
+      480.0
+     ],
+     [
+      0,
+      706.5397819818543,
+      360.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.002,
+     -0.25081,
+     0.53675
+    ],
+    "position_arm_base_m": [
+     0.002,
+     0.05069,
+     0.41675
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      1.0,
+      -0.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -0.848048,
+      0.529919
+     ],
+     [
+      0.0,
+      -0.529919,
+      -0.848048
+     ]
+    ],
+    "pitch_below_horizontal_deg": 58.00000000779538,
+    "yaw_deg_from_plus_y": -0.0,
+    "height_above_table_m": 0.536746,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.6288,
+      0.944,
+      -0.12
+     ],
+     "top_right": [
+      0.6328,
+      0.944,
+      -0.12
+     ],
+     "bottom_left": [
+      -0.3241,
+      0.0976,
+      -0.12
+     ],
+     "bottom_right": [
+      0.3281,
+      0.0976,
+      -0.12
+     ],
+     "centre": [
+      0.002,
+      0.3861,
+      -0.12
+     ]
+    }
+   }
+  },
+  "left_wrist": {
+   "320x240": {
+    "scene_camera": "left_wrist",
+    "width": 320,
+    "height": 240,
+    "fovy_deg": 90.0,
+    "fovx_deg": 106.26020470831196,
+    "K": [
+     [
+      120.00000000000001,
+      0,
+      160.0
+     ],
+     [
+      0,
+      120.00000000000001,
+      120.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     -0.18221,
+     -0.27401,
+     0.34594
+    ],
+    "position_arm_base_m": [
+     -0.18221,
+     0.02749,
+     0.22594
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      -0.186496,
+      0.864566,
+      -0.466631
+     ],
+     [
+      0.389814,
+      0.501095,
+      0.772625
+     ],
+     [
+      0.901811,
+      -0.037808,
+      -0.430473
+     ]
+    ],
+    "pitch_below_horizontal_deg": 25.497556562953072,
+    "yaw_deg_from_plus_y": -31.130101094329873,
+    "height_above_table_m": 0.3459418249657798,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.417,
+      -0.0263,
+      -0.12
+     ],
+     "top_right": null,
+     "bottom_left": [
+      -0.0483,
+      0.1836,
+      -0.12
+     ],
+     "bottom_right": null,
+     "centre": [
+      -0.5572,
+      0.6484,
+      -0.12
+     ]
+    }
+   },
+   "960x720": {
+    "scene_camera": "left_wrist",
+    "width": 960,
+    "height": 720,
+    "fovy_deg": 90.0,
+    "fovx_deg": 106.26020470831196,
+    "K": [
+     [
+      360.00000000000006,
+      0,
+      480.0
+     ],
+     [
+      0,
+      360.00000000000006,
+      360.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     -0.18221,
+     -0.27401,
+     0.34594
+    ],
+    "position_arm_base_m": [
+     -0.18221,
+     0.02749,
+     0.22594
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      -0.186496,
+      0.864566,
+      -0.466631
+     ],
+     [
+      0.389814,
+      0.501095,
+      0.772625
+     ],
+     [
+      0.901811,
+      -0.037808,
+      -0.430473
+     ]
+    ],
+    "pitch_below_horizontal_deg": 25.497556562953072,
+    "yaw_deg_from_plus_y": -31.130101094329873,
+    "height_above_table_m": 0.3459418249657798,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.417,
+      -0.0263,
+      -0.12
+     ],
+     "top_right": null,
+     "bottom_left": [
+      -0.0483,
+      0.1836,
+      -0.12
+     ],
+     "bottom_right": null,
+     "centre": [
+      -0.5572,
+      0.6484,
+      -0.12
+     ]
+    }
+   }
+  },
+  "right_wrist": {
+   "320x240": {
+    "scene_camera": "right_wrist",
+    "width": 320,
+    "height": 240,
+    "fovy_deg": 90.0,
+    "fovx_deg": 106.26020470831196,
+    "K": [
+     [
+      120.00000000000001,
+      0,
+      160.0
+     ],
+     [
+      0,
+      120.00000000000001,
+      120.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.09811,
+     -0.2603,
+     0.2797
+    ],
+    "position_arm_base_m": [
+     0.09811,
+     0.0412,
+     0.1597
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      -0.825418,
+      0.323443,
+      0.462677
+     ],
+     [
+      0.553899,
+      0.305767,
+      0.774405
+     ],
+     [
+      0.109005,
+      0.895484,
+      -0.43154
+     ]
+    ],
+    "pitch_below_horizontal_deg": 25.565338905280107,
+    "yaw_deg_from_plus_y": 30.856700542581624,
+    "height_above_table_m": 0.27970356077656344,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      0.3336,
+      -0.0101,
+      -0.12
+     ],
+     "top_right": [
+      -0.1294,
+      0.3269,
+      -0.12
+     ],
+     "bottom_left": null,
+     "bottom_right": null,
+     "centre": [
+      0.398,
+      0.5431,
+      -0.12
+     ]
+    }
+   },
+   "960x720": {
+    "scene_camera": "right_wrist",
+    "width": 960,
+    "height": 720,
+    "fovy_deg": 90.0,
+    "fovx_deg": 106.26020470831196,
+    "K": [
+     [
+      360.00000000000006,
+      0,
+      480.0
+     ],
+     [
+      0,
+      360.00000000000006,
+      360.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.09811,
+     -0.2603,
+     0.2797
+    ],
+    "position_arm_base_m": [
+     0.09811,
+     0.0412,
+     0.1597
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      -0.825418,
+      0.323443,
+      0.462677
+     ],
+     [
+      0.553899,
+      0.305767,
+      0.774405
+     ],
+     [
+      0.109005,
+      0.895484,
+      -0.43154
+     ]
+    ],
+    "pitch_below_horizontal_deg": 25.565338905280107,
+    "yaw_deg_from_plus_y": 30.856700542581624,
+    "height_above_table_m": 0.27970356077656344,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      0.3336,
+      -0.0101,
+      -0.12
+     ],
+     "top_right": [
+      -0.1294,
+      0.3269,
+      -0.12
+     ],
+     "bottom_left": null,
+     "bottom_right": null,
+     "centre": [
+      0.398,
+      0.5431,
+      -0.12
+     ]
+    }
+   }
+  }
+ }
+}
