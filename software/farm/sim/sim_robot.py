@@ -106,10 +106,11 @@ ENABLED_DAMPING, ENABLED_FRICTION = 0.6, 0.052   # the model's own sts3215 defau
 MIN_LEG_S = 2.0
 STILL_TICKS_PER_S = 30         # 'still' = under 3 ticks per 0.1 s poll (the real test is 3 units of Present_Velocity)
 FOLDED_DEG = {'shoulder_pan': 0.0, 'shoulder_lift': -78.0, 'elbow_flex': 82.0, 'wrist_flex': 60.0, 'wrist_roll': 0.0}
-# Jaws meet at raw range_min + this many ticks (1400 on the left gripper, whose saved range starts at 1273: the owner's
-# "closed" in the 2026-10-08 sessions). Below it the jaws press together; the model's jaw range (-21.5..100 deg) then
-# spans ticks 1400..2783, which matches the saved open end (2821) to 3 deg. Applied as a twin joint map (grippers only).
-GRIPPER_CLOSED_OFFSET_TICKS = 127
+# Jaws meet at raw range_min + this many ticks: 1355 on the left gripper, whose saved range starts at 1273. Measured on
+# 8-9 October: an empty close to 1340 settles at 1355-1359 (the pads meet) and the owner-confirmed flap pinch stopped at
+# 1378 (a 3 mm flap is about 25 ticks). Below it the jaws press together; the model's jaw range (-21.5..100 deg) then
+# spans ticks 1355..2738 (the saved open end is 2821, 7 deg more). Applied as a twin joint map (grippers only).
+GRIPPER_CLOSED_OFFSET_TICKS = 82
 FLAP_FOLDED_DEG = 75.0         # score()['flap_folded'] threshold (farm.sim.box_scene.FLAP_FOLDED_DEG)
 PRESENT_VOLTAGE = 120
 PRESENT_TEMPERATURE = 35
@@ -1799,8 +1800,9 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   behind its goal; the real owner names that 'stationary_closure_unverified'. Steps advance as soon as the jaw is quiet
   (about 0.4 s per 10 ticks), as the real executor does; 1.5 s per step is only the deadline budget. A closure that stops
   less than 40 ticks short reports settled_short (holding), as on the real robot.
-- Jaws meet at raw gripper range_min + 127 ticks (1400 on the left: the owner's 'closed'); the model's jaw range then
-  covers ticks 1400..2783. Commanding below 1400 presses the jaws together (the joint limit holds them).
+- Jaws meet at raw gripper range_min + 82 ticks (1355 on the left, where the real pads met on 8-9 October); the model's jaw
+  range then covers ticks 1355..2738. Commanding below 1355 (e.g. the real close target 1340) presses the jaws together (the
+  joint limit holds them); the 3.5 mm flap stops them about 25 ticks earlier, as the real 3 mm flap did.
 - Servo stiffness KP_ARM=20 N m/rad (saturating at 2.94 N m, i.e. 96 ticks of error), KP_GRIP=6; the real servos' compliance
   is unmeasured. Settle corrections (up to 3 x 40 ticks, 57 max overdrive) are ported from the real executor.
 - Released joints keep 0.4 N m of gear friction: the folded arms rest; an extended released arm sags over a few seconds.

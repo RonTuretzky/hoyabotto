@@ -63,7 +63,8 @@ def box_frame(r):
 
 def grasp(r, frame=None, depth=PINCH_DEPTH_M):
     """Scripted flap pinch: open above the flap edge at pitch -60, lower so the edge sits between the pads (claw tip
-    ``depth`` below the edge, 5 mm in front of the near face), then close to 1400. Returns the close result."""
+    ``depth`` below the edge, 5 mm in front of the near face), then close to 1340 (the real close target; the pads
+    meet at 1355). Returns the close result."""
     near, left, top, edge = frame or box_frame(r)
     enable_left(r)
     pre = reach_at_most(r, near - 0.015, left, edge + 0.04, GRASP_PITCH_DEG)
@@ -71,7 +72,7 @@ def grasp(r, frame=None, depth=PINCH_DEPTH_M):
     assert ok(r.call('robot_move_joint_targets', {'arm': 'left', 'positions': pre, 'duration_s': 8}))['completed'] is True
     low = reach(r, near - 0.005, left, edge - depth, GRASP_PITCH_DEG)
     assert ok(r.call('robot_move_joint_targets', {'arm': 'left', 'positions': low, 'duration_s': 6}))['completed'] is True
-    return ok(r.call('robot_set_gripper', {'arm': 'left', 'position_ticks': 1400, 'duration_s': 5}))
+    return ok(r.call('robot_set_gripper', {'arm': 'left', 'position_ticks': 1340, 'duration_s': 5}))
 
 
 def fold_path(r, near, left, top, radius=0.06, start_deg=-10.0, end_deg=95.0, steps=8):
@@ -222,8 +223,9 @@ def test_stop_releases_and_cancels(robot):
 
 def test_gripper_closing_on_nothing_reaches_target(robot):
     opened = ok(robot.call('robot_set_gripper', {'arm': 'left', 'position_ticks': 2000, 'duration_s': 4}))
-    # 580 ticks run as two <=300-tick parts; the result is the last part's (so auto-enable shows on the first part only)
-    assert opened['completed'] is True and len(opened['closure_parts']) == 2 and opened['final_target'] == 2000
+    # from the start pose (jaws just closed, 1375) 625 ticks run as three <=300-tick parts; the result is the last part's
+    # (so auto-enable shows on the first part only)
+    assert opened['completed'] is True and len(opened['closure_parts']) == 3 and opened['final_target'] == 2000
     assert opened['gripper'] == 'left_arm_gripper' and opened['sequence_phase'] == 'completed'
     assert abs(opened['readbacks']['left_arm_gripper'] - 2000) <= 30
     assert ok(robot.call('robot_get_state', {}))['enabled_motors'] == sorted(LEFT)   # the whole arm was auto-enabled
@@ -247,10 +249,10 @@ def test_flap_stands_open_on_its_hinge(robot):
 
 def test_gripper_closing_on_the_flap_reports_a_pinch(robot):
     res = grasp(robot)
-    # the 3.5 mm flap stops the jaws ~30 ticks short of their 1400 meeting point: settled_short or contact_halt
-    # (holding) when they stop >= 40 ticks behind the goal; either way the pinch verdict's evidence is there
-    assert res['closure_outcome'] in ('contact_halt', 'settled_short', 'endpoint_settled'), res
-    assert 1420 <= res['readbacks']['left_arm_gripper'] <= 1480
+    # the 3.5 mm flap stops the jaws ~25 ticks before their 1355 meeting point, ~40 short of the 1340 target (the real
+    # owner-confirmed pinch: 1378, load 164): settled_short, or contact_halt when they stop >= 40 behind the goal
+    assert res['closure_outcome'] in ('contact_halt', 'settled_short'), res
+    assert 1368 <= res['readbacks']['left_arm_gripper'] <= 1400
     score = robot.score()
     assert score['flap_pinched_now'] is True and score['gripper_closed_on_box'] is True
     assert score['faults'] == 0 and score['box_held_now'] is False and score['flap_folded'] is False
