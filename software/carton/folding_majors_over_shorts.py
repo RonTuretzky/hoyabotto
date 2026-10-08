@@ -24,6 +24,7 @@ E. the left jaw closes the far major with the same contact, sliding down its
 """
 import math
 
+import mujoco
 import numpy as np
 
 from carton.folding_far_contact import FarContactGeometry, RobotVertexIK, _verify_target_angle
@@ -34,7 +35,7 @@ from carton.folding_sim import W, H
 
 
 _PARK = dict(left=np.array([-.20, -.18, .30]), right=np.array([.20, -.18, .30]))
-_FAR_EDGE_ALONG = (-.16, -.15, -.14, -.13, -.12)
+_FAR_EDGE_ALONG = (-.16, -.14, -.12, -.10, -.08, -.06)
 # Contact positions along each major, preferred first. The right jaw keeps
 # right of the centre line (a right wrist on it lies in the closing far flap's
 # sweep: it stalled the far at 60 degrees and twisted the carton) but inside
@@ -76,6 +77,9 @@ _DRAG_ATTEMPTS = 4
 # on to this angle, which clears the near flap's sweep, then finishes after
 # the near flap is closed; past 70 degrees its tip slides down to this radius.
 _FAR_HOLD_DEGREES, _FAR_FINAL_RADIUS = 70., .115
+# Preferred clearance of the held left arm from the near flap's sweep when
+# choosing where along the far edge to take hold.
+_NEAR_SWEEP_MARGIN_M = .008
 # A first contact can push the nearly upright far flap outward; regrip from
 # there rather than stopping (the outward near flap is at -15 degrees).
 _FAR_DRAG_LOW = -12.
@@ -252,14 +256,14 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
             max_robot_flap_penetration_mm=event['max_robot_flap_penetration_mm'],
             independent_angles=sim.truth_angles(), motion=dict(sim.motion_stats)))
 
-    def search(side, panel, targets):
+    def search(side, panel, targets, margins=(.010, .008, .006), seeds=_IK_SEEDS):
         """Clear contact pose on a live-state copy, preferring margin beyond 6 mm."""
         copy = FarContactGeometry(sim.model, sim.data.qpos.copy(), side)
-        for margin in (.010, .008, .006):
+        for margin in margins:
             copy.planner = JointPathPlanner(copy, side, clearance=margin, allowed_flaps=(panel,))
             for along, target in targets:
                 for vertex in copy.vertices:
-                    for _ in range(_IK_SEEDS):
+                    for _ in range(seeds):
                         found = copy.solve(target, vertex, rng.uniform(copy.limits[:, 0], copy.limits[:, 1]))
                         if found['clear']:
                             return dict(vertex=vertex, along=along, q=np.asarray(found['q']), margin_m=margin)
@@ -423,7 +427,45 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
                 raise ValueError(f'{flap} outer-face push stalled: twelve commands produced less than 2 degrees')
         return reading
 
-    def drag_far_edge(reading, register, far):
+    sweep_model = []
+
+    def near_sweep_clearance(side, arm_q=None, far_degrees=None):
+        """Smallest distance (up to 30 mm) from one arm to the near flap's remaining sweep.
+
+        Uses a planning copy: the arm as it is (or at ``arm_q``) and the far
+        flap as it is (or at ``far_degrees``). CAD, encoders and the current
+        carton state only; nothing is executed. Collision detection runs on a
+        model copy whose near-panel margin reports pairs within 30 mm.
+        """
+        if not sweep_model:
+            import copy as _copy
+            model = _copy.copy(sim.model)
+            model.geom_margin[model.geom('long_near_cardboard').id] = .03
+            sweep_model.append(model)
+        model = sweep_model[0]
+        data = mujoco.MjData(model)
+        data.qpos[:] = sim.data.qpos
+        if arm_q is not None:
+            data.qpos[sim.arm_indices[side][:5]] = arm_q
+        if far_degrees is not None:
+            data.qpos[model.joint('long_far_hinge').qposadr[0]] = math.radians(far_degrees)
+        hinge = model.joint('long_near_hinge').qposadr[0]
+        panel = model.geom('long_near_cardboard').id
+        best = .03
+        for angle in np.linspace(float(data.qpos[hinge]), math.radians(near_target_degrees), 16):
+            data.qpos[hinge] = angle
+            mujoco.mj_kinematics(model, data)
+            mujoco.mj_comPos(model, data)
+            mujoco.mj_collision(model, data)
+            for contact in data.contact[:data.ncon]:
+                pair = (contact.geom1, contact.geom2)
+                if panel in pair:
+                    other = pair[1] if pair[0] == panel else pair[0]
+                    if model.geom(other).name.startswith(side + '_'):
+                        best = min(best, float(contact.dist))
+        return best
+
+    def drag_far_edge(reading, register, far, target=None):
         """One top-edge contact: measure, approach, drag until pinned or slipped."""
         row = reading['angles']['long_far']
         if row.get('free_edge_radius_mm') is None or row.get('midplane_offset_mm') is None:
@@ -467,8 +509,31 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
                     return q
             raise ValueError(f'No declared hook depth clears the far panel: {planner.last_collision}')
 
-        choice = search('left', 'long_far_cardboard',
-                        [(along, edge_point(far, along, -.0015)) for along in _FAR_EDGE_ALONG])
+        # The arm keeps this contact until the far flap is held at 70 degrees
+        # while the near flap closes past it, so choose the position along the
+        # edge whose predicted 70-degree hold pose stays clearest of the near
+        # flap's sweep (planning copy only).
+        candidates, choice = [], None
+        for along in _FAR_EDGE_ALONG:
+            found = search('left', 'long_far_cardboard', [(along, edge_point(far, along, -.0015))],
+                           margins=(.008, .006), seeds=12)
+            if found is None:
+                continue
+            try:
+                predicted, _ = RobotVertexIK(sim, 'left', found['vertex']).solve(
+                    edge_point(_FAR_HOLD_DEGREES, along, _HOOK_DEPTHS_M[0], _EDGE_HOOKED_OUT_M), found['q'])
+                found['near_sweep_clearance_m'] = near_sweep_clearance('left', predicted, _FAR_HOLD_DEGREES)
+            except ValueError:
+                found['near_sweep_clearance_m'] = -1.
+            candidates.append(dict(along_m=along, near_sweep_clearance_mm=found['near_sweep_clearance_m']*1000))
+            if choice is None or found['near_sweep_clearance_m'] > choice['near_sweep_clearance_m']:
+                choice = found
+            if found['near_sweep_clearance_m'] >= _NEAR_SWEEP_MARGIN_M:
+                break
+        report.setdefault('far_edge_candidates', []).append(candidates)
+        if choice is None:
+            choice = search('left', 'long_far_cardboard',
+                            [(along, edge_point(far, along, -.0015)) for along in _FAR_EDGE_ALONG])
         if choice is None:
             raise ValueError('No clear left top-edge contact on the measured far edge')
         report.setdefault('far_edge_contacts', []).append(dict(vertex=choice['vertex'], along_m=choice['along'],
@@ -495,7 +560,7 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
         guard = ContactProgressGuard('long_far', register)
         reading = c.sense('Observe far edge under left claw')
         guard.check(reading, far)
-        far = _observed(reading, 'long_far', _FAR_DRAG_LOW, far_pin_degrees + 5)
+        far = _observed(reading, 'long_far', _FAR_DRAG_LOW, (target or far_pin_degrees) + 5)
         guard.begin_stroke(reading)
         bridge = _ContactAngleBridge('long_far', guard, reading)
         bridge.start(reading, _kinematic_angle(ik, sim, 'left', c.box, 'long_far', edge['midplane_offset_mm']/1000))
@@ -591,7 +656,8 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
             state['depth'] = min(wanted, state.get('depth', hook_depth[0]) + .005)
             return state['depth']
 
-        far, outcome = run(far_pin_degrees, report['far_pin_commands'])
+        commands = report['far_pin_commands'] if target is None else report['far_hold_commands']
+        far, outcome = run(far_pin_degrees if target is None else target, commands)
         return far, outcome, (run if outcome == 'pinned' else None)
 
     # Register: shorts held by the right claw, far near upright, near outward.
@@ -680,8 +746,21 @@ def close_majors_over_held_shorts(sim, controller, *, capture=False, far_pin_deg
         pass
     elif far_hold[0] is not None:
         far, outcome = far_hold[0](_FAR_HOLD_DEGREES, report['far_hold_commands'])
+        regrips = report.setdefault('far_hold_regrips', [])
+        while outcome != 'pinned' and len(regrips) < 3:
+            # The held contact slipped: regrip the freshly measured edge from
+            # the current angle. The far flap stays partly closed meanwhile.
+            t = math.radians(far)
+            radial = c.box[:3, :3] @ np.array([0., -math.sin(t), math.cos(t)])
+            lift_clear('left', radial, 'Lift left claw off far top edge to regrip held flap')
+            reading = c.sense('Re-measure held far top edge before regrip')
+            far = _observed(reading, 'long_far', far_pin_degrees - 15, _FAR_HOLD_DEGREES + 5)
+            start = far
+            far, outcome, far_hold[0] = drag_far_edge(reading, reading, far, _FAR_HOLD_DEGREES)
+            regrips.append(dict(start_degrees=start, end_degrees=far, outcome=outcome))
         if outcome != 'pinned':
             raise ValueError(f'Held far major did not reach {_FAR_HOLD_DEGREES:g} degrees: {outcome}')
+        report['far_hold_near_sweep_clearance_mm'] = near_sweep_clearance('left')*1000
     else:
         report['far_hold_released_for_recontact'] = True
         push_major('long_far', _FAR_HOLD_DEGREES, report['far_hold_commands'], lambda reading: None)

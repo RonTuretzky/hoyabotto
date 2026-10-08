@@ -47,6 +47,13 @@ release-and-recontact sequence for comparison.
 | 0.018 N·m/rad (assumed) | 24/30 (`four-flap-close-28`) | 17/30 (`four-flap-hold-01`) |
 | 0.036 N·m/rad (2×) | **0/20** (`stiff2x-release`): in 17 seeds the shorts spring to 50–60° as the left lets go | **12/20** (`stiff2x-hold`) |
 
+With the far-edge grip chosen by predicted clearance of the held arm from the
+near flap's sweep, plus regrips of a slipping held contact: **20/30** at the
+assumed stiffness (`hold04-k018`) and **10/20** at 2× (`hold04-k036`). The main
+remaining failure is now more than 1 mm of penetration during the far-edge
+drag (5/30 and 6/20), followed by the near flap brushing the right forearm
+(2 and 2) and the shorts pressed past 110° in the final hold (2/30).
+
 The released sequence only worked because the assumed crease friction held a
 free far flap at 33°. Keeping hold is the sequence to develop. Its failures at
 2× stiffness: the outward near flap creeps back into the right forearm holding
