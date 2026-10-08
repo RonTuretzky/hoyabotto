@@ -18,6 +18,9 @@ assert out['closure_outcome']=='endpoint_settled'
 t[0]=0;e=make();out=run(e,lambda g:g+58,lambda q,g:300)
 assert out['closure_outcome']=='endpoint_settled' and e.corrections[lift]>=1
 # A correction that does not move the joint is not repeated (no ratcheting into an obstacle); load stays below the halt level.
-t[0]=0;e=make();out=run(e,lambda g:max(g+58,2470),lambda q,g:400)
+t[0]=0;e=make();out=run(e,lambda g:max(g+58,2470),lambda q,g:320)
 assert out['closure_outcome']=='settled_short' and e.corrections[lift]==1 and out['possible_contact_joints']==[lift]
+# Blocked while lagging 58 ticks at load 400 (a real contact on 2026-10-08 looked like this): halt and hold, not fault+release.
+t[0]=0;e=make();out=run(e,lambda g:max(g+58,2470),lambda q,g:400)
+assert out['closure_outcome']=='contact_halt' and lift in out['contact'],out
 print('Contact guard: halt and back off on loaded lag, no false halt while keeping up, sag correction kept, no correction ratcheting passed; no hardware')
