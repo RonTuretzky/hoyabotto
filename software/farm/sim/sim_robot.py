@@ -762,6 +762,8 @@ class SimRobot:
             self.wheel_ticks[n] = int(sample_rows.get(n, {}).get('Present_Position', 0))
         # Robot frame (as the twin defines it) and scene bodies.
         self.model, self.data = model, data
+        self._bad_warnings = [int(w) for w in (mj.mjtWarning.mjWARN_BADQPOS, mj.mjtWarning.mjWARN_BADQVEL, mj.mjtWarning.mjWARN_BADQACC)]
+        self._bad_seen = 0
         mj.mj_kinematics(model, data)
         pan_ids = [mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, j) for j in ('Rotation_L', 'Rotation_R')]
         self.origin = np.array([data.xanchor[i] for i in pan_ids]).mean(axis=0)
@@ -820,7 +822,8 @@ class SimRobot:
         self.last_completed = None
         self.last_rejected = None
         self.flap_pinched_ever = False
-        self.counts = {'faults': 0, 'refusals': 0, 'moves': 0, 'gripper_closes': 0, 'base_pulses': 0, 'calls': 0}
+        self.counts = {'faults': 0, 'refusals': 0, 'moves': 0, 'gripper_closes': 0, 'base_pulses': 0, 'calls': 0, 'sim_resets': 0}
+        self._bad_seen = sum(int(data.warning[w].number) for w in self._bad_warnings)
         self.wall_started = time.monotonic()
         self.sim_started = float(data.time)
         self._poll_due = 0.0
@@ -906,6 +909,10 @@ class SimRobot:
             motor.force = tau
             data.ctrl[motor.actuator] = tau
         mj.mj_step(self.model, data)
+        bad = sum(int(data.warning[w].number) for w in self._bad_warnings)
+        if bad > self._bad_seen:   # MuJoCo reset the state after a divergence (bad qpos/qvel/qacc): count it for score()
+            self._bad_seen = bad
+            self.counts['sim_resets'] = self.counts.get('sim_resets', 0) + 1
         now = float(data.time)
         if now >= self._poll_due:
             self._poll_due = now + POLL_S
@@ -1131,6 +1138,7 @@ class SimRobot:
             return {'box_lifted_m': lifted, 'box_moved_m': moved, 'gripper_closed_on_box': closed, 'box_held_now': held, **flap,
                     'faults': self.counts['faults'], 'refusals': self.counts['refusals'], 'moves': self.counts['moves'],
                     'gripper_closes': self.counts['gripper_closes'], 'base_pulses': self.counts['base_pulses'], 'calls': self.counts['calls'],
+                    'sim_resets': self.counts['sim_resets'],
                     'sim_time_s': float(self.data.time - self.sim_started), 'wall_time_s': time.monotonic() - self.wall_started,
                     'released_all': all(not m.enabled for m in self.motors.values()), 'last_stop': self.last_stop}
 
