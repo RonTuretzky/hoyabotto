@@ -35,6 +35,7 @@ from gemma_direct_client import DirectJointClient
 from paddle_segments import paddle_target_segments, expand_path
 import remote_admin
 from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED, setup_report, revive
+import frame_clips
 WRIST_DIRS = wrist_dirs(ROOT)
 configure_wrist_ids(ROOT)  # IDs detected by the restart script
 LEGACY_CONTINUOUS_BINDING = TrustedExecutionBinding(SESSION)
@@ -72,8 +73,16 @@ TARGET = target_schema(POSITION_NAMES, 'Absolute raw encoder ticks by canonical 
 ARM_TARGET = target_schema(ARM_NAMES + ARM_ALIASES, 'Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {"right_arm_shoulder_lift": 2000}; select targets from fresh state and commandable_ranges.')
 HEAD_TARGET = target_schema([n for n in POSITION_NAMES if n.startswith('head_motor_')], 'Canonical head motor names and integer encoder ticks.')
 
+def range_margin():
+    """Ticks a target must stay inside the saved range: the pickup profile's executor needs 40 (it refuses
+    anything closer), other owners 4. Reported ranges match what the owner will accept."""
+    try:return 40 if DIRECT_CLIENT.status().get('execution_profile') == 'paddle-success-v1' else 4
+    except (OSError, ValueError, KeyError, NameError):return 40  # this robot runs the pickup profile; never report looser
+
+
 def commandable_ranges():
-    return {n: {'min_ticks': CAL[n]['range_min'] + 4, 'max_ticks': CAL[n]['range_max'] - 4, 'margin_ticks': 4} for n in POSITION_NAMES}
+    m = range_margin()
+    return {n: {'min_ticks': CAL[n]['range_min'] + m, 'max_ticks': CAL[n]['range_max'] - m, 'margin_ticks': m} for n in POSITION_NAMES}
 
 def execute_targets(positions, duration_s, wait=True, replace=False):
     """Run a target set through the owner. Under the pickup profile a long move becomes one continuous
@@ -116,6 +125,31 @@ def execute_targets(positions, duration_s, wait=True, replace=False):
     return final
 
 
+GRIPPER_CLOSE_CHUNK = 300  # pickup closures run 10 ticks per 1.5 s; one command fits about 340 ticks in its deadline
+
+
+def set_gripper(arm, position, duration_s):
+    """Gripper target. Under the pickup profile a long move (closing or opening; the owner takes at most 341 ticks
+    per step) runs as consecutive <=300-tick moves, stopping at the first that does not complete (e.g. jaws met the paddle)."""
+    name = arm + '_arm_gripper'
+    state = DIRECT_CLIENT.status()
+    current = (state.get('rows', {}).get(name) or {}).get('Present_Position')
+    if state.get('execution_profile') != 'paddle-success-v1' or type(current) is not int or abs(current - position) <= GRIPPER_CLOSE_CHUNK:
+        return DIRECT_CLIENT.set_gripper(arm, position, duration_s)
+    generation = DIRECT_CLIENT.cancel_generation
+    pieces = -(-abs(current - position) // GRIPPER_CLOSE_CHUNK)
+    parts = []
+    for i in range(1, pieces + 1):
+        if DIRECT_CLIENT.cancel_generation != generation:
+            raise RuntimeError('STOP cancelled the remaining gripper closure; motors released, no automatic resume')
+        target = current - round((current - position) * i / pieces)
+        result = DIRECT_CLIENT.set_gripper(arm, target, duration_s)
+        parts.append({'target': target, 'closure_outcome': result.get('closure_outcome'), 'readback': (result.get('readbacks') or {}).get(name)})
+        if not result.get('completed'):
+            break
+    return dict(result, closure_parts=parts, final_target=position)
+
+
 def execute_path(waypoints, duration_s, wait=True, replace=False):
     """Continuous multi-waypoint motion (pickup profile): fill missing joints, split long legs, run as one command."""
     state = DIRECT_CLIENT.status()
@@ -149,16 +183,17 @@ def normalize_targets(targets, arm=None, head=False):
     for n, q in result.items():
         bounds = commandable_ranges()[n]
         if not bounds['min_ticks'] <= q <= bounds['max_ticks']:
-            raise ValueError(f"Target out of bounds: {n}={q}; commandable inclusive range [{bounds['min_ticks']}, {bounds['max_ticks']}] ticks (4-tick margin)")
+            raise ValueError(f"Target out of bounds: {n}={q}; commandable inclusive range [{bounds['min_ticks']}, {bounds['max_ticks']}] ticks ({bounds['margin_ticks']}-tick margin)")
     return result
 
 MOTOR_NAMES = {'type': 'array', 'items': {'type': 'string', 'enum': list(CAL)}, 'minItems': 1, 'maxItems': 16, 'uniqueItems': True}
 TOOLS = [
     tool('robot_list_motors', 'List all16 configured motors and saved ranges. Live owner telemetry when available; explicitly aged historical rows in passive recovery, never asserted as current torque state. No serial owner duplication.'),
-    tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Wheel activation holds the current encoder in existing position mode0; no wheel movement/mode change. Never automatically activates at server startup.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}}, ['names', 'enabled']),
+    tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Enabling HOLDS EACH MOTOR WHERE IT IS: the goal is set to the freshly read encoder before and after torque-on, so no motion happens and goals from earlier sessions are never used. A released joint may rest a little outside commandable_ranges (gravity); enabling is allowed anywhere inside the saved range and the next move must target inside commandable_ranges. Pickup profile: enable all six joints of an arm in one call. Head and wheels are read-only. Never automatically activates at server startup.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}}, ['names', 'enabled']),
     tool('robot_move_motor_targets', 'Raw integer encoder targets for the14 arm/head/gripper position motors already enabled. Sole owner enforces ranges, rates, following, watchdog and measured completion. No wheel movement or automatic activation.', {'positions': TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions', 'duration_s']),
     tool('robot_get_state', 'Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.', {'fresh': {'type': 'boolean'}}),
     tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}, 'revive': {'type': 'boolean', 'description': 'Restart a stalled wrist stream to get a frame (default true; previews pass false)'}}),
+    tool('robot_get_clip', 'Several recent frames of one camera as a short burst (oldest first, timestamps included): ask for it to see motion, e.g. whether the claw moved toward the object, whether the jaws closed on it, whether anything shifted. Not for distances. Costs several images; keep seconds and fps small.', {'camera': {'type': 'string', 'enum': list(frame_clips.CAMERAS)}, 'seconds': {'type': 'number', 'minimum': 0.5, 'maximum': 4, 'description': 'How far back the burst reaches (default 2)'}, 'fps': {'type': 'number', 'minimum': 1, 'maximum': 8, 'description': 'Frames per second in the burst (default 4); never more than 12 frames'}, 'max_width': {'type': 'integer', 'minimum': 160, 'maximum': 640, 'description': 'Frames are downscaled to this width in pixels (default 480)'}}, ['camera']),
     tool('robot_get_capabilities', 'Report actual joint ranges, units, supported controller protocol and concrete motion blockers.'),
     tool('robot_get_depth', 'Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.'),
     tool('robot_get_handoff', 'Retrieve the user-authorized complete paddle-task handoff, historical evidence and guards, plus current camera and saved servo ages. Context transfer never arms or binds execution.'),
@@ -198,7 +233,7 @@ for entry in TOOLS:
     if fn['name']=='robot_set_gripper':
         ranges={a:commandable_ranges()[a+'_arm_gripper'] for a in ('left','right')}
         message='; '.join(f"{a}: {b['min_ticks']}..{b['max_ticks']} inclusive ticks" for a,b in ranges.items())
-        fn['description'] += ' Validates first, then enables only this gripper if released and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: '+message+'. Raw calibration endpoints are invalid command targets; no clamping.'
+        fn['description'] += ' Validates first, then enables what is released (in the pickup profile all six joints of that arm, which hold where they are; otherwise only this gripper) and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: '+message+'. Raw calibration endpoints are invalid command targets; no clamping.'
         params['properties']['position_ticks']['description']='Commandable integer encoder ticks: '+message
         params['allOf']=[{'if':{'properties':{'arm':{'const':a}},'required':['arm']},'then':{'properties':{'position_ticks':{'minimum':b['min_ticks'],'maximum':b['max_ticks']}}}} for a,b in ranges.items()]
 # Retired 2026-10-08: the head is read-only in every owner scope, and the rest were historical context (old evidence,
@@ -270,7 +305,7 @@ def state(fresh=True):
     if 'live_rows' in result:result['live_rows']={n:{k:v for k,v in row.items() if k!='coherent_read_evidence'} for n,row in result['live_rows'].items()}
     result['commandable_ranges']=commandable_ranges()
     result['raw_calibration_ranges']={n:{'min_ticks':v['range_min'],'max_ticks':v['range_max']} for n,v in CAL.items()}
-    result['range_semantics']='raw_calibration_ranges and motor range are saved hardware limits, not command targets; use commandable_ranges (inclusive, 4-tick margin)'
+    result['range_semantics']=f'raw_calibration_ranges and motor range are saved hardware limits, not command targets; use commandable_ranges (inclusive, {range_margin()}-tick margin) for targets. A released joint resting outside commandable_ranges is normal (it sags under gravity); enable holds it there and the next target simply has to be inside.'
     return result
 
 
@@ -299,7 +334,30 @@ def camera_status():
     return result
 
 
-def select_oak_manifest():
+OAK_RESTART_WAIT_S = 15     # the watchdog restarts a crashed OAK (X_LINK_ERROR) in about 10 s
+OAK_RECENT_S = 45           # only wait when the stream was fresh this recently (i.e. it is restarting, not down)
+
+
+def select_oak_manifest(wait_s=OAK_RESTART_WAIT_S, clock=time.time, sleep=time.sleep):
+    """Fresh OAK manifest. If the stream went stale moments ago (a crash the watchdog is restarting), wait for
+    it to come back rather than failing the caller; a stream that has been down longer fails at once."""
+    deadline = clock() + wait_s
+    while True:
+        try:
+            return _select_oak_manifest()
+        except RuntimeError:
+            last = _oak_last_frame_time()
+            if clock() >= deadline or last is None or clock() - last > OAK_RECENT_S:
+                raise
+            sleep(.5)
+
+
+def _oak_last_frame_time():
+    try:return json.loads((OAK_RAW_DIR / 'oak.json').read_text())['captured_at']
+    except (OSError, ValueError, KeyError, TypeError):return None
+
+
+def _select_oak_manifest():
     # Never synthesize fresh timestamps or relabel distorted RGB as rectified.
     errors = []
     for source, folder in [('rectified', OAK_RECTIFIED_DIR),
@@ -390,6 +448,29 @@ def cameras_strict(names, allow_revive=True):
             raise RuntimeError(name + ' consistent snapshot unavailable')
     return metadata, images
 
+
+
+def _oak_frame():
+    return frame_clips.read_manifest(OAK_RAW_DIR / 'oak.json')
+
+
+def _phone_frame():
+    return frame_clips.read_manifest(ROOT / 'work/phone_camera/latest.json', image='latest.jpg')
+
+
+def _wrist_frame(name):
+    def read():
+        folder, m = select_wrist_manifest(name, WRIST_DIRS)   # identity-checked, 1 s freshness; stale raises
+        return m, manifest_image_path(folder, m['image'])
+    return read
+
+
+# Ring buffers for robot_get_clip (started by main; the sampler reads the same publisher files robot_get_cameras does).
+CLIPS = frame_clips.FrameRing({
+    'oak': frame_clips.Source(_oak_frame),
+    'phone': frame_clips.Source(_phone_frame, stamp='received_at', camera_id='phone_overview'),
+    'left_wrist': frame_clips.Source(_wrist_frame('left_wrist')),
+    'right_wrist': frame_clips.Source(_wrist_frame('right_wrist'))})
 
 
 def cameras(names, allow_revive=True):
@@ -552,7 +633,7 @@ def validate_arguments(name, args):
             raise ValueError('Integer ticks required')
         if kind == 'number' and (type(value) not in (int, float) or not __import__('math').isfinite(value)):
             raise ValueError('Finite numeric argument required')
-        if kind == 'number' and ('maximum' in spec and value > spec['maximum'] or 'exclusiveMinimum' in spec and value <= spec['exclusiveMinimum']):
+        if kind in ('number', 'integer') and ('maximum' in spec and value > spec['maximum'] or 'minimum' in spec and value < spec['minimum'] or 'exclusiveMinimum' in spec and value <= spec['exclusiveMinimum']):
             raise ValueError('Numeric argument outside schema bounds')
         if kind == 'string' and (not isinstance(value, str) or value not in spec.get('enum', [value])):
             raise ValueError('Unsupported argument value')
@@ -577,6 +658,8 @@ def dispatch(name, args):
         return state(args.get('fresh', True)), None
     if name == 'robot_get_cameras':
         return cameras(args.get('cameras', ['oak', 'phone']), args.get('revive', True))
+    if name == 'robot_get_clip':
+        return frame_clips.burst(CLIPS, args['camera'], args)   # ClipUnavailable (a RuntimeError) -> ok false, no images
     if name == 'robot_get_capabilities':
         return capabilities(), None
     if name == 'robot_get_depth':
@@ -634,8 +717,8 @@ def dispatch(name, args):
         args['positions'] = normalize_targets(args['positions'], arm=args.get('arm'), head=name == 'robot_move_head')
     if name == 'robot_set_gripper':
         n = args['arm'] + '_arm_gripper'
-        if not CAL[n]['range_min'] + 4 <= args['position_ticks'] <= CAL[n]['range_max'] - 4:
-            b=commandable_ranges()[n]
+        b=commandable_ranges()[n]
+        if not b['min_ticks'] <= args['position_ticks'] <= b['max_ticks']:
             raise ValueError(f"Gripper target out of bounds: {n}={args['position_ticks']}; valid inclusive range [{b['min_ticks']}, {b['max_ticks']}] ticks; readiness={json.dumps(DIRECT_CLIENT.readiness())}")
     if name == 'robot_move_joint_targets':
         return execute_targets(args['positions'], args['duration_s'], wait=args.get('wait', True), replace=args.get('replace', False)), None
@@ -650,7 +733,7 @@ def dispatch(name, args):
     if name == 'robot_move_base':
         return DIRECT_CLIENT.drive_base(args['linear_m_s'], args['angular_rad_s'], args['duration_s']), None
     if name == 'robot_set_gripper':
-        return DIRECT_CLIENT.set_gripper(args['arm'], args['position_ticks'], args.get('duration_s', 3)), None
+        return set_gripper(args['arm'], args['position_ticks'], args.get('duration_s', 3)), None
     return {'accepted': False, 'motor_writes': 0, 'reason': 'UNSUPPORTED_OWNER_SCOPE_OR_WHEELS_DISABLED',
             'requested_tool': name, 'readiness': capabilities()}, None
 
@@ -791,6 +874,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     (ROOT / 'outputs/Gemma-Tool-Schemas.json').write_text(json.dumps(TOOLS, indent=2))
+    CLIPS.start()   # frame rings for robot_get_clip; reads publisher files only
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(str(TLS / 'robot-dual.pem'), str(TLS / 'robot-dual.key'))

@@ -1,0 +1,193 @@
+{
+  "repository": "Vector-Wangel/MuJoCo-GS-Web",
+  "commit": "0d60421c6cd8b16525695f32d2f8c5ba1329d45d",
+  "license": "MIT (see LICENSE)",
+  "files": [
+    {
+      "path": "xlerobot.xml",
+      "source_path": "assets/robots/xlerobot/xlerobot.xml",
+      "sha256": "8052fa318c019742257728563187863b484c2882eee41d5c0215bc70e4d92685",
+      "bytes": 26023
+    },
+    {
+      "path": "LICENSE",
+      "source_path": "LICENSE",
+      "sha256": "7f929deec9acaa82ed80f9500e559fcd2063c7cb080f2abd4c132e5fb24696cc",
+      "bytes": 1078
+    },
+    {
+      "path": "assets/Base.stl",
+      "source_path": "assets/robots/xlerobot/assets/Base.stl",
+      "sha256": "bb8afb0303c0125f265a797625cfaf646ac214d5d2dc9c986348c415755e2a74",
+      "bytes": 443484
+    },
+    {
+      "path": "assets/Base_Motor.stl",
+      "source_path": "assets/robots/xlerobot/assets/Base_Motor.stl",
+      "sha256": "aac4485d448eca418d2a93df3f78f449bd59b21ec1af2a579171819fd44ea576",
+      "bytes": 154284
+    },
+    {
+      "path": "assets/Rotation_Pitch.stl",
+      "source_path": "assets/robots/xlerobot/assets/Rotation_Pitch.stl",
+      "sha256": "4a1476f57d28d2c065bc0ede6a674cb3ebacf1193372916ef1e0ff32eeb92cf0",
+      "bytes": 347584
+    },
+    {
+      "path": "assets/Rotation_Pitch_Motor.stl",
+      "source_path": "assets/robots/xlerobot/assets/Rotation_Pitch_Motor.stl",
+      "sha256": "f4fbcf18d8f2e91d12a767c1679430140dce0c81ea1478cc153bfce3a162db61",
+      "bytes": 154284
+    },
+    {
+      "path": "assets/Upper_Arm.stl",
+      "source_path": "assets/robots/xlerobot/assets/Upper_Arm.stl",
+      "sha256": "d97ad37c90400fe39bb2d5ace8b4290f3d1262e13f1d4f166494421752d5f3b7",
+      "bytes": 215184
+    },
+    {
+      "path": "assets/Upper_Arm_Motor.stl",
+      "source_path": "assets/robots/xlerobot/assets/Upper_Arm_Motor.stl",
+      "sha256": "bafdb2cb9e9a884e62b5fbf15b1f706a65771da82764dbe703df128d9f34d723",
+      "bytes": 152284
+    },
+    {
+      "path": "assets/Lower_Arm.stl",
+      "source_path": "assets/robots/xlerobot/assets/Lower_Arm.stl",
+      "sha256": "a04511bc65cbb702b2d6023764de947888b06a09fbf272803f39c22724329a3e",
+      "bytes": 347184
+    },
+    {
+      "path": "assets/Lower_Arm_Motor.stl",
+      "source_path": "assets/robots/xlerobot/assets/Lower_Arm_Motor.stl",
+      "sha256": "07368fa4c50dea70e8157accee71072120c0cb374f672c85aba1d081702bc476",
+      "bytes": 151884
+    },
+    {
+      "path": "assets/Wrist_Pitch_Roll.stl",
+      "source_path": "assets/robots/xlerobot/assets/Wrist_Pitch_Roll.stl",
+      "sha256": "58e83ce1c8b24e1fa3a79672ea965ea4143986c81a21386dcd6da1cbcfdc94bb",
+      "bytes": 341684
+    },
+    {
+      "path": "assets/Wrist_Pitch_Roll_Motor.stl",
+      "source_path": "assets/robots/xlerobot/assets/Wrist_Pitch_Roll_Motor.stl",
+      "sha256": "89ac3fb1d2536fa4f7c40e7449be4b934d7d776f9cd0453c842767f980ff6c18",
+      "bytes": 133684
+    },
+    {
+      "path": "assets/Fixed_Jaw.stl",
+      "source_path": "assets/robots/xlerobot/assets/Fixed_Jaw.stl",
+      "sha256": "5528867073033eaa4c27a8087180954f3f0635bd69d517d5cace92f01dd266b2",
+      "bytes": 264584
+    },
+    {
+      "path": "assets/Fixed_Jaw_Motor.stl",
+      "source_path": "assets/robots/xlerobot/assets/Fixed_Jaw_Motor.stl",
+      "sha256": "0321bfb902d5a119c4f2a934ab4be7e9ea8c93a02e1685f066f99c24a5ca3ecf",
+      "bytes": 151884
+    },
+    {
+      "path": "assets/Fixed_Jaw_part1.ply.convex.stl",
+      "source_path": "assets/robots/xlerobot/assets/Fixed_Jaw_part1.ply.convex.stl",
+      "sha256": "a91f823092866cb519ff8b2590d6ca7ded921c70c06d64f9524fad2c244a6c62",
+      "bytes": 684
+    },
+    {
+      "path": "assets/Fixed_Jaw_part2.ply.convex.stl",
+      "source_path": "assets/robots/xlerobot/assets/Fixed_Jaw_part2.ply.convex.stl",
+      "sha256": "dd6162eb944dc700244552de36e723ba4097ccd25688f06a7413b8133f637d92",
+      "bytes": 1284
+    },
+    {
+      "path": "assets/Moving_Jaw.stl",
+      "source_path": "assets/robots/xlerobot/assets/Moving_Jaw.stl",
+      "sha256": "6d9c923024c75e6f0a8d8300317c4d8a17dd49880260cbc60b7fe5e0c6dadfa8",
+      "bytes": 177184
+    },
+    {
+      "path": "assets/Moving_Jaw_part1.ply.convex.stl",
+      "source_path": "assets/robots/xlerobot/assets/Moving_Jaw_part1.ply.convex.stl",
+      "sha256": "c331a7c7b7a4cdddeb894b4f72e897a2a77b549d9f2a335eea77f10a90ec8567",
+      "bytes": 684
+    },
+    {
+      "path": "assets/Moving_Jaw_part2.ply.convex.stl",
+      "source_path": "assets/robots/xlerobot/assets/Moving_Jaw_part2.ply.convex.stl",
+      "sha256": "421a34db4d1426b1abe1f30ed73525f07674645130df94d2935b2ac2084e37e1",
+      "bytes": 684
+    },
+    {
+      "path": "assets/Moving_Jaw_part3.ply.convex.stl",
+      "source_path": "assets/robots/xlerobot/assets/Moving_Jaw_part3.ply.convex.stl",
+      "sha256": "a0d92ac9c477f283211d3b5b925f184d7f031a2001853abfabba3c00a0a3c6b4",
+      "bytes": 984
+    },
+    {
+      "path": "assets/XLeRobot_camera1.stl",
+      "source_path": "assets/robots/xlerobot/assets/XLeRobot_camera1.stl",
+      "sha256": "f54fc014701f1772f1fd1f4699b5a17b8648ccf0d5d34f5af35048101b978de0",
+      "bytes": 42284
+    },
+    {
+      "path": "assets/XLeRobot_camera2.stl",
+      "source_path": "assets/robots/xlerobot/assets/XLeRobot_camera2.stl",
+      "sha256": "95154bef44deeb7138f6914ac23250189100df17be1433c70b297eab7398a109",
+      "bytes": 120884
+    },
+    {
+      "path": "assets/raskogbody.stl",
+      "source_path": "assets/robots/xlerobot/assets/raskogbody.stl",
+      "sha256": "b208f31d48329e6c68b89a27ce25dade6a26ceeed155989b216ee4e068c702cb",
+      "bytes": 629384
+    },
+    {
+      "path": "assets/raskogwheel1.stl",
+      "source_path": "assets/robots/xlerobot/assets/raskogwheel1.stl",
+      "sha256": "cb8330074b23de6aba316fb47978b9acd194a8020820255ba2c6b64350781161",
+      "bytes": 91884
+    },
+    {
+      "path": "assets/raskogwheel2.stl",
+      "source_path": "assets/robots/xlerobot/assets/raskogwheel2.stl",
+      "sha256": "719d4d1ec811f54af6bdadab64dcec5411ed356d1bce691e7bf19ab685f02edf",
+      "bytes": 114884
+    },
+    {
+      "path": "assets/topbase1.stl",
+      "source_path": "assets/robots/xlerobot/assets/topbase1.stl",
+      "sha256": "27ec489b526b78423feccfc8aacf4096b44951bd3d496771db07172700029bd6",
+      "bytes": 213284
+    },
+    {
+      "path": "assets/topbase2.stl",
+      "source_path": "assets/robots/xlerobot/assets/topbase2.stl",
+      "sha256": "866c172149e274ffad3fbb9a98c2dcd348eb3556a8227b73e2c0c09d9ce2bbef",
+      "bytes": 83284
+    },
+    {
+      "path": "assets/tophead1.stl",
+      "source_path": "assets/robots/xlerobot/assets/tophead1.stl",
+      "sha256": "bee7ae0af47d25b7d4d48675873f7943702535c470e25e9ffa4015441c4ff49d",
+      "bytes": 115384
+    },
+    {
+      "path": "assets/tophead4.stl",
+      "source_path": "assets/robots/xlerobot/assets/tophead4.stl",
+      "sha256": "a427b70481f89f5fe41480613a8f1470e1e0ae18fd085142c0bee5cd5ad9254d",
+      "bytes": 119284
+    },
+    {
+      "path": "assets/tophead5.stl",
+      "source_path": "assets/robots/xlerobot/assets/tophead5.stl",
+      "sha256": "54bda4db70209c444aff603267209e6b382ec11729ec2bde38989e360cbc7985",
+      "bytes": 70084
+    },
+    {
+      "path": "assets/tophead6.stl",
+      "source_path": "assets/robots/xlerobot/assets/tophead6.stl",
+      "sha256": "3646936db777b61f57b6150cded1894b696e519d99071425fc3911458bb11c95",
+      "bytes": 313384
+    }
+  ]
+}

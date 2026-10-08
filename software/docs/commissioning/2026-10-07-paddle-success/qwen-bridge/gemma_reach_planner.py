@@ -31,7 +31,9 @@ def load_config(path):
  config=json.loads(path.read_text())
  for k in ('calibration_file','model_directory'):
   if isinstance(config.get(k),str):config[k]=str((path.parent/config[k]).resolve())
- if config.get('calibration_sha256_from_file') is True:
+ # feetech_degrees_v1 derives every angle from calibration_file itself, so a stored digest can only go stale after a
+ # recalibration (the left config's did on 2026-10-07); such configs always take the file's current hash.
+ if config.get('calibration_sha256_from_file') is True or config.get('mapping')=='feetech_degrees_v1':
   try:config['calibration_sha256']=hashlib.sha256(Path(config['calibration_file']).read_bytes()).hexdigest()
   except (OSError,KeyError,TypeError):config['calibration_sha256']=None
  return config
@@ -40,7 +42,7 @@ def configuration(arm,calibration):
  if path is None or not path.exists():missing.append('measured kinematics configuration for '+arm)
  else:
   config=load_config(path)
-  if config.get('calibration_sha256_from_file') is True and config.get('calibration_sha256') is None:missing.append('readable calibration_file '+str(config.get('calibration_file')))
+  if (config.get('calibration_sha256_from_file') is True or config.get('mapping')=='feetech_degrees_v1') and config.get('calibration_sha256') is None:missing.append('readable calibration_file '+str(config.get('calibration_file')))
   if config.get('arm')!=arm:missing.append('configuration arm mismatch')
   if config.get('mapping')=='feetech_degrees_v1':
    if config.get('mapping_validated') is not True or not config.get('mapping_evidence'):missing.append('physical validation evidence for feetech_degrees_v1 mapping')

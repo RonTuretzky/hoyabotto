@@ -28,8 +28,9 @@ CORRECTION_ROOM=90   # a correction never commands more than this from the prese
 MAX_OVERDRIVE=57     # max |held goal - target| reached through corrections
 MAX_CORRECTIONS=3
 CORRECTION_BUDGET_S=5
-CONTACT_LOAD=600     # arm-joint |Present_Load| treated as contact (fault/release stays at 800)
-CONTACT_PUSH_TICKS=20
+CONTACT_LOAD=600     # settle corrections stop pushing a joint loaded this much (fault/release stays at 800)
+CONTACT_HALT_LOAD=350  # a joint loaded this much AND lagging >= CONTACT_PUSH_TICKS is blocked: halt and hold (real contacts on 2026-10-08 peaked at 300-400 and only tripped the 96-tick following-error release)
+CONTACT_PUSH_TICKS=50  # lag behind the command that, together with CONTACT_LOAD, means blocked (normal ramps lag 25-40)
 def tolerance(n):return 30 if n.endswith('gripper') else 57
 class PaddleJointExecutor:
  def __init__(self,joints,ranges,write,clock=time.monotonic,wall=time.time):
@@ -130,7 +131,7 @@ class PaddleJointExecutor:
    for n in self.joints:
     if n.endswith('gripper'):continue
     load=abs(rows.get(n,{}).get('Present_Load',0))
-    if fresh:self.loaded[n]=self.loaded[n]+1 if load>=CONTACT_LOAD else 0
+    if fresh:self.loaded[n]=self.loaded[n]+1 if load>=CONTACT_HALT_LOAD else 0
     # Lagging >=20 ticks behind its command under high load: blocked. (A loaded joint that keeps up is not.)
     if self.loaded[n]>=2 and abs(self.goal[n]-current[n])>=CONTACT_PUSH_TICKS:hits[n]=load
    if hits:
@@ -140,7 +141,7 @@ class PaddleJointExecutor:
     self.write(backoff);self.goal.update(backoff)
     out=self.finish(current,'contact_halt')
     out['contact']={n:{'load':hits[n],'position_ticks':current[n]} for n in hits}
-    out['contact_note']=f'Load >= {CONTACT_LOAD} on a joint lagging >= {CONTACT_PUSH_TICKS} ticks behind its command: treated as contact with something (there is no self-collision model). That joint stopped pushing and holds where it is; nothing was released.'
+    out['contact_note']=f'Load >= {CONTACT_HALT_LOAD} on a joint lagging >= {CONTACT_PUSH_TICKS} ticks behind its command: treated as contact with something (there is no self-collision model). That joint stopped pushing and holds where it is; nothing was released.'
     return out
   # Pass through intermediate waypoints without stopping: once the ramp reaches one, aim at the next.
   if self.leg<len(self.legs)-1 and all(self.goal[n]==self.targets[n] for n in self.joints):self.set_leg(self.leg+1)
@@ -148,6 +149,11 @@ class PaddleJointExecutor:
   settled=final and all(self.stable[n]>=3 for n in self.joints)
   if contact_stop or (settled and (now-self.last_write>=self.interval if not self.contact else self.quiet_since is not None and now-self.quiet_since>=.3)):
    return self.finish(current,'stationary_closure_unverified' if contact_stop else 'endpoint_settled')
+  # A closing gripper that is stationary on its final target step but outside tolerance and short of the 40-tick
+  # contact_stop band (e.g. 33 ticks short, light load) has stopped: report it as settled_short and keep holding.
+  # One that keeps moving still trips 'did not become stationary' below.
+  if self.contact and final and self.goal[c]==self.targets[c] and self.quiet_since is not None and now-self.quiet_since>=.3:
+   return self.finish(current,'settled_short')
   ramp_done=all(self.goal[n]==self.aim(n) for n in self.joints)
   if not self.contact and final and ramp_done and now-self.last_write>=self.interval and all(self.still[n]>=3 for n in self.joints):
    # Everything is at rest: correct joints that are not settled, or finish if none can be corrected further.

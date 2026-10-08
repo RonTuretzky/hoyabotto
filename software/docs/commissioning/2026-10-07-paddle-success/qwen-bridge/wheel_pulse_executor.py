@@ -11,6 +11,7 @@ WHEEL_RADIUS_M=0.05;WHEELBASE_M=0.25   # farm/vendor/config_xlerobot_2wheels.py
 TICKS_PER_REV=4096
 MAX_WHEEL_M_S=0.02                     # validated pulse speed (261 ticks/s)
 MAX_DURATION_S=3.0
+BRAKE_SETTLE_S=1.5                     # wheels stay powered at zero velocity until two fresh samples agree they are still
 SAVED=('Operating_Mode','Acceleration','Torque_Limit','Lock')
 def wheel_ticks_per_s(linear_m_s,angular_rad_s):
  """Differential drive; the left wheel is mounted mirrored, so forward is left negative, right positive."""
@@ -37,7 +38,7 @@ class WheelPulseExecutor:
   self.powered=True
   for n in WHEELS:self.write(n,'Torque_Enable',1)
   for n,v in self.commands.items():self.write(n,'Goal_Velocity',v)
-  self.phase='driving';self.started=self.last_tick=self.clock();self.duration=float(duration);self.deadline=self.duration+.9+1.0+2
+  self.phase='driving';self.started=self.last_tick=self.clock();self.duration=float(duration);self.deadline=self.duration+BRAKE_SETTLE_S+1.0+2
   self.window=[];self.released=[];self.last_sample=None;self.stopped_early=None;self.command_id=c['id'];self.active=True
   return {'accepted':c['id'],'phase':'moving','base_pulse':{'commands_ticks_per_s':self.commands,'duration_s':self.duration,'linear_m_s':lin,'angular_rad_s':ang},'base_result':None}
  @staticmethod
@@ -75,7 +76,9 @@ class WheelPulseExecutor:
    if self.settled(self.window[-2:]):
     for n in WHEELS:self.write(n,'Torque_Enable',0)
     self.powered=False;self.phase='released';self.released_at=now
-   elif now-self.stopped_at>.9:raise RuntimeError('Wheels did not settle within 0.9 s')
+   elif now-self.stopped_at>BRAKE_SETTLE_S:
+    recent=[{n:(x['position'][n],x['velocity'][n]) for n in WHEELS} for x in self.window[-4:]]
+    raise RuntimeError(f"Wheels did not settle within {BRAKE_SETTLE_S} s of braking: last (position, velocity) samples {recent}")
    return {'phase':'moving','base_drive_phase':self.phase}
   self.released.append(sample)
   if len(self.released)<5:return {'phase':'moving','base_drive_phase':self.phase}

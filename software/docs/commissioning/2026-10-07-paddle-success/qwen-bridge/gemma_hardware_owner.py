@@ -170,7 +170,8 @@ class HardwareOwner:
   return type(stamp) in (int,float) and math.isfinite(stamp) and 0<=self.wall()-stamp<10 and d.get('seq') is not None
  def publish(self):
   if not(self.engine and self.engine.active):self.state['phase']='holding' if self.enabled else 'idle'
-  self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals=self.goals,lease_remaining=max(0,self.lease-self.clock()),stop_latched=False)
+  # Goals only mean something while a motor holds; enable always re-reads the encoder.
+  self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals={n:g for n,g in self.goals.items() if n in self.enabled},lease_remaining=max(0,self.lease-self.clock()),stop_latched=False)
  def enable(self,names,enabled,manual=False):
   if not isinstance(names,list) or not names or len(set(names))!=len(names) or not set(names)<=set(self.names) or type(enabled)is not bool:raise ValueError('Select known distinct motor names and boolean enabled')
   if not enabled:

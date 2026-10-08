@@ -140,7 +140,9 @@ class DirectJointClient:
             names=request['names']
             if not set(names)<=set(state.get('supported_motors',[])):raise ValueError('Unknown motor names')
             if not request['enabled']:return
-            if not set(names)<=set(state.get('commandable_motors',state.get('supported_motors',[]))):raise ValueError('UNSUPPORTED_OWNER_SCOPE: requested motors are read-only')
+            readonly=sorted(set(names)-set(state.get('commandable_motors',state.get('supported_motors',[]))))
+            if readonly:raise ValueError('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: '+', '.join(readonly)+
+                                         '. The head cannot be moved (aim cameras by moving the arm instead); the wheels move only through robot_move_base, which needs no enable. Enable only arm joints.')
             for n in names:
                 if n not in state.get('supportsselectedjoints',[]):
                     row=state.get('rows',{}).get(n,{})
@@ -188,7 +190,13 @@ class DirectJointClient:
         with self.serialized():
             state=self.status();ready=self.readiness();started=state['started'];generation=self.cancel_generation
             if not ready['available_to_accept_authorized_command']:raise RuntimeError('Gripper owner unavailable: '+json.dumps(ready))
-            prospective=copy.deepcopy(state);prospective['rows'][name]['Torque_Enable']=1
+            # The pickup profile moves an arm only with all six of its joints enabled, so auto-enable takes the
+            # whole arm (released joints hold where they are); other owners enable just the gripper.
+            arm_joints=[m for m in state.get('supportsselectedjoints',[]) if m.startswith(arm+'_arm_')]
+            to_enable=[m for m in (arm_joints if state.get('execution_profile')=='paddle-success-v1' else [name]) if state['rows'][m].get('Torque_Enable')==0]
+            prospective=copy.deepcopy(state)
+            for m in to_enable:prospective['rows'][m]['Torque_Enable']=1
+            prospective['enabled_motors']=sorted(set(prospective.get('enabled_motors',[]))|set(to_enable))
             self._validate(request,prospective)
             from direct_joint_executor import DirectJointExecutor
             executor=DirectJointExecutor
@@ -201,18 +209,24 @@ class DirectJointClient:
             dry=executor([name],{name:state['ranges'][name]},lambda _: (_ for _ in ()).throw(AssertionError('Validation wrote')))
             dry.start(dict(request,id=1,session_started=started),{name:state['rows'][name]['Present_Position']},session_started=started)
             if state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else dry.duration+5):raise ValueError('Insufficient owner lease before gripper activation')
-            enabled_here=state['rows'][name]['Torque_Enable']==0;enable_attempted=False;phase='validated'
+            enabled_here=bool(to_enable);enable_attempted=False;phase='validated'
             try:
                 if enabled_here:
-                    self._validate({'op':'enable_motors','names':[name],'enabled':True},state)
+                    self._validate({'op':'enable_motors','names':to_enable,'enabled':True},state)
                     phase='enabling';enable_attempted=True
-                    activation=self.set_motor_enable([name],True)
+                    activation=self.set_motor_enable(to_enable,True)
                     if not activation.get('completed'):raise RuntimeError('Gripper enable not completed: '+json.dumps(activation))
                 latest=self.status()
                 if latest['started']!=started or generation!=self.cancel_generation:raise RuntimeError('Owner/STOP changed during gripper sequence')
                 phase='moving';result=self._command(request) if arm=='right' else self.execute({name:position},duration)
-                if not result.get('completed'):raise RuntimeError('Gripper move not completed: '+json.dumps(result))
-                return dict(result,gripper_auto_enabled=enabled_here,gripper=name,sequence_phase='completed')
+                if not result.get('completed'):
+                    # Stopping short while still holding is a motion outcome (often the jaws met an object), reported
+                    # like robot_move_joint_targets does, not a failure; anything else is still an error.
+                    if result.get('holding') and result.get('closure_outcome') in ('settled_short','contact_halt','stationary_closure_unverified'):
+                        return dict(result,gripper_auto_enabled=enabled_here,auto_enabled_motors=to_enable,gripper=name,sequence_phase='stopped_short',
+                                    note='The jaw stopped before the target and is holding (often an object between the jaws). Look at the wrist camera before the next step.')
+                    raise RuntimeError('Gripper move not completed: '+json.dumps(result))
+                return dict(result,gripper_auto_enabled=enabled_here,auto_enabled_motors=to_enable,gripper=name,sequence_phase='completed')
             except BaseException as exc:
                 cleanup='not_requested'
                 if enable_attempted:
@@ -294,6 +308,14 @@ class DirectJointClient:
                                 return {'accepted':True,'completed':False,'endpoint_reached':False,'closure_outcome':'settled_short','holding':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
                                     'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':False,'owner_status_time':current['time'],
                                     'reason':'Joint came to rest short of its target after bounded goal corrections; motors are holding at the measured position. Re-plan from fresh readbacks or STOP.',
+                                    'motor_writes':'canonical owner only','mode':'direct_joint'}
+                            if current.get('execution_profile')=='paddle-success-v1' and current.get('closure_outcome')=='stationary_closure_unverified' and all(n.endswith('gripper') for n in final):
+                                # The jaws stopped on something before the target (a possible grasp): holding, not a failure.
+                                # It cannot have closed past its target.
+                                if any(q<final[n]-96 for n,q in measured.items()):raise RuntimeError('Pickup closure went past its target; contradicts measured endpoint')
+                                return {'accepted':True,'completed':False,'endpoint_reached':False,'closure_outcome':'stationary_closure_unverified','holding':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
+                                    'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':False,'owner_status_time':current['time'],
+                                    'reason':'The jaws stopped on something before the target and are holding there (possible grasp, not verified). Check the wrist camera.',
                                     'motor_writes':'canonical owner only','mode':'direct_joint'}
                             if current.get('execution_profile')=='paddle-success-v1':
                                 for n,q in measured.items():

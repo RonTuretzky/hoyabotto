@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest"]
 carton-kinematics = ["lerobot[kinematics]==0.6.1"]
+twin = ["mujoco>=3.1", "pillow"]
 
 [project.scripts]
 farm = "farm.cli:main"
@@ -35,6 +36,7 @@ include = ["farm*", "carton*"]
 [tool.setuptools.package-data]
 "farm.kinematics" = ["so101-assets.json"]
 "farm.vendor.autocal.upstream_pr3282" = ["provenance.json"]
+"farm.sim" = ["assets/xlerobot/*.xml", "assets/xlerobot/*.md", "assets/xlerobot/*.json", "assets/xlerobot/LICENSE", "assets/xlerobot/assets/*.stl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
