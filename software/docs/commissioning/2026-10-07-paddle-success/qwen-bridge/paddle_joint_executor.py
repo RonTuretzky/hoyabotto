@@ -132,8 +132,9 @@ class PaddleJointExecutor:
     if n.endswith('gripper'):continue
     load=abs(rows.get(n,{}).get('Present_Load',0))
     if fresh:self.loaded[n]=self.loaded[n]+1 if load>=CONTACT_HALT_LOAD else 0
-    # Lagging >=20 ticks behind its command under high load: blocked. (A loaded joint that keeps up is not.)
-    if self.loaded[n]>=2 and abs(self.goal[n]-current[n])>=CONTACT_PUSH_TICKS:hits[n]=load
+    # Lagging behind its command under high load AND not moving: blocked. A joint that lags under load but keeps
+    # advancing is carrying a payload (lifting the box on 2026-10-08 read 368 on the elbow mid-lift), not pushing.
+    if self.loaded[n]>=2 and self.still[n]>=2 and abs(self.goal[n]-current[n])>=CONTACT_PUSH_TICKS:hits[n]=load
    if hits:
     backoff={}
     for n in hits:
@@ -141,7 +142,7 @@ class PaddleJointExecutor:
     self.write(backoff);self.goal.update(backoff)
     out=self.finish(current,'contact_halt')
     out['contact']={n:{'load':hits[n],'position_ticks':current[n]} for n in hits}
-    out['contact_note']=f'Load >= {CONTACT_HALT_LOAD} on a joint lagging >= {CONTACT_PUSH_TICKS} ticks behind its command: treated as contact with something (there is no self-collision model). That joint stopped pushing and holds where it is; nothing was released.'
+    out['contact_note']=f'Load >= {CONTACT_HALT_LOAD} on a stalled joint lagging >= {CONTACT_PUSH_TICKS} ticks behind its command: treated as contact with something (there is no self-collision model). That joint stopped pushing and holds where it is; nothing was released.'
     return out
   # Pass through intermediate waypoints without stopping: once the ramp reaches one, aim at the next.
   if self.leg<len(self.legs)-1 and all(self.goal[n]==self.targets[n] for n in self.joints):self.set_leg(self.leg+1)

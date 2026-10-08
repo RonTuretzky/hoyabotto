@@ -23,4 +23,15 @@ assert out['closure_outcome']=='settled_short' and e.corrections[lift]==1 and ou
 # Blocked while lagging 58 ticks at load 400 (a real contact on 2026-10-08 looked like this): halt and hold, not fault+release.
 t[0]=0;e=make();out=run(e,lambda g:max(g+58,2470),lambda q,g:400)
 assert out['closure_outcome']=='contact_halt' and lift in out['contact'],out
+# Carrying a payload: lagging 60 ticks at load 420 but still advancing with the ramp is NOT contact (a lift on 2026-10-08
+# was halted by this rule mid-air). The joint tracks the goal with a constant offset, so velocity is nonzero.
+t[0]=0;e=make()
+def run_moving(e,load,steps=400):
+ for i in range(steps):
+  t[0]=round(t[0]+.1,6);g=e.goal[lift];ramping=g!=e.targets[lift];q=g+60 if ramping else g
+  out=e.tick({lift:q},telemetry_at=t[0],rows={lift:{'Moving':1 if ramping else 0,'Present_Velocity':40 if ramping else 0,'Present_Load':load if ramping else 200}})
+  if not e.active:return out
+ raise AssertionError('never finished')
+out=run_moving(e,420)
+assert out['closure_outcome']!='contact_halt',out
 print('Contact guard: halt and back off on loaded lag, no false halt while keeping up, sag correction kept, no correction ratcheting passed; no hardware')
