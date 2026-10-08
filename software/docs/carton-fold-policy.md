@@ -71,11 +71,29 @@ Further cloud runs (same dataset, scored on the same 31 starts; full log in
 | batch 32, learning rate 3e-5 | 27/31 | 6/31 | 25/31 |
 | batch 16, seed 2 | — | — | 1/31 |
 
-**Demo model: batch 16, 50k-step run, checkpoint 45k** (`RonTuretzky/act_carton_both_shorts_220_a100_bs16_50k`,
+**Demo model (superseded below): batch 16, 50k-step run, checkpoint 45k** (`RonTuretzky/act_carton_both_shorts_220_a100_bs16_50k`,
 `checkpoints/045000`). 28/31 on the first held-out set (carton slide median 10 mm, max 27 mm; flap penetration
 max 0.59 mm) and **31/32** on 32 further held-out starts from a second demo batch (max slide 23 mm, penetration
 0.13 mm): **59/63 overall**. Checkpoints swing widely (constant learning rate); the failing ones stall with the right
 arm parked while the left braces, so pick by score, never by "last". Two seeds of the same recipe gave 24/31 and 1/31.
+
+### Longer action chunks fix the stall: 63/63
+
+The failing checkpoints above stall: the left claw braces, but the right arm never leaves its parked pose. Waiting
+looks the same from tick to tick, so with 3 s chunks the network cannot tell when to start. Retrained with
+`--policy.chunk_size=100 --policy.n_action_steps=100` (10 s chunks; temporal ensembling 0.01 at run time), batch 32,
+learning rate 3e-5, 25k steps (A100, 47 min):
+
+| checkpoint | first held-out set | second held-out set | carton slide (median / max) | flap penetration max |
+|---|---|---|---|---|
+| **15k** | **31/31** | **32/32** | 1.1–1.2 / 5.9 mm | 0.23 mm |
+| 20k | 30/31 | 32/32 | 3.6–4.0 / 75 mm | 0.14 mm |
+| 25k | 29/31 | — | 1.9 / 112 mm | 0.29 mm |
+
+**Demo model: `RonTuretzky/act_carton_both_shorts_220_bs32_lr3e5_chunk100`, `checkpoints/015000` — 63/63 unseen
+starts**, carton motion as small as the scripted demonstrations'. The merged 572-demo dataset with the old 3 s chunks
+reached only 15–19/31: more data did not replace the chunk fix. Image augmentation (25k) gave 26/31 with up to 2.4 mm
+flap penetration. Total cloud cost for all eight runs: 5.34 A100-hours, about $13.
 
 All seven 25k failures fold the right short but not the left. Batch 32 at the same learning rate is undertrained.
 Cloud cost for these two runs: 58 min, about $2.43. Checkpoints load into lerobot 0.6.1 after dropping the newer

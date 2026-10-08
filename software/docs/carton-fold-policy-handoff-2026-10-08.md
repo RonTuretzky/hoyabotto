@@ -9,15 +9,15 @@ numbers. **Nothing below has moved a motor yet.** Safety rules from `CLAUDE.md` 
 
 | Item | State |
 |---|---|
-| Policy | ACT, trained only in simulation, folds both short flaps and holds them: **59/63 unseen starts** |
-| Checkpoint | Hub (private) `RonTuretzky/act_carton_both_shorts_220_a100_bs16_50k`, `checkpoints/045000`; locally `/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-train/act_carton_both_shorts_220_a100_bs16_50k/checkpoints/045000` |
+| Policy | ACT, trained only in simulation, folds both short flaps and holds them: **63/63 unseen starts** (carton moves ≤6 mm) |
+| Checkpoint | Hub (private) `RonTuretzky/act_carton_both_shorts_220_bs32_lr3e5_chunk100`, `checkpoints/015000`; locally `/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-train/act_carton_both_shorts_220_bs32_lr3e5_chunk100/checkpoints/015000`. Runner-up: `…_a100_bs16_50k` `045000` (59/63) |
 | Inputs | head OAK as `front` (4:3, 240×320 after resize), `left_wrist`, `right_wrist`, 12 joints in SO-101 URDF radians |
-| Run it | temporal ensembling 0.01 (re-plan every 0.1 s), 10 Hz |
+| Run it | temporal ensembling 0.01 (re-plan every 0.1 s over 10 s action chunks), 10 Hz |
 | Station it learned | robot-model layout: arm bases 220 mm apart, 120 mm above the carton surface, base line 150 mm from the table edge |
 | Arm joint maps | **accepted by the owner, not measured**: `profiles/fold-joint-maps/` |
 | Head camera pose | **unknown**: the twin's head mapping was off by ~15° tilt and ~17° pan on 8 Oct; measure it with tags |
 | Robot runner | `carton/fold_policy_runner.py`, dry-run unless `--execute`; tests `tests/test_fold_policy_runner.py` |
-| Demo video (simulation) | `.context/demo-videos/DEMO-act-220mm-45k-seed3010.mp4` in the las-vegas-v1 workspace |
+| Demo video (simulation) | `.context/demo-videos/DEMO-BEST-chunk100-15k-seed3010.mp4` in the las-vegas-v1 workspace |
 
 ## 1. Joint maps (done, accepted)
 

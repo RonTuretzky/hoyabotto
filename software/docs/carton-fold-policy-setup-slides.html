@@ -184,7 +184,7 @@
       simulation-trained policy sees what it was trained on, then to running it safely for the first time.</p>
     <div class="title-meta">
       <span class="pill">Task: fold both short flaps and hold them</span>
-      <span class="pill">Simulation: 28 of 31 unseen starts (best so far)</span>
+      <span class="pill">Simulation: 63 of 63 unseen starts</span>
       <span class="pill">Robot: not run yet</span>
     </div>
   </div>
@@ -646,7 +646,7 @@ python tools/bind_fold_joint_maps.py \
       <div class="card ok"><h3>Success looks like</h3><ul>
         <li>The left claw braces the left short flap, the right claw folds the right short flap in, then the left one follows.</li>
         <li>Both short flaps end <b>flat (about 90°)</b> and are held by the claws.</li>
-        <li>The carton barely moves (the simulation median was 14 mm).</li>
+        <li>The carton barely moves (in simulation: about 1 mm, never more than 6 mm).</li>
         <li>About 55 seconds from start to both flaps held.</li></ul></div>
       <div class="card missing"><h3>Press STOP if</h3><ul>
         <li>An arm presses down on the table, the cart or the other arm.</li>
