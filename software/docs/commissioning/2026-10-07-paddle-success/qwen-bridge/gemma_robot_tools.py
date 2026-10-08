@@ -744,13 +744,22 @@ class Handler(BaseHTTPRequestHandler):
         return hashlib.sha256(self.connection.getpeercert(binary_form=True) or b'').hexdigest() == PEER_SHA
 
     def send_json(self, status, body):
+        # A client that hung up mid-response (the chat server restarting) must not be answered twice: the second
+        # write on the broken TLS socket raised SSL BAD_LENGTH inside the error handler (api.log, 2026-10-08 22:1x).
+        if getattr(self, 'connection_broken', False):
+            return
         data = json.dumps(body, allow_nan=False).encode()
-        self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(data)))
-        self.send_header('Cache-Control', 'no-store')
-        self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError, ssl.SSLError, OSError) as exc:
+            self.connection_broken = True
+            self.close_connection = True
+            print(f'client went away mid-response: {type(exc).__name__}: {str(exc)[:80]}', flush=True)
 
     def do_GET(self):
         if not self.peer_ok():
