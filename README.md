@@ -1,6 +1,18 @@
-# XLeRobot Farm — working field guide
+# Hoya Botto
 
-[Open the website](https://ronturetzky.github.io/xlerobot-farm/) · [Start the NY growing trial](https://ronturetzky.github.io/xlerobot-farm/ny-trial.html)
+Affordable AI-assisted robotics and a proposed automation cooperative for Kesennuma manufacturing. The initial hardware experiment is one box flap under supervision.
+
+- [Hackatsuon 2026 presentation](https://ronturetzky.github.io/hoyabotto/)
+- [Workflow visualization](https://ronturetzky.github.io/hoyabotto/demo.html) — an illustration, not a recording of autonomous robot performance
+- [Presentation PDF](https://ronturetzky.github.io/hoyabotto/pitch-deck.pdf)
+
+This is the existing `xlerobot-farm` repository renamed to `hoyabotto`; its software, history, and field guides remain here. `main` contains robot source and guide sources, while `gh-pages` contains the deployed site and presentation assets. The presentation does not claim verified production savings.
+
+> The guide builder below generates the older field guide. Preserve the Hoya Botto presentation at the Pages root when publishing guide updates; update `field-guide.html` separately.
+
+## XLeRobot Farm — existing field guide
+
+[Open the existing field guide](https://ronturetzky.github.io/hoyabotto/field-guide.html) · [Start the NY growing trial](https://ronturetzky.github.io/hoyabotto/ny-trial.html)
 
 Nine connected guides consolidate current hardware, planter operation, print status, shopping, wiring, the software roadmap, travel and research. September 26 decisions supersede the archived original deck and sensor checklist. The home page is now the guide; old deck URLs remain accessible with historical banners.
 
