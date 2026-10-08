@@ -196,8 +196,24 @@ def oak_processes():
   elif exe=='bash' and parts[2]=='-c' and parts[3]=='while' and 'farm.oak_camera' in line:found.append(line.strip())
  return found
 
+OAK_OFF=WORK/'oak-disabled'  # present: the OAK stays off across deploys (frees USB bandwidth for the wrist cameras)
+
+def stop_oak():
+ for line in oak_processes():
+  pid=int(line.split(None,1)[0])
+  try:os.killpg(pid,signal.SIGTERM)  # the watchdog loop and its stream share a process group
+  except OSError:
+   try:os.kill(pid,signal.SIGTERM)
+   except OSError:pass
+ deadline=time.time()+10
+ while time.time()<deadline and oak_processes():time.sleep(.3)
+ return not oak_processes()
+
 def ensure_oak(dry_run):
  """Keep the OAK RGB/depth stream alive: farm.oak_camera stream exits after --seconds, so restart it when stale."""
+ if OAK_OFF.exists():
+  if oak_processes() and not dry_run:stop_oak()
+  say('oak: switched off (work/oak-disabled); tag tools report it stale. Turn it back on with the oak-on mode');return
  streams=oak_processes()
  narrow=[l for l in streams if '--wide' not in l]
  if oak_fresh() and not narrow:say('oak: already streaming');return
@@ -355,9 +371,14 @@ def main():
  parser.add_argument('--no-wheels',action='store_true',help='start the owner without base drive (robot_move_base refused)')
  parser.add_argument('--no-wrist-cams',action='store_true',help='do not start wrist-camera publishers')
  parser.add_argument('--network-only',action='store_true',help='after a Wi-Fi change: repair the Cloudflare relay, make the API listen on the LAN (restarts only the API), report the addresses; motors untouched')
+ parser.add_argument('--oak',choices=['on','off'],help='switch the OAK stream off (stays off across deploys) or back on; combine with --cameras-only')
  parser.add_argument('--release-holding',action='store_true',help='allow stopping an owner that is holding motors (the arm will lose torque; support it first)')
  args=parser.parse_args()
  if not WORK.is_dir():fail(f'{WORK} not found; set XLEROBOT_WORK_ROOT')
+ if args.oak=='off':
+  OAK_OFF.write_text(time.strftime('%Y-%m-%d %H:%M:%S\n'))
+  say('oak: switching off '+('(stopped)' if stop_oak() else '(WARNING: a stream did not exit)'))
+ elif args.oak=='on':OAK_OFF.unlink(missing_ok=True);say('oak: switched on; starting it')
  if args.network_only:
   lan=lan_addresses()
   reachable=any(_listening(ip) for ip in lan['ips']) if API_BIND!='127.0.0.1' else True

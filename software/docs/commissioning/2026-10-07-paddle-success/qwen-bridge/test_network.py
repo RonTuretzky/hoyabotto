@@ -28,3 +28,12 @@ info=R.report_network('fresh-new-name.trycloudflare.com')
 assert info['lan_url']=='https://Neooooo.local:1241' and json.loads(R.NETWORK.read_text())['relay_hostname']=='fresh-new-name.trycloudflare.com'
 R.API_BIND='127.0.0.1';assert R.report_network(None)['lan_url'] is None
 print('Network: dead relay replaced not reused, dry run inert, LAN URL reported; no network or hardware')
+
+# OAK switch: the flag file keeps it off across deploys; ensure_oak stops a running stream instead of restarting it.
+R.OAK_OFF=tmp/'oak-disabled';stopped=[]
+R.oak_processes=lambda:['9 bash -c while true; do python -m farm.oak_camera stream']
+R.stop_oak=lambda:stopped.append(1) or True
+R.OAK_OFF.write_text('x');R.ensure_oak(False);assert stopped==[1]
+R.ensure_oak(True);assert stopped==[1]  # dry run reports only
+import remote_admin as A;assert A.MODES['oak-off']==['--cameras-only','--oak','off'] and A.MODES['oak-on']==['--cameras-only','--oak','on']
+print('OAK switch: off persists across deploys, running stream stopped, admin modes oak-off/oak-on')
