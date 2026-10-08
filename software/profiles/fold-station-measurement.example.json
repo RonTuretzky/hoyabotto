@@ -1,0 +1,35 @@
+{
+ "schema": "xlerobot-fold-station-measurement/1",
+ "measured": false,
+ "note": "EXAMPLE ONLY, not measured. Shows the format and renders a plausible real layout: the head OAK-D Lite as `front`, a new boom camera as `top`, black arms, a small dark table, no printed markers. Replace every value with measurements (docs/carton-fold-policy-station-gap.md, section 'Measurements') and set measured to true.",
+ "frame": "arm_base: origin midway between the two SO101 base_link origins (centre of each base's mounting footprint, on its mounting plane); +x robot right, +y horizontally toward the table, +z up; metres",
+ "station": {
+  "base_height_above_table_m": 0.12,
+  "base_line_to_table_edge_m": 0.15,
+  "base_spacing_m": 0.30,
+  "carton_near_wall_to_table_edge_m": 0.01,
+  "sources": "Simulation values kept so this example can restage the recorded batches (restaging refuses a different station)."
+ },
+ "cameras": {
+  "top": {
+   "position_m": [0.0, 0.30, 0.70],
+   "look_at_m": [0.0, 0.30, -0.12],
+   "up_hint": [0.0, 1.0, 0.0],
+   "fovy_deg": 54.0,
+   "sources": "Hypothetical boom camera 0.82 m above the table, image top pointing away from the robot."
+  },
+  "front": {
+   "position_m": [0.0, -0.01, 0.40],
+   "look_at_m": [0.0, 0.51, -0.12],
+   "intrinsics": {"fx": 504.89410400390625, "fy": 504.9738464355469, "cx": 314.7537841796875, "cy": 192.5926513671875, "width": 640, "height": 360},
+   "sources": "Head camera height/offset from the upstream XLeRobot MJCF (head camera about 0.40 m above the arm bases; unverified); 45 degree pitch like the 2026-10-05 OAK table-plane fit; intrinsics are the real OAK CAM_A 640x360 factory values (largest centred 4:3 crop gives 36.7 degree vertical FOV)."
+  }
+ },
+ "appearance": {
+  "arm_rgba": [0.06, 0.06, 0.06, 1.0],
+  "table_rgba": [0.42, 0.28, 0.17, 1.0],
+  "table_size_m": [0.60, 0.60],
+  "hide_markers": true,
+  "sources": "Black printed arms; dark wooden folding table estimated from the 2026-10-08 phone photo (size not measured); real carton currently has no printed markers."
+ }
+}

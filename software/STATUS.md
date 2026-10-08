@@ -1,3 +1,42 @@
+## Fold policy to robot adapter (software only) — 8 October 2026
+
+No robot, owner API, LAN or camera was used. `carton/fold_policy_runner.py` connects the simulation-trained ACT
+short-flap fold policy to today's sole owner. It reads `robot_get_execution`, converts ticks to policy radians
+with **measured** per-arm joint maps, runs the policy at 10 Hz with temporal ensembling, and streams bounded
+targets with `robot_move_joint_targets` (`wait=false`, `replace=true`). It is dry-run by default.
+
+- **Bounds:** 40 ticks per tick from the measured position, the 40-tick range margin, the 3-tick rule, a race
+  guard, grippers held, joint and frame watchdogs, and a runner-side contact rule.
+- **On abort:** `robot_halt_motion`; it never sends STOP itself.
+- **Tests:** against the deployed qwen-bridge owner code on fake servos, and against the MuJoCo carton simulation.
+
+Details, file:line map of the control path, and the commissioning procedure:
+[docs/carton-fold-policy-robot.md](docs/carton-fold-policy-robot.md).
+
+Blockers:
+- No measured URDF zero/sign for either arm, and no jaw mapping. The runner refuses until both exist.
+- No real camera matches the simulated `top`/`front` views. The station differs from the simulation.
+- Link and owner-loop timing for 10 Hz are unmeasured.
+- The deployed owner cannot stream a gripper closure. In simulation, dropping the policy's closures took the
+  closed-loop fold from 2/3 to 0/3 held-out seeds.
+- A refused streamed target makes `DirectJointClient` send STOP (all motors released).
+- The 96-tick holding-drift fault ended a replayed demonstration at 52 s.
+
+## Digital-twin joint mapping checked against a live frame (read-only) — 8 October 2026, 22:40
+
+Read-only API calls only (`robot_get_state`, `robot_list_motors`, `robot_get_capabilities`, `robot_get_execution`,
+`robot_get_cameras`) through the pilot's client, which refuses non-read tools. All 16 motors were released (Torque_Enable 0).
+Live ranges match the 7 October calibration; every arm joint's range is centred on tick 2047.
+
+- Rendered the twin (`farm/sim/xlerobot_twin.py`, candidate `feetech_degrees_v1`) at the live ticks from its own OAK pose with
+  the factory intrinsics (640x360, fy 505, vertical FOV 39.2 deg) over the undistorted OAK frame.
+- **Head mapping is wrong:** the twin puts the camera at 27.4 deg down / pan -13.6 deg; aligning the twin arms with the real arms
+  needs about +15.5 deg tilt and +17 deg pan. The "midpoint = level/forward" head assumption should not be used.
+- **Arm mapping:** plausible after the head correction (silhouette IoU 0.52 with a dark-pixel mask) but not validated: the arms wear
+  black sleeves that hide the joints. Validate with the head pose measured from floor tags (setup slides step 6) and sleeves off.
+- The real arms' black sleeves differ from the simulated arms the fold policy saw; recolour the sim arms or remove the sleeves.
+- Scripts and frames: `/Users/wk/Documents/ChatGPT/Hackatuson/output/robot-readonly/` (`ro.py`, `twin_overlay.py`, `fit_head.py`, `snap-224017`).
+
 ## Misleading "Owner telemetry stale"; refusal pause removed — 8 October 2026, 12:12–12:25
 
 - At 12:12:36 a left gripper closure faulted with "Pickup closure did not become stationary" (the guard is unchanged).

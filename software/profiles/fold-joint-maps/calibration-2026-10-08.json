@@ -1,0 +1,114 @@
+{
+ "left_arm_shoulder_pan": {
+  "id": 1,
+  "drive_mode": 0,
+  "homing_offset": -49,
+  "range_min": 690,
+  "range_max": 3404
+ },
+ "left_arm_shoulder_lift": {
+  "id": 2,
+  "drive_mode": 0,
+  "homing_offset": 969,
+  "range_min": 847,
+  "range_max": 3247
+ },
+ "left_arm_elbow_flex": {
+  "id": 3,
+  "drive_mode": 0,
+  "homing_offset": 109,
+  "range_min": 944,
+  "range_max": 3150
+ },
+ "left_arm_wrist_flex": {
+  "id": 4,
+  "drive_mode": 0,
+  "homing_offset": -819,
+  "range_min": 901,
+  "range_max": 3193
+ },
+ "left_arm_wrist_roll": {
+  "id": 5,
+  "drive_mode": 0,
+  "homing_offset": 1319,
+  "range_min": 111,
+  "range_max": 3983
+ },
+ "left_arm_gripper": {
+  "id": 6,
+  "drive_mode": 0,
+  "homing_offset": 119,
+  "range_min": 1273,
+  "range_max": 2821
+ },
+ "head_motor_1": {
+  "id": 7,
+  "drive_mode": 0,
+  "homing_offset": 1900,
+  "range_min": 1019,
+  "range_max": 3151
+ },
+ "head_motor_2": {
+  "id": 8,
+  "drive_mode": 0,
+  "homing_offset": 1591,
+  "range_min": 1932,
+  "range_max": 2665
+ },
+ "right_arm_shoulder_pan": {
+  "id": 1,
+  "drive_mode": 0,
+  "homing_offset": -51,
+  "range_min": 673,
+  "range_max": 3421
+ },
+ "right_arm_shoulder_lift": {
+  "id": 2,
+  "drive_mode": 0,
+  "homing_offset": 785,
+  "range_min": 824,
+  "range_max": 3270
+ },
+ "right_arm_elbow_flex": {
+  "id": 3,
+  "drive_mode": 0,
+  "homing_offset": 634,
+  "range_min": 932,
+  "range_max": 3162
+ },
+ "right_arm_wrist_flex": {
+  "id": 4,
+  "drive_mode": 0,
+  "homing_offset": -777,
+  "range_min": 924,
+  "range_max": 3170
+ },
+ "right_arm_wrist_roll": {
+  "id": 5,
+  "drive_mode": 0,
+  "homing_offset": 798,
+  "range_min": 130,
+  "range_max": 3964
+ },
+ "right_arm_gripper": {
+  "id": 6,
+  "drive_mode": 0,
+  "homing_offset": 329,
+  "range_min": 1269,
+  "range_max": 2825
+ },
+ "base_left_wheel": {
+  "id": 9,
+  "drive_mode": 0,
+  "homing_offset": 85,
+  "range_min": 0,
+  "range_max": 4095
+ },
+ "base_right_wheel": {
+  "id": 10,
+  "drive_mode": 0,
+  "homing_offset": 85,
+  "range_min": 0,
+  "range_max": 4095
+ }
+}

@@ -21,7 +21,7 @@ from carton.folding_far_contact import RobotVertexIK, mesh_contact_vertices, _ve
 from carton.folding_paths import JointPathPlanner, execute_path
 from carton.folding_progress import ContactProgressGuard
 from carton.folding_hinge_vision import _rigid
-from carton.folding_sim import JOINTS
+from carton.folding_sim import JOINTS, F, W
 from carton.folding_panel_audit import (
     PANEL_SCHEMA, PANEL_SOURCE, PANEL_LOG_NAME, INTEGRATORS, event_digest,
 )
@@ -45,7 +45,22 @@ _PROFILES = {
 }
 _SIDES = ('left', 'right')
 _FLAPS = ('short_left', 'short_right', 'long_near', 'long_far')
-_CONTACT_POLICIES = ('measured_v2', 'setpoint_feedback_v3')
+_CONTACT_POLICIES = ('measured_v2', 'setpoint_feedback_v3', 'tangent_deadband_v4', 'jaw_surface_v5')
+_SETPOINT_POLICIES = ('setpoint_feedback_v3', 'tangent_deadband_v4', 'jaw_surface_v5')
+# V4 corrects errors across the panel (radial) and along the hinge only beyond
+# these bounds. In the recorded V3 whole-jaw strokes both components jitter by
+# about 1 mm (one sigma) from current registration noise and never exceed
+# 3.3 mm; neither direction changes the flap angle.
+_TANGENT_DEADBANDS_M = dict(radial=.003, hinge=.003)
+_STROKE_STEPS_DEGREES = (.25, .5, 1.)
+# V5 drives the nearest permitted jaw surface this far past the sensed outer
+# panel plane. The recorded V4 right strokes held the jaw 1.3 mm off the panel
+# because the 3.5 mm approach standoff was reused as the stroke target. The
+# press stays below the unchanged 1 mm robot/flap penetration stop.
+_JAW_PRESS_M = .0005
+# Short panels are 3 mm cardboard hinged at their midplane; V5 measures the
+# jaw against the outer face (the observed-scene adapter declares the same).
+_PANEL_HALF_THICKNESS_M = .0015
 _APPROACH_POLICIES = ('elevated_v2', 'whole_jaw_normal_v1')
 _WHOLE_JAW = {
     'left': dict(vertex=dict(body='left_gripper_link',
@@ -223,13 +238,137 @@ def _actuator_setpoint(sim, side):
     return q
 
 
-def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy='measured_v2'):
+def _fold_frame(box, side, degrees):
+    """Unit fold, radial and hinge directions of one short panel, in world.
+
+    The fold direction is the panel's inward face normal: a hinged panel's
+    contact point moves along it as the angle grows. Radial runs from hinge to
+    tip across the panel and hinge follows the hinge axis; motion along either
+    leaves the flap angle unchanged. The frame uses only the current source
+    registration and its measured angle; no renderer or simulator state.
+    """
+    if side not in _SIDES:
+        raise ValueError('Unknown short side for fold frame')
+    if (isinstance(degrees, bool) or not isinstance(degrees, (float, int))
+            or not math.isfinite(degrees) or not -40 <= degrees <= 103):
+        raise ValueError('Finite short angle within the observation range required for fold frame')
+    rotation = _rigid(box, 'Short fold-frame carton pose')[:3, :3]
+    theta, sign = math.radians(degrees), (-1. if side == 'left' else 1.)
+    return dict(fold=rotation @ np.array([-sign*math.cos(theta), 0., -math.sin(theta)]),
+                radial=rotation @ np.array([-sign*math.sin(theta), 0., math.cos(theta)]),
+                hinge=rotation @ np.array([0., 1., 0.]))
+
+
+def _tangent_deadband_increment(delta, frame, max_step_m):
+    """Capped fold-direction lead plus only out-of-deadband radial/hinge error.
+
+    The fold component never retreats: a vertex already ahead of the current
+    measured target along the arc is left where it is and recorded, so a flap
+    that does not follow shows up as a measured stall rather than as chasing.
+    """
+    if (not isinstance(frame, dict) or set(frame) != {'fold', 'radial', 'hinge'}
+            or any(np.shape(frame[k]) != (3,) or not np.isfinite(frame[k]).all() for k in frame)):
+        raise ValueError('Current unit fold frame required for tangent deadband policy')
+    axes = {k: np.asarray(frame[k], dtype=float) for k in ('fold', 'radial', 'hinge')}
+    gram = np.array([[a @ b for b in axes.values()] for a in axes.values()])
+    if not np.allclose(gram, np.eye(3), atol=1e-9):
+        raise ValueError('Orthonormal fold frame required for tangent deadband policy')
+    gaps = {k: float(delta @ axis) for k, axis in axes.items()}
+    corrections = {k: (gaps[k] if abs(gaps[k]) > _TANGENT_DEADBANDS_M[k] else 0.)
+                   for k in ('radial', 'hinge')}
+    lead = min(max(gaps['fold'], 0.), max_step_m)
+    increment = (lead*axes['fold'] + corrections['radial']*axes['radial']
+                 + corrections['hinge']*axes['hinge'])
+    size = float(np.linalg.norm(increment))
+    increment = increment*min(1., max_step_m/max(size, 1e-12))
+    return increment, dict(fold_frame_world={k: axis.tolist() for k, axis in axes.items()},
+        gap_fold_m=gaps['fold'], gap_radial_m=gaps['radial'], gap_hinge_m=gaps['hinge'],
+        fold_lead_increment_m=lead, radial_correction_m=corrections['radial'],
+        hinge_correction_m=corrections['hinge'], deadbands_m=dict(_TANGENT_DEADBANDS_M),
+        fold_direction_retreat_allowed=False)
+
+
+def _jaw_points(sim, side):
+    """World vertices of the side's permitted jaw collision meshes from encoder FK.
+
+    Uses robot joints only (the same CAD and encoders the physical arm has);
+    no carton or flap state enters. Collision meshes are convex, so a plane's
+    nearest hull point is one of these vertices.
+    """
+    data = mujoco.MjData(sim.model)
+    data.qpos[sim.arm_indices[side]] = sim.data.qpos[sim.arm_indices[side]]
+    mujoco.mj_kinematics(sim.model, data)
+    points, names = [], []
+    for gid in range(sim.model.ngeom):
+        name = sim.model.geom(gid).name
+        if (not name.startswith(side+'_') or not sim.model.geom_contype[gid]
+                or sim.model.geom_type[gid] != mujoco.mjtGeom.mjGEOM_MESH
+                or not any(kind in name for kind in ('wrist_roll_follower', 'moving_jaw'))):
+            continue
+        mid = sim.model.geom_dataid[gid]
+        start, count = sim.model.mesh_vertadr[mid], sim.model.mesh_vertnum[mid]
+        world = np.einsum('ij,kj->ki', data.geom_xmat[gid].reshape(3, 3),
+                          sim.model.mesh_vert[start:start+count]) + data.geom_xpos[gid]
+        points.append(world)
+        names += [name]*len(world)
+    if not points:
+        raise ValueError('Permitted jaw collision meshes required for jaw-surface policy')
+    return np.concatenate(points), names
+
+
+def _jaw_panel_clearance(points, names, surface, frame, *, radius, along):
+    """Signed clearance of the jaw hull to the sensed outer panel plane.
+
+    Only jaw points over the sensed 140 mm x 283 mm panel count. Positive is a
+    gap on the outside; negative is past the sensed surface.
+    """
+    surface = np.asarray(surface, dtype=float)
+    offsets = points-surface
+    radial = radius + np.einsum('ij,j->i', offsets, frame['radial'])
+    hinge = along + np.einsum('ij,j->i', offsets, frame['hinge'])
+    over = (radial >= 0.) & (radial <= F) & (np.abs(hinge) <= W/2)
+    if not over.any():
+        raise ValueError('No permitted jaw surface over the sensed short panel')
+    gaps = -np.einsum('ij,j->i', offsets, frame['fold'])
+    gaps[~over] = np.inf
+    index = int(np.argmin(gaps))
+    return float(gaps[index]), names[index]
+
+
+def _jaw_surface_increment(delta, frame, clearance, max_step_m, press_m=_JAW_PRESS_M):
+    """Fold lead that closes the measured jaw-to-sensed-panel gap plus a press.
+
+    Radial and hinge error to the declared contact location are corrected only
+    beyond the V4 deadbands, inside the same cap. The fold lead never retreats.
+    """
+    if not math.isfinite(clearance):
+        raise ValueError('Finite jaw-to-panel clearance required for jaw-surface policy')
+    axes = {k: np.asarray(frame[k], dtype=float) for k in ('fold', 'radial', 'hinge')}
+    gaps = {k: float(delta @ axes[k]) for k in ('radial', 'hinge')}
+    corrections = {k: (gaps[k] if abs(gaps[k]) > _TANGENT_DEADBANDS_M[k] else 0.) for k in gaps}
+    lead = min(max(clearance+press_m, 0.), max_step_m)
+    increment = lead*axes['fold'] + corrections['radial']*axes['radial'] + corrections['hinge']*axes['hinge']
+    size = float(np.linalg.norm(increment))
+    increment = increment*min(1., max_step_m/max(size, 1e-12))
+    return increment, dict(fold_frame_world={k: axis.tolist() for k, axis in axes.items()},
+        jaw_panel_clearance_m=clearance, jaw_press_m=press_m, fold_lead_increment_m=lead,
+        gap_radial_m=gaps['radial'], gap_hinge_m=gaps['hinge'], radial_correction_m=corrections['radial'],
+        hinge_correction_m=corrections['hinge'], deadbands_m=dict(_TANGENT_DEADBANDS_M),
+        fold_direction_retreat_allowed=False)
+
+
+def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy='measured_v2',
+                           frames=None, panels=None):
     """Bound the declared CAD command increment; actual motion is monitored.
 
     V2 references measured FK. V3 instead adds the capped measured target error
     to the existing actuator-setpoint FK. A steady following offset therefore
-    does not get added to every command. This is a controller policy, never a
-    promise that the physical point moves by exactly the requested increment.
+    does not get added to every command. V4 keeps the V3 reference but spends
+    the increment only on the measured fold-direction lead, correcting radial
+    and hinge error beyond explicit deadbands. V5 instead sets the fold lead
+    from the encoder-FK jaw hull's clearance to the sensed outer panel plane,
+    plus a sub-millimetre press. This is a controller policy,
+    never a promise that the physical point moves by the requested increment.
     """
     if contact_policy not in _CONTACT_POLICIES:
         raise ValueError('Unknown bounded short contact policy')
@@ -244,8 +383,21 @@ def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy
             raise ValueError('Finite current FK and sensed short contact target required')
         distance = float(np.linalg.norm(delta))
         increment = delta*min(1., max_step_m/max(distance, 1e-12))
+        decomposition = None
+        if contact_policy == 'tangent_deadband_v4':
+            increment, decomposition = _tangent_deadband_increment(
+                delta, (frames or {}).get(side), max_step_m)
+        if contact_policy == 'jaw_surface_v5':
+            panel = (panels or {}).get(side)
+            if not isinstance(panel, dict):
+                raise ValueError('Current sensed panel surface required for jaw-surface policy')
+            _tangent_deadband_increment(np.zeros(3), panel['frame'], max_step_m)  # frame validation
+            clearance, nearest = _jaw_panel_clearance(*_jaw_points(sim, side), panel['surface'], panel['frame'],
+                                                      radius=panel['radius'], along=panel['along'])
+            increment, decomposition = _jaw_surface_increment(delta, panel['frame'], clearance, max_step_m)
+            decomposition.update(nearest_jaw_geometry=nearest, sensed_surface_world=np.asarray(panel['surface']).tolist())
         seed, reference = actual_q, actual
-        if contact_policy == 'setpoint_feedback_v3':
+        if contact_policy in _SETPOINT_POLICIES:
             seed = _actuator_setpoint(sim, side)
             reference = ik[side].point(seed).copy()
             if not np.isfinite(reference).all():
@@ -263,18 +415,34 @@ def _bounded_contact_goals(sim, ik, targets, *, max_step_m=.0005, contact_policy
                              contact_policy=contact_policy, command_reference_world=reference.tolist(),
                              commanded_increment_world=increment.tolist(), commanded_fk_increment_m=command_step,
                              ik_goal_point_world=goal_point.tolist())
-        if contact_policy == 'setpoint_feedback_v3':
+        if contact_policy in _SETPOINT_POLICIES:
             details[side].update(current_actuator_setpoint_radians=seed.tolist(),
                 current_setpoint_fk_world=reference.tolist(), actual_minus_setpoint_world=(actual-reference).tolist())
+        if decomposition is not None:
+            details[side].update(decomposition)
     return goals, points, details
 
 
-def _point(box, profile, side, degrees):
+def _point(box, profile, side, degrees, *, offset=None):
     configuration = profile.get('per_side', {}).get(side, {})
     point, _ = contact_point(math.radians(degrees), 0, -1 if side == 'left' else 1,
                              configuration.get('along', profile['along']),
-                             configuration.get('radius', .14), 0., configuration.get('offset', .0015))
+                             configuration.get('radius', .14), 0.,
+                             configuration.get('offset', .0015) if offset is None else offset)
     return box[:3, :3] @ point + box[:3, 3]
+
+
+def _sensed_panels(sources, profile, angles):
+    """Outer short-panel face from each arm's own current camera registration."""
+    panels = {}
+    for a in _SIDES:
+        box = np.asarray(sources[a]['world_from_box'])
+        configuration = profile.get('per_side', {}).get(a, {})
+        panels[a] = dict(surface=_point(box, profile, a, angles[a], offset=_PANEL_HALF_THICKNESS_M),
+                         frame=_fold_frame(box, a, angles[a]),
+                         radius=configuration.get('radius', .14),
+                         along=configuration.get('along', profile['along']))
+    return panels
 
 
 def _validated_jaw_vertex(sim, side, declared):
@@ -349,7 +517,7 @@ def _subdivide_reversed_joint_paths(paths, ik, *, max_step_m=.0005):
     return waypoints
 
 
-def _whole_jaw_preflight(sim, boxes, angles, profile, vertices):
+def _whole_jaw_preflight(sim, boxes, angles, profile, vertices, points=None):
     """Plan outward once, then check its exact joint reversal in a copy."""
     copy = SimpleNamespace(model=sim.model, data=mujoco.MjData(sim.model),
                            arm_indices=sim.arm_indices, forbidden_contact=sim.forbidden_contact)
@@ -357,7 +525,7 @@ def _whole_jaw_preflight(sim, boxes, angles, profile, vertices):
     ik = {a: RobotVertexIK(copy, a, vertices[a]) for a in _SIDES}
     reversed_paths = {}
     for a in _SIDES:
-        point = _point(boxes[a], profile, a, angles[a])
+        point = _point(boxes[a], profile, a, angles[a]) if points is None else np.asarray(points[a])
         theta = math.radians(angles[a])
         normal = boxes[a][:3, :3] @ np.array([(-1 if a == 'left' else 1)*math.cos(theta), 0., math.sin(theta)])
         q, _ = ik[a].solve(point, profile['per_side'][a]['seed'])
@@ -464,7 +632,8 @@ def _preflight(sim, boxes, angles, profile, vertices):
 
 
 def probe_shorts_against_passive_majors(sim, controller, *, capture=False, target_degrees=10.,
-                                      contact_policy='measured_v2', approach_policy='elevated_v2'):
+                                      contact_policy='measured_v2', approach_policy='elevated_v2',
+                                      stroke_step_degrees=.25):
     """Opt-in paired short attempt, with freely moving partial major panels."""
     if not math.isfinite(target_degrees) or not 0 <= target_degrees <= 10:
         raise ValueError('Bounded short probe target must be 0 to 10 degrees')
@@ -472,6 +641,10 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
         raise ValueError('Unknown bounded short contact policy')
     if approach_policy not in _APPROACH_POLICIES:
         raise ValueError('Unknown bounded short approach policy')
+    if (isinstance(stroke_step_degrees, bool) or not isinstance(stroke_step_degrees, (float, int))
+            or stroke_step_degrees not in _STROKE_STEPS_DEGREES):
+        raise ValueError('Declared short stroke increment must be 0.25, 0.5 or 1 degree')
+    step_tag = {.25: '0p25', .5: '0p5', 1.: '1'}[float(stroke_step_degrees)]
     c = controller
     if getattr(c, 'partial_short_probe', None) is not None:
         raise ValueError('Partial short probe already attempted; faults cannot be reset')
@@ -488,7 +661,7 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                   stage='require fresh four-flap entry', fault=None, target_short_degrees=target_degrees,
                   majors_remain_free=True, target_source='fresh RGB-D short angles and carton pose',
                   contact_radius_m=.14, normal_offset_m=.0015, candidates=[], checks=[])
-    report.update(trajectory_policy='source_coherent_0p5mm_0p25deg_v2', baseline_commit='ecbbb00',
+    report.update(trajectory_policy=f'source_coherent_0p5mm_{step_tag}deg_v2', baseline_commit='ecbbb00',
                   target_source='current raw source-camera carton pose paired with its own RGB-D short angle',
                   max_contact_point_step_m=.0005, max_contact_approach_commands=80,
                   contact_approach_endpoint_tolerance_m=.00075,
@@ -499,12 +672,38 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
     report['approach_policy'] = approach_policy
     report['contact_increment_reference'] = 'measured encoder FK'
     if contact_policy == 'setpoint_feedback_v3':
-        report.update(trajectory_policy='source_coherent_setpoint_feedback_0p5mm_0p25deg_v3',
+        report.update(trajectory_policy=f'source_coherent_setpoint_feedback_0p5mm_{step_tag}deg_v3',
                       contact_increment_reference='current actuator-setpoint FK',
                       contact_feedback='setpoint FK plus capped sensed-target-minus-actual-FK error',
                       max_contact_point_step_m=None, max_commanded_setpoint_increment_m=.0005,
                       original_physical_gates_unchanged=True)
+    if contact_policy == 'tangent_deadband_v4':
+        report.update(trajectory_policy=f'source_coherent_tangent_deadband_0p5mm_{step_tag}deg_v4',
+                      contact_increment_reference='current actuator-setpoint FK',
+                      contact_feedback='setpoint FK plus capped measured fold-direction lead only; '
+                                       'radial and hinge errors corrected only beyond explicit deadbands',
+                      tangent_deadbands_m=dict(_TANGENT_DEADBANDS_M),
+                      fold_direction_retreat_allowed=False,
+                      fold_frame_source='current source-camera carton registration and its own measured short angle',
+                      max_contact_point_step_m=None, max_commanded_setpoint_increment_m=.0005,
+                      original_physical_gates_unchanged=True)
+    if contact_policy == 'jaw_surface_v5':
+        report.update(trajectory_policy=f'source_coherent_jaw_surface_0p5mm_{step_tag}deg_v5',
+                      contact_increment_reference='current actuator-setpoint FK',
+                      contact_feedback='fold lead = encoder-FK jaw hull clearance to the sensed outer panel '
+                                       'plane plus a fixed press, capped; radial and hinge errors corrected '
+                                       'only beyond explicit deadbands',
+                      jaw_press_m=_JAW_PRESS_M, tangent_deadbands_m=dict(_TANGENT_DEADBANDS_M),
+                      fold_direction_retreat_allowed=False,
+                      sensed_panel_source='current source-camera carton registration and its own measured short angle',
+                      jaw_surface_source='permitted jaw collision meshes at encoder FK; no carton state',
+                      max_contact_point_step_m=None, max_commanded_setpoint_increment_m=.0005,
+                      original_physical_gates_unchanged=True)
+    report['stroke_step_degrees'] = float(stroke_step_degrees)
     c.partial_short_probe = report
+
+    def contact_targets(sources, profile, degrees):
+        return {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, degrees[a]) for a in _SIDES}
     try:
         reading = c.sense('Register both shorts and passive majors before bounded paired probe')
         guards = {f: ContactProgressGuard(f, reading) for f in _FLAPS}
@@ -532,7 +731,8 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             name, profile = 'whole_jaw_central_left_front_right', dict(along=0., per_side=_WHOLE_JAW)
             vertices = {a: _validated_jaw_vertex(sim, a, _WHOLE_JAW[a]['vertex']) for a in _SIDES}
             boxes = {a: np.asarray(coherent[a][0]['world_from_box']) for a in _SIDES}
-            paths, normal_waypoints = _whole_jaw_preflight(sim, boxes, angles, profile, vertices)
+            entry_targets = contact_targets({a: coherent[a][1] for a in _SIDES}, profile, angles)
+            paths, normal_waypoints = _whole_jaw_preflight(sim, boxes, angles, profile, vertices, entry_targets)
             chosen = (name, profile, vertices, paths)
             report['candidates'].append(dict(profile=name, free_and_complete_normal_path_clear=True,
                                              static_preflight_only=True))
@@ -542,7 +742,7 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                 normal_approach_travel_m=.050, normal_approach_point_increment_m=.0005,
                 normal_approach_waypoint_count=len(normal_waypoints)-1,
                 normal_approach_sources={a: coherent[a][1] for a in _SIDES},
-                normal_approach_entry_targets_world={a:_point(boxes[a], profile, a, angles[a]).tolist() for a in _SIDES},
+                normal_approach_entry_targets_world={a:entry_targets[a].tolist() for a in _SIDES},
                 normal_approach_joint_waypoints=[{a:q.tolist() for a,q in row.items()} for row in normal_waypoints],
                 normal_approach_increment_reference='current actuator-setpoint FK; not a physical-motion bound',
                 normal_approach_fk_increment_allowance_m=.000001,
@@ -643,7 +843,7 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                         report['contact_approach_transition'] = 'fresh short advance reached 1 degree on exact normal path; switch to bounded stroke'
                         break
                     sources = {a:_contact_reading(reading, a)[1] for a in _SIDES}
-                    targets = {a:_point(np.asarray(sources[a]['world_from_box']), profile, a, angles[a]) for a in _SIDES}
+                    targets = contact_targets(sources, profile, angles)
                     drifts = _entry_route_endpoint_drifts(targets, report['normal_approach_entry_targets_world'])
                     points, details = _exact_waypoint_details(sim, ik, goals, targets)
                     for a in _SIDES:
@@ -659,8 +859,13 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
                     report['contact_approach_transition'] = 'complete exact normal joint path; actual contact and folding progress not asserted'
             for _ in range(0 if normal_waypoints is not None else 80):
                 sources = {a: _contact_reading(reading, a)[1] for a in _SIDES}
-                targets = {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, angles[a]) for a in _SIDES}
-                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy)
+                targets = contact_targets(sources, profile, angles)
+                frames = ({a: _fold_frame(np.asarray(sources[a]['world_from_box']), a, angles[a]) for a in _SIDES}
+                          if contact_policy == 'tangent_deadband_v4' else None)
+                panels = (_sensed_panels(sources, profile, angles)
+                          if contact_policy == 'jaw_surface_v5' else None)
+                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy,
+                                                                frames=frames, panels=panels)
                 if all(row['requested_distance_m'] <= .00075 for row in details.values()):
                     report['contact_approach_transition'] = 'CAD points near fresh sensed targets; contact not asserted'
                     break
@@ -681,7 +886,7 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             for a in _SIDES:
                 guards['short_'+a].begin_stroke(reading)
                 contact_guards[a].begin_stroke(_contact_reading(reading, a)[0])
-            stroke = _ShortStroke(angles, target_degrees)
+            stroke = _ShortStroke(angles, target_degrees, step_degrees=stroke_step_degrees)
             report['measured_stroke'] = dict(max_advance_degrees=stroke.step_degrees, max_commands=stroke.max_commands,
                                              stall_window_commands=stroke.stall_window,
                                              minimum_window_progress_degrees=2.,
@@ -690,8 +895,13 @@ def probe_shorts_against_passive_majors(sim, controller, *, capture=False, targe
             report['stage'] = 'bounded simultaneous short-fold probe'
             while (commands := stroke.next_angles()) is not None:
                 sources = {a: _contact_reading(reading, a)[1] for a in _SIDES}
-                targets = {a: _point(np.asarray(sources[a]['world_from_box']), profile, a, commands[a]) for a in _SIDES}
-                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy)
+                targets = contact_targets(sources, profile, commands)
+                frames = ({a: _fold_frame(np.asarray(sources[a]['world_from_box']), a, angles[a]) for a in _SIDES}
+                          if contact_policy == 'tangent_deadband_v4' else None)
+                panels = (_sensed_panels(sources, profile, angles)
+                          if contact_policy == 'jaw_surface_v5' else None)
+                goals, points, details = _bounded_contact_goals(sim, ik, targets, contact_policy=contact_policy,
+                                                                frames=frames, panels=panels)
                 row = dict(stage='stroke', seq=reading['seq'],
                     sources=sources, command_degrees=commands, robot_substeps=details)
                 report['contact_commands'].append(row)

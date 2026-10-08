@@ -243,3 +243,33 @@ def test_recorded_states_with_fresh_apriltag_registration(monkeypatch, environme
                 masked_depth = np.where(np.abs(box_points[:, :, 0]) < .028, depth, 0.)
                 assert 'long_near' not in depth_major_flap_angles(
                     rgb, masked_depth, k, registration.world_from_camera, box, priors)
+
+
+@pytest.mark.parametrize('name, camera', [('long_far', (0, -.50, .65)), ('long_near', (0, -.50, .65))])
+def test_free_edge_and_midplane_are_measured_from_the_majors_own_pixels(name, camera):
+    # A zero-thickness synthetic face stands for the visible cardboard face.
+    result = depth_major_flap_angles(*_render([_major(30., name)], camera=camera))[name]
+    assert result['free_edge_radius_mm'] == pytest.approx(140., abs=2.5)
+    assert result['free_edge_pixel_support'] >= 30
+    # The midplane lies half the 3 mm thickness behind the visible face.
+    toward_inside = result['visible_face_toward_inside']
+    expected = result['hinge_plane_offset_mm'] - (1.5 if toward_inside else -1.5)
+    assert result['midplane_offset_mm'] == pytest.approx(expected)
+    assert toward_inside is (name == 'long_far')
+
+
+def test_registration_offset_cancels_in_the_measured_free_edge():
+    # Same pixels, carton registered 4 mm low: the measured edge moves up in
+    # the registered frame by the same amount, so it maps back to the same
+    # world point.
+    rgb, depth, k, camera, box = _render([_major(30., 'long_far')], camera=(0, -.50, .65))
+    shifted = np.array(box, dtype=float).copy()
+    shifted[2, 3] -= .004
+    true_row = depth_major_flap_angles(rgb, depth, k, camera, box)['long_far']
+    low_row = depth_major_flap_angles(rgb, depth, k, camera, shifted)['long_far']
+    def world_edge(row, pose):
+        t = np.radians(row['degrees']); r = row['free_edge_radius_mm']/1000; m = row['midplane_offset_mm']/1000
+        b = Box()
+        local = np.array([0., b.width/2 - (r*np.sin(t) + m*np.cos(t)), b.height + .0035 + r*np.cos(t) - m*np.sin(t)])
+        return pose[:3, :3] @ local + pose[:3, 3]
+    assert np.linalg.norm(world_edge(low_row, shifted) - world_edge(true_row, box)) < .0015

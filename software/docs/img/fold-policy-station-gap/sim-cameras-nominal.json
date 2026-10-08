@@ -1,0 +1,362 @@
+{
+ "trial": "/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-demos/batch-01/trial-001",
+ "scene": "/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-demos/batch-01/trial-001/run/scene.xml",
+ "simulation_only": true,
+ "station": {
+  "arm_base_origin_world_m": [
+   0.0,
+   -0.3015,
+   0.12
+  ],
+  "base_height_above_table_m": 0.12,
+  "base_line_to_table_edge_m": 0.14999999999999997,
+  "base_spacing_m": 0.3,
+  "table_edge_y_world_m": -0.15150000000000002,
+  "table_top_z_world_m": 0.0
+ },
+ "frame": "arm_base: origin midway between the SO101 base_link origins; +x robot right, +y toward the table, +z up; metres. Tabletop z = -base_height_above_table_m.",
+ "states": {
+  "start": {
+   "index": 0,
+   "time_s": 0.002
+  },
+  "mid": {
+   "index": 277,
+   "time_s": 27.699999999995526
+  },
+  "end": {
+   "index": 554,
+   "time_s": 55.40000000002174
+  }
+ },
+ "cameras": {
+  "top": {
+   "320x240": {
+    "scene_camera": "overhead",
+    "width": 320,
+    "height": 240,
+    "fovy_deg": 48.0,
+    "fovx_deg": 61.38997656194155,
+    "K": [
+     [
+      269.5244128685059,
+      0,
+      160.0
+     ],
+     [
+      0,
+      269.5244128685059,
+      120.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.0,
+     0.0,
+     0.85
+    ],
+    "position_arm_base_m": [
+     0.0,
+     0.3015,
+     0.73
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      1.0,
+      -0.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -1.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -0.0,
+      -1.0
+     ]
+    ],
+    "pitch_below_horizontal_deg": 90.0,
+    "yaw_deg_from_plus_y": -180.0,
+    "height_above_table_m": 0.85,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.5046,
+      0.6799,
+      -0.12
+     ],
+     "top_right": [
+      0.5046,
+      0.6799,
+      -0.12
+     ],
+     "bottom_left": [
+      -0.5046,
+      -0.0769,
+      -0.12
+     ],
+     "bottom_right": [
+      0.5046,
+      -0.0769,
+      -0.12
+     ],
+     "centre": [
+      0.0,
+      0.3015,
+      -0.12
+     ]
+    }
+   },
+   "960x720": {
+    "scene_camera": "overhead",
+    "width": 960,
+    "height": 720,
+    "fovy_deg": 48.0,
+    "fovx_deg": 61.38997656194155,
+    "K": [
+     [
+      808.5732386055178,
+      0,
+      480.0
+     ],
+     [
+      0,
+      808.5732386055178,
+      360.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.0,
+     0.0,
+     0.85
+    ],
+    "position_arm_base_m": [
+     0.0,
+     0.3015,
+     0.73
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      1.0,
+      -0.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -1.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -0.0,
+      -1.0
+     ]
+    ],
+    "pitch_below_horizontal_deg": 90.0,
+    "yaw_deg_from_plus_y": -180.0,
+    "height_above_table_m": 0.85,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.5046,
+      0.6799,
+      -0.12
+     ],
+     "top_right": [
+      0.5046,
+      0.6799,
+      -0.12
+     ],
+     "bottom_left": [
+      -0.5046,
+      -0.0769,
+      -0.12
+     ],
+     "bottom_right": [
+      0.5046,
+      -0.0769,
+      -0.12
+     ],
+     "centre": [
+      0.0,
+      0.3015,
+      -0.12
+     ]
+    }
+   }
+  },
+  "front": {
+   "320x240": {
+    "scene_camera": "front",
+    "width": 320,
+    "height": 240,
+    "fovy_deg": 48.0,
+    "fovx_deg": 61.38997656194155,
+    "K": [
+     [
+      269.5244128685059,
+      0,
+      160.0
+     ],
+     [
+      0,
+      269.5244128685059,
+      120.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.0,
+     -0.3815,
+     0.57
+    ],
+    "position_arm_base_m": [
+     0.0,
+     -0.08,
+     0.45
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      1.0,
+      -0.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -0.788584,
+      0.614927
+     ],
+     [
+      0.0,
+      -0.614927,
+      -0.788584
+     ]
+    ],
+    "pitch_below_horizontal_deg": 52.05334923559997,
+    "yaw_deg_from_plus_y": -0.0,
+    "height_above_table_m": 0.57,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.6573,
+      0.9896,
+      -0.12
+     ],
+     "top_right": [
+      0.6573,
+      0.9896,
+      -0.12
+     ],
+     "bottom_left": [
+      -0.3185,
+      0.0616,
+      -0.12
+     ],
+     "bottom_right": [
+      0.3185,
+      0.0616,
+      -0.12
+     ],
+     "centre": [
+      0.0,
+      0.3645,
+      -0.12
+     ]
+    }
+   },
+   "960x720": {
+    "scene_camera": "front",
+    "width": 960,
+    "height": 720,
+    "fovy_deg": 48.0,
+    "fovx_deg": 61.38997656194155,
+    "K": [
+     [
+      808.5732386055178,
+      0,
+      480.0
+     ],
+     [
+      0,
+      808.5732386055178,
+      360.0
+     ],
+     [
+      0,
+      0,
+      1
+     ]
+    ],
+    "position_world_m": [
+     0.0,
+     -0.3815,
+     0.57
+    ],
+    "position_arm_base_m": [
+     0.0,
+     -0.08,
+     0.45
+    ],
+    "rotation_cv_camera_to_arm_base": [
+     [
+      1.0,
+      -0.0,
+      -0.0
+     ],
+     [
+      0.0,
+      -0.788584,
+      0.614927
+     ],
+     [
+      0.0,
+      -0.614927,
+      -0.788584
+     ]
+    ],
+    "pitch_below_horizontal_deg": 52.05334923559997,
+    "yaw_deg_from_plus_y": -0.0,
+    "height_above_table_m": 0.57,
+    "image_corner_rays_on_tabletop_arm_base_m": {
+     "top_left": [
+      -0.6573,
+      0.9896,
+      -0.12
+     ],
+     "top_right": [
+      0.6573,
+      0.9896,
+      -0.12
+     ],
+     "bottom_left": [
+      -0.3185,
+      0.0616,
+      -0.12
+     ],
+     "bottom_right": [
+      0.3185,
+      0.0616,
+      -0.12
+     ],
+     "centre": [
+      0.0,
+      0.3645,
+      -0.12
+     ]
+    }
+   }
+  }
+ }
+}

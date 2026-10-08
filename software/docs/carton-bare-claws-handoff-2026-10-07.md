@@ -6,7 +6,145 @@
 hands-clear retention has passed. No robot or physical camera was accessed.**
 Keep this distinction when handing the work to Gemma or the robot Mac.
 
-### Latest update — whole-jaw normal approach and parallel run
+### Latest update — all four flaps closed and held (shorts first)
+
+**The two bare claws now close all four flaps and hold them in 24 of 30
+simulated seeds (80%)**: shorts 89.7–106.9°, majors 87.5–90.8°, carton
+motion ≤ 12.8 mm, all 24 contact audits `CONTACT_ONLY_CLEAR`. It needs new station
+assumptions (arm bases 120 mm above the table, far flap presented about 1°
+inward, three extra printed carton markers). No tape, hands-clear retention
+or hardware. Sequence, rules, failures and assumptions:
+`carton-four-flap-shorts-first.md`.
+
+### Earlier update — jaw-surface controller and major-pixel exclusion
+
+**Both shorts now fold from about −13° to just past upright (+1.0° to +1.5°)
+in two of three seeds**, then stop where the shorts meet the partially closed
+majors. This is still **0/3 bounded +10° probes and 0/3 carton folds**, but it
+is the furthest the paired short stroke has gone. All nine new runs score
+`CONTACT_ONLY_CLEAR` (robot) and the eight that reached the probe score
+`PANEL_CONTACT_ONLY_CLEAR`. No hardware was accessed.
+
+Two root causes were found and fixed:
+
+1. **The right claw never touched its short.** Replaying the recorded stalled
+   V4 strokes against the exact collision meshes shows the right jaw hovering
+   1.3 mm off the right short for the whole stroke (the left was in contact).
+   The stroke target reused the right arm's 3.5 mm approach standoff, and a
+   0.25° angle lead is only 0.6 mm at the tip, so a target-tracking controller
+   could never close the gap. The new opt-in
+   `--short-contact-policy jaw_surface_v5` instead measures the clearance from
+   the permitted jaw collision hull (at encoder FK) to the *sensed* outer face
+   of the short (current camera registration, measured angle, 3 mm cardboard),
+   and leads by that clearance plus a 0.5 mm press, capped at 0.5 mm per
+   command, never retreating; radial/hinge corrections keep the V4 deadbands.
+   It uses only robot CAD, encoders and the camera, so it has a direct
+   physical counterpart. Against the recorded strokes its clearance matches
+   the true jaw/panel distance within about ±1 mm (camera registration noise).
+2. **Major-flap pixels made a visible short look ambiguous or wrong.** Near the
+   carton corners, the inward-leaning majors fall in the short sector and form
+   a second hinge-aligned "plane" at +25–30°. With 43% of the true short's
+   support it tripped the 35% ambiguity refusal ("short_left missing from both
+   views"); once the short was edge-on to the extra camera, the phantom was
+   *reported as the short* (+29°), which caused batch 10's view disagreement.
+   Every phantom inlier lies on `long_near`/`long_far` in the replayed scenes.
+   `depth_open_short_flap_angles` now accepts `majors=` (same-frame measured
+   major angles) and drops pixels within 4 mm of those panels before fitting;
+   both the extra view and the primary open-short path pass them. This also
+   removes synthetic false positives (a +8.6° "short" made of major fragments).
+   Measured majors are never used as priors.
+
+| batch | settings (all whole-jaw approach, left/back view) | result |
+|---|---|---|
+| `paired-short-jaw-surface-11` | V5 | right short now moves in 3/3 (to −11.1/−9.7/−9.9°); left lost at −7.5 to −8.4° (phantom ambiguity) |
+| `paired-short-jaw-surface-majorx-12` | V5 + major exclusion | left to −3.7/−3.7/−3.8°, right to −7.3/−5.2/−5.1°; left then edge-on to the extra camera |
+| `paired-short-jaw-surface-majorx-primary-13` | V5 + exclusion + `--observe-primary-open-shorts` | seed 0 refuses left entry (1.93 mm predicted penetration); seeds 1/2 reach +0.97/+1.46° and +1.08/+1.34°, then the next left path is refused for 1.24/1.44 mm predicted penetration |
+
+**Why it stops at +1°:** in the last second of seeds 1/2 the shorts are
+pushing on the majors (short_left/long_far up to 2.4 N, short_right/long_far
+2.7 N). With the majors resting at about 38°/34°, the shorts cannot pass
+upright without moving them, the jaw presses harder, and the unchanged 1 mm
+penetration gate refuses. This is the ordering conflict noted below ("rigid
+shorts intersect [majors] during their middle rotation"), now reached by an
+executed, vision-controlled stroke rather than a static scan. Further short
+progress in this order needs the majors moved out of the way, not a different
+short controller.
+
+Reproduce batch 13 (from `software`):
+
+```sh
+PYTHONPATH=. .venv/bin/python tools/run_claw_sweep.py \
+  --simulation-root /absolute/path/to/gemma-xlerobot \
+  --out /absolute/new/batch --workers 3 --seeds 0 1 2 \
+  --open-short-angles -15 --near-pre-out .03 --near-hold-degrees 40 \
+  --far-after-near --far-hold-degrees 35 --far-contact-profile central \
+  --far-startup-lift .0005 --release-far-after --release-near-after-far \
+  --probe-shorts-after-release --short-view-camera front_left_back \
+  --allow-primary-carton-absence --short-approach-policy whole_jaw_normal_v1 \
+  --short-contact-policy jaw_surface_v5 --observe-primary-open-shorts
+```
+
+An outer-face correction from the fitted plane offset was also tried
+offline. It reduced the left clearance bias from +1.8 to +0.7 mm but
+increased the right bias from +0.5 to +2.0 mm (the orange right arm passes the
+cardboard colour mask and skews that plane), so it was not kept.
+
+### Earlier update — tangent-deadband controller and stroke-step variants
+
+Four more three-seed full-prefix batches, all from the original open box with
+the `whole_jaw_normal_v1` approach and the left/back view, under
+`/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first`.
+**All four are 0/3 short probes and 0/3 carton folds.** Every partial-major
+prefix still completes and releases, and every run scores `CONTACT_ONLY_CLEAR`.
+No hardware was accessed.
+
+The new opt-in `--short-contact-policy tangent_deadband_v4` keeps the V3
+setpoint reference but resolves the sensed-target error in each short panel's
+fold frame (fold normal, radial, hinge axis), all taken from the current camera
+registration and measured angle. It spends the 0.5 mm increment only on fold-direction
+lead, never retreats along the fold, and corrects radial and hinge error only
+beyond 3 mm. Recorded V3 strokes jitter about 1 mm (1σ) in both off-axis
+directions. The new `--short-stroke-step-degrees {0.25,0.5,1}` declares the
+measured-angle advance per stroke command (the default 0.25 is unchanged).
+
+| batch | policy, step | faults | right short, first → last |
+|---|---|---|---|
+| `paired-short-tangent-deadband-07` | V4, 0.25° | 3× left short missing from both views | −15.35→−15.36, −14.59→−9.73, −14.12→−14.06 |
+| `paired-short-tangent-deadband-halfdeg-08` | V4, 0.5° | 2× left missing, 1× right stall | −15.35→−15.36, −14.59→−10.35, −14.12→−14.08 |
+| `paired-short-setpoint-halfdeg-control-09` | V3, 0.5° | 1× left missing, 2× right stall | −15.35→−12.01, −14.59→−12.70, −14.12→−13.76 |
+| `paired-short-tangent-deadband-primary-open-10` | V4, 0.25°, `--observe-primary-open-shorts` | 1× left whole-jaw endpoint refused (1.93 mm), 2× views disagree on short_left | −14.46→−14.75, −13.60→−13.62 |
+
+What the fold-frame summary of the recorded commands shows:
+
+- **V4 stalls the right short by construction.** In 6 of the 8 V4 strokes with commands, the right sensed
+  target sits 0.3–1.6 mm *behind* the actual jaw vertex along the fold
+  direction (mean fold gap −0.30 to −1.56 mm). With no lead and no retreat,
+  V4 commands nothing useful and the right flap does not move. The seed-1
+  prefix is the exception in both V4 batches (right advances ~4–5°).
+- **In 5 of those 6 stalled strokes the applied-contact log has no right
+  jaw/short contact at all** (the sixth touches at most 0.15 N). The CAD vertex
+  is reported past the sensed panel while not touching it, so the
+  right-side sensed target does not coincide with the physical panel surface.
+  Whether this is camera-registration bias on the right short or a contact
+  vertex that is not the jaw point nearest the panel is not yet established.
+  That is the next thing to diagnose, ahead of any further controller variant.
+- **V3 at 0.5° moved the right short further than V3 at 0.25°** (batch 09
+  versus 06: 3.3°/1.9°/0.4° against 0.9°/0.4°/0.0°). Three seeds per arm,
+  so this is a hint, not an established effect.
+- **The left short leaves both views near −7° to −8°** in 6 of 12 runs.
+  With strict primary-pixel open-short evidence (batch 10) the left short is
+  pushed furthest yet (to −3.6° and −4.6°), but then the two fresh views
+  disagree on it and the probe refuses. Seed 0 of that batch refused its left
+  entry for a 1.93 mm predicted wrist/short penetration.
+
+Summarize any run or batch in fold-frame terms (read-only, no physics replay):
+
+```sh
+PYTHONPATH=. .venv/bin/python -m tools.summarize_short_stroke_frames \
+  --run /absolute/batch-or-run [...] --out /absolute/summary.json
+```
+
+### Earlier update — whole-jaw normal approach and parallel run
 
 The latest full-prefix experiment is
 `/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-whole-jaw-normal-06`.
