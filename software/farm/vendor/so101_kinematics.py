@@ -1,4 +1,14 @@
-# Vendored from Vector-Wangel/XLeRobot software/src/model/SO101Robot.py (Apache-2.0); kinematics only.
+# Vendored from Vector-Wangel/XLeRobot software/src/model/SO101Robot.py @ b017b5e6 (Apache-2.0);
+# kinematics only. MODIFIED from upstream:
+#   - inverse_kinematics raises ValueError for unreachable targets and out-of-limit joints
+#     instead of scaling the target to the workspace boundary and clamping the joints;
+#   - forward_kinematics uses the forearm direction theta1 - theta2. Upstream has
+#     theta1 + theta2 - pi, which is wrong against the arm (its own IK, kept verbatim here,
+#     uses theta2 = pi - acos(.) and gamma(theta2), i.e. theta2 is the interior elbow angle,
+#     so the forearm points along theta1 - theta2). The corrected FK matches the SO-101
+#     MuJoCo twin (farm/sim/xlerobot_twin.py) to 0.1 mm; see tests/test_so101_kinematics_model.py.
+#   Angles are LeRobot degrees (0 at the middle of the calibration range); x forward, y up, metres,
+#   from the shoulder-lift axis to the wrist-flex axis.
 import math
 from typing import List, Tuple, Union
 import numpy as np
@@ -45,13 +55,19 @@ class SO101Kinematics:
         r_min = abs(l1 - l2)
         if r < r_min - 1e-10 or r > r_max + 1e-10 or r == 0:
             raise ValueError("Target outside the two-link workspace")
-        cos_delta = (r**2 - l1**2 - l2**2) / (2 * l1 * l2)
-        delta = math.acos(max(-1.0, min(1.0, cos_delta)))
-        # FK uses theta1 + theta2 - pi for the forearm direction. Therefore
-        # theta2 = pi - delta, not delta. The old inverse mixed these angles.
-        theta2 = math.pi - delta
+
+        # Use law of cosines to calculate theta2
+        cos_theta2 = -(r**2 - l1**2 - l2**2) / (2 * l1 * l2)
+
+        # Clamp cos_theta2 to valid range [-1, 1] to avoid domain errors
+        cos_theta2 = max(-1.0, min(1.0, cos_theta2))
+
+        # Calculate theta2 (elbow angle)
+        theta2 = math.pi - math.acos(cos_theta2)
+
+        # Calculate theta1 (shoulder angle)
         beta = math.atan2(y, x)
-        gamma = math.atan2(l2 * math.sin(delta), l1 + l2 * math.cos(delta))
+        gamma = math.atan2(l2 * math.sin(theta2), l1 + l2 * math.cos(theta2))
         theta1 = beta + gamma
         
         # Convert theta1 and theta2 to joint2 and joint3 angles
@@ -103,9 +119,11 @@ class SO101Kinematics:
         theta1 = joint2_rad - theta1_offset
         theta2 = joint3_rad - theta2_offset
         
-        # Match the upstream IK convention: theta2 = pi - delta.
-        x = l1 * math.cos(theta1) + l2 * math.cos(theta1 + theta2 - math.pi)
-        y = l1 * math.sin(theta1) + l2 * math.sin(theta1 + theta2 - math.pi)
+        # Forward kinematics calculations. MODIFIED from upstream, which has
+        # theta1 + theta2 - pi here: theta2 from the IK above is the interior
+        # elbow angle (pi - acos(.)), so the forearm points along theta1 - theta2.
+        x = l1 * math.cos(theta1) + l2 * math.cos(theta1 - theta2)
+        y = l1 * math.sin(theta1) + l2 * math.sin(theta1 - theta2)
         
         return x, y
 
