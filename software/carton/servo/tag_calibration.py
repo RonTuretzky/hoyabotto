@@ -54,6 +54,39 @@ def registration_offsets(joints, limits):
             'step_ticks': limits.step_ticks, 'radius_ticks': r}
 
 
+# Relay calls made by a registration run (qwen-bridge/test_tag_registration_contract.py checks this model):
+# each observed step = owner read, camera, owner read (frame bracket), status, move, status.
+CALLS_PER_STEP, CALLS_PER_POSE, CALLS_FIXED = 6, 4, 26
+
+
+def registration_timing(round_trip_s, limits=None, *, clock_offset_s=0.0, camera_latency_s=0.05,
+                        detect_s=0.05, owner_publish_age_s=0.1, move_s=0.55):
+    """Projected registration duration and freshness margins for a measured chat<->robot link.
+
+    clock_offset_s is the robot clock minus this Mac's clock. GemmaTransport accepts owner rows aged
+    0..status_age_s and frames aged 0..frame_age_s on this Mac's clock; neither limit is adjusted here.
+    """
+    limits = limits or Limits()
+    plan = registration_offsets(['a', 'b'], limits)
+    points = [tuple(p['offset_ticks'].values()) for p in plan['poses']]
+    steps = sum(-(-abs(b-a) // limits.step_ticks) for p, q in zip([(0, 0)]+points, points+[(0, 0)]) for a, b in zip(p, q))
+    poses = len(points)
+    calls = CALLS_PER_STEP*steps + CALLS_PER_POSE*poses + CALLS_FIXED
+    seconds = calls*round_trip_s + steps*(move_s+detect_s) + (poses+2)*detect_s
+    # Frame capture -> tag response (half trip) -> after-frame owner read -> status read -> command check.
+    frame_age = camera_latency_s + round_trip_s/2 + detect_s + 2*round_trip_s - clock_offset_s
+    status_age = (owner_publish_age_s + round_trip_s/2 - clock_offset_s, round_trip_s/2 - clock_offset_s)
+    return {'round_trip_s': round_trip_s, 'clock_offset_s': clock_offset_s, 'steps': steps, 'relay_calls': calls,
+            'projected_seconds': seconds, 'budget_seconds': limits.max_seconds,
+            'fits_time_budget': seconds <= limits.max_seconds,
+            'frame_age_at_command_s': frame_age, 'frame_age_limit_s': limits.frame_age_s,
+            'fits_frame_age': 0 <= frame_age <= limits.frame_age_s,
+            'owner_status_age_range_s': list(status_age), 'status_age_limit_s': limits.status_age_s,
+            'fits_status_age': status_age[1] >= 0 and status_age[0] <= limits.status_age_s,
+            'assumptions': {'camera_latency_s': camera_latency_s, 'tag_detection_s': detect_s,
+                            'owner_publish_age_s': owner_publish_age_s, 'owner_move_s': move_s}}
+
+
 def readiness(robot, config, *, clock=time.time):
     """Live read-only report; collect vision even when motor readiness fails."""
     tag_id = gripper_tag_for_arm(config['arm'], config.get('gripper_tag_id'))
@@ -89,16 +122,47 @@ def readiness(robot, config, *, clock=time.time):
     return report
 
 
+def _observe(experiment, after=0.0):
+    """Experiment.observe, taking the encoders from the observation's own after-frame owner read
+    instead of one more position read. Every relay round trip between the camera frame and the next
+    command counts against frame_age_s; the limit itself is unchanged."""
+    observation = experiment.observer.observe(after=after)
+    q = dict(experiment.transport.observed_q)
+    experiment.latest = (observation, q)
+    experiment.counter += 1
+    experiment.trace.write("observation", index=experiment.counter, features=observation.values.tolist(),
+                           captured_at=observation.captured_at, sequences=observation.sequences,
+                           streams=observation.streams, joints=q, points=observation.points)
+    if experiment.capture_evidence:
+        experiment.observer.evidence(experiment.trace.folder/f"frame-{experiment.counter:04d}", observation)
+    return observation, q
+
+
+def _step(experiment, joint, ticks):
+    """Experiment.move without its extra position read (see _observe). The transport's own fresh
+    status read still refuses any motion since the observation (3 ticks) before dispatching."""
+    observation, _ = experiment.latest
+    if not 0 <= experiment.clock()-observation.captured_at <= experiment.limits.frame_age_s:
+        raise Refused('Observation became stale before command dispatch')
+    experiment.trace.write('command', joint=joint, delta_ticks=ticks)
+    started = experiment.clock()
+    q, finished = experiment.transport.move(joint, ticks)
+    experiment.trace.write('acknowledgement', joint=joint, positions=q, duration_s=experiment.clock()-started)
+    return _observe(experiment, after=finished)
+
+
 def _move_to(experiment, targets):
+    """Observed steps of at most step_ticks; never below the owner's 3-tick minimum segment."""
+    minimum = getattr(experiment.transport, 'min_step_ticks', 1)
     for joint, target in targets.items():
         for _ in range(32):
-            q = experiment.transport.positions()
+            q = experiment.latest[1]  # measured right after the latest observation
             delta = round(target-q[joint])
-            if abs(delta) <= experiment.limits.settle_ticks:
+            if abs(delta) <= max(experiment.limits.settle_ticks, minimum-1):
                 break
             step = max(-experiment.limits.step_ticks, min(experiment.limits.step_ticks, delta))
             before = q[joint]
-            _, measured = experiment.move(joint, step)
+            _, measured = _step(experiment, joint, step)
             if (measured[joint]-before) * (1 if step > 0 else -1) < max(2, abs(step)*.4):
                 raise Refused('Registration step produced insufficient or wrong-way motion')
         else:
@@ -149,17 +213,19 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
                 transport.finish()
                 released = True
             else:
-                experiment.observe()
+                _observe(experiment)
                 captures = []
                 for i, pose in enumerate(plan['poses']):
                     targets = {j: transport.origin[j]+offset for j, offset in pose['offset_ticks'].items()}
                     _move_to(experiment, targets)
-                    experiment.observe()
+                    # Read-only FK status first: nothing may sit between the pose frame and the next step.
+                    arm_status = robot.call('robot_get_arm_pose', {'arm': config['arm']})
+                    _observe(experiment)
                     sample = copy.deepcopy(observer.capture)
                     if sample['sample'] is None:
                         raise Refused(f'Pose {i}: {sample["sample_rejection"]}')
                     sample['sample']['split'] = pose['split']
-                    sample['arm_geometry_status'] = robot.call('robot_get_arm_pose', {'arm': config['arm']})
+                    sample['arm_geometry_status'] = arm_status
                     captures.append(sample)
                     atomic_json(output/f'pose-{i:02d}.json', sample)
                 _move_to(experiment, {j: transport.origin[j] for j in transport.joints})

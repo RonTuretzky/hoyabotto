@@ -8,9 +8,29 @@ PHONE_CAMERA=Path('/Users/teachera/Documents/Codex/2026-10-05/m/work/phone_camer
 
 DIAGNOSTIC_REGISTERS=['Torque_Enable','Operating_Mode','Goal_Position','Goal_Time','Goal_Velocity','Acceleration','Torque_Limit','Max_Torque_Limit','Max_Temperature_Limit','P_Coefficient','I_Coefficient','D_Coefficient','CW_Dead_Zone','CCW_Dead_Zone','Minimum_Startup_Force','Protection_Current','Protective_Torque','Protection_Time','Overload_Torque','Over_Current_Protection_Time','Unloading_Condition','Lock']
 
+def recover_ports(buses,reason,state,now):
+ """This owner is the only, single-threaded user of its ports, so a port-busy reply (-1) can only be a flag the SDK
+ left set when a serial error interrupted a transaction. Clear it (reopening the port if its buffer cannot be reset)
+ so the next poll talks to the servos again instead of failing forever. Returns True if any port was recovered."""
+ if 'communication failure: -1' not in reason:return False
+ events=state.setdefault('port_recoveries',[]);recovered=False
+ for b in buses:
+  ph=getattr(b,'port_handler',None)
+  if ph is None or not getattr(ph,'is_using',False):continue
+  ph.is_using=False;recovered=True;outcome='cleared stale busy flag'
+  try:ph.ser.reset_input_buffer()
+  except Exception as e:
+   try:ph.ser.close();ph.ser.open();outcome=f'reopened port (buffer reset failed: {e})'
+   except Exception as e2:outcome=f'busy flag cleared; reopen failed: {e2}'
+  events.append({'time':now,'port':str(b.port),'outcome':outcome})
+ del events[:-16]
+ if recovered:state['port_recovery_count']=state.get('port_recovery_count',0)+1
+ return recovered
+
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep):
   self.read_only=read_only
+  self.soft_release_s=soft_release_s;self.sleep=sleep;self.writer=None  # writer(): persist self.state now (set by main)  # >0: STOP/faults ease torque off over this many seconds
   self.paddle_profile=paddle_profile
   self.motion_count=0
   if camera_metadata is None:camera_metadata=lambda:json.loads(PHONE_CAMERA.read_text())
@@ -18,7 +38,7 @@ class HardwareOwner:
   if paddle_profile:
    from paddle_camera_gate import PaddleCameraGate
    self.camera_gate=PaddleCameraGate(camera_metadata,clock=clock,wall=wall)
-  if paddle_profile and (read_only or not position_scope or any(not n.startswith("right_arm_") for n in position_scope)):raise ValueError("Pickup profile requires explicit right-arm scope")
+  if paddle_profile and (read_only or not position_scope or any(not n.startswith(("right_arm_","left_arm_")) for n in position_scope)):raise ValueError("Pickup profile requires an explicit arm scope")
   self.buses=buses;self.cal=calibration;self.telemetry=read_telemetry;self.clock=clock;self.wall=wall
   self.names=[n for b in buses for n in b.motors];self.by_name={n:b for b in buses for n in b.motors}
   all_position_names=[n for n in self.names if not n.startswith('base_')]
@@ -39,6 +59,7 @@ class HardwareOwner:
   self.state.setdefault('last_write_readbacks',{}).setdefault(n,{})[f]={'requested':v,'readback':actual,'time':self.wall()}
   if actual!=v:raise RuntimeError(n+': '+f+' readback mismatch')
  def inspect(self):
+  mismatched=set()
   for n in self.names:
    if self.read(n,'Torque_Enable')!=0:raise RuntimeError(n+': already powered before hardware-owner startup')
    self.limits[n]=[self.read(n,'Min_Position_Limit'),self.read(n,'Max_Position_Limit')]
@@ -48,7 +69,19 @@ class HardwareOwner:
     actual={f:self.read(n,f) for f in expected}
     if actual!=expected:
      self.state.setdefault('calibration_mismatches',{})[n]={'expected':expected,'actual':actual}
-     if n in self.commandable_names:raise RuntimeError(n+': saved calibration differs from hardware')
+     mismatched.add(n)
+  # An arm whose saved calibration does not match its servos stays read-only. With one arm in scope that is
+  # fatal (as before); with both arms the other arm keeps working and the reduction is reported.
+  bad=sorted({n.split('_arm_')[0] for n in mismatched if n in self.commandable_names and '_arm_' in n})
+  arms_in_scope={n.split('_arm_')[0] for n in self.position_names if '_arm_' in n}
+  if mismatched&self.commandable_names and (len(arms_in_scope)<2 or not self.paddle_profile or set(bad)>=arms_in_scope or any('_arm_' not in n for n in mismatched&self.commandable_names)):
+   raise RuntimeError(sorted(mismatched&self.commandable_names)[0]+': saved calibration differs from hardware')
+  for arm in bad:
+   dropped=[n for n in self.position_names if n.startswith(arm+'_arm_')]
+   self.position_names=[n for n in self.position_names if n not in dropped];self.commandable_names-=set(dropped)
+   for n in dropped:self.ranges.pop(n,None)
+   self.state.setdefault('scope_reduced',{})[arm]={'reason':'saved calibration differs from hardware','motors':sorted(n for n in mismatched if n.startswith(arm+'_arm_'))}
+  if bad:self.state.update(supportsselectedjoints=self.position_names,commandable_motors=sorted(self.commandable_names),read_only_motors=[n for n in self.names if n not in self.commandable_names],ranges=self.ranges,pickup_required_enabled_motors=self.position_names)
   self.state['released_register_diagnostics']={n:self.register_diagnostics(n) for n in self.names if n.endswith('gripper')}
   self.poll()
   n='right_arm_gripper'
@@ -125,7 +158,8 @@ class HardwareOwner:
   return type(stamp) in (int,float) and math.isfinite(stamp) and 0<=self.wall()-stamp<10 and d.get('seq') is not None
  def publish(self):
   if not(self.engine and self.engine.active):self.state['phase']='holding' if self.enabled else 'idle'
-  self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals=self.goals,lease_remaining=max(0,self.lease-self.clock()),stop_latched=False)
+  # Goals only mean something while a motor holds; a released motor's old goal is never reused (enable re-reads the encoder).
+  self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals={n:g for n,g in self.goals.items() if n in self.enabled},lease_remaining=max(0,self.lease-self.clock()),stop_latched=False)
  def enable(self,names,enabled):
   if not isinstance(names,list) or not names or len(set(names))!=len(names) or not set(names)<=set(self.names) or type(enabled)is not bool:raise ValueError('Select known distinct motor names and boolean enabled')
   if not enabled:
@@ -175,10 +209,35 @@ class HardwareOwner:
   if n in self.old:
    for f in ['Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient','Lock']:self.write(n,f,self.old[n][f])
    self.old.pop(n)
+ def soften(self):
+  """Hold every enabled joint where it is, then lower its torque limit to zero in steps, so a gravity-loaded
+  arm settles instead of dropping. Returns None, or the error that made it fall back to an immediate release."""
+  names=sorted(self.enabled)
+  try:
+   for n in names:
+    q=self.read(n,'Present_Position')
+    if n in self.ranges:lo,hi=self.ranges[n];q=max(lo+4,min(hi-4,q))
+    self.write(n,'Goal_Position',q);self.goals[n]=q
+   start={n:self.read(n,'Torque_Limit') for n in names};steps=10
+   for k in range(1,steps+1):
+    for n in names:self.write(n,'Torque_Limit',int(start[n]*(steps-k)/steps))
+    self.state['releasing']=True;self.publish()
+    if self.writer:self.writer()  # keep status.json fresh through the 2 s ramp, so clients wait for the real stop reason
+    self.sleep(self.soft_release_s/steps)
+   self.state['releasing']=False
+   return None
+  except Exception as e:return str(e)
  def release_all(self,reason,record=True):
   # Releases every enabled motor and cancels any move; nothing re-enables or resumes until an explicit enable_motors. No latch.
   errors=[]
   if isinstance(self.engine,WheelPulseExecutor) and (self.engine.active or self.engine.powered):errors+=self.engine.abort() # moving base first
+  if self.engine:self.engine.active=False  # stop advancing before easing off
+  # Ease torque off unless the bus itself failed (those writes would fail too).
+  soft=self.soft_release_s>0 and self.enabled and 'communication failure' not in reason
+  if soft:
+   problem=self.soften();self.state['releasing']=False
+   self.state['last_release_mode']='soft' if problem is None else 'immediate (soft release failed: '+problem+')'
+  elif self.enabled:self.state['last_release_mode']='immediate'
   for n in list(self.enabled):
    try:self.release(n)
    except Exception as e:errors.append(str(e))
@@ -248,7 +307,8 @@ class HardwareOwner:
   candidate=executor(list(positions),{n:self.ranges[n] for n in positions},self.setpoints,clock=self.clock,wall=self.wall)
   current={n:self.rows[n]['Present_Position'] for n in positions}
   if self.paddle_profile:
-   if set(self.position_names)!=self.enabled:raise ValueError('Pickup requires all six right-arm motors explicitly enabled')
+   arms={n.split('_arm_')[0] for n in positions};required={n for n in self.position_names if n.split('_arm_')[0] in arms}
+   if not required<=self.enabled:raise ValueError('Pickup requires all six '+'/'.join(sorted(arms))+'-arm motors explicitly enabled: '+', '.join(sorted(required-self.enabled)))
    if not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
   update=candidate.start(c,current,session_started=self.started,**({'held_goals':self.goals} if self.paddle_profile else {}))
   if self.paddle_profile:self.motion_count+=1
@@ -284,10 +344,27 @@ def main():
  last=None
  try:
   ownership=ServoOwnership([b.port for b in buses]).acquire()
-  for b in buses:guard_replies(b);b.connect(handshake=False)
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv);owner.inspect();atomic(folder/'status.json',owner.state)
+  # A motor bus that does not connect or whose servos do not answer is left out (with --allow-missing-bus):
+  # the owner runs the other bus (e.g. right arm + wheels) and reports the missing one instead of refusing to start.
+  missing=[];live=[]
+  for b in buses:
+   try:
+    guard_replies(b);b.connect(handshake=False)
+    for n in b.motors:b.read('Torque_Enable',n,normalize=False,num_retry=2)
+    live.append(b)
+   except Exception as e:
+    if '--allow-missing-bus' not in sys.argv:raise
+    missing.append({'port':str(b.port),'motors':sorted(b.motors),'error':str(e)[:300]})
+    try:
+     if b.is_connected:b.disconnect(disable_torque=False)
+    except Exception:pass
+  if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
+  if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)  # before any check that needs it
+  buses=live
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
+  owner.state['missing_buses']=missing
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
-  print('Hardware owner ready:16 motor reads, all torque off.',flush=True)
+  print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)
   while not stop.is_set():
    try:owner.poll()
    except RuntimeError as e:
@@ -299,6 +376,9 @@ def main():
     owner.state['fault_at']=time.time()
     owner.release_all(str(e))
     print('Hardware command stopped: '+str(e),flush=True)
+    if recover_ports(buses,str(e),owner.state,time.time()):
+     print('Hardware owner: cleared a servo port left busy by an interrupted transaction',flush=True)
+     if owner.enabled:owner.release_all('Releasing motors left powered while the servo port was stuck')
    p=folder/'command.json'
    if p.exists():
     c=json.loads(p.read_text())

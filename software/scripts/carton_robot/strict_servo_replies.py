@@ -33,7 +33,14 @@ def guard_replies(bus):
         if not port.is_using:
             instruction = packet[4]
             expected["length"] = packet[6] if instruction in (INST_READ, INST_SYNC_READ) else 0
-        return old_tx(port, packet)
+        try:
+            return old_tx(port, packet)
+        except Exception as exc:
+            # A serial error mid-write (USB glitch) skips the SDK's own reset, and the stuck
+            # is_using flag would turn every later transaction into an instant port-busy (-1).
+            port.is_using = False
+            record("serial exception during write", error=f"{type(exc).__name__}: {exc}")
+            raise
 
     def rx(port):
         try:
@@ -42,6 +49,10 @@ def guard_replies(bus):
             port.is_using = False
             record("malformed status packet")
             return [], COMM_RX_CORRUPT
+        except Exception as exc:
+            port.is_using = False  # same as tx: never leave the port marked busy after a serial error
+            record("serial exception during read", error=f"{type(exc).__name__}: {exc}")
+            raise
         if result != COMM_SUCCESS:
             # Preserve the SDK failure and bounded bytes; do not retry, flush,
             # reinterpret it as success, or attribute it to USB without evidence.

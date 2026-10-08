@@ -2,6 +2,15 @@
 
 No device connection, owner startup, STOP reset or limit changes. The caller
 must serialize this experiment with other motion clients (see calibration.py).
+
+Contract with today's robot server (qwen-bridge, paddle-success-v1 owner; checked by
+qwen-bridge/test_tag_registration_contract.py):
+- every move needs all six motors of the arm enabled, so the jaw is enabled and held, never moved;
+- each commanded joint must travel 3..341 ticks (the server answers a <=2-tick target with a no-op);
+- robot_get_execution carries the owner's own 16 telemetry rows, so one call gives a consistent
+  phase/marker/encoder snapshot (fewer relay round trips between a camera frame and the next command);
+- there is no STOP latch: a STOP or owner fault returns the owner to idle with motors released and
+  bumps stop_count; STOP and faults ease torque off over about 2 s before release is confirmed.
 """
 from __future__ import annotations
 
@@ -13,6 +22,10 @@ import numpy as np
 from .common import Limits, Observation, Refused, atomic_json, finite
 from farm.perception.tag_sampling import ARM_JOINTS, HEAD_JOINTS, gripper_tag_for_arm, stationary_sample
 
+MIN_STEP_TICKS = 3        # owner: each joint in a move travels 3..341 ticks; <=2 is answered as a no-op
+MOVE_DURATION_S = 0.4     # one <=16-tick step; the pickup owner ramps at most 40 ticks per >=0.4 s interval
+RELEASE_CONFIRM_S = 8.0   # STOP/fault release eases torque off over ~2 s; keep reading this long for torque-zero
+
 
 def result(payload, tool):
     if not isinstance(payload, dict) or payload.get('ok') is not True or not isinstance(payload.get('result'), dict):
@@ -22,15 +35,20 @@ def result(payload, tool):
 
 class GemmaTransport:
     """One-joint steps through robot_move_motor_targets, with measured readback."""
+    min_step_ticks = MIN_STEP_TICKS
+
     def __init__(self, robot, arm, joints, limits=None, *, execute=False, clock=time.time):
         if arm not in ('left', 'right'):
             raise Refused('Choose an explicit arm')
         self.robot, self.arm, self.clock = robot, arm, clock
         self.limits, self.execute = limits or Limits(), execute
         self.arm_names = [f'{arm}_arm_{n}' for n in ARM_JOINTS]
-        self.hold_names = self.arm_names[:-1]  # No jaw motion, head or wheel enable.
+        self.position_names = self.arm_names[:-1]
+        # The pickup-profile owner refuses any move unless all six motors of the arm are enabled.
+        # The jaw is therefore enabled and held where it is; it is never a calibration joint.
+        self.hold_names = list(self.arm_names)
         self.joints = [n if n.startswith(f'{arm}_arm_') else f'{arm}_arm_{n}' for n in joints]
-        if not self.joints or len(set(self.joints)) != len(self.joints) or any(n not in self.hold_names for n in self.joints):
+        if not self.joints or len(set(self.joints)) != len(self.joints) or any(n not in self.position_names for n in self.joints):
             raise Refused('Select distinct positioning joints of the confirmed arm; no jaws, head or wheels')
         self.started = self.origin = self.ranges = self.last_marker = None
         self.path_ticks = self.commands_sent = 0
@@ -51,25 +69,23 @@ class GemmaTransport:
             raise Refused('Need the existing healthy direct-joint owner')
         if s.get('phase') not in ('idle', 'holding') or s.get('stop_latched') is not False or s.get('operator_armed') is not True:
             raise Refused(f'Owner is not stationary and armed: {s.get("root_failure") or s.get("phase")}')
-        marker = (s.get('accepted'), s.get('completed'), s.get('motor_writes'))
+        # No STOP latch: a STOP or fault shows up only as a new stop record and a released, idle owner.
+        marker = (s.get('accepted'), s.get('completed'), s.get('motor_writes'), s.get('stop_count'))
         if self.last_marker is not None and marker != self.last_marker:
-            raise Refused('Another command or motor write occurred during calibration')
+            raise Refused(f'Another command, STOP or motor write occurred during calibration: {s.get("last_stop")}')
         self.started, self.last_marker, self.last_execution = started, marker, s
         return s
 
-    def read_state(self):
-        payload = self.robot.call('robot_get_state', {'fresh': True})
-        state = result(payload, 'robot_get_state')
-        if state.get('cached') is not False:
-            raise Refused('Need uncached encoder telemetry')
-        rows = state.get('motors', [])
+    def _rows(self, rows):
+        """Validate one owner snapshot of all sixteen motors; return measured ticks."""
         if len(rows) != 16 or len({r.get('name') for r in rows}) != 16:
             raise Refused('Need distinct telemetry for all sixteen motors')
         q = {}
         for row in rows:
             name = row['name']
-            if (not 0 <= self.clock()-finite(row.get('captured_at'), 'encoder timestamp') <= self.limits.status_age_s
-                    or type(row.get('Present_Position')) is not int or row.get('Status') != 0
+            if not 0 <= self.clock()-finite(row.get('captured_at'), 'encoder timestamp') <= self.limits.status_age_s:
+                raise Refused(f'Motor telemetry is stale or host clocks differ: {name}')
+            if (type(row.get('Present_Position')) is not int or row.get('Status') != 0
                     or row.get('Moving') != 0 or abs(finite(row.get('Present_Velocity'))) > 1
                     or abs(finite(row.get('Present_Load'))) >= self.limits.load_raw):
                 raise Refused(f'Unsettled, stale or faulty motor telemetry: {name}')
@@ -79,6 +95,24 @@ class GemmaTransport:
             q[name] = row['Present_Position']
         if any(n not in q for n in self.arm_names + list(HEAD_JOINTS)):
             raise Refused('Missing selected arm/head encoders')
+        if self.ranges is not None:
+            for n in self.hold_names:
+                if not self.ranges[n]['min_ticks'] <= q[n] <= self.ranges[n]['max_ticks']:
+                    raise Refused(f'{n}: {q[n]} outside commandable range {self.ranges[n]["min_ticks"]}..{self.ranges[n]["max_ticks"]}')
+        if self.origin is not None:
+            for n in q:
+                bound = self.limits.trust_ticks + self.limits.settle_ticks if n in self.joints else 3
+                if abs(q[n]-self.origin[n]) > bound:
+                    raise Refused(f'{n}: uncommanded drift or local envelope exceeded')
+        if self.observed_q is not None and any(abs(q[n]-self.observed_q[n]) > 3 for n in q):
+            raise Refused('Robot moved after the camera observation')
+        return q
+
+    def read_state(self):
+        payload = self.robot.call('robot_get_state', {'fresh': True})
+        state = result(payload, 'robot_get_state')
+        if state.get('cached') is not False:
+            raise Refused('Need uncached encoder telemetry')
         ranges = state.get('commandable_ranges')
         if not isinstance(ranges, dict) or any(n not in ranges for n in self.arm_names):
             raise Refused('Missing commandable ranges')
@@ -87,28 +121,26 @@ class GemmaTransport:
         raw_ranges = state.get('raw_calibration_ranges')
         if not isinstance(raw_ranges, dict) or (self.raw_ranges is not None and raw_ranges != self.raw_ranges):
             raise Refused('Saved calibration ranges missing or changed')
-        for n in self.hold_names:
-            if not ranges[n]['min_ticks'] <= q[n] <= ranges[n]['max_ticks']:
-                raise Refused(f'{n}: {q[n]} outside commandable range {ranges[n]["min_ticks"]}..{ranges[n]["max_ticks"]}')
-        if self.origin is not None:
-            for n in q:
-                bound = self.limits.trust_ticks + self.limits.settle_ticks if n in self.joints else 3
-                if abs(q[n]-self.origin[n]) > bound:
-                    raise Refused(f'{n}: uncommanded drift or local envelope exceeded')
-        if self.observed_q is not None and any(abs(q[n]-self.observed_q[n]) > 3 for n in q):
-            raise Refused('Robot moved after the camera observation')
-        self.raw_ranges = raw_ranges
-        self.ranges, self.last_state = ranges, payload
+        self.ranges, self.raw_ranges = ranges, raw_ranges
+        q = self._rows(state.get('motors', []))
+        self.last_state = payload
         return payload, q
 
     def status(self):
+        """One robot_get_execution call: owner phase, command marker and its own 16 telemetry rows together."""
         if self.clock() > self.deadline:
             raise Refused('Calibration time budget exhausted')
-        self._execution()
-        payload, q = self.read_state()
-        s = self._execution()  # Detect a concurrent command across the read bracket.
+        if self.ranges is None:
+            self.read_state()
+        s = self._execution()
+        rows = s.get('rows')
+        if not isinstance(rows, dict) or s.get('hardware_server') is not True:
+            raise Refused('Owner execution status lacks its own telemetry rows')
+        q = self._rows([dict(row, name=name) for name, row in rows.items()])
         if s['phase'] != ('holding' if self.enabled else 'idle'):
             raise Refused('Owner phase disagrees with the verified motor enable state')
+        if sorted(s.get('enabled_motors') or []) != (sorted(self.hold_names) if self.enabled else []):
+            raise Refused(f'Owner enabled motors differ from this calibration: {s.get("enabled_motors")}')
         if self.origin is None:
             self.origin = q.copy()
         return s, q
@@ -125,26 +157,31 @@ class GemmaTransport:
         blockers = {n: v for n, v in caps.get('joint_blockers', {}).items() if n in self.hold_names and v}
         if blockers:
             raise Refused(f'Selected arm blockers: {blockers}')
+        if self.ranges is None:
+            self.read_state()
         s, q = self.status()
         if s.get('enabled_motors'):
             raise Refused('Calibration must start with all motors released and other motion clients idle')
         return {'arm': self.arm, 'joints': self.joints,
                 # Experiment.align expects raw ranges and applies its own 4 tick margin.
                 'ranges': {n: [v['min_ticks']-4, v['max_ticks']+4] for n, v in self.ranges.items()},
-                'origin': q, 'owner_started': self.started, 'commandable_ranges': self.ranges}
+                'origin': q, 'owner_started': self.started, 'commandable_ranges': self.ranges,
+                'execution_profile': s.get('execution_profile')}
 
     def _acknowledge(self, payload, tool):
         ack = result(payload, tool)
-        if (ack.get('accepted') is not True or ack.get('completed') is not True
-                or ack.get('owner_started') != self.started or type(ack.get('command_id')) is not int):
+        if ack.get('accepted') is not True or ack.get('completed') is not True:
+            outcome = ack.get('closure_outcome') or ack.get('reason')
+            raise Refused(f'{tool}: no measured completion from the bound owner ({outcome}); readbacks {ack.get("readbacks")}')
+        if ack.get('owner_started') != self.started or type(ack.get('command_id')) is not int:
             raise Refused(f'{tool}: missing measured completion from the bound owner')
         if not 0 <= self.clock()-finite(ack.get('owner_status_time'), 'completion timestamp') <= self.limits.status_age_s:
             raise Refused('Command completion is stale')
         self.last_marker = None
-        state = self._execution()
+        state, q = self.status()
         if state.get('completed') != ack['command_id']:
             raise Refused('Owner completion was replaced by another command')
-        return ack
+        return ack, q
 
     def enable(self):
         if not self.execute:
@@ -153,18 +190,18 @@ class GemmaTransport:
         if any(abs(q[n]-self.origin[n]) > 3 for n in q):
             raise Refused('Robot moved from the observed starting pose before enabling')
         self.write_attempted = True
-        ack = self._acknowledge(self.robot.call('robot_set_motor_enable',
-            {'names': self.hold_names, 'enabled': True}), 'robot_set_motor_enable')
+        payload = self.robot.call('robot_set_motor_enable', {'names': self.hold_names, 'enabled': True})
+        ack = result(payload, 'robot_set_motor_enable')
         if ack.get('readbacks') != {n: 1 for n in self.hold_names}:
-            raise Refused('Enable did not confirm exactly the selected positioning motors')
+            raise Refused(f'Enable did not confirm exactly the six motors of the selected arm: {str(ack)[:500]}')
         self.enabled = True
-        self.status()
+        self._acknowledge(payload, 'robot_set_motor_enable')
 
     def move(self, joint, ticks):
         if not self.execute or not self.enabled:
             raise Refused('Motor execution is disabled')
-        if joint not in self.joints or type(ticks) is not int or not 0 < abs(ticks) <= 68:
-            raise Refused('Invalid single positioning-joint step')
+        if joint not in self.joints or type(ticks) is not int or not self.min_step_ticks <= abs(ticks) <= 68:
+            raise Refused(f'Invalid single positioning-joint step (owner moves {self.min_step_ticks}..68 ticks per command)')
         s, before = self.status()
         goal = before[joint] + ticks
         bounds = self.ranges[joint]
@@ -180,33 +217,50 @@ class GemmaTransport:
         self.commands_sent += 1
         self.path_ticks += abs(ticks)
         self.observed_q = self.observed_at = None
-        ack = self._acknowledge(self.robot.call('robot_move_motor_targets',
-            {'positions': {joint: goal}, 'duration_s': 1.0}), 'robot_move_motor_targets')
+        ack, after = self._acknowledge(self.robot.call('robot_move_motor_targets',
+            {'positions': {joint: goal}, 'duration_s': MOVE_DURATION_S}), 'robot_move_motor_targets')
         if self.clock()-start > self.limits.command_timeout_s:
             raise Refused('Motor command exceeded calibration timeout')
-        _, after = self.status()
         if abs(after[joint]-goal) > self.limits.settle_ticks:
-            raise Refused('Command completed but measured endpoint misses calibration tolerance')
+            raise Refused(f'Command completed but measured endpoint misses calibration tolerance: {joint} {after[joint]} vs {goal}')
         if any(abs(after[n]-before[n]) > 3 for n in before if n != joint):
             raise Refused('Uncommanded motor drifted during the step')
         if joint not in ack.get('readbacks', {}) or abs(ack['readbacks'][joint]-after[joint]) > self.limits.settle_ticks:
             raise Refused('Completion and fresh encoder readback disagree')
         return after, self.clock()
 
+    def _released(self, rows):
+        return len(rows) == 16 and all(r.get('Torque_Enable') == 0 and 0 <= self.clock()-finite(r.get('captured_at')) <= self.limits.status_age_s
+                                       for r in rows)
+
     def finish(self, failed=False):
         if not self.write_attempted:
             return
         if failed:
-            self.cleanup = self.robot.call('robot_stop', {})
+            # STOP releases everything; the owner eases torque off over ~2 s first. Confirm from fresh reads.
+            self.enabled = False
+            payload = self.robot.call('robot_stop', {})
+            stop = payload.get('result') if isinstance(payload, dict) and isinstance(payload.get('result'), dict) else {}
+            confirmed = payload.get('ok') is True and stop.get('release_confirmed') is True
+            deadline = self.clock() + RELEASE_CONFIRM_S
+            for _ in range(40):
+                if confirmed or self.clock() > deadline:
+                    break
+                try:
+                    state = result(self.robot.call('robot_get_state', {'fresh': True}), 'robot_get_state')
+                    confirmed = state.get('cached') is False and not state.get('enabled_motors') and self._released(state.get('motors', []))
+                except (Refused, ValueError, KeyError, TypeError):
+                    pass
+            self.cleanup = {'release_confirmed': confirmed, 'stop': {k: stop.get(k) for k in (
+                'stop_requested', 'release_confirmed', 'release_reason', 'release', 'owner_phase', 'release_errors') if k in stop},
+                'owner_started': self.started}
             return
-        self._acknowledge(self.robot.call('robot_set_motor_enable',
-            {'names': self.hold_names, 'enabled': False}), 'robot_set_motor_enable')
+        payload = self.robot.call('robot_set_motor_enable', {'names': self.hold_names, 'enabled': False})
         self.enabled = False
+        self._acknowledge(payload, 'robot_set_motor_enable')
         # Releasing may allow gravity movement; require fresh torque-zero, not a pose hold.
-        payload = result(self.robot.call('robot_get_state', {'fresh': True}), 'robot_get_state')
-        rows = payload.get('motors', [])
-        if (payload.get('cached') is not False or len(rows) != 16 or len({r.get('name') for r in rows}) != 16
-                or any(r.get('Torque_Enable') != 0 or not 0 <= self.clock()-finite(r.get('captured_at')) <= self.limits.status_age_s for r in rows)):
+        state = result(self.robot.call('robot_get_state', {'fresh': True}), 'robot_get_state')
+        if state.get('cached') is not False or not self._released(state.get('motors', [])) or len({r.get('name') for r in state['motors']}) != 16:
             raise Refused('Fresh all-sixteen release confirmation missing')
         self.cleanup = {'release_confirmed': True, 'owner_started': self.started}
 
@@ -227,6 +281,12 @@ class GemmaTagObserver:
         following, _ = self.transport.read_state()
         frame = row.get('frame', {})
         stamp = finite(frame.get('captured_at'), 'camera capture time')
+        # On a link faster than the owner's poll the second read can repeat the first snapshot; read again
+        # (bounded) until the owner has sampled every motor after the frame. No limit is relaxed.
+        for _ in range(4):
+            if min(r['captured_at'] for r in following['result']['motors']) >= stamp:
+                break
+            following, _ = self.transport.read_state()
         if (frame.get('timestamp_basis') != 'capture' or not frame.get('stream_id')
                 or not 0 <= self.clock()-stamp <= self.transport.limits.frame_age_s or stamp <= after):
             raise Refused('Need a fresh camera capture after the measured movement')

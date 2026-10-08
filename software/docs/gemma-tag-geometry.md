@@ -78,6 +78,29 @@ Create `.private/apriltag-geometry.json` beside the pilot's existing `robot.json
 }
 ```
 
+For `robot_get_paddle_target` the same file may carry an optional `paddle_grasp`
+section. Start it exactly like this and leave the values `null` until they are
+measured; while a block says `"unmeasured"` the tool returns the tag 3 pose only:
+
+```json
+"paddle_grasp": {
+  "arm": "right",
+  "tag_id": 3,
+  "tag_to_handle": {"status": "unmeasured", "handle_center_mm": null,
+                    "approach_direction": null, "jaw_closing_axis": null,
+                    "tolerance_mm": null, "source": null},
+  "jaw_contact": {"status": "unmeasured", "gripper_from_jaw_contact": null,
+                  "tolerance_mm": null, "source": null},
+  "pregrasp_standoff_mm": 60
+}
+```
+
+The fields and their frames are described in
+[the paddle target section](gemma-automatic-calibration.md#paddle-target-read-only).
+`paddle_grasp` is left out of the geometry fingerprint, so recording or
+correcting these offsets does not invalidate a registration. Changing tag
+widths, mounts or camera IDs still does.
+
 These example widths are not evidence that a particular print has those sizes.
 Measure the black outer square, excluding the white border. Width error scales
 the recovered distance. Configuration is local; model tool arguments cannot

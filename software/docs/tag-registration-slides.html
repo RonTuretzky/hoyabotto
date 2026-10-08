@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AprilTag registration: from today to "Qwen reaches the paddle"</title>
+<style>
+  :root {
+    --ink: #f4f6ed;
+    --text: #dce5dc;
+    --muted: #aebbb3;
+    --night: #07100d;
+    --panel: rgba(255, 255, 255, .035);
+    --line: rgba(226, 239, 221, .14);
+    --lime: #c9f65b;
+    --mint: #72e2b0;
+    --aqua: #5ed6de;
+    --amber: #ffc56e;
+    --coral: #ff8a70;
+    --code-bg: rgba(0, 0, 0, .35);
+    --shadow: 0 22px 80px rgba(0, 0, 0, .34);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 16% 8%, rgba(93, 173, 126, .17), transparent 28%),
+      radial-gradient(circle at 90% 90%, rgba(55, 135, 138, .14), transparent 28%),
+      var(--night);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; }
+  .deck { height: 100%; width: 100%; position: relative; }
+  .slide {
+    position: absolute; inset: 0;
+    display: grid; grid-template-rows: auto 1fr auto;
+    gap: clamp(10px, 1.6vh, 22px);
+    padding: clamp(24px, 3.6vw, 56px) clamp(26px, 5vw, 84px) clamp(50px, 6vh, 74px);
+    opacity: 0; visibility: hidden;
+    transform: translateX(34px) scale(.992);
+    transition: opacity .38s ease, transform .48s cubic-bezier(.2,.8,.2,1), visibility .38s;
+    pointer-events: none; overflow: auto;
+  }
+  .slide.active { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+  .slide.leaving { transform: translateX(-34px) scale(.992); }
+  .slide::before {
+    content: ""; position: absolute; inset: 14px;
+    border: 1px solid rgba(226, 239, 221, .07); border-radius: 24px; pointer-events: none;
+  }
+  .kicker { color: var(--mint); font-size: 12px; font-weight: 750; letter-spacing: .18em; text-transform: uppercase; }
+  .eyebrow { display: flex; align-items: center; gap: 11px; }
+  .eyebrow::before { content: ""; width: 28px; height: 2px; background: var(--lime); }
+  h1, h2, h3, p { margin: 0; }
+  h1 { font-size: clamp(42px, 6.4vw, 96px); line-height: .93; letter-spacing: -.055em; max-width: 13ch; }
+  h2 { font-size: clamp(26px, 3.1vw, 48px); line-height: 1.02; letter-spacing: -.035em; }
+  h3 { font-size: clamp(12px, .95vw, 14px); color: var(--mint); text-transform: uppercase; letter-spacing: .1em; margin: 12px 0 6px; }
+  h3:first-child { margin-top: 0; }
+  p, li { font-size: clamp(12px, 1.02vw, 15.5px); line-height: 1.45; color: var(--muted); }
+  b, strong { color: var(--text); }
+  ul, ol { margin: 0; padding-left: 1.25em; }
+  li { margin: 3px 0; }
+  .accent { color: var(--lime); }
+  .lead { max-width: 980px; font-size: clamp(16px, 1.7vw, 25px); line-height: 1.4; color: var(--text); }
+  .small { font-size: 12px; color: var(--muted); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { font-size: .9em; color: var(--text); background: var(--code-bg); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+  pre {
+    margin: 6px 0; padding: 9px 12px; background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 10px; font-size: clamp(10.5px, .82vw, 12.5px); line-height: 1.5; color: var(--text);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .body { min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+  .title-meta { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+  .pill { border: 1px solid var(--line); color: var(--text); border-radius: 999px; padding: 8px 13px; font-size: 12px; letter-spacing: .03em; background: var(--panel); }
+  .grid-2, .grid-3 { display: grid; gap: clamp(12px, 1.4vw, 20px); }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .card {
+    border: 1px solid var(--line);
+    background: linear-gradient(150deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+    border-radius: 16px; padding: clamp(13px, 1.4vw, 20px); box-shadow: var(--shadow);
+  }
+  .card.ok { border-top: 3px solid var(--mint); }
+  .card.blocked { border-top: 3px solid var(--amber); }
+  .card.missing { border-top: 3px solid var(--coral); }
+  .card h3 { margin-top: 0; }
+
+  /* Step slides */
+  .step-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: clamp(10px, 1.4vh, 18px); }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 5px 11px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line); color: var(--text); }
+  .badge.owner { border-color: var(--amber); color: var(--amber); }
+  .badge.agent { border-color: var(--aqua); color: var(--aqua); }
+  .badge.both { border-color: var(--lime); color: var(--lime); }
+  .badge.exists { background: rgba(114,226,176,.12); border-color: var(--mint); color: var(--mint); }
+  .badge.build { background: rgba(255,138,112,.12); border-color: var(--coral); color: var(--coral); }
+  .badge.manual { background: rgba(255,197,110,.10); border-color: var(--amber); color: var(--amber); }
+  .badge.time { color: var(--muted); }
+  .cols { display: grid; grid-template-columns: 1.25fr .95fr; gap: clamp(14px, 1.8vw, 28px); align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 14px; padding: clamp(11px, 1.2vw, 16px); background: var(--panel); }
+  .panel + .panel { margin-top: 12px; }
+  .panel.done { border-left: 3px solid var(--mint); }
+  .panel.risk { border-left: 3px solid var(--coral); }
+  .panel.build { border-left: 3px solid var(--coral); background: rgba(255,138,112,.05); }
+  .why { color: var(--text); }
+  .note { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--line); font-size: clamp(11.5px, .95vw, 14.5px); line-height: 1.38; color: var(--muted); }
+  th { color: var(--mint); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  td:first-child { color: var(--text); }
+
+  .diagram { width: 100%; max-height: 58vh; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid; }
+
+  .checklist { columns: 2; column-gap: 34px; list-style: none; padding: 0; margin: 0; }
+  .checklist li { break-inside: avoid; display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .checklist li::before { content: ""; width: 14px; height: 14px; border: 2px solid var(--lime); border-radius: 3px; margin-top: 3px; }
+
+  .footer { display: flex; justify-content: space-between; align-items: center; color: #77877e; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+  .controls { position: fixed; z-index: 20; right: 28px; bottom: 21px; display: flex; align-items: center; gap: 9px; }
+  .nav-btn { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: rgba(7,16,13,.8); cursor: pointer; transition: .2s ease; }
+  .nav-btn:hover { background: var(--lime); color: var(--night); transform: translateY(-2px); }
+  .counter { min-width: 56px; text-align: center; color: var(--muted); font: 600 11px ui-monospace, monospace; }
+  .progress { position: fixed; z-index: 20; left: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, var(--lime), var(--aqua)); transition: width .35s ease; }
+  .help { position: fixed; z-index: 20; left: 28px; bottom: 25px; color: #687970; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+  .footer .pg { visibility: hidden; }
+
+  @media (max-width: 900px) {
+    .cols, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .checklist { columns: 1; }
+  }
+  @media (max-width: 560px) {
+    html, body { overflow: auto; }
+    .slide { position: relative; display: none; min-height: 100vh; padding: 28px 20px 78px; }
+    .slide.active { display: grid; }
+    .help { display: none; }
+  }
+  @page { size: A4 landscape; margin: 9mm; }
+  @media print {
+    :root {
+      --ink: #111; --text: #111; --muted: #333; --night: #fff; --panel: #fff;
+      --line: #c8c8c8; --lime: #3d6b00; --mint: #08664a; --aqua: #06656c;
+      --amber: #8a5300; --coral: #a3341b; --code-bg: #f1f1f1; --shadow: none;
+    }
+    html, body { height: auto; overflow: visible; background: #fff !important; }
+    .slide {
+      position: relative; display: grid !important; opacity: 1 !important; visibility: visible !important;
+      transform: none !important; height: auto; min-height: 0; overflow: visible;
+      padding: 6mm 4mm; page-break-after: always; break-after: page;
+    }
+    .slide::before { display: none; }
+    .controls, .progress, .help { display: none; }
+    .card { background: #fff; }
+    .footer { color: #555; }
+    .footer .pg { visibility: visible; }
+    .cols { grid-template-columns: 1.25fr .95fr; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .checklist { columns: 2; }
+    p, li { font-size: 11px; }
+    pre { font-size: 9.5px; }
+    th, td { font-size: 10.5px; }
+    h2 { font-size: 26px; }
+    .diagram { max-height: none; }
+    svg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- 01 Title -->
+<section class="slide active">
+  <div class="kicker eyebrow">XLeRobot · right arm · AprilTag camera-to-arm registration</div>
+  <div class="body">
+    <h1>Tags that become <span class="accent">arm targets.</span></h1>
+    <p class="lead" style="margin-top:24px">This deck covers each step from today's state to Qwen asking for the paddle's pose in the right arm's frame and moving toward it. Today, <code>robot_get_registered_tags</code> fails because no camera-to-arm registration has ever been fitted. The deck has 15 steps in order, one per slide. Each step says who does it (the owner at the robot or an agent working remotely), what "done" means, and what still has to be built.</p>
+    <div class="title-meta">
+      <span class="pill">Prepared 2026-10-07</span>
+      <span class="pill">Research only: no motors or cameras were touched</span>
+      <span class="pill">Repo state: branch at 28e957c</span>
+      <span class="pill">Arrow keys / space to navigate · F fullscreen · print for a handout</span>
+    </div>
+    <p class="note" style="margin-top:22px">Sources: <code>software/docs/paddle-apriltag-pickup-handoff.md</code>, <code>gemma-automatic-calibration.md</code>, <code>gemma-tag-geometry.md</code>, <code>gemma-calibration-simulation.md</code>, <code>commissioning/2026-10-07-paddle*/</code>, <code>farm/perception/*</code>, <code>farm/kinematics/*</code>, <code>carton/servo/{gemma,tag_calibration}.py</code>, <code>qwen-bridge/gemma_robot_tools.py</code>, <code>gemma_reach_planner.py</code>, <code>STATUS.md</code>, and the chat pilot's <code>.private/</code> config on this Mac.</p>
+  </div>
+  <div class="footer"><span>AprilTag registration plan</span><span class="pg"></span></div>
+</section>
+
+<!-- 02 Overview -->
+<section class="slide">
+  <div class="kicker eyebrow">Overview · dependency chain</div>
+  <div class="body">
+    <h2 style="margin-bottom:10px">Three set-up tracks merge into one strict sequence.</h2>
+    <svg class="diagram" viewBox="0 0 1100 410" role="img" aria-label="Dependency chain of the 15 steps">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#c9f65b"/>
+        </marker>
+        <marker id="arrd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#ffc56e"/>
+        </marker>
+        <style>
+          .n rect { stroke-width: 2; rx: 10; }
+          .n .t { font: 700 12.5px Inter, system-ui, sans-serif; fill: #f4f6ed; }
+          .n .s { font: 600 9.5px ui-monospace, Menlo, monospace; fill: #aebbb3; letter-spacing: .04em; }
+          .ex rect { fill: rgba(114,226,176,.13); stroke: #72e2b0; }
+          .bd rect { fill: rgba(255,138,112,.13); stroke: #ff8a70; }
+          .mn rect { fill: rgba(255,197,110,.11); stroke: #ffc56e; }
+          .lane { font: 700 10px ui-monospace, Menlo, monospace; fill: #72e2b0; letter-spacing: .14em; }
+          .e { stroke: #c9f65b; stroke-width: 1.8; fill: none; }
+          .ed { stroke: #ffc56e; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+          .lbl { font: 600 10.5px Inter, system-ui, sans-serif; fill: #ffc56e; }
+        </style>
+      </defs>
+      <rect x="0" y="0" width="1100" height="410" rx="14" fill="#0b1712"/>
+      <text class="lane" x="20" y="30">PHYSICAL SET-UP</text>
+      <text class="lane" x="20" y="120">ARM MODEL</text>
+      <text class="lane" x="20" y="210">SOFTWARE PATH</text>
+
+      <g class="n mn"><rect rx="10" x="20" y="38" width="150" height="58"/><text class="t" x="32" y="62">1 Measure tags</text><text class="s" x="32" y="82">OWNER · 30-45 MIN</text></g>
+      <g class="n ex"><rect rx="10" x="195" y="38" width="150" height="58"/><text class="t" x="207" y="62">2 Fix camera, anchor</text><text class="s" x="207" y="82">OWNER+AGENT · 25 MIN</text></g>
+      <g class="n mn"><rect rx="10" x="370" y="38" width="150" height="58"/><text class="t" x="382" y="62">3 Metric accuracy</text><text class="s" x="382" y="82">OWNER+AGENT · 30 MIN</text></g>
+
+      <g class="n ex"><rect rx="10" x="20" y="128" width="150" height="58"/><text class="t" x="32" y="152">4 Freeze motor cal.</text><text class="s" x="32" y="172">AGENT · 10 MIN</text></g>
+      <g class="n bd"><rect rx="10" x="195" y="128" width="150" height="58"/><text class="t" x="207" y="152">5 Right-arm config</text><text class="s" x="207" y="172">AGENT · 2-3 H BUILD</text></g>
+      <g class="n bd"><rect rx="10" x="370" y="128" width="150" height="58"/><text class="t" x="382" y="152">6 Zero / sign check</text><text class="s" x="382" y="172">OWNER+AGENT · 30 MIN</text></g>
+
+      <g class="n bd"><rect rx="10" x="20" y="218" width="150" height="58"/><text class="t" x="32" y="242">7 Mover vs owner</text><text class="s" x="32" y="262">AGENT · 0.5-1 DAY</text></g>
+      <g class="n ex"><rect rx="10" x="195" y="218" width="150" height="58"/><text class="t" x="207" y="242">8 Chat config, status</text><text class="s" x="207" y="262">AGENT · 15 MIN</text></g>
+
+      <g class="n mn"><rect rx="10" x="575" y="128" width="150" height="58"/><text class="t" x="587" y="152">9 Start pose, clear</text><text class="s" x="587" y="172">OWNER · 15 MIN</text></g>
+      <g class="n ex"><rect rx="10" x="750" y="128" width="150" height="58"/><text class="t" x="762" y="152">10 Run registration</text><text class="s" x="762" y="172">OWNER WATCHES · 10 MIN</text></g>
+      <g class="n ex"><rect rx="10" x="925" y="128" width="150" height="58"/><text class="t" x="937" y="152">11 Validate workspace</text><text class="s" x="937" y="172">OWNER+AGENT · 45 MIN</text></g>
+
+      <g class="n bd"><rect rx="10" x="925" y="320" width="150" height="58"/><text class="t" x="937" y="344">12 Grasp geometry</text><text class="s" x="937" y="364">OWNER+AGENT · 1 H</text></g>
+      <g class="n bd"><rect rx="10" x="750" y="320" width="150" height="58"/><text class="t" x="762" y="344">13 Paddle-target tool</text><text class="s" x="762" y="364">AGENT · 1-2 DAYS</text></g>
+      <g class="n mn"><rect rx="10" x="575" y="320" width="150" height="58"/><text class="t" x="587" y="344">14 Approach trial</text><text class="s" x="587" y="364">OWNER · 30-60 MIN</text></g>
+      <g class="n bd"><rect rx="10" x="400" y="320" width="150" height="58"/><text class="t" x="412" y="344">15 Keep it valid</text><text class="s" x="412" y="364">BOTH · EVERY SESSION</text></g>
+
+      <path class="e" d="M170,67 H191" marker-end="url(#arr)"/>
+      <path class="e" d="M345,67 H366" marker-end="url(#arr)"/>
+      <path class="e" d="M170,157 H191" marker-end="url(#arr)"/>
+      <path class="e" d="M345,157 H366" marker-end="url(#arr)"/>
+      <path class="e" d="M170,247 H191" marker-end="url(#arr)"/>
+      <path class="e" d="M520,67 H546 V150 H571" marker-end="url(#arr)"/>
+      <path class="e" d="M520,157 H571" marker-end="url(#arr)"/>
+      <path class="e" d="M345,247 H546 V164 H571" marker-end="url(#arr)"/>
+      <path class="e" d="M725,157 H746" marker-end="url(#arr)"/>
+      <path class="e" d="M900,157 H921" marker-end="url(#arr)"/>
+      <path class="e" d="M1000,186 V316" marker-end="url(#arr)"/>
+      <path class="e" d="M925,349 H904" marker-end="url(#arr)"/>
+      <path class="e" d="M750,349 H729" marker-end="url(#arr)"/>
+      <path class="e" d="M575,349 H554" marker-end="url(#arr)"/>
+      <path class="ed" d="M475,320 V292 H825 V190" marker-end="url(#arrd)"/>
+      <text class="lbl" x="560" y="286">anything in the binding changes: redo 10-11</text>
+      <path class="ed" d="M445,38 V22 H1000 V124" marker-end="url(#arrd)"/>
+      <text class="lbl" x="620" y="17">camera accuracy also sets the error budget for 11 and 14</text>
+    </svg>
+    <div class="legend">
+      <span><i style="border-color:#72e2b0;background:rgba(114,226,176,.13)"></i>Code exists and is tested; needs running or configuring</span>
+      <span><i style="border-color:#ffc56e;background:rgba(255,197,110,.11)"></i>Manual / physical step, no code needed</span>
+      <span><i style="border-color:#ff8a70;background:rgba(255,138,112,.13)"></i>Needs building (all or part)</span>
+    </div>
+    <p class="note">The three tracks at the top left can run in parallel. From step 9 on, every step depends on the one before it. A change upstream (camera, head, tags, motor calibration, model) invalidates everything downstream of it.</p>
+  </div>
+  <div class="footer"><span>Overview</span><span class="pg"></span></div>
+</section>
+
+<!-- 03 Current state -->
+<section class="slide">
+  <div class="kicker eyebrow">Current state · 7 October 2026</div>
+  <div class="body">
+    <h2 style="margin-bottom:14px">The registration code is ready and tested. It has never run on the robot.</h2>
+    <div class="grid-3">
+      <div class="card ok">
+        <h3>Exists and tested (software)</h3>
+        <ul>
+          <li><b>Detection</b> on the chat Mac: <code>robot_get_tags</code> (TagRobot). It only accepts hamming 0, margin &ge; 30 and edge &ge; 24 px, and rejects frames older than 2 s.</li>
+          <li><b>Metric tag pose</b> (OpenCV IPPE) uses the frame's own intrinsics. The OAK's raw 640&times;360 stream carries factory intrinsics and distortion, so this works today.</li>
+          <li><b>Automatic registration</b> <code>robot_calibrate_tags(mode="registration")</code> uses 8 fit poses, 3 held-out poses and the OpenCV hand-eye solver. It writes <code>tag-registration.json</code> only when the fit passes.</li>
+          <li><b><code>robot_get_registered_tags</code></b> re-checks the binding and the gripper-tag agreement on every read.</li>
+          <li><b>Tests:</b> 178 passed today (tag, adapter, geometry, sampling, registration; no hardware). The rendered end-to-end simulation passed on 6 Oct.</li>
+        </ul>
+      </div>
+      <div class="card blocked">
+        <h3>Blocked today, and why</h3>
+        <ul>
+          <li><b>Never run:</b> there is no <code>tag-calibration-runs/</code> folder on the chat Mac and zero accepted right-arm poses.</li>
+          <li><b>No right-arm config in the robot API:</b> <code>gemma_reach_planner.CONFIGS</code> only knows <code>left</code>. Registration refuses before it enables motors, because it needs <code>robot_get_arm_pose(right)</code> to report a <code>feetech_degrees_v1</code> config.</li>
+          <li><b>Zero/sign:</b> ranges and homing offsets exist, but no measured <code>model_zero_tick</code>/<code>model_sign</code>. The range-midpoint mapping is only a candidate.</li>
+          <li><b>Tag sizes</b> 60/40/40 mm are print-kit defaults. Nobody has measured them with a ruler.</li>
+          <li><b>Calibration mover</b> (<code>GemmaTransport</code>) was written for the 6 Oct owner. It has not been run against today's <code>paddle-success-v1</code> owner over the relay.</li>
+        </ul>
+      </div>
+      <div class="card missing">
+        <h3>Not built</h3>
+        <ul>
+          <li><b>Grasp geometry:</b> tag 3 &rarr; handle, jaw contact point (<code>gripper_from_tool</code>), workspace bounds.</li>
+          <li><b>From pose to motion:</b> <code>robot_plan_reach</code> returns proposals only, and the repo says not to send them to the owner. Nothing turns a registered paddle pose into a move.</li>
+          <li><b>Wider calibration</b>: the grid moves only 2 joints by &plusmn;96 ticks, and there is no joint-offset fit.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">The 7 Oct paddle pickup succeeded without tags. It used encoder targets plus camera checks. That procedure stays valid. Qwen should not call <code>robot_get_registered_tags</code> as a prerequisite for it (<code>TAG-TOOL-FAILURE-HANDOFF.md</code>).</p>
+  </div>
+  <div class="footer"><span>Current state</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 Where the pieces live -->
+<section class="slide">
+  <div class="kicker eyebrow">Where the pieces live · two Macs</div>
+  <div class="body">
+    <h2 style="margin-bottom:14px">The fit runs and lives on the chat Mac. The arm model lives on the robot Mac.</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Chat Mac (this Mac, user wk)</h3>
+        <ul>
+          <li>Pilot: <code>chat_server.py</code> wraps <code>CalibrationRobot(TagRobot(Robot))</code>. This is where <code>robot_get_tags</code>, <code>robot_calibration_status</code>, <code>robot_calibrate_tags</code> and <code>robot_get_registered_tags</code> come from.</li>
+          <li>Adapter code is imported (via <code>xlerobot_apriltags.pth</code>) from <code>research/minsk/.context/xlerobot-farm/software</code>. The adapter files are identical to this repo.</li>
+          <li><code>.private/tag-calibration.json</code>: arm right, joints shoulder_pan + wrist_flex, camera oak. Its model directory is under a workspace <code>.context</code> folder.</li>
+          <li><code>.private/apriltag-geometry.json</code>: camera <code>oak-1944301091DA1C2E00</code>, sizes 60/40/40 (not measured), tag 2 mount right/fixed_gripper_housing.</li>
+          <li><b>Result file goes here:</b> <code>.private/tag-registration.json</code> (missing). Evidence goes in <code>pilot/tag-calibration-runs/</code>.</li>
+          <li>The venv has OpenCV 4.11 (with <code>calibrateHandEye</code>), lerobot 0.6.1, placo and pupil-apriltags.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Robot Mac (Neooooo.local)</h3>
+        <ul>
+          <li>Robot API <code>gemma_robot_tools.py</code>: 20 tools plus <code>robot_get_arm_pose</code> and <code>robot_plan_reach</code>. It has no native tag tool.</li>
+          <li><code>gemma_reach_planner.CONFIGS = {'left': outputs/Standard-Reach-Candidate.json}</code>, so the right arm has no config.</li>
+          <li>Motor calibration: <code>~/.cache/huggingface/lerobot/calibration/robots/xlerobot_2wheels/farm_xlerobot.json</code>.</li>
+          <li>OAK: raw distorted 640&times;360 fallback stream with factory intrinsics. A rectified stream is preferred when it is present.</li>
+          <li>Remote admin: <code>/admin/deploy|logs|job</code>. It deploys a <b>pushed</b> git ref and refuses while motors are holding.</li>
+        </ul>
+        <h3>Shell names used on later slides (chat Mac)</h3>
+<pre>PILOT=/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot
+PY=/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/.venv/bin/python
+SW=/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software
+QB=&lt;repo&gt;/software/docs/commissioning/2026-10-07-paddle-success/qwen-bridge</pre>
+      </div>
+    </div>
+    <p class="note">Only the chat Mac adapter reads <code>tag-registration.json</code>; the robot API never does. Its binding covers the robot API's right-arm config (<code>calibration_sha256</code>), the SO-101 model hash, raw arm ranges, camera id + camera-geometry hash (resolution, projection, intrinsics, distortion; not the <code>stream_id</code>), the tag-geometry hash and the tag 2 mount. Verified-stream and table-anchor updates go in <code>tag-registration-binding.json</code> next to it.</p>
+  </div>
+  <div class="footer"><span>Where the pieces live</span><span class="pg"></span></div>
+</section>
+
+<!-- 05 Step 1 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 1 of 15 · physical set-up</div>
+  <div class="body">
+    <div class="step-head"><h2>Measure and mount the three tags</h2>
+      <div class="meta"><span class="badge owner">Owner at robot</span><span class="badge time">30-45 min</span><span class="badge manual">Manual, no code</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">The pose distance scales with the black-square width you configure. A 41 mm print configured as 40 mm puts the tag 2.5 % too far away, about 15 mm at 600 mm. The hand-eye fit assumes tag 2 is rigid on the fixed gripper housing, so any flex or wobble shows up as fit error.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>Measure each <b>black square</b> (not the white border) in both directions to 0.5 mm. Expected: tag 1 = 60 mm, tags 2 and 3 = 40 mm.</li>
+          <li>Check that each tag is flat: paper on a rigid backing, no curl, no bubbles, no glossy tape over the pattern, full white border.</li>
+          <li><b>Tag 2</b> goes on the right gripper's <b>fixed housing</b>, not the moving jaw. Press it; it must not flex. It should face the head camera across the arm's working poses. (The housing has only a narrow flat band. <code>docs/carton-apriltags.md</code> proposes a 52 mm backing plate.)</li>
+          <li><b>Tag 3</b> goes rigidly on the paddle, away from the handle's grip area. Take a photo with a ruler in frame.</li>
+          <li><b>Tag 1</b> is taped flat on the table where it will stay, fully visible to the OAK.</li>
+          <li>Send the numbers and photos to the agent. It writes them into <code>apriltag-geometry.json</code> with <code>"source": "ruler, &lt;date&gt;, owner"</code>.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>Three measured widths are recorded, with the method used.</li><li>All tags are flat and rigid, and there is a photo of each mount.</li><li>Only one copy of each ID is in the camera's view.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Re-mounting or bumping tag 2 later invalidates the registration (redo steps 10-11).</li><li>If tag 2 is hidden by the jaw or wrist camera in some poses, registration and every later registered read refuse (tag 2 must be visible in every frame).</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 1 · tags</span><span class="pg"></span></div>
+</section>
+
+<!-- 06 Step 2 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 2 of 15 · physical set-up</div>
+  <div class="body">
+    <div class="step-head"><h2>Fix the camera, the cart and the table anchor</h2>
+      <div class="meta"><span class="badge both">Owner 10 min + agent 15 min</span><span class="badge exists">Tools exist</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">Registration solves one fixed camera-to-arm-base transform. The code refuses if the head encoders move by more than 3 ticks, A table-tag-1 shift (2 px corners / 5 mm centre) is re-anchored only when the head is unchanged and tag 2 still matches the arm model. Each OAK publisher start gets a new random <code>stream_id</code>; it is not part of the binding, but the first read from a new stream must pass the gripper-consistency check.</p>
+        <h3>Owner</h3>
+        <ol>
+          <li>Park the cart where the paddle work will happen. Base pulses later are re-anchored if the head is untouched (see step 15).</li>
+          <li>Aim the head so the OAK sees tag 1, the paddle and the right gripper across its working area. After that, <b>don't touch the head</b>. In the right-arm-only owner the head motors are released and read-only, so a bump moves it.</li>
+        </ol>
+        <h3>Agent (chat tools)</h3>
+<pre>robot_get_cameras {"cameras":["oak"]}
+robot_get_tags    {"cameras":["oak"],"tag_ids":[1,2,3]}</pre>
+        <ol>
+          <li>Check <code>result.cameras.oak</code>: <code>camera_id oak-1944301091DA1C2E00</code>, 640&times;360, <code>projection</code>, <code>intrinsics</code>, <code>distortion_coefficients</code> (raw stream), <code>coordinate_frame CAM_A_optical</code>. Record the <code>projection</code> (<code>camera_pinhole_with_factory_distortion</code> for <code>--wide</code>).</li>
+          <li>Tags 1, 2 and 3 should be <code>DETECTED</code>, with <code>pose_3d</code> present and tag 2 <code>orientation_ambiguous: false</code>.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>Tags 1, 2 and 3 are detected in 5 consecutive fresh frames, with the same <code>stream_id</code>.</li><li>The head ticks are recorded (from <code>robot_get_state</code>).</li><li>The team has chosen one OAK mode (<code>--wide</code> raw or rectified) and will keep using it.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>An OAK publisher restart in the same mode keeps the registration; the first read after it must pass the gripper-consistency check (tag 2 in view).</li><li>Switching between the raw (<code>--wide</code>) and rectified streams changes the projection, which also forces a re-registration.</li><li>Phone frames are receipt-timestamped only and are never used for registration.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 2 · camera and anchor</span><span class="pg"></span></div>
+</section>
+
+<!-- 07 Step 3 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 3 of 15 · physical set-up</div>
+  <div class="body">
+    <div class="step-head"><h2>Check that the camera measures distances correctly</h2>
+      <div class="meta"><span class="badge both">Owner + agent</span><span class="badge time">20-30 min</span><span class="badge manual">Manual comparison</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">The factory intrinsics are scaled to 640&times;360 and have never been checked on this unit. At this resolution the code's own noise estimate is coarse. In the 7 Oct evidence, table tag z was &plusmn;6.4 mm at 634 mm, tag 2 was &plusmn;2.7 mm at 340 mm, and all three tags were flagged <code>coarse_position_only</code>. The rendered test missed its 5 mm target at 640 px and only passed at 1920&times;1440.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>Hold a spare tag of known size (or the paddle) square to the camera at three tape-measured distances, about 300, 450 and 600 mm. Call <code>robot_get_tags</code> each time.</li>
+          <li>Compare the <b>differences</b> between the readings' <code>center_camera_mm</code> z values with the tape differences. This avoids needing the exact optical centre.</li>
+          <li>With the paddle on the table, measure tag 1 centre to tag 3 centre with a ruler. Compare it with the distance between their <code>center_camera_mm</code> values.</li>
+        </ol>
+        <div class="panel build" style="margin-top:10px"><h3>Needs building if this fails</h3>
+          <p>A higher-resolution OAK stream: the repo's <code>farm/oak_camera.py</code> hardcodes 640&times;360, and the live publisher is outside the repo. Or a camera's own intrinsic calibration (checkerboard), which is not in the repo. Either change means re-registering.</p></div>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when (suggested, not in code)</h3>
+          <ul><li>Distance differences agree within 2 %.</li><li>The tag 1 &harr; tag 3 distance is within 5 mm of the ruler.</li><li>The results are recorded in <code>STATUS.md</code>.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Wrong tag widths from step 1 show up here as a constant scale error.</li><li>Accepting coarse numbers here sets a floor on the final reach error (step 14). Plan a camera-guided final approach either way.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 3 · metric check</span><span class="pg"></span></div>
+</section>
+
+<!-- 08 Step 4 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 4 of 15 · arm model</div>
+  <div class="body">
+    <div class="step-head"><h2>Freeze the right arm's motor calibration</h2>
+      <div class="meta"><span class="badge agent">Agent remotely</span><span class="badge owner">Owner decision</span><span class="badge time">10 min</span><span class="badge exists">Read-only tools exist</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">Everything downstream binds to the motor calibration: the right-arm config hash, the raw arm ranges and the encoder-to-degree mapping. <code>robot_auto_calibrate</code> (added 7 Oct) rewrites ranges and homing offsets. Running it on the right arm after this step forces steps 5, 6 and 10-12 to be redone.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>Agent: <code>robot_get_capabilities {}</code> and <code>robot_get_readiness {}</code>. Confirm there are no right-arm <code>joint_blockers</code> and that the six right entries match hardware (as recorded in <code>success.json</code> on 7 Oct).</li>
+          <li>Agent: <code>robot_get_state {"fresh":true}</code>. Confirm every right joint is inside its saved range. On 6 Oct the right elbow read 3155 against a range of 1002..3092. That was before the wider right calibration was installed, so recheck it.</li>
+          <li>Owner: decide that the right arm will not be recalibrated during this work. The left arm stays parked; its calibration is mixed.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>The calibration file's SHA-256 is recorded.</li><li>There are no right-arm blockers and all right joints are in range.</li><li>The owner has confirmed "no right-arm recalibration until this is done".</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>A later recalibration silently invalidates everything. The registered read catches changed ranges and refuses, so nothing unsafe happens, but the work is lost.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 4 · motor calibration</span><span class="pg"></span></div>
+</section>
+
+<!-- 09 Step 5 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 5 of 15 · arm model</div>
+  <div class="body">
+    <div class="step-head"><h2>Give the robot API a right-arm kinematics config</h2>
+      <div class="meta"><span class="badge agent">Agent remotely</span><span class="badge time">2-3 h incl. deploy</span><span class="badge build">Needs building</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">Before enabling any motor, registration calls <code>robot_get_arm_pose(right)</code> and refuses unless the result contains <code>config {arm:"right", mapping:"feetech_degrees_v1", calibration_sha256}</code> and <code>model_assets.verified: true</code>, with the same SO-101 revision as the chat Mac's model. Today the planner has no right-arm entry at all.</p>
+        <h3>What to build and do</h3>
+        <ol>
+          <li>On the robot Mac, verified SO-101 assets: <code>python -m carton.servo model-fetch --out &lt;dir&gt;</code>. This checks the hashes in <code>farm/kinematics/so101-assets.json</code>.</li>
+          <li>Add <code>'right'</code> to <code>CONFIGS</code> in <code>qwen-bridge/gemma_reach_planner.py</code>. Ship a right config JSON: <code>schema 1, arm right, mapping feetech_degrees_v1, mapping_validated false, model_directory, calibration_file, calibration_sha256, gripper_from_tool null, workspace_bounds_m null</code>.</li>
+          <li><code>CONFIGS</code> points at the runtime <code>outputs/</code> folder, which <code>/admin/deploy</code> does not write. The config therefore has to ship in <code>qwen-bridge/</code>, or the restart script has to install it.</li>
+          <li>Owner reviews and pushes. With the motors released: <code>python $QB/robot_admin.py deploy &lt;ref&gt; --mode restart</code>.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li><code>robot_get_arm_pose {"arm":"right"}</code> returns that config, with <code>model_assets.verified: true</code> and the same revision as the chat Mac model.</li><li><code>calibration_sha256</code> equals the actual file hash (not listed in <code>missing</code>).</li><li><code>status</code> stays <code>NEEDS_GEOMETRIC_CONFIGURATION</code>. That is expected until step 12.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>A model revision mismatch between the two Macs makes the registration refuse.</li><li>The chat Mac's model directory sits in a workspace <code>.context</code> folder. Copy it to a stable path and update <code>tag-calibration.json</code>.</li><li>The deploy restarts the owner, and it refuses while motors are holding.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 5 · right-arm config</span><span class="pg"></span></div>
+</section>
+
+<!-- 10 Step 6 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 6 of 15 · arm model</div>
+  <div class="body">
+    <div class="step-head"><h2>Sanity-check joint zeros and directions</h2>
+      <div class="meta"><span class="badge both">Owner at robot + agent</span><span class="badge time">30 min</span><span class="badge build">Helper needs building</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">The candidate mapping assumes that, for each joint, 0&deg; is the midpoint of the saved range and the direction is +1. The ranges came from end-stop sweeps, so a midpoint need not be the URDF zero; the repo labels it "candidate pending physical fit". A sign flip or a large offset makes FK wrong away from the calibration poses, and a 2-joint fit can still pass locally.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li><b>Direction:</b> for each of the 5 positioning joints, the agent moves +40 ticks with <code>robot_move_joint_targets {"arm":"right", ...}</code> and the owner (or a camera) reports which way the link moved. The agent compares that with the motion the model predicts for +degrees.</li>
+          <li><b>Zero:</b> the agent reports the candidate joint angles for the current encoders. The owner checks the upper arm, forearm and wrist angles with a protractor or a phone inclinometer.</li>
+          <li><b>Build:</b> a short read-only script that prints the candidate degrees and the predicted link directions, reusing <code>tag_registration.candidate_degrees</code> and <code>LeRobotSO101.forward</code>.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when (suggested)</h3>
+          <ul><li>All 5 directions match.</li><li>Each joint is within about 5&deg; of the predicted angle.</li></ul></div>
+        <div class="panel build"><h3>If a joint is off</h3>
+          <p>Record measured <code>model_zero_tick</code>/<code>model_sign</code> (templates: <code>python -m carton.servo kinematics-template</code>, <code>python -m farm.kinematics.analytical_reference template</code>). Registration then needs a mapping other than <code>feetech_degrees_v1</code>, because <code>assemble_dataset</code> accepts only that one. That would need to be built.</p></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Eyeballing angles is good to about &plusmn;3-5&deg;, so this only catches gross errors. Fine accuracy comes from step 11.</li><li>Every move is real motion: keep steps short and watch them, with STOP in reach.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 6 · zero / sign</span><span class="pg"></span></div>
+</section>
+
+<!-- 11 Step 7 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 7 of 15 · software path</div>
+  <div class="body">
+    <div class="step-head"><h2>Check the calibration mover against today's owner</h2>
+      <div class="meta"><span class="badge agent">Agent remotely</span><span class="badge time">0.5-1 day</span><span class="badge build">Contract test + likely fixes</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why"><code>GemmaTransport</code> (<code>carton/servo/gemma.py</code>) steps one joint at a time, at most 16 ticks per step, through <code>robot_move_motor_targets</code>. It requires:</p>
+        <ul>
+          <li>an owner with <code>control_mode direct_joint</code>, <code>operator_armed</code>, <code>stop_latched false</code> and phase idle/holding</li>
+          <li>all 16 telemetry rows uncached and no more than <b>0.75 s</b> old on the chat Mac's clock</li>
+          <li>acks carrying <code>accepted</code>, <code>completed</code>, <code>owner_started</code>, <code>command_id</code>, <code>owner_status_time</code> and <code>readbacks</code></li>
+          <li><code>lease_remaining</code> above 5 s</li>
+        </ul>
+        <p class="why">Today's owner (paddle-success-v1, soft release since 28e957c, no STOP latch) was never tested with it, and its calls cross the Cloudflare relay.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>Run <code>CalibrationRobot</code> + <code>run_calibration(..., "registration")</code> against the qwen-bridge fake-hardware owner, following the pattern in <code>test_paddle_client.py</code>. Fix field mismatches in the adapter, not in the owner's limits.</li>
+          <li>Measure clock offset and round trip: compare <code>robot_get_execution.time</code> with the chat Mac's clock over about 20 calls.</li>
+          <li>If the result doesn't fit in 0.75 s, sync both clocks (<code>sudo sntp -sS time.apple.com</code>) or run the CLI on the robot Mac. The robot Mac has no valid client certificate for itself; the old one has expired.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>A fake-owner registration run completes: enable, 11 poses, return, release, fit.</li><li>Median round trip + |clock offset| is under about 0.3 s.</li><li>The new test lives in <code>qwen-bridge/</code> and runs in the restart script's test step.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Loosening freshness limits to make it pass would defeat the point. Fix the timing source instead.</li><li>If the soft release (2 s torque ramp) changes when "released" is reported, the mover's release check may fail. Cover this in the test.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 7 · mover vs owner</span><span class="pg"></span></div>
+</section>
+
+<!-- 12 Step 8 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 8 of 15 · software path</div>
+  <div class="body">
+    <div class="step-head"><h2>Configure the chat Mac and run the read-only status</h2>
+      <div class="meta"><span class="badge agent">Agent remotely</span><span class="badge time">15 min</span><span class="badge exists">Exists</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">The status tool runs all of the registration preconditions without enabling any motor. It is the go/no-go check for step 10.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>Update <code>$PILOT/.private/apriltag-geometry.json</code> with the measured widths and sources from step 1. Keep <code>camera_ids</code> and the tag 2 mount.</li>
+          <li>Move the SO-101 model to a stable path and update <code>model_directory</code> in <code>tag-calibration.json</code>. Keep <code>arm: right</code>, <code>camera: oak</code> and <code>joints: [shoulder_pan, wrist_flex]</code> unless step 9 shows a better pair.</li>
+          <li>Confirm the requirements are installed: <code>requirements-gemma-calibration.txt</code> (OpenCV 4.11; do not install the detector-only OpenCV 5 set afterwards).</li>
+          <li>Run the status check:</li>
+        </ol>
+<pre>cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py status --pilot-root "$PILOT"
+# or in the chat:  robot_calibration_status {}</pre>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li><code>status: READY_FOR_LOCAL_PROBES</code> and <code>blockers: []</code>.</li><li><code>detected_tag_ids</code> includes 1 and 2, and <code>gripper_tag_mount</code> is right / fixed_gripper_housing.</li><li><code>gripper_tag_border_clearance_px</code> is comfortably positive (suggest &ge; 30 px, because the grid moves the tag).</li><li><code>registration_plan.planned_path_ticks: 1248</code>, and <code>arm_geometry</code> shows the step 5 config.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Editing the geometry file changes its fingerprint, which invalidates any earlier registration (none exists yet).</li><li>Reload the idle chat after editing config. Don't restart the robot owner for this.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 8 · chat config and status</span><span class="pg"></span></div>
+</section>
+
+<!-- 13 Step 9 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 9 of 15 · sequence starts here</div>
+  <div class="body">
+    <div class="step-head"><h2>Choose the start pose and clear the area</h2>
+      <div class="meta"><span class="badge owner">Owner at robot</span><span class="badge time">15 min</span><span class="badge manual">Manual</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">The grid moves <b>shoulder_pan</b> and <b>wrist_flex</b> by &plusmn;96 ticks (about &plusmn;8.4&deg;) around wherever the arm rests. The fit is only trustworthy near the sampled poses. It needs at least 15&deg; of rotation about two axes and at least 25 mm of travel, and tag 2 must stay fully visible in all 11 poses. The grid is not collision-checked.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>With short, observed <code>robot_move_joint_targets</code> moves, place the gripper above the table between the arm base and the paddle area. Tag 2 should face the OAK, at least about 30 px from every image edge.</li>
+          <li>Pick a pose the arm <b>holds by itself when released</b>. The run must start with all 16 motors released and the owner idle. An extended arm droops when released.</li>
+          <li>Leave &plusmn;96 ticks free on both joints; the tool also checks that against the commandable ranges. Move the paddle, bottle and cables out of the sweep.</li>
+          <li>Release the arm. Someone stays at the robot with STOP and the 12 V switch in reach. Confirm the clearance in the chat.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>The arm rests released in the chosen pose, and <code>robot_calibration_status</code> is still READY.</li><li>The owner has written "area clear, I'm watching" in the chat.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Calibrating far from where the paddle will be: the fit then has to extrapolate (step 11 checks this).</li><li>A support block under the arm must not touch the gripper during the &plusmn;8&deg; sweep.</li><li>Other motion clients must stay idle. If the mover detects outside activity, it aborts the run.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 9 · start pose</span><span class="pg"></span></div>
+</section>
+
+<!-- 14 Step 10 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 10 of 15 · the hand-eye fit</div>
+  <div class="body">
+    <div class="step-head"><h2>Run the registration</h2>
+      <div class="meta"><span class="badge owner">Owner supervising</span><span class="badge agent">Agent or Qwen triggers</span><span class="badge time">5-10 min</span><span class="badge exists">Exists, never run</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>What happens</h3>
+        <p class="why">The run takes a baseline observation, checks the right-arm config and FK, then enables the 5 right positioning joints (never the jaw, head, left arm or wheels). It visits 8 fit poses and 3 held-out poses in 16-tick observed steps, returns, releases (verifying torque 0 on all 16 motors) and fits offline: <code>B_G &middot; G_T = B_C &middot; C_T</code> with OpenCV Park, Horaud or Daniilidis, taking the best.</p>
+        <h3>Trigger (explicit request only)</h3>
+<pre># in the chat
+robot_calibrate_tags {"mode":"registration"}
+# or from the chat Mac
+cd "$SW" &amp;&amp; PYTHONPATH=. "$PY" tools/calibrate_gemma_tags.py registration \
+  --pilot-root "$PILOT" --execute</pre>
+        <h3>If rejected</h3>
+        <p>No file is written and there is no automatic retry. Read <code>failure.json</code> or the residuals. Usual causes: tag 2 lost at an edge pose, too little rotation, a wrong joint mapping (step 6), or freshness/clock refusals (step 7).</p>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when (enforced in code)</h3>
+          <ul><li><code>status: REGISTRATION_VALIDATED</code>.</li><li>Train and held-out sets both have position RMS &le; 2 mm, max &le; 4 mm and orientation max &le; 2&deg;, with &ge; 8 and &ge; 3 poses.</li><li>Held-out poses differ from fit poses by &ge; 10 mm or 5&deg;.</li><li><code>$PILOT/.private/tag-registration.json</code> is written, with evidence in <code>$PILOT/tag-calibration-runs/&lt;ns&gt;-registration/</code>.</li><li>Fresh readback shows all 16 motors released.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>STOP mid-run releases the arm over 2 s, so it may sag.</li><li>The result says <code>motion_ready: false</code>. A pass permits coordinate estimates, not grasps.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 10 · registration</span><span class="pg"></span></div>
+</section>
+
+<!-- 15 Step 11 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 11 of 15 · validation</div>
+  <div class="body">
+    <div class="step-head"><h2>Validate across the area the arm will actually use</h2>
+      <div class="meta"><span class="badge both">Owner supervising + agent</span><span class="badge time">30-45 min</span><span class="badge exists">Check exists</span><span class="badge build">Fallback needs building</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">A passing fit only covers the &plusmn;8&deg; region that was sampled. The paddle may be 300-400 mm away (6 Oct: about 378 mm between the tag 2 and tag 3 centres). Every registered read already compares the observed gripper tag with FK and refuses above <b>4 mm or 2&deg;</b>. That built-in check is the validation tool.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>Move the arm with short, observed moves to 6-10 poses spread over the area to be used. Include one near the paddle's pregrasp, and change <b>shoulder_lift and elbow_flex</b>, which the grid never moved.</li>
+          <li>At each pose call <code>robot_get_registered_tags {}</code> and record <code>current_gripper_consistency</code>.</li>
+          <li>Physical check: the ruler distance from the tag 1 centre to the tag 3 centre, compared with the registered <code>center_arm_base_mm</code> values.</li>
+          <li>On a pass, set <code>mapping_validated: true</code> in the right config, with <code>mapping_evidence</code> pointing at the run folders.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>Every pose returns estimates with no refusal (consistency within 4 mm and 2&deg;, enforced).</li><li>The ruler check is within about 5 mm (suggested).</li></ul></div>
+        <div class="panel build"><h3>If it fails far from the start pose</h3>
+          <p>That points to a zero/sign error in joints the grid didn't move. To build: a wider grid that moves 4-5 joints (today exactly 2 joints, 96-tick radius, 1500-tick budget), and/or a joint-offset fit that estimates 5 zero offsets together with both transforms (least squares, about 1-2 days).</p></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>If tag 2 is not visible at a pose, the read refuses. Tag 2 is needed in every registered read, including during use.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 11 · workspace validation</span><span class="pg"></span></div>
+</section>
+
+<!-- 16 Step 12 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 12 of 15 · grasp geometry</div>
+  <div class="body">
+    <div class="step-head"><h2>Measure where the handle and the jaw actually are</h2>
+      <div class="meta"><span class="badge both">Owner + agent</span><span class="badge time">45-60 min</span><span class="badge build">Partly needs building</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">Registered tags are marker poses: the tag centre is not the handle, and the gripper frame is not the jaw contact point. <code>robot_plan_reach</code> needs <code>gripper_from_tool</code>, <code>workspace_bounds_m</code> and numeric <code>model_zero_tick</code>/<code>model_sign</code>. The shared <code>CalibratedArm</code> does not accept <code>feetech_degrees_v1</code>.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li><b>Tag 3 &rarr; handle:</b> measure with a ruler from the tag 3 centre to the grasp centre along the tag axes, plus the height. Cross-check against <code>parts/carton/paddle_flap.stl</code>. Earlier image estimate: about (2, -42) mm in the tag plane (exploratory). The simulated <code>[105, 0, 4.45]</code> belongs to the rendered mount only; do not use it.</li>
+          <li><b>Jaw contact</b> (<code>gripper_from_tool</code>): start from the SO-101 CAD (jaw centre between the fingertips). Earlier exploratory fits put it 64-86 mm from tag 2 and disagreed by up to 30 mm. Check it by hovering the open jaw centre over tag 1's centre and comparing FK &middot; tool with the registered tag 1 centre.</li>
+          <li><b>Workspace bounds:</b> a box in arm-base metres over the table region, taken from the registered tag 1 and the table edges.</li>
+          <li><b>Build:</b> convert the validated candidate to explicit zeros (<code>model_zero_tick = (range_min+range_max)/2</code>, <code>model_sign = +1</code>, mapping evidence from step 11), or teach <code>CalibratedArm</code> to accept a validated <code>feetech_degrees_v1</code>. The owner decides which.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>The right config is complete, and <code>robot_get_arm_pose(right)</code> returns <code>FK_ESTIMATE_ONLY</code>.</li><li>Round trip: <code>robot_plan_reach</code> (arm_base, constrained) for the current FK pose returns ticks within about 3 of the current encoders.</li><li>The hover check is within about 5 mm horizontally (suggested).</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Tag 3 orientation ambiguity: the read then returns only the centre, and no handle offset can be applied.</li><li>A wrong contact offset puts the jaw on the paddle body instead of the handle.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 12 · grasp geometry</span><span class="pg"></span></div>
+</section>
+
+<!-- 17 Step 13 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 13 of 15 · integration</div>
+  <div class="body">
+    <div class="step-head"><h2>Build "paddle pose in arm frame" and the reach procedure</h2>
+      <div class="meta"><span class="badge agent">Agent</span><span class="badge owner">Owner policy decision</span><span class="badge time">1-2 days</span><span class="badge build">Needs building</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>What exists</h3>
+        <ul>
+          <li><code>robot_get_registered_tags</code> returns tag 3 <code>arm_base_from_tag</code> (when unambiguous) and <code>center_arm_base_mm</code>.</li>
+          <li><code>robot_plan_reach</code> turns 4&times;4 tool poses into tick waypoints. They are proposals only, with <code>collision_checked: false</code>.</li>
+          <li><code>robot_move_path</code> / <code>robot_move_joint_targets</code> execute encoder targets under the owner's limits and contact guard.</li>
+          <li><code>tools/simulate_tag_calibration.py</code> already does tag 3 + offset &rarr; IK &rarr; grasp in MuJoCo.</li>
+        </ul>
+        <h3>What to build</h3>
+        <ol>
+          <li>A chat Mac tool, e.g. <code>robot_get_paddle_target</code>: fresh registered read &rarr; tag 3 pose &middot; measured handle offset &rarr; grasp and pregrasp tool poses (for example 60 mm back/up) in arm-base metres. It refuses on ambiguity, stale data or any registration refusal. <b>Built, read-only</b> (<code>farm/perception/paddle_target.py</code>, <code>tests/test_paddle_target.py</code>): it returns only the tag pose until the owner records the <code>paddle_grasp</code> offsets in <code>apriltag-geometry.json</code>, and labels any planner ticks "proposal, not executed, not collision checked". See <a href="gemma-automatic-calibration.md">the paddle target section</a>.</li>
+          <li>A Qwen procedure, served like <code>paddle-procedure.json</code>: get target &rarr; <code>robot_plan_reach</code> &rarr; short legs with <code>robot_move_path wait=false</code> + <code>robot_get_motion</code> + cameras &rarr; stop at pregrasp &rarr; re-read registered tags &rarr; camera-guided final alignment &rarr; close with paddle-success-v1.</li>
+          <li>Tests: fake-owner, plus the rendered simulation using the measured offsets.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel build"><h3>Owner decision needed</h3>
+          <p>The repo currently says planner proposals must not be sent to the motor owner (<code>KINEMATIC_PROPOSAL_ONLY</code>, "do not replay proposal ticks"). Letting Qwen execute planner output changes that rule. Decide it explicitly, and update the docs and the tool descriptions.</p></div>
+        <div class="panel done"><h3>Done when</h3>
+          <ul><li>The simulation passes with the measured offsets, and the moved-paddle case passes.</li><li>The fake-owner test passes.</li><li>The owner has approved the policy change, in writing in STATUS.md.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>There is no self-collision or scene collision model. The only protection is the contact guard: load &ge; 600 while lagging &ge; 20 ticks.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 13 · paddle target tool</span><span class="pg"></span></div>
+</section>
+
+<!-- 18 Step 14 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 14 of 15 · physical trial</div>
+  <div class="body">
+    <div class="step-head"><h2>Supervised approach trial</h2>
+      <div class="meta"><span class="badge owner">Owner at robot</span><span class="badge time">30-60 min</span><span class="badge manual">Manual</span></div></div>
+    <div class="cols">
+      <div>
+        <h3>Why it matters</h3>
+        <p class="why">This is the first time a tag-derived target drives the arm. Even with a perfect model, the rendered run had about 7 mm handle error and 8.6 mm camera-origin error at 1920&times;1440. Expect more at 640&times;360. So the target brings the jaw to a pregrasp, and the cameras do the last centimetres.</p>
+        <h3>Actions</h3>
+        <ol>
+          <li>Put the paddle at a new spot, not the 7 Oct one. Ask Qwen: "Get the paddle target and move to the pregrasp 60 mm away. Stop there."</li>
+          <li>Measure the actual jaw-centre to handle offset with a ruler or a side photo.</li>
+          <li>If it is close enough, continue with the existing paddle-success-v1 steps: align, close until resistance, small lift, hold, place, open, withdraw, release.</li>
+          <li>Record in <code>software/STATUS.md</code>: run folders, residuals, the measured pregrasp error and the final release state. Push.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="panel done"><h3>Done when (suggested)</h3>
+          <ul><li>Pregrasp error is &le; 10 mm with no contact.</li><li>After final alignment, the handle is inside the open jaw.</li><li>Lift and hold are observed independently by the camera, and the release is verified.</li></ul></div>
+        <div class="panel risk"><h3>Risks</h3>
+          <ul><li>Don't proceed if any registered read refused during the trial.</li><li>A jaw that stops short means possible contact, not a held paddle.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 14 · approach trial</span><span class="pg"></span></div>
+</section>
+
+<!-- 19 Step 15 -->
+<section class="slide">
+  <div class="kicker eyebrow">Step 15 of 15 · keep it valid</div>
+  <div class="body">
+    <div class="step-head"><h2>Know what breaks the registration, and check it every session</h2>
+      <div class="meta"><span class="badge both">Owner + agent</span><span class="badge time">2 min check · 15 min redo</span><span class="badge build">Robustness needs building</span></div></div>
+    <div class="cols">
+      <div>
+        <table>
+          <tr><th>Change</th><th>Effect today</th><th>Redo</th></tr>
+          <tr><td>Head moved &gt; 3 ticks</td><td>Registered read refuses</td><td>10-11</td></tr>
+          <tr><td>OAK publisher restarted, same mode</td><td>Kept; first read re-checks tag 2 against the arm model (4 mm / 2&deg;) and records <code>camera_stream_reverified</code></td><td>none (10 if the check fails)</td></tr>
+          <tr><td>Cart moved / base pulse, or tag 1 moved</td><td>Re-anchored to the new tag-1 pixels if head unchanged and tag 2 check passes; records <code>table_anchor_re_anchored</code></td><td>none (10 if the check fails)</td></tr>
+          <tr><td>Tag 2 bumped or re-mounted</td><td>Gripper consistency refuses</td><td>10-11</td></tr>
+          <tr><td>Raw/rectified stream switched, or intrinsics/resolution changed</td><td>Camera-geometry hash changes; refusal names the projection/intrinsics/resolution change</td><td>restart OAK in the registered mode, or 10</td></tr>
+          <tr><td><code>apriltag-geometry.json</code> edited</td><td>Geometry hash changes, so it refuses</td><td>10</td></tr>
+
+          <tr><td>Raw/rectified stream switched</td><td>Intrinsics hash changes, so it refuses</td><td>10</td></tr>
+          <tr><td><code>apriltag-geometry.json</code> edited (tags or camera ids; the <code>paddle_grasp</code> offsets are excluded from the hash)</td><td>Geometry hash changes, so it refuses</td><td>10</td></tr>
+          <tr><td>Right arm recalibrated</td><td>Ranges and mapping change</td><td>5, 6, 10-12</td></tr>
+          <tr><td>SO-101 model changed</td><td>Model hash changes</td><td>5, 10</td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="panel done"><h3>Session-start routine</h3>
+          <p>Call <code>robot_get_registered_tags {}</code> once. A refusal names what changed. Until a registration passes, Qwen should report "registration unavailable" and carry on with the camera-guided procedure.</p></div>
+        <div class="panel done"><h3>Built (binding robustness)</h3>
+          <ul><li>Bound to camera id + camera-geometry hash (resolution, projection, intrinsics, distortion), not <code>stream_id</code>; a new stream needs a passing gripper-consistency check before its first registered read.</li><li>Re-anchor after a cart move: head ticks unchanged and gripper consistency passing, so the new table-tag pixels become the reference. Both camera and arm ride on the cart. Events are kept in <code>tag-registration-binding.json</code>; the registration file is never modified.</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 15 · keep it valid</span><span class="pg"></span></div>
+</section>
+
+<!-- 20 What needs building -->
+<section class="slide">
+  <div class="kicker eyebrow">Summary · what has to be built</div>
+  <div class="body">
+    <h2 style="margin-bottom:12px">Agent work, in the order it blocks progress.</h2>
+    <table>
+      <tr><th>#</th><th>Item</th><th>Where</th><th>Size</th><th>Blocks</th></tr>
+      <tr><td>1</td><td>Right-arm kinematics config in the robot API, plus a way to install it via deploy</td><td><code>qwen-bridge/gemma_reach_planner.py</code>, restart script</td><td>2-3 h</td><td>Step 10 (hard blocker)</td></tr>
+      <tr><td>2</td><td>Contract test of <code>GemmaTransport</code> against the paddle-success-v1 fake owner; fix fields and timing over the relay</td><td><code>carton/servo/gemma.py</code>, <code>qwen-bridge/test_*</code></td><td>0.5-1 day</td><td>Step 10 (likely)</td></tr>
+      <tr><td>3</td><td>Zero/sign helper: candidate degrees and predicted link directions, read-only</td><td><code>tools/</code></td><td>2 h</td><td>Step 6</td></tr>
+      <tr><td>4</td><td>Wider grid (4-5 joints) and/or a joint-offset fit</td><td><code>carton/servo/tag_calibration.py</code>, <code>farm/kinematics/tag_registration.py</code></td><td>1-2 days</td><td>Only if step 11 fails</td></tr>
+      <tr><td>5</td><td>Validated <code>feetech_degrees_v1</code> &rarr; explicit zero/sign (or <code>CalibratedArm</code> accepts it)</td><td><code>farm/kinematics/lerobot.py</code> or config</td><td>2 h + review</td><td>Step 12</td></tr>
+      <tr><td>6</td><td><code>robot_get_paddle_target</code> + Qwen reach procedure + tests; owner policy on executing planner output</td><td><code>farm/perception/</code>, pilot, <code>qwen-bridge/</code></td><td>1-2 days</td><td>Step 13-14</td></tr>
+      <tr><td>7</td><td>Done: binding robustness (no <code>stream_id</code> lock-in; re-anchor after cart moves)</td><td><code>farm/perception/registered_tags.py</code>, <code>tag_registration.py</code></td><td>0.5-1 day</td><td>Day-to-day use</td></tr>
+      <tr><td>8</td><td>Optional: higher-resolution OAK stream or own intrinsic calibration</td><td>OAK publisher (outside repo), <code>farm/oak_camera.py</code></td><td>0.5 day + re-check</td><td>Accuracy (step 3)</td></tr>
+      <tr><td>9</td><td>Optional: right wrist camera intrinsics, for eye-in-hand final alignment (640&times;480, uncalibrated; the left wrist camera freezes)</td><td>new</td><td>0.5 day</td><td>Final approach quality</td></tr>
+    </table>
+    <p class="note">Rough totals: owner hands-on time is about 4-5 hours over two or three sessions. Agent build time is about 3-5 days including review, plus 1-2 more days if step 11 fails. Every deploy needs a pushed ref and the motors released.</p>
+  </div>
+  <div class="footer"><span>What needs building</span><span class="pg"></span></div>
+</section>
+
+<!-- 21 Checklist -->
+<section class="slide">
+  <div class="kicker eyebrow">Final checklist</div>
+  <div class="body">
+    <h2 style="margin-bottom:14px">Tick these in order. Record each one in STATUS.md.</h2>
+    <ul class="checklist">
+      <li><span><b>1 Tags</b>: widths measured with a ruler; flat, rigid; tag 2 on the fixed housing; photos taken.</span></li>
+      <li><span><b>2 Camera and anchor</b>: cart parked, head untouched, one OAK mode (<code>--wide</code>), tags 1/2/3 detected, <code>projection</code> noted.</span></li>
+      <li><span><b>3 Metric check</b>: distance differences within 2 %, tag 1&harr;3 within 5 mm.</span></li>
+      <li><span><b>4 Motor calibration frozen</b>: hash recorded, right joints in range, no recalibration planned.</span></li>
+      <li><span><b>5 Right-arm config</b>: <code>robot_get_arm_pose(right)</code> shows <code>feetech_degrees_v1</code> and verified assets.</span></li>
+      <li><span><b>6 Zero/sign sanity</b>: 5 directions correct, angles within about 5&deg;.</span></li>
+      <li><span><b>7 Mover vs owner</b>: fake-owner run passes; timing fits within 0.75 s.</span></li>
+      <li><span><b>8 Status</b>: <code>READY_FOR_LOCAL_PROBES</code>, no blockers, measured sizes in the geometry file.</span></li>
+      <li><span><b>9 Start pose</b>: rests when released, &plusmn;96 ticks clear, tag 2 &ge; 30 px from the edges, owner watching.</span></li>
+      <li><span><b>10 Registration</b>: <code>REGISTRATION_VALIDATED</code>, both sets &le; 2 mm RMS / 4 mm / 2&deg;, file written, all motors released.</span></li>
+      <li><span><b>11 Workspace</b>: 6-10 spread poses pass the 4 mm / 2&deg; consistency check; ruler check within 5 mm; mapping marked validated.</span></li>
+      <li><span><b>12 Grasp geometry</b>: handle offset, <code>gripper_from_tool</code> and bounds recorded; plan_reach round trip within 3 ticks.</span></li>
+      <li><span><b>13 Paddle target</b>: tool and procedure built and tested; owner policy decision recorded.</span></li>
+      <li><span><b>14 Trial</b>: pregrasp within 10 mm, handle in jaw, observed lift/hold, verified release, STATUS.md pushed.</span></li>
+      <li><span><b>15 Keep valid</b>: session-start registered read; know what forces a redo.</span></li>
+    </ul>
+  </div>
+  <div class="footer"><span>Checklist</span><span class="pg"></span></div>
+</section>
+
+</div>
+<div class="help">&larr; &rarr; / space navigate · F fullscreen · Home / End</div>
+<div class="controls" aria-label="Slideshow controls"><button class="nav-btn" id="prev" aria-label="Previous slide">&larr;</button><span class="counter" id="counter">01 / 21</span><button class="nav-btn" id="next" aria-label="Next slide">&rarr;</button></div>
+<div class="progress" id="progress"></div>
+<script>
+  (() => {
+    const slides = [...document.querySelectorAll('.slide')];
+    const counter = document.getElementById('counter');
+    const progress = document.getElementById('progress');
+    const pad = n => String(n).padStart(2, '0');
+    slides.forEach((slide, i) => {
+      const pg = slide.querySelector('.pg');
+      if (pg) pg.textContent = `${pad(i + 1)} / ${pad(slides.length)}`;
+    });
+    let index = Math.max(0, Math.min(slides.length - 1, Number(location.hash.slice(1)) - 1 || 0));
+
+    function show(next) {
+      next = Math.max(0, Math.min(slides.length - 1, next));
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === next);
+        slide.classList.toggle('leaving', i < next);
+        slide.setAttribute('aria-hidden', i === next ? 'false' : 'true');
+      });
+      index = next;
+      history.replaceState(null, '', '#' + (index + 1));
+      counter.textContent = `${pad(index + 1)} / ${pad(slides.length)}`;
+      progress.style.width = `${((index + 1) / slides.length) * 100}%`;
+    }
+
+    document.getElementById('prev').addEventListener('click', () => show(index - 1));
+    document.getElementById('next').addEventListener('click', () => show(index + 1));
+    addEventListener('keydown', event => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); show(index + (event.shiftKey && event.key === ' ' ? -1 : 1)); }
+      if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) { event.preventDefault(); show(index - 1); }
+      if (event.key === 'Home') show(0);
+      if (event.key === 'End') show(slides.length - 1);
+      if (event.key.toLowerCase() === 'f') document.documentElement.requestFullscreen?.();
+    });
+    addEventListener('hashchange', () => {
+      const n = Number(location.hash.slice(1)) - 1;
+      if (Number.isInteger(n) && n !== index) show(n);
+    });
+    let startX = 0;
+    addEventListener('touchstart', e => { startX = e.changedTouches[0].clientX; }, { passive: true });
+    addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) > 55) show(index + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+    show(index);
+  })();
+</script>
+</body>
+</html>

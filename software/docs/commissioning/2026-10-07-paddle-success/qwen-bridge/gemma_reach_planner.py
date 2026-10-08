@@ -12,7 +12,10 @@ from carton.servo.kinematics import load_arm
 from farm.kinematics.assets import verified_model
 from farm.kinematics.lerobot import transform
 ROOT=Path(__file__).resolve().parents[1]
-CONFIGS={'left':ROOT/'outputs/Standard-Reach-Candidate.json'}
+BRIDGE=Path(__file__).resolve().parent
+# left: measured on the robot Mac (outputs/ is not written by a deploy).
+# right: shipped next to this file; redeploy_robot_server.py installs both into work/ and fetches its model assets.
+CONFIGS={'left':ROOT/'outputs/Standard-Reach-Candidate.json','right':BRIDGE/'right-arm-kinematics.json'}
 JOINTS=('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll')
 POSE_SCHEMA={'type':'array','minItems':1,'maxItems':10,'items':{'type':'array','minItems':4,'maxItems':4,'items':{'type':'array','minItems':4,'maxItems':4,'items':{'type':'number'}}}}
 def validate_poses(poses):
@@ -21,11 +24,25 @@ def validate_poses(poses):
   if not isinstance(p,list) or len(p)!=4 or any(not isinstance(row,list) or len(row)!=4 or any(type(v) not in (int,float) or not math.isfinite(v) for v in row) for row in p):raise ValueError('Tool poses require finite numeric 4x4 matrices')
   t=transform(p)
   if np.max(np.abs(t[:3,3]))>1:raise ValueError('Tool pose translation exceeds one metre')
+def load_config(path):
+ """Relative calibration_file/model_directory resolve against the config's folder (as carton.servo.kinematics.load_arm does).
+ With calibration_sha256_from_file, the digest is the current hash of calibration_file, never a stored literal:
+ a recalibration changes it, which invalidates anything (e.g. a tag registration) bound to the old digest."""
+ config=json.loads(path.read_text())
+ for k in ('calibration_file','model_directory'):
+  if isinstance(config.get(k),str):config[k]=str((path.parent/config[k]).resolve())
+ # feetech_degrees_v1 derives every angle from calibration_file itself, so a stored digest can only go stale after a
+ # recalibration (the left config's did on 2026-10-07); such configs always take the file's current hash.
+ if config.get('calibration_sha256_from_file') is True or config.get('mapping')=='feetech_degrees_v1':
+  try:config['calibration_sha256']=hashlib.sha256(Path(config['calibration_file']).read_bytes()).hexdigest()
+  except (OSError,KeyError,TypeError):config['calibration_sha256']=None
+ return config
 def configuration(arm,calibration):
  path=CONFIGS.get(arm);missing=[];config=None
  if path is None or not path.exists():missing.append('measured kinematics configuration for '+arm)
  else:
-  config=json.loads(path.read_text())
+  config=load_config(path)
+  if (config.get('calibration_sha256_from_file') is True or config.get('mapping')=='feetech_degrees_v1') and config.get('calibration_sha256') is None:missing.append('readable calibration_file '+str(config.get('calibration_file')))
   if config.get('arm')!=arm:missing.append('configuration arm mismatch')
   if config.get('mapping')=='feetech_degrees_v1':
    if config.get('mapping_validated') is not True or not config.get('mapping_evidence'):missing.append('physical validation evidence for feetech_degrees_v1 mapping')

@@ -52,6 +52,133 @@ def add_marker(parent, name, tag_id, size, pos, xyaxes=None):
     return body
 
 
+def camera_payload(rgb, seq, stream_id, captured_at, fovy_degrees, camera_id="sim"):
+    """robot_get_cameras-shaped envelope for one rendered rectified pinhole frame."""
+    height, width = rgb.shape[:2]
+    ok, encoded = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    if not ok:
+        raise RuntimeError("Failed to encode simulated image")
+    digest = hashlib.sha256(encoded).hexdigest()
+    frame = {"camera_id": camera_id, "captured_at": captured_at, "seq": seq,
+             "stream_id": stream_id, "sha256": digest, "mime_type": "image/png",
+             "projection": "rectified_pinhole", "data_base64": base64.b64encode(encoded).decode()}
+    focal = height / (2 * math.tan(math.radians(fovy_degrees) / 2))
+    return {"ok": True, "result": {"cameras": {camera_id: {"camera_id": camera_id, "seq": seq,
+            "stream_id": stream_id, "sha256": digest, "width": width, "height": height,
+            "projection": "rectified_pinhole", "coordinate_frame": "sim_camera_optical",
+            "intrinsics": [[focal, 0, width/2], [0, focal, height/2], [0, 0, 1]]}}},
+            "images": [frame], "simulation_only": True}
+
+
+# Decoded AprilTag axes (tag_geometry.square_points: +x right, +y up as printed,
+# +z out of the printed face) relative to an add_marker() body frame.
+MARKER_FROM_DECODED = np.diag([-1., 1., -1., 1.])
+
+
+def _pose(xpos, xmat):
+    out = np.eye(4)
+    out[:3, :3], out[:3, 3] = np.asarray(xmat).reshape(3, 3), xpos
+    return out
+
+
+class MarkerScene:
+    """Minimal rendered tag scene that needs no PaddleSimulation checkout.
+
+    Table tag 1, a rigid gripper body carrying tag 2 and a paddle body carrying
+    tag 3 plus a ``handle`` site. The camera image goes through the production
+    detector/IPPE path. Ground-truth poses are for test evaluation only.
+    """
+
+    def __init__(self, width=1280, height=960, *, fovy=45., paddle_pos=(.26, -.04, .012),
+                 paddle_yaw_degrees=25., handle_in_paddle=(-.075, .002, -.0058),
+                 gripper_pos=(.17, -.15, .11), base_pos=(.08, -.04, 0.), base_yaw_degrees=15.,
+                 camera_pos=(.47, -.33, .36), lookat=(.23, -.06, .03)):
+        self.width, self.height, self.fovy = width, height, fovy
+        root = ET.Element("mujoco", model="marker_scene")
+        visual = ET.SubElement(root, "visual")
+        ET.SubElement(visual, "global", offwidth=str(width), offheight=str(height))
+        ET.SubElement(visual, "headlight", ambient=".5 .5 .5", diffuse=".5 .5 .5", specular="0 0 0")
+        world = ET.SubElement(root, "worldbody")
+        ET.SubElement(world, "geom", name="table", type="box", size="1 1 .01", pos="0 0 -.01",
+                      rgba=".55 .52 .48 1", contype="0", conaffinity="0")
+        add_marker(world, "tag1", 1, .060, [.33, .09, .0005])
+        yaw = math.radians(paddle_yaw_degrees)
+        paddle = ET.SubElement(world, "body", name="paddle", pos=words(paddle_pos),
+                               xyaxes=words([math.cos(yaw), math.sin(yaw), 0, -math.sin(yaw), math.cos(yaw), 0]))
+        ET.SubElement(paddle, "geom", name="paddle_board", type="box", size=".035 .03 .0055",
+                      pos="0 0 -.0058", rgba=".72 .58 .40 1", contype="0", conaffinity="0")
+        ET.SubElement(paddle, "geom", name="paddle_handle", type="capsule", size=".006",
+                      fromto=words(np.add(handle_in_paddle, [.04, 0, 0]).tolist() + np.add(handle_in_paddle, [-.04, 0, 0]).tolist()),
+                      rgba=".35 .25 .15 1", contype="0", conaffinity="0")
+        add_marker(paddle, "tag3", 3, .040, [0, 0, .0001])
+        ET.SubElement(paddle, "site", name="handle", pos=words(handle_in_paddle), size=".002", rgba="0 0 0 0")
+        camera_pos, lookat = np.asarray(camera_pos, float), np.asarray(lookat, float)
+        # Gripper housing faces the camera at a 25 degree slant so tag 2's pose is unambiguous.
+        toward = camera_pos - np.asarray(gripper_pos)
+        toward /= np.linalg.norm(toward)
+        normal = toward + np.array([.35, 0, -.25])
+        normal /= np.linalg.norm(normal)
+        x_axis = np.cross([0, 0, 1], normal)
+        x_axis /= np.linalg.norm(x_axis)
+        y_axis = np.cross(normal, x_axis)
+        gripper = ET.SubElement(world, "body", name="gripper", pos=words(gripper_pos),
+                                xyaxes=words(np.r_[x_axis, y_axis]))
+        ET.SubElement(gripper, "geom", name="housing", type="box", size=".03 .03 .01", pos="0 0 -.0105",
+                      rgba=".2 .2 .22 1", contype="0", conaffinity="0")
+        add_marker(gripper, "tag2", 2, .040, [0, 0, .0001])
+        b = math.radians(base_yaw_degrees)
+        ET.SubElement(world, "body", name="arm_base", pos=words(base_pos),
+                      xyaxes=words([math.cos(b), math.sin(b), 0, -math.sin(b), math.cos(b), 0]))
+        back = camera_pos - lookat
+        back /= np.linalg.norm(back)
+        right = np.cross([0, 0, 1], back)
+        right /= np.linalg.norm(right)
+        up = np.cross(back, right)
+        ET.SubElement(world, "camera", name="tag_camera", pos=words(camera_pos),
+                      xyaxes=words(np.r_[right, up]), fovy=str(fovy))
+        self.model = mujoco.MjModel.from_xml_string(ET.tostring(root, encoding="unicode"))
+        self.data = mujoco.MjData(self.model)
+        mujoco.mj_forward(self.model, self.data)
+        self.renderer = None
+        self.stream_id = "marker-scene-" + uuid.uuid4().hex
+        self.seq = 0
+
+    def render(self):
+        if self.renderer is None:
+            self.renderer = mujoco.Renderer(self.model, height=self.height, width=self.width)
+        self.renderer.update_scene(self.data, camera="tag_camera")
+        return self.renderer.render().copy()
+
+    def payload(self, captured_at):
+        self.seq += 1
+        return camera_payload(self.render(), self.seq, self.stream_id, captured_at, self.fovy)
+
+    def close(self):
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
+
+    # Ground truth below is for evaluation only.
+    def world_from(self, name):
+        if name == "camera_optical":
+            camera = self.model.camera("tag_camera").id
+            return _pose(self.data.cam_xpos[camera], self.data.cam_xmat[camera]) @ np.diag([1., -1., -1., 1.])
+        if name == "handle":
+            site = self.data.site("handle")
+            return _pose(site.xpos, site.xmat)
+        if name.startswith("tag"):
+            body = self.data.body(name)
+            return _pose(body.xpos, body.xmat) @ MARKER_FROM_DECODED
+        body = self.data.body(name)
+        return _pose(body.xpos, body.xmat)
+
+    def base_from(self, name):
+        return np.linalg.inv(self.world_from("arm_base")) @ self.world_from(name)
+
+    def handle_in_decoded_tag3(self):
+        return (np.linalg.inv(self.world_from("tag3")) @ self.world_from("handle"))[:3, 3]
+
+
 class CameraSimulation:
     def __init__(self, source, out, metric=False, width=WIDTH, height=HEIGHT):
         self.out = out
@@ -129,22 +256,10 @@ class CameraSimulation:
         if name != "robot_get_cameras":
             raise ValueError("Simulation backend only supplies rendered camera images")
         rgb = self.render()
-        captured = time.time()
         self.seq += 1
-        ok, encoded = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-        if not ok:
-            raise RuntimeError("Failed to encode simulated image")
-        digest = hashlib.sha256(encoded).hexdigest()
-        frame = {"camera_id": "sim", "captured_at": captured, "seq": self.seq,
-                 "stream_id": self.stream_id, "sha256": digest, "mime_type": "image/png",
-                 "projection": "rectified_pinhole", "data_base64": base64.b64encode(encoded).decode()}
         self.calls.append(name)
-        focal = self.height / (2 * math.tan(math.radians(self.model.cam_fovy[self.camera]) / 2))
-        return {"ok": True, "result": {"cameras": {"sim": {"camera_id": "sim", "seq": self.seq,
-                "stream_id": self.stream_id, "sha256": digest, "width": self.width, "height": self.height,
-                "projection": "rectified_pinhole", "coordinate_frame": "sim_camera_optical",
-                "intrinsics": [[focal, 0, self.width/2], [0, focal, self.height/2], [0, 0, 1]]}}},
-                "images": [frame], "simulation_only": True}
+        return camera_payload(rgb, self.seq, self.stream_id, time.time(),
+                              self.model.cam_fovy[self.camera])
 
     def ground_truth_metric(self):
         rotation = self.data.cam_xmat[self.camera].reshape(3, 3)
