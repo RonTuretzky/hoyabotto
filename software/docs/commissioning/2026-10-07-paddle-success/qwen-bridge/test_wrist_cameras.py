@@ -19,6 +19,7 @@ with tempfile.TemporaryDirectory() as tmp:
  assert not wrist_status([Path(tmp,'missing')],now=101.0)['right_wrist']['available']
 from wrist_cameras import resolve_ids
 R,Lw,H='0x12200005a39230','0x12140005a39230','0x12400005a39230'
+import wrist_cameras;wrist_cameras.HEAD_CAMERA_ID=H  # saved head_camera_id setting (no longer hard-coded)
 cur={'right_wrist':R,'left_wrist':Lw};ok={'right_wrist':True,'left_wrist':True}
 ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':R},{'name':'USB Camera','camera_id':Lw},{'name':'USB Camera','camera_id':H},{'name':'FaceTime HD Camera','camera_id':'0xFT'}],cur,ok)
 assert ids==cur and ver==ok and miss==[] # unchanged IDs stay verified

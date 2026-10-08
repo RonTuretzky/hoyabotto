@@ -73,3 +73,39 @@ There is no self-collision model: per-joint calibration ranges cannot stop the a
 - **Trade-off.** If the high load was gravity rather than contact, the joint sags by its following error after the back-off.
 - **Corrections.** A joint at ≥ 600 load gets no settle correction. A joint that did not move after a correction gets no further ones, and is reported in `possible_contact_joints`.
 - The 800-load and 96-tick release limits are unchanged and still catch anything faster.
+
+## Soft release on STOP and faults (2026-10-07)
+
+`test_soft_release.py` covers this. STOP, and owner faults where the bus still answers, release in four steps:
+1. Every enabled joint's goal is set to its present position, so motion stops at once.
+2. Each joint's Torque_Limit is lowered to 0 in 10 steps over 2 s, so a gravity-loaded arm settles instead of dropping.
+3. Torque is turned off.
+4. Saved settings are restored.
+
+Exceptions:
+- Communication faults release immediately, as before, and so does any failure while easing; `last_release_mode` records which happened.
+- Wheels still stop and release immediately.
+- A closed gripper also eases open, so a held object is still let go.
+- The client waits up to 6 s for a STOP to be confirmed.
+- The 12 V switch remains the hard stop.
+
+## Automatic calibration tool (2026-10-07)
+
+`robot_auto_calibrate(arm, velocity=300|200, user_confirmed_clearance)` runs LeRobot PR #3282 for one arm through the pinned runner `software/scripts/carton_robot/upstream_pr3282_calibration.py --execute --install` (the unchanged upstream sweep, then validation; see `software/docs/auto-calibration.md`). It runs as a detached job (`calibration_job.py`, started via `remote_admin.start_calibration`):
+
+1. Precheck: no motor enabled, no motion running, and a phone frame younger than 10 s.
+2. Stop the hardware owner so the runner can open the servo ports.
+3. Run the sweep.
+4. Handle the result:
+   - If it validated, it is installed.
+   - If it ran but was not installed, the previous offsets, limits and position mode are written back into the six servos with torque off and read back. Without this, a failed run leaves the servos disagreeing with the file, which is how the left-arm mismatch arose.
+   - If torque release could not be verified, stop and ask for 12 V off; the server is not restarted.
+5. Restart the robot server.
+
+`robot_stop` sends SIGINT to a running sweep; the upstream routine makes the motors limp. `robot_get_calibration_job` reports the phase, log and outcome. The tool refuses unless `user_confirmed_clearance` is true. Its description tells the pilot to show the clearance checklist and get an explicit yes. One job runs at a time, whether deploy or calibration. `test_calibration_job.py` covers it; it has not been run on hardware through the API.
+
+## Both arms and calibration restore (2026-10-07)
+
+- **Both arms.** The restart script now starts the owner with `--both-arms --paddle-profile --wheels`; `--right-arm-only` gives the old scope. A pickup command needs all six joints of the arm it moves enabled, but not the other arm. The pickup profile settings and guards apply to each arm.
+- **Mismatched arm.** If an arm's saved calibration does not match its servos, that arm stays read-only (`scope_reduced` in status) and the other arm works. A single-arm scope with a mismatch, or a mismatch in every scoped arm, still refuses startup.
+- **Restore.** `robot_restore_calibration(arm)` is a no-motion job. It stops the owner, writes the saved calibration file's homing offset, limits and position mode into that arm's six servos with torque off, reads them back, then restarts. This fixes the left arm's 6 October mismatch (four servos left holding the rejected candidate). `test_both_arms.py` covers this.

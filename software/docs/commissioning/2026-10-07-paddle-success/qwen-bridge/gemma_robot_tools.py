@@ -34,7 +34,7 @@ from gemma_execution_binding import TrustedExecutionBinding
 from gemma_direct_client import DirectJointClient
 from paddle_segments import paddle_target_segments, expand_path
 import remote_admin
-from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED, setup_report
+from wrist_cameras import select_wrist_manifest, wrist_dirs, wrist_status, configure as configure_wrist_ids, IDENTITY_VERIFIED, setup_report, revive
 WRIST_DIRS = wrist_dirs(ROOT)
 configure_wrist_ids(ROOT)  # IDs detected by the restart script
 LEGACY_CONTINUOUS_BINDING = TrustedExecutionBinding(SESSION)
@@ -156,7 +156,7 @@ TOOLS = [
     tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Wheel activation holds the current encoder in existing position mode0; no wheel movement/mode change. Never automatically activates at server startup.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}}, ['names', 'enabled']),
     tool('robot_move_motor_targets', 'Raw integer encoder targets for the14 arm/head/gripper position motors already enabled. Sole owner enforces ranges, rates, following, watchdog and measured completion. No wheel movement or automatic activation.', {'positions': TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions', 'duration_s']),
     tool('robot_get_state', 'Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.', {'fresh': {'type': 'boolean'}}),
-    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}}),
+    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}, 'revive': {'type': 'boolean', 'description': 'Restart a stalled wrist stream to get a frame (default true; previews pass false)'}}),
     tool('robot_get_capabilities', 'Report actual joint ranges, units, supported controller protocol and concrete motion blockers.'),
     tool('robot_get_depth', 'Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.'),
     tool('robot_get_handoff', 'Retrieve the user-authorized complete paddle-task handoff, historical evidence and guards, plus current camera and saved servo ages. Context transfer never arms or binds execution.'),
@@ -167,7 +167,11 @@ TOOLS = [
     tool('robot_get_execution', 'Read the bound sole-owner execution status; no motor connection.'),
     tool('robot_stop', 'Independent STOP for the current bound owner: releases all motors and cancels any move in progress, which is never resumed. There is no STOP latch and no owner restart is needed; motors stay released until an explicit robot_set_motor_enable. Never enables motors or restarts an owner.'),
     tool('robot_move_joint_targets', 'Direct encoder targets through the existing sole owner. Owner enforces saved range margins, speed/acceleration/torque/health/watchdog and measured completion. No continuous commissioning or Cartesian transform required. Does not start or arm an owner. Under the paddle-success-v1 pickup profile all requested right-arm joints move together: one segment when every joint travels <=341 ticks, otherwise <=280-tick segments (a closing gripper runs last, alone); a joint that rests short of target after bounded corrections returns completed=false, closure_outcome=settled_short with motors holding.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'positions': ARM_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}, 'wait': {'type': 'boolean', 'description': 'true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move.'}, 'replace': {'type': 'boolean', 'description': 'true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false.'}}, ['arm', 'positions', 'duration_s']),
-    tool('robot_move_path', 'Continuous right-arm motion through waypoints (pickup profile). Each waypoint lists the joints that change (others carry forward); the arm passes through intermediate waypoints without stopping and settles only at the last. Legs over 341 ticks are split automatically. Use wait=false to watch it with robot_get_motion and cameras while it moves, then robot_halt_motion to stop and hold or a replace=true move to change course. Cannot close the gripper (do that as its own move).', {'arm': {'type': 'string', 'enum': ['right']}, 'waypoints': {'type': 'array', 'minItems': 1, 'maxItems': 12, 'items': ARM_TARGET}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 60}, 'wait': {'type': 'boolean', 'description': 'true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move.'}, 'replace': {'type': 'boolean', 'description': 'true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false.'}}, ['arm', 'waypoints', 'duration_s']),
+    tool('robot_move_path', 'Continuous arm motion through waypoints (pickup profile). Each waypoint lists the joints that change (others carry forward); the arm passes through intermediate waypoints without stopping and settles only at the last. Legs over 341 ticks are split automatically. Use wait=false to watch it with robot_get_motion and cameras while it moves, then robot_halt_motion to stop and hold or a replace=true move to change course. Cannot close the gripper (do that as its own move).', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'waypoints': {'type': 'array', 'minItems': 1, 'maxItems': 12, 'items': ARM_TARGET}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 60}, 'wait': {'type': 'boolean', 'description': 'true (default): return when the motion finishes. false: return as soon as it starts, then monitor with robot_get_motion/cameras and decide to robot_halt_motion or send a replace=true move.'}, 'replace': {'type': 'boolean', 'description': 'true: change course while a motion is running; it stops advancing and the new motion starts from where the arm is commanded now. Default false.'}}, ['arm', 'waypoints', 'duration_s']),
+    tool('robot_auto_calibrate', 'Automatic calibration of ONE arm (LeRobot PR #3282, pinned runner): every joint of that arm is driven to both of its mechanical stops, then the result is validated and installed only if it passes; if not, the previous calibration is written back. Use ONLY when the user explicitly asks to calibrate an arm. Before calling, show the user this checklist and get an explicit yes: other arm folded and turned away; nothing on the tray near the arm (paddle, bottle out of reach); camera cables slack and out of the path; the cart front clear; someone watching the whole arm with the 12 V switch in reach. Requires all motors released and a fresh phone camera. The hardware owner stops for the run (other tools are unavailable, about 2-4 minutes); robot_stop interrupts the sweep (motors go limp). Poll robot_get_calibration_job.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'velocity': {'type': 'integer', 'enum': [200, 300], 'description': 'Limit-seeking speed; 300 default, 200 slower'}, 'user_confirmed_clearance': {'type': 'boolean', 'description': 'true only after the user explicitly confirmed the checklist in this conversation'}}, ['arm', 'user_confirmed_clearance']),
+    tool('robot_restore_calibration', 'No motion. Write the SAVED calibration file values (homing offset, min/max limits, position mode) for one arm back into its six servos with torque off, verify by readback, then restart the robot server. Use when the controller reports a saved-versus-hardware calibration mismatch for that arm (it is then read-only). Requires every motor released; the server is unavailable for about 30 s. Poll robot_get_calibration_job.', {'arm': {'type': 'string', 'enum': ['left', 'right']}}, ['arm']),
+    tool('robot_restart_cameras', 'Restart stale camera streams on the robot Mac: wrist publishers and the OAK RGB/depth stream. No motors involved. Takes about 30-60 s; then request robot_get_cameras again. A wrist camera that restarts but still sends no frames is a USB/cable fault for a person to reseat.'),
+    tool('robot_get_calibration_job', 'Progress and result of an automatic calibration job: phase, log tail, whether the result was validated/installed or the previous calibration restored, and evidence location. Without job_id, the latest job.', {'job_id': {'type': 'string'}}),
     tool('robot_get_motion', 'Live progress of the running or last motion: phase (moving/holding/idle), current waypoint, per-joint current/goal/target ticks and following error, elapsed time, outcome. Cheap; call it repeatedly while a wait=false motion runs.'),
     tool('robot_halt_motion', 'Stop the running motion now and HOLD where the arm is (the base brakes and releases). Nothing is released, unlike robot_stop. Use it when monitoring shows the motion should not continue; then send a new move.'),
     tool('robot_move_head', 'Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
@@ -314,7 +318,7 @@ def manifest_image_path(folder, filename):
     return path
 
 
-def cameras_strict(names):
+def cameras_strict(names, allow_revive=True):
     images, metadata = [], {}
     for name in names:
         for _ in range(15):
@@ -340,7 +344,17 @@ def cameras_strict(names):
                              'captured_at': None, 'received_at': stamp, 'seq': m['seq'],
                              'timestamp_semantics': 'server receipt; capture delay unknown'}
                 elif name in ('left_wrist', 'right_wrist'):
-                    folder, m = select_wrist_manifest(name, WRIST_DIRS)
+                    revived = False
+                    try:
+                        folder, m = select_wrist_manifest(name, WRIST_DIRS)
+                    except RuntimeError as stale:
+                        # The camera stopped sending frames (its process can still be alive). Restart its stream once and
+                        # take the first fresh frame; the left wrist does this about 15 s after every start (USB fault).
+                        if not allow_revive:
+                            raise
+                        if not revive(name, ROOT):
+                            raise RuntimeError(f'{stale}. Its camera has stopped delivering frames and restarting the stream did not produce one within 8 s (or was tried <10 s ago): a camera/USB fault; the cable needs reseating. The age will not count down on its own.') from None
+                        folder, m = select_wrist_manifest(name, WRIST_DIRS); revived = True
                     data = manifest_image_path(folder, m['image']).read_bytes()
                     assert hashlib.sha256(data).hexdigest() == m['sha256']
                     stamp = m['captured_at']
@@ -348,6 +362,9 @@ def cameras_strict(names):
                              'mime_type': 'image/jpeg', 'captured_at': stamp, 'received_at': m.get('received_at'),
                              'seq': m['seq'], 'stream_id': m['stream_id'], 'width': m.get('width'), 'height': m.get('height'),
                              'robot_frame_calibrated': False, 'identity_verified': IDENTITY_VERIFIED[name]}
+                    if revived:
+                        image['revived_on_demand'] = True
+                        image['stream_note'] = 'This camera had stopped sending frames; its stream was restarted to capture this one. It stalls again within about 15 s (USB fault), so each request may take a few seconds longer.'
                     if not IDENTITY_VERIFIED[name]:
                         image['identity_note'] = 'Left/right for this wrist camera was auto-assigned after its USB ID changed; confirm from the image which gripper it shows.'
                 else:
@@ -367,12 +384,12 @@ def cameras_strict(names):
 
 
 
-def cameras(names):
+def cameras(names, allow_revive=True):
     # One offline camera must not discard independently fresh other images.
     metadata, images, errors = {}, [], {}
     for name in names:
         try:
-            current, frames = cameras_strict([name])
+            current, frames = cameras_strict([name], allow_revive)
             metadata.update(current)
             images.extend(frames)
         except (OSError, ValueError, RuntimeError, KeyError, TypeError) as exc:
@@ -551,7 +568,7 @@ def dispatch(name, args):
     if name == 'robot_get_state':
         return state(args.get('fresh', True)), None
     if name == 'robot_get_cameras':
-        return cameras(args.get('cameras', ['oak', 'phone']))
+        return cameras(args.get('cameras', ['oak', 'phone']), args.get('revive', True))
     if name == 'robot_get_capabilities':
         return capabilities(), None
     if name == 'robot_get_depth':
@@ -581,7 +598,28 @@ def dispatch(name, args):
     if name == 'robot_get_execution':
         return execution(), None
     if name == 'robot_stop':
-        return DIRECT_CLIENT.stop(), None
+        interrupted = remote_admin.interrupt_calibration(ROOT)  # a running calibration sweep stops first
+        result = DIRECT_CLIENT.stop()
+        return (dict(result, calibration=interrupted) if interrupted else result), None
+    if name == 'robot_auto_calibrate':
+        if args['user_confirmed_clearance'] is not True:
+            raise ValueError('Show the user the clearance checklist and get an explicit yes first; nothing was started')
+        job = remote_admin.start_calibration(ROOT, args['arm'], args.get('velocity', 300))
+        return {'started': True, 'job': job, 'note': 'The hardware owner stops for the calibration; other robot tools are unavailable until it finishes and restarts the server. Poll robot_get_calibration_job; robot_stop interrupts the sweep.'}, None
+    if name == 'robot_restart_cameras':
+        job = remote_admin.start_camera_restart(ROOT)
+        return {'started': True, 'job': job, 'note': 'No motors involved. Request robot_get_cameras again in about 30-60 s.'}, None
+    if name == 'robot_restore_calibration':
+        job = remote_admin.start_restore(ROOT, args['arm'])
+        return {'started': True, 'job': job, 'note': 'No motion. The hardware owner restarts in about 30 s; poll robot_get_calibration_job.'}, None
+    if name == 'robot_get_calibration_job':
+        job_id = args.get('job_id')
+        if not job_id:
+            jobs = sorted((ROOT / 'work/deploy-jobs').glob('*.json'))
+            jobs = [j for j in jobs if json.loads(j.read_text()).get('kind') == 'calibration']
+            if not jobs:return {'available': False, 'note': 'no calibration job yet'}, None
+            job_id = jobs[-1].stem
+        return remote_admin.job_status(ROOT, job_id, 60), None
     # No model request can install/arm a binding, start an owner, alter safeguards or access serial.
     if name in ('robot_move_joint_targets', 'robot_move_head'):
         args = dict(args)
@@ -594,7 +632,7 @@ def dispatch(name, args):
     if name == 'robot_move_joint_targets':
         return execute_targets(args['positions'], args['duration_s'], wait=args.get('wait', True), replace=args.get('replace', False)), None
     if name == 'robot_move_path':
-        return execute_path([normalize_targets(w, arm='right') for w in args['waypoints']], args['duration_s'], wait=args.get('wait', True), replace=args.get('replace', False)), None
+        return execute_path([normalize_targets(w, arm=args['arm']) for w in args['waypoints']], args['duration_s'], wait=args.get('wait', True), replace=args.get('replace', False)), None
     if name == 'robot_get_motion':
         return DIRECT_CLIENT.motion(), None
     if name == 'robot_halt_motion':
@@ -652,6 +690,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, {'ok': True, 'logs': remote_admin.logs(ROOT, names, int(query.get('lines', 80)))})
             if url.path == '/admin/deploy':
                 return self.send_json(200, {'ok': True, 'deploy': remote_admin.deploy_status(ROOT)})
+            if url.path == '/admin/processes':
+                return self.send_json(200, {'ok': True, 'processes': remote_admin.processes()})
             if url.path == '/admin/job':
                 return self.send_json(200, {'ok': True, 'job': remote_admin.job_status(ROOT, query.get('id', ''), int(query.get('lines', 200)))})
         except (ValueError, OSError) as e:
@@ -669,6 +709,18 @@ class Handler(BaseHTTPRequestHandler):
                 job = remote_admin.start_deploy(ROOT, body.get('ref', 'main'), body.get('mode', 'restart'))
                 print('admin deploy job '+job['id']+': '+json.dumps({k: job[k] for k in ('ref', 'mode')}), flush=True)
                 return self.send_json(202, {'ok': True, 'job': job, 'note': 'Runs detached; a restart replaces this API for a few seconds. Poll /admin/job?id=...'})
+            except (ValueError, OSError, KeyError, TypeError, AttributeError) as e:
+                return self.send_json(400, {'ok': False, 'error': str(e)})
+        if self.path == '/admin/wrist-ids':
+            # Pin wrist/head camera IDs after cables moved, then restart only the camera streams.
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 4096: raise ValueError('Invalid request size')
+                saved = remote_admin.set_wrist_ids(ROOT, json.loads(self.rfile.read(size)))
+                configure_wrist_ids(ROOT)  # this API serves the new IDs at once (the camera job only restarts it if it detects a change)
+                job = remote_admin.start_camera_restart(ROOT)
+                print('admin wrist ids '+json.dumps(saved)+' job '+job['id'], flush=True)
+                return self.send_json(202, {'ok': True, 'saved': saved, 'job': job})
             except (ValueError, OSError, KeyError, TypeError, AttributeError) as e:
                 return self.send_json(400, {'ok': False, 'error': str(e)})
         if self.path != '/call':
@@ -726,13 +778,15 @@ def main():
     ctx.load_verify_locations(cafile=str(TLS / 'gateway-server.pem'))
     ctx.verify_mode = ssl.CERT_REQUIRED
     servers = []
-    for host in ('127.0.0.1',):
+    # XLEROBOT_API_BIND=0.0.0.0 (set by the restart script) also serves the paired chat Mac directly over the LAN;
+    # every connection still needs the exact pinned client certificate.
+    for host in [h.strip() for h in os.environ.get('XLEROBOT_API_BIND', '127.0.0.1').split(',') if h.strip()]:
         server = ThreadingHTTPServer((host, 1241), Handler)
         server.daemon_threads = True
         server.socket = ctx.wrap_socket(server.socket, server_side=True)
         servers.append(server)
         threading.Thread(target=server.serve_forever, daemon=True).start()
-    print('mTLS tools ready: https://127.0.0.1:1241 via approved TCP relay; exact client certificate pinned; DIRECT_JOINT client installed; no owner started', flush=True)
+    print(f"mTLS tools ready on {', '.join(s.server_address[0] for s in servers)}:1241 (relay and/or LAN); exact client certificate pinned; DIRECT_JOINT client installed; no owner started", flush=True)
     try:
         threading.Event().wait()
     finally:

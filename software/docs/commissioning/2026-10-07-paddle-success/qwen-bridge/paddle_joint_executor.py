@@ -41,7 +41,7 @@ class PaddleJointExecutor:
   if not isinstance(legs,list) or not 1<=len(legs)<=MAX_WAYPOINTS:raise ValueError(f'Pickup path needs 1..{MAX_WAYPOINTS} waypoints')
   for p in legs:
    if not isinstance(p,dict) or not p or set(p)!=set(self.joints):raise ValueError('Pickup command joints must match the executor joints')
-   if any(not n.startswith('right_arm_') or type(t) is not int for n,t in p.items()):raise ValueError('Integer right-arm target required')
+   if any(not n.startswith(('right_arm_','left_arm_')) or type(t) is not int for n,t in p.items()):raise ValueError('Integer arm-joint target required')
   if type(duration) not in (int,float) or not math.isfinite(duration) or not 0<duration<=(60 if path else 25):raise ValueError('Finite duration (0,25] required (paths: (0,60])')
   goals={}
   for n in self.joints:

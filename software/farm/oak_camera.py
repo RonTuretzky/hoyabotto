@@ -108,6 +108,8 @@ def main(argv=None) -> int:
     parser.add_argument("--output", type=Path, default=Path("data/oak-captures"))
     parser.add_argument("--timeout", type=float, default=20, help="No-frame timeout in seconds")
     parser.add_argument("--seconds", type=float, default=60, help="Preview or stream duration")
+    parser.add_argument("--wide", action="store_true", help="Full lens field of view: skip the factory undistortion warp, "
+                        "which crops the wide-angle edges (images then carry the factory distortion)")
     parser.add_argument("--capture-seconds", type=float, default=2, help="Stream duration before saving a capture")
     args = parser.parse_args(argv)
     if args.timeout <= 0 or args.seconds <= 0 or args.capture_seconds <= 0:
@@ -132,12 +134,16 @@ def main(argv=None) -> int:
         rgb.setSize(640, 360)
         rgb.setVideoSize(640, 360)
         rgb.setFps(15)
-        rgb.setMeshSource(dai.CameraProperties.WarpMeshSource.CALIBRATION)
+        rgb.setMeshSource(dai.CameraProperties.WarpMeshSource.NONE if args.wide else dai.CameraProperties.WarpMeshSource.CALIBRATION)
         # Keep autofocus from changing the calibrated RGB/depth geometry.
         calibration = device.readCalibration2()
         lens_position = calibration.getLensPosition(dai.CameraBoardSocket.CAM_A)
         if lens_position:
             rgb.initialControl.setManualFocus(lens_position)
+        try:  # OpenCV's pinhole + distortion maths is only valid for the Perspective lens model.
+            distortion_model = str(calibration.getDistortionModel(dai.CameraBoardSocket.CAM_A))
+        except (AttributeError, RuntimeError):
+            distortion_model = None
         left = pipeline.create(dai.node.MonoCamera)
         right = pipeline.create(dai.node.MonoCamera)
         for cam, socket in ((left, dai.CameraBoardSocket.CAM_B), (right, dai.CameraBoardSocket.CAM_C)):
@@ -163,9 +169,12 @@ def main(argv=None) -> int:
                     "usb_speed": str(device.getUsbSpeed()), "alignment": "CAM_A RGB",
                     "stereo_size": [640, 400], "extended_disparity": True,
                     "left_right_check": True, "subpixel": False, "fps": 15,
-                    "rgb_undistortion": "factory calibration", "calibrated_lens_position": lens_position,
+                    "rgb_undistortion": "disabled; wide ISP preview" if args.wide else "factory calibration", "calibrated_lens_position": lens_position,
                     "intrinsics": calibration.getCameraIntrinsics(dai.CameraBoardSocket.CAM_A, 640, 360),
-                    "projection": "rectified_pinhole", "coordinate_frame": "CAM_A_optical"}
+                    **({"distortion_coefficients": calibration.getDistortionCoefficients(dai.CameraBoardSocket.CAM_A),
+                        "distortion_model": distortion_model,
+                        "projection": "camera_pinhole_with_factory_distortion"} if args.wide else {"projection": "rectified_pinhole"}),
+                    "coordinate_frame": "CAM_A_optical"}
         print(json.dumps(metadata), flush=True)
         device.startPipeline(pipeline)
         queue = device.getOutputQueue("rgbd", maxSize=2, blocking=False)

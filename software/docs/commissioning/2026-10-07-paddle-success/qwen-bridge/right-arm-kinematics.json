@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "arm": "right",
+  "mapping": "feetech_degrees_v1",
+  "mapping_validated": false,
+  "mapping_evidence": null,
+  "model_directory": "so101-model",
+  "calibration_file": "/Users/teachera/.cache/huggingface/lerobot/calibration/robots/xlerobot_2wheels/farm_xlerobot.json",
+  "calibration_sha256": null,
+  "calibration_sha256_from_file": true,
+  "gripper_from_tool": null,
+  "base_from_station": null,
+  "workspace_bounds_m": null,
+  "notes": "Right-arm candidate for AprilTag registration (docs/tag-registration-slides.html step 5). feetech_degrees_v1 is the LeRobot DEGREES midpoint convention (farm.kinematics.tag_registration.candidate_degrees), unvalidated until the step 6 zero/sign check and the registration fit. model_directory is relative to this file: work/so101-model on the robot Mac, filled and hash-verified by redeploy_robot_server.py (python -m carton.servo model-fetch). calibration_sha256 is computed from calibration_file each time the planner loads this file, so a recalibration changes it. gripper_from_tool and workspace_bounds_m stay null, so robot_get_arm_pose reports NEEDS_GEOMETRIC_CONFIGURATION and robot_plan_reach proposes nothing for this arm."
+}

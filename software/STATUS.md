@@ -1,3 +1,145 @@
+## New Wi-Fi; direct LAN link; left wrist camera fixed by moving ports — 8 October 2026, 10:20–11:25
+
+- Network: both Macs are on the new Wi-Fi (chat Mac 192.168.1.65, robot Mac Neooooo.local = 192.168.1.66). The old quick
+  tunnel died with the network change. The API now also listens on the LAN (mTLS, pinned client certificate), and the
+  chat prefers `lan_url` https://Neooooo.local:1241, with the relay (`dist-spaces-feel-mirror.trycloudflare.com`) as
+  fallback. `work/network.json` and /admin/deploy report both.
+- Left wrist camera: the stall followed the hub port, not the camera. On its old port (0x12140005a39230) it delivered
+  frames for about 4 s after each start, then stopped silently. Codex was quit and the OAK and head camera were turned
+  off one at a time; none of that helped. Moved to another port it streams steadily (0x12400005a39230). Identity was
+  confirmed from the image (left gripper jaws) and pinned with `robot_admin.py wrist-ids ... --verified`. The head USB
+  camera (not used by the software) is now 0x12130005a39230, saved as head_camera_id; the old hard-coded head port
+  was what excluded the left wrist's new port.
+- OAK can be switched off/on remotely (admin modes oak-off / oak-on); it is on.
+- Open: the right servo board (/dev/cu.usbmodem5B790182091, right arm + wheels) has been unplugged since 11:02
+  (moved during the cable tests), so the owner refuses to start with --wheels. The phone camera server on the robot
+  Mac is not running.
+
+## Tag software deployed (right-arm planner, binding, mover, paddle target) — 7 October 2026, 20:42
+
+Merged tags/right-arm-config, tags/binding-robustness, tags/paddle-target and tags/mover-contract into main
+(95e14e0). qwen-bridge: 20/20 tests pass, including the tag-registration contract. software: 1841 pass; the one failure
+is the order-dependent test_diagnose_folding_observed_scene, which also fails on unmodified main.
+
+- Robot: API-only deploy (job at 20:42; owner and motors untouched). Installed gemma_reach_planner.py (19 changed
+  lines, so no drift) and right-arm-kinematics.json. work/so101-model was copied from the left config's model and
+  verified at revision 5f6d2b8, with no download.
+- Chat Mac: the chat imports farm/carton through `.venv/.../xlerobot_apriltags.pth`. That file used to point at the
+  minsk research checkout (old main 0d80a64, also used for G4 work). It now points at a dedicated worktree,
+  `gemma-xlerobot/farm-live` (detached at 95e14e0); the old .pth is in `pilot/.private/`. To update the chat's
+  tag code: `git -C <farm-live> checkout --detach origin/main` after a fetch, then restart the chat while idle.
+- Live read-only check: robot_calibration_status blockers are "Need table tag 1 and gripper tag 2 in the same view"
+  and "Need confirmed matching fixed gripper-tag mounting". robot_get_paddle_target refuses because there is no
+  tag-registration.json yet.
+- test_tag_registration_contract.py is not in the deploy's TESTS: it needs numpy/OpenCV (XLEROBOT_CONTRACT_PYTHON)
+  and runs for a long time. Run it on the chat Mac before changing the mover.
+
+## Left bus stuck "port busy"; owner now recovers it — 7 October 2026, 20:09–20:12
+
+At 20:09:33 the left bus (`/dev/cu.usbmodem5B790186401`) stopped answering. From then on every owner
+poll failed instantly on left shoulder_pan with `Coherent servo read communication failure: -1` (Feetech SDK
+COMM_PORT_BUSY, about 20 µs, nothing sent on the wire). The owner soft-released and retried about 35 times per
+second (3,300 stops), and the telemetry of all 16 motors stayed frozen. Power-cycling the left arm did not help.
+Every motor was already released and no bus was missing. A remote restart at the same commit (d8a4432,
+job 20261007-201121-bc01a0) brought all 16 motors back, 12 of them commandable, with fresh telemetry and no errors.
+
+Cause: the SDK sets `port.is_using` at the start of a transaction and clears it only on a normal return. A serial
+exception in between (a USB glitch) leaves it set, so every later transaction returns -1 forever. The original
+exception had already scrolled out of the log tail that `/admin/logs` returns.
+
+Fix: in `gemma_hardware_owner.py`, `recover_ports` runs after a -1 failure. It clears the stale flag (and reopens
+the port if its buffer cannot be reset), releases any motor still powered, and records `port_recoveries` and
+`port_recovery_count` in status. `strict_servo_replies.guard_replies` also clears the flag when a write or read
+raises. The owner loads that module from the utility checkout, so on the robot the owner-level recovery is what
+applies.
+
+## Tag registration binding robustness (software only) — 7 October 2026
+
+No hardware touched. `robot_get_registered_tags` no longer refuses after an OAK publisher restart or a cart move:
+
+- A registration is bound to the camera id and its geometry hash (resolution, projection, intrinsics, distortion), not the OAK `stream_id`. After a restart in the same mode, the first read must pass the gripper-consistency check (tag 2 versus the arm model, 4 mm / 2°), and the event is recorded. Switching `--wide` on or off changes the projection and is refused by name.
+- If table tag 1 moved (cart move, base pulse, tag bumped) while the head ticks are unchanged (3 ticks) and the gripper-consistency check passes, the new tag-1 pixels become the reference (`table_anchor_re_anchored`). A head move is still refused, as are model, tag-geometry, mount and arm-calibration changes; each refusal names the cause and the fix.
+- Re-anchor and stream events go in `tag-registration-binding.json` next to `tag-registration.json`, which stays unchanged. A new registration deletes the binding file.
+- Wide (`--wide`) tag poses now undistort corners with a converged iteration before IPPE. OpenCV's built-in 5-iteration undistortion left up to about 1 mm error near strongly distorted image corners. The OAK manifest now records `distortion_model`, and anything other than Perspective is refused.
+
+## Read-only paddle target tool (software only) — 7 October 2026
+
+- Added `robot_get_paddle_target` to the chat-side calibration wrapper (`farm/perception/paddle_target.py`), next to `robot_get_registered_tags`. It returns the paddle tag 3 pose in the right arm base, with uncertainty, frame IDs and age. It refuses with the registered read's own reason when no passing registration exists, and refuses frames that are too old.
+- The grasp point, approach direction and jaw tool poses stay withheld until the owner records `paddle_grasp` in `.private/apriltag-geometry.json`. That means the tag-3-to-handle offset (printed tag frame, mm) and `gripper_from_jaw_contact`, each with a tolerance and a source. Both are **unmeasured**. The section is excluded from the geometry hash, so recording it does not invalidate a registration.
+- A `robot_plan_reach` pre-grasp proposal is included only when the planner is configured and uses the same jaw offset and calibration. It is labelled "proposal, not executed, not collision checked". The rule that planner output is not sent to the motor owner is unchanged; that decision still belongs to the owner. The pilot's reach procedure (small segments with existing tools, re-detect tag 3 and check cameras after each) is in [docs/gemma-automatic-calibration.md](docs/gemma-automatic-calibration.md#paddle-target-read-only). No motion limits changed.
+- Tested on rendered MuJoCo tag images through the production detector (`tests/test_paddle_target.py`): grasp point within 1 mm of scene truth. No hardware was touched; no physical registration had been fitted as of the last hardware record.
+
+## Tag-registration mover checked against today's robot server — 7 October 2026 (no hardware)
+
+`qwen-bridge/test_tag_registration_contract.py` runs CalibrationRobot → `run_calibration(..., 'registration')` through TagRobot and the real `gemma_robot_tools` dispatch, DirectJointClient and HardwareOwner (`--both-arms --paddle-profile --wheels`, 2 s soft release) on a fake bus, with rendered OAK frames. It is in the restart script's test list. The first run against the 6 October mover failed; the adapter (`carton/servo/gemma.py`, `tag_calibration.py`) now:
+- enables all six right-arm motors (the owner refuses moves otherwise; the jaw only holds);
+- refuses steps under 3 ticks before dispatch (the server answers ≤2 ticks with a no-op), sends `duration_s` 0.4;
+- reads status as one `robot_get_execution` (it carries the owner's 16 rows) and keeps two round trips between a frame and the next command (at 150 ms the old pattern exceeded the 1.0 s frame age on the first step);
+- detects STOP/faults by `stop_count` (no latch), names `closure_outcome` on `completed: false`, and confirms a soft release from fresh reads after `robot_stop`.
+
+Limits are unchanged. Registration makes ~530 relay calls: ~125 s at 150 ms RTT, ~178 s at 250 ms; slower links exceed the 180 s budget (`limits.max_seconds` may go to 300). Before a physical run, measure the link read-only with `tools/measure_robot_link.py --pilot-root "$PILOT"` (RTT, robot−chat clock offset, projection). Unverified on hardware: holding Present_Load (<500 required on all 16 rows), Moving/velocity noise while holding, ≤3-tick drift of held joints during a step, endpoint within 5 ticks after a 16-tick step, and OAK capture latency versus the encoder bracket.
+
+## Right arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:50
+
+Job 20261007-195000-fd5abb validated and installed; the owner's servo-versus-file check shows no mismatches. The 18:19 attempt had failed validation only because left/right pan travel differed by 48.9°, against the old 191° left pan; after the left recalibration (238.5°) the right run validated.
+
+| Joint | Old (homing / range) | New (homing / range) | Travel |
+|---|---|---|---|
+| Pan | −57 / 679..3415 | −51 / 673..3421 | 241.5° |
+| Lift | 785 / 826..3268 | 785 / 824..3270 | 215.0° |
+| Elbow | 634 / 932..3162 | 634 / 932..3162 (unchanged) | 196.0° |
+| Wrist flex | −770 / 929..3165 | −777 / 924..3170 | 197.4° |
+| Roll | 790 / 121..3973 | 798 / 130..3964 | 337.0° |
+| Gripper | 329 / 1270..2824 | 329 / 1269..2825 | 136.8° |
+
+Homing shifts are at most 8 ticks (under 1°), so the recorded paddle sequence is effectively unchanged. Any future tag registration must use this calibration. Persistence across a 12 V power cycle is unconfirmed, as for the left arm.
+
+## Left arm recalibrated via robot_auto_calibrate — 7 October 2026, 19:43–19:46
+
+Job 20261007-194349-22d282 ran pinned PR #3282 at velocity 200, started by the owner from the chat. Evidence is in `work/calibration-runs/left-20261007-194349` on the robot Mac.
+- **Outcome.** The routine completed, release was verified, the range was validated with no problems, and the result was installed into the saved file. The job's server restart then loaded it, and the owner's servo-versus-file check passed (no mismatches).
+- **New left values** (homing / range, travel):
+
+  | Joint | Homing | Range | Travel |
+  |---|---|---|---|
+  | Pan | −49 | 690..3404 | 238.5° |
+  | Lift | 969 | 847..3247 | 210.9° |
+  | Elbow | 109 | 944..3150 | 193.9° |
+  | Wrist flex | −819 | 901..3193 | 201.4° |
+  | Roll | 1319 | 111..3983 | 340.3° |
+  | Gripper | 119 | 1273..2821 | 136.1° |
+
+  These are consistent with the previous verified run, and pan now matches the right arm (about 240°).
+- **Not yet confirmed.** Whether the values persist across a left-side 12 V power cycle. Earlier today left homing offsets read 0 after a bus/power event that interrupted a restore. Confirm by power-cycling the left side and checking for mismatches at the next owner start.
+
+## Outage and right-arm calibration attempt — 7 October 2026, 18:19–18:35
+
+- **18:19, right-arm auto-calibration.** The pilot ran `robot_auto_calibrate` on the RIGHT arm at velocity 200, stopping the owner. The runner exited 2: the candidate was retained but not validated. Whether the job's register restore completed was not read before the API went down. Check `/admin/job?id=20261007-181916-761f48` and the right arm's calibration mismatches before any right-arm motion. The right arm's calibration was meant to stay frozen (pickup sequence, tag registration).
+- **18:19–18:29, left bus failures.** The left-arm bus (`/dev/cu.usbmodem5B790186401`) repeatedly failed servo reads (−6), and the owner exited.
+- **~18:33, server down.** A remote restart could not start the owner (the left bus did not answer) and aborted before starting the API, leaving the robot unreachable remotely. Fixed in code:
+  - The restart always starts the API even if the owner fails.
+  - With `--allow-missing-bus` (the default), the owner starts on the buses that answer, e.g. right arm and wheels, and reports `missing_buses`.
+- **Left wrist camera.** It fails with AVFoundation "Cannot Use USB2.0_CAM1 … stop any other actions using" it: another app holds it. The Codex app's video-capture service is a candidate.
+
+## Cameras kept alive by the restart script — 7 October 2026, 18:10
+
+- **OAK.** It went stale because `farm.oak_camera stream` exits after `--seconds` and nothing restarted it. The camera step now restarts it when stale: a 24 h stream, `--usb2`, into the API's OAK folder, using a Python with depthai found under the Codex workspaces and remembered in `work/oak-python`.
+- **Left wrist.** It froze again mid-session, then streamed again after the publisher was restarted. Treat it as intermittent USB until the cable is reseated.
+- **Tools.** `robot_restart_cameras` lets the pilot restart stale streams with no motors involved; `/admin/processes` lists the robot services remotely.
+
+## Left arm calibration restored; both arms movable — 7 October 2026, 17:45
+
+Done remotely from the chat Mac: `/admin/deploy` to 2e887dc, then the `robot_restore_calibration(left)` tool. No motion.
+- **Before.** The owner, now started `--both-arms --paddle-profile --wheels`, demoted the left arm to read-only for the 4 known mismatches (shoulder lift, wrist flex, wrist roll, gripper still holding the rejected 6 Oct upstream-300 candidate).
+- **Restore.** It wrote the saved file's validated velocity-200 values into all six left servos with torque off and read them back. All six match: pan −22/959..3135, lift 975/855..3239, elbow 107/942..3152, wrist flex −826/898..3196, roll 1318/115..3979, gripper 121/1275..2819, all in position mode 0.
+- **After the automatic restart.** There are no calibration mismatches and 12 arm motors are commandable. Left joints rest folded inside their ranges, with elbow 3128, gripper 1302 and lift 918 near their limits; enabling there is allowed and moves can only head inward.
+- **Not yet tested.** No left-arm motion has been run since. Validate with small moves while watching. Its last full-sweep travel (191/210/194/202/340/136°) is the reference.
+- **Wrist cameras.** Both streamed after the restart; the left wrist has frozen before.
+
+## Automatic calibration as a robot tool — 7 October 2026
+
+Software only; not yet run through the API. `robot_auto_calibrate` wraps the pinned PR #3282 runner as a background job: owner stops, sweep, validate/install, otherwise restore the previous servo registers, then the server restarts. STOP interrupts the sweep. It is the intended way to fix the left-arm mismatch from the chat. Prior runs on this robot hit the cart and produced short ranges, so the clearance checklist and someone watching are mandatory. Record each run's result and evidence folder here.
+
 ## Wrist cameras through the API — 7 October 2026, 16:59
 
 Deployed remotely with `/admin/deploy` (cameras-only, commit e7716dc); no motors involved.
