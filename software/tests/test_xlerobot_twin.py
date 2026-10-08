@@ -110,6 +110,22 @@ def test_unmapped_reported_and_wheels_ignored():
     assert set(angles) == set(MOTORS) - set(unmapped)
 
 
+def test_motor_ticks_inverts_motor_angles():
+    joint_map = {'joints': {'left_arm_elbow_flex': {'zero_tick': 2100, 'sign': -1}, 'head_motor_1': {'zero_tick': 1900}}}
+    ticks = dict(NEUTRAL, left_arm_shoulder_lift=2512, left_arm_elbow_flex=1700, right_arm_wrist_flex=1234, head_motor_1=2300)
+    angles, _, _ = twin.motor_angles(ticks, RANGES, joint_map)
+    back = twin.motor_ticks({m: a for m, a in angles.items() if not m.endswith('gripper')}, RANGES, joint_map)
+    assert back == pytest.approx({m: ticks[m] for m in back})
+    assert twin.motor_ticks({'left_arm_shoulder_lift': 90.0}, RANGES)['left_arm_shoulder_lift'] == pytest.approx(3024)
+    assert twin.motor_ticks({'left_arm_elbow_flex': 10.0}, RANGES, joint_map)['left_arm_elbow_flex'] == pytest.approx(2100 - 10 * 4096 / 360)
+    assert twin.motor_ticks({'head_motor_1': 0.0}, {}, joint_map)['head_motor_1'] == 1900  # zero_tick needs no range
+    for bad in ({'left_arm_gripper': 10.0}, {'mystery': 1.0}, {'left_arm_wrist_flex': float('nan')}):
+        with pytest.raises(ValueError):
+            twin.motor_ticks(bad, RANGES)
+    with pytest.raises(ValueError, match='head_motor_2'):
+        twin.motor_ticks({'head_motor_2': 5.0}, {})
+
+
 def test_missing_model_gives_clear_error(monkeypatch, tmp_path):
     monkeypatch.setenv(twin.MODEL_ENV, str(tmp_path / 'nope.xml'))
     with pytest.raises(FileNotFoundError, match=twin.MODEL_ENV):
@@ -323,6 +339,15 @@ def test_claw_positions_respect_joint_map():
     assert flipped['mapping'] == 'feetech_degrees_v1+joint_map' and flipped['mapping_validated'] is True
     with pytest.raises(ValueError):
         twin.claw_positions(NEUTRAL, RANGES, joint_map={'joints': {'nope': {}}})
+
+
+@render
+def test_claw_positions_many_matches_single_calls():
+    many = twin.claw_positions_many([NEUTRAL, LEVEL, FOLDED], RANGES)
+    assert many == [twin.claw_positions(t, RANGES) for t in (NEUTRAL, LEVEL, FOLDED)]
+    assert twin.claw_positions_many([], RANGES) == []
+    with pytest.raises(ValueError):
+        twin.claw_positions_many([NEUTRAL], RANGES, joint_map={'joints': {'nope': {}}})
 
 
 @render

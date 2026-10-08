@@ -30,7 +30,9 @@ ROBOT frame (``FRAME``): origin on the floor directly below the midpoint between
 axes, +forward the robot's front, +left the robot's left, +up, metres. ``reach_m`` is the
 straight-line distance from the arm's shoulder point (where its shoulder-pan axis crosses the
 shoulder-lift axis height, the centre of the arm's workspace) to the tip; ``shoulder_up_m`` is that
-point's height. ``render_twin`` returns the same dict under ``'claws'``.
+point's height. ``render_twin`` returns the same dict under ``'claws'``. ``claw_positions_many``
+does several tick sets in one worker hand-off and ``motor_ticks`` inverts the tick-to-degree mapping;
+both exist for the reach solver in farm/kinematics/so101_reach.py.
 
 All MuJoCo/OpenGL work runs on one dedicated worker thread that owns the model and renderers,
 so ``render_twin`` and ``claw_positions`` may be called from any thread (e.g. a threaded HTTP
@@ -205,6 +207,31 @@ def motor_angles(positions_ticks, ranges, joint_map=None, jaw_range_deg=None):
         angles[motor] = angle
         model[joint] = offset + sign * angle
     return angles, unmapped, model
+
+
+def motor_ticks(angles_deg, ranges, joint_map=None):
+    """Inverse of ``motor_angles`` for the arm/head joints: feetech_degrees_v1 degrees -> encoder ticks (float).
+
+    Same zero (midpoint of the saved range, or the joint map's zero_tick) and sign (+1, or the joint
+    map's). Grippers are not angles here and are refused; a motor without a usable range (or
+    zero_tick) raises ValueError. Ticks are not clamped: callers decide what is commandable.
+    """
+    overrides = _check_joint_map(joint_map)
+    out = {}
+    for motor, deg in angles_deg.items():
+        if motor not in JOINT_TABLE or JOINT_TABLE[motor][1] is None:
+            raise ValueError(f'motor_ticks: {motor!r} is not an arm/head joint')
+        deg = _tick(deg)
+        if deg is None:
+            raise ValueError(f'motor_ticks: {motor} angle must be a finite number')
+        rng = _range(ranges.get(motor))
+        zero, sign = overrides.get(motor, (None, 1))
+        if zero is None:
+            if rng is None:
+                raise ValueError(f'motor_ticks: no saved range (or joint_map zero_tick) for {motor}')
+            zero = (rng[0] + rng[1]) / 2.0
+        out[motor] = zero + sign * deg * TICKS_PER_TURN / 360.0
+    return out
 
 
 # ---------------------------------------------------------------- model lookup
@@ -493,6 +520,30 @@ def claw_positions(positions_ticks, ranges, *, joint_map=None):
                            'no robot frame for claw positions')
     claws.update(_mapping_fields(joint_map), unmapped=list(unmapped), model=model_id)
     return claws
+
+
+def _work_many(path, positions_list, ranges, joint_map):
+    return [_work(path, positions, ranges, joint_map, None, None)[1:] for positions in positions_list]
+
+
+def claw_positions_many(positions_list, ranges, *, joint_map=None):
+    """``claw_positions`` for several tick sets in one worker-thread hand-off (same ranges and joint map).
+
+    Returns a list of claw dicts in the same order. Used by the reach solver, whose finite-difference
+    Jacobian needs a handful of poses per iteration; batching keeps it under a few milliseconds.
+    """
+    _check_joint_map(joint_map)
+    path, model_id = find_model()
+    results = _executor().submit(
+        _work_many, path, [dict(p) for p in positions_list], dict(ranges), joint_map).result()
+    out = []
+    for unmapped, _, claws in results:
+        if claws is None:
+            raise RuntimeError(f'model {model_id} lacks the shoulder-pan joints/jaw bodies of {", ".join(ARMS)}: '
+                               'no robot frame for claw positions')
+        claws.update(_mapping_fields(joint_map), unmapped=list(unmapped), model=model_id)
+        out.append(claws)
+    return out
 
 
 # ---------------------------------------------------------------- CLI (renders to files)
