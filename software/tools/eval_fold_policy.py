@@ -29,7 +29,8 @@ import numpy as np
 
 ROBOT = [f'{s}_{j}' for s in ('left', 'right') for j in
          ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper')]
-CAMERAS = {'top': 'overhead', 'front': 'front'}
+CAMERAS = {'top': 'overhead', 'front': 'front'}   # policy key -> scene camera; replaced from the checkpoint
+SCENE_CAMERA = {'top': 'overhead'}                  # keys whose scene camera has a different name
 TASK_HINGES = {'both-shorts': ('short_left_hinge', 'short_right_hinge'), 'right-short': ('short_right_hinge',)}
 TASK_TEXT = {'both-shorts': 'fold both short carton flaps and hold them',
              'right-short': 'fold the right short carton flap and hold it'}
@@ -153,7 +154,7 @@ def run(entry, task, policy, max_time, height, width, gif=None, video=None, labe
             vid.frame()
         imgs = ep.images()
         if gif is not None and k % 3 == 0:
-            frames.append(np.concatenate([imgs['top'], imgs['front']], 1))
+            frames.append(np.concatenate([imgs[k] for k in CAMERAS], 1))
         if policy is None:
             target = ep.demo['ctrl'][min(k + 1, len(ep.demo['ctrl']) - 1)]
         else:
@@ -218,7 +219,10 @@ def main(argv=None):
             cfg = policy.policy.config
             cfg.temporal_ensemble_coeff, cfg.n_action_steps = args.temporal_ensemble, 1
             policy.policy.temporal_ensembler = ACTTemporalEnsembler(args.temporal_ensemble, cfg.chunk_size)
-        hw = next(iter(policy.input_spec()['cameras'].values()))
+        spec = policy.input_spec()
+        hw = next(iter(spec['cameras'].values()))
+        CAMERAS.clear()
+        CAMERAS.update({k: SCENE_CAMERA.get(k, k) for k in spec['camera_names']})
     rows = []
     for i, e in enumerate(entries):
         r = run(e, args.task, policy, args.max_time, *hw,
