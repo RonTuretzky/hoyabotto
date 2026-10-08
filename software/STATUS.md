@@ -1,3 +1,27 @@
+## Fold policy to robot adapter (software only) — 8 October 2026
+
+No robot, owner API, LAN or camera was used. `carton/fold_policy_runner.py` connects the simulation-trained ACT
+short-flap fold policy to today's sole owner. It reads `robot_get_execution`, converts ticks to policy radians
+with **measured** per-arm joint maps, runs the policy at 10 Hz with temporal ensembling, and streams bounded
+targets with `robot_move_joint_targets` (`wait=false`, `replace=true`). It is dry-run by default.
+
+- **Bounds:** 40 ticks per tick from the measured position, the 40-tick range margin, the 3-tick rule, a race
+  guard, grippers held, joint and frame watchdogs, and a runner-side contact rule.
+- **On abort:** `robot_halt_motion`; it never sends STOP itself.
+- **Tests:** against the deployed qwen-bridge owner code on fake servos, and against the MuJoCo carton simulation.
+
+Details, file:line map of the control path, and the commissioning procedure:
+[docs/carton-fold-policy-robot.md](docs/carton-fold-policy-robot.md).
+
+Blockers:
+- No measured URDF zero/sign for either arm, and no jaw mapping. The runner refuses until both exist.
+- No real camera matches the simulated `top`/`front` views. The station differs from the simulation.
+- Link and owner-loop timing for 10 Hz are unmeasured.
+- The deployed owner cannot stream a gripper closure. In simulation, dropping the policy's closures took the
+  closed-loop fold from 2/3 to 0/3 held-out seeds.
+- A refused streamed target makes `DirectJointClient` send STOP (all motors released).
+- The 96-tick holding-drift fault ended a replayed demonstration at 52 s.
+
 ## Misleading "Owner telemetry stale"; refusal pause removed — 8 October 2026, 12:12–12:25
 
 - At 12:12:36 a left gripper closure faulted with "Pickup closure did not become stationary" (the guard is unchanged).
