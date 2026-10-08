@@ -67,4 +67,18 @@ try:PaddleJointExecutor([n,g],RANGES,writes.append,clock=lambda:t[0],wall=lambda
 except ValueError as x:assert 'alone' in str(x)
 else:raise AssertionError('Contact closure combined with other joints')
 PaddleJointExecutor([n,g],RANGES,writes.append,clock=lambda:t[0],wall=lambda:t[0]).start({'id':3,'session_started':7,'positions':{n:2450,g:1800},'duration_s':2},{n:2697,g:1592},session_started=7)
+# Closing gripper that stops still 33 ticks short of its final target (light squeeze): settled_short, holding;
+# before 2026-10-08 this fell between tolerance (20) and contact_stop (40) and faulted 'did not become stationary'.
+t[0]=0;writes.clear();e=make(g,start=1783+120,target=1750)
+r=run(e,lambda j,goal:max(goal,1783),dt=.1)
+assert r['closure_outcome']=='settled_short' and r['phase']=='holding' and r['settle_residual_ticks'][g]==33,r
+# A closure that never stops moving still faults.
+t[0]=0;e=make(g,start=1903,target=1750);jit=[0]
+def wobble(j,goal):jit[0]+=1;return goal+ (6 if jit[0]%2 else -6)
+try:
+ for i in range(1,200):
+  t[0]=round(t[0]+.1,6);e.tick({g:wobble(g,e.goal[g])},telemetry_at=t[0],rows={g:{'Moving':1,'Present_Velocity':40}})
+  if not e.active:break
+except RuntimeError as x:assert 'did not become stationary' in str(x)
+else:raise AssertionError('A closure that keeps moving was accepted')
 print('Pickup executor: lag, envelope, ramp, margin, segment, contact, moving-settle, deadline, sag correction, settled-short and simultaneous checks passed; no hardware access')

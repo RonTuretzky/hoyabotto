@@ -148,6 +148,11 @@ class PaddleJointExecutor:
   settled=final and all(self.stable[n]>=3 for n in self.joints)
   if contact_stop or (settled and (now-self.last_write>=self.interval if not self.contact else self.quiet_since is not None and now-self.quiet_since>=.3)):
    return self.finish(current,'stationary_closure_unverified' if contact_stop else 'endpoint_settled')
+  # A closing gripper that is stationary on its final target step but outside tolerance and short of the 40-tick
+  # contact_stop band (e.g. 33 ticks short, light load) has stopped: report it as settled_short and keep holding.
+  # One that keeps moving still trips 'did not become stationary' below.
+  if self.contact and final and self.goal[c]==self.targets[c] and self.quiet_since is not None and now-self.quiet_since>=.3:
+   return self.finish(current,'settled_short')
   ramp_done=all(self.goal[n]==self.aim(n) for n in self.joints)
   if not self.contact and final and ramp_done and now-self.last_write>=self.interval and all(self.still[n]>=3 for n in self.joints):
    # Everything is at rest: correct joints that are not settled, or finish if none can be corrected further.
