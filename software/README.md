@@ -90,6 +90,18 @@ To give Claude Code on the robot laptop the MCP tools: `claude mcp add farm -- "
 
 The review itself is in `docs/community-projects.md`.
 
+## Digital twin renderer (read-only)
+
+`farm/sim/xlerobot_twin.py` renders the robot's current arm and head pose from encoder ticks as
+third-person JPEGs (`front`, `side`, `top`) for an LLM pilot: `render_twin(positions_ticks, ranges)`.
+It never touches a bus or the robot API. It uses the vendored upstream XLeRobot MuJoCo model
+(`farm/sim/assets/xlerobot/`, MIT, source and hashes in its README) or `$XLEROBOT_TWIN_MODEL`, and
+needs `pip install -e '.[twin]'` (mujoco, pillow). From a saved encoder dump:
+`python -m farm.sim.xlerobot_twin snapshot.json --out data/twin [--joint-map map.json]`.
+The tick-to-angle mapping is the unvalidated `feetech_degrees_v1` candidate. If a render disagrees
+with a photo, write a joint map `{"validated": false, "joints": {"left_arm_elbow_flex": {"zero_tick": 2050, "sign": -1}}}`
+and set `validated: true` only after every joint matches.
+
 ## What can never happen
 
 - Water moves without rules passing **and** one of: a named person in the viewer, or Jev at `approve` level with p ≥ 0.85 after earning it.
