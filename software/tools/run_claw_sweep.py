@@ -87,7 +87,7 @@ def run_trial(job, *, root, snapshot, simulation_root, python, video, timeout):
             command += ['--clearance', str(job['pinch_clearance'])]
     if job.get('base_height') is not None:
         command += ['--base-height', str(job['base_height'])]
-    for key in ('hinge_stiffness', 'hinge_friction'):
+    for key in ('hinge_stiffness', 'hinge_friction', 'hinge_rest_degrees'):
         if job.get(key) is not None:
             command += ['--'+key.replace('_', '-'), str(job[key])]
     if job.get('far_open_degrees') is not None:
@@ -215,6 +215,8 @@ def main():
                         help='Comparison variant: let go of the far major before closing the near one')
     parser.add_argument('--hinge-stiffness', type=float, default=None,
                         help='Assumed crease stiffness (N m/rad); default .018')
+    parser.add_argument('--hinge-rest-degrees', type=float, default=None,
+                        help='Assumed crease rest angle from upright; default 0 (pre-folded cartons rest partway closed)')
     parser.add_argument('--hinge-friction', type=float, default=None,
                         help='Assumed crease dry friction (N m); default .004')
     parser.add_argument('--base-height', type=float, default=.06,
@@ -296,7 +298,8 @@ def main():
                        extra_wall_markers=args.extra_wall_markers, left_pinch_opening=args.left_pinch_opening,
                        pinch_clearance=args.pinch_clearance, release_far=args.release_far)
     for job in jobs:
-        job.update(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction)
+        job.update(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction,
+                   hinge_rest_degrees=args.hinge_rest_degrees)
         if args.base_height != .06:
             job['base_height'] = args.base_height
         if args.far_open_degrees is not None:

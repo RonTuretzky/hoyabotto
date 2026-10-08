@@ -85,7 +85,8 @@ def run(args):
     sim = cls(Path(args.simulation_root), out,
         station=FoldingStation(args.base_height, args.base_to_table_edge, .01, table_marker_xy=(-.5, .55),
                                backup_table_marker_xy=(.45, .70)),
-        material=CartonMaterial(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction),
+        material=CartonMaterial(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction,
+                                hinge_rest_degrees=args.hinge_rest_degrees),
         width=args.width, height=args.height,
         offset=(args.carton_offset_x, offset_y), yaw=yaw, initial_right_roll=1.5,
         initial_flaps={'short_left':.1,'short_right':.1,'long_far':math.radians(args.far_open_degrees),
@@ -443,6 +444,8 @@ if __name__ == '__main__':
                         help='Comparison variant: let go of the far major before closing the near one')
     parser.add_argument('--hinge-stiffness', type=float, default=.018,
                         help='Assumed crease stiffness (N m/rad) for all four flaps')
+    parser.add_argument('--hinge-rest-degrees', type=float, default=0.,
+                        help='Assumed crease rest angle from upright (pre-folded cartons settle partway closed)')
     parser.add_argument('--hinge-friction', type=float, default=.004,
                         help='Assumed crease dry friction (N m) for all four flaps')
     parser.add_argument('--left-pinch-opening', type=float, default=.6,

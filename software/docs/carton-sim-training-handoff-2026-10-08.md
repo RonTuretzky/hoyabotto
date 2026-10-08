@@ -110,6 +110,20 @@ PYTHONPATH=. $PY tools/run_claw_sweep.py \
    12 arm joints, mTLS) accepts joint-tick targets; there is no adapter from
    this controller or from a policy to it yet, and no collision certificate.
 
+## Pre-folded (soft) creases
+
+Pre-folding should make creases softer and friction-dominated. Modelled as
+stiffness 0.006 N·m/rad (a third of the assumption, friction unchanged), both
+variants fail **40/40 at the first stage** (`prefold-release`, `prefold-hold`):
+the right short folds past flat and sags to about 101° into the empty carton,
+because the flap's own weight (about 0.016 N·m) beats the soft spring plus
+friction (about 0.013 N·m), and the original fold step accepts only 80–101°.
+A real empty, pre-folded carton will likely do the same: harmless for closing
+(the majors still go on top) but the short-flap stages and their closure
+bands assume flat shorts and need adapting for that case.
+`--hinge-rest-degrees` is now a CLI option, but it pulls all four flaps
+toward that angle from the start, so it models a different presentation.
+
 ## Remaining failures (latest code)
 
 Penetration over 1 mm during the far-edge drag (5/30, 6/20 at 2×), the near
