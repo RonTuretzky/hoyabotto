@@ -1,6 +1,7 @@
 """XLeRobot digital twin: mapping math (no MuJoCo needed) and rendering (skipped without model)."""
 import io
 import json
+import math
 import os
 import subprocess
 import sys
@@ -350,3 +351,104 @@ def test_claw_positions_fast_and_thread_safe():
     expect = {True: twin.claw_positions(LEVEL, RANGES)['left_arm']['forward_m'],
               False: twin.claw_positions(NEUTRAL, RANGES)['left_arm']['forward_m']}
     assert all(value == expect[is_level] for is_level, value in results)
+
+
+# ---------------------------------------------------------------- head camera pose (kinematics only)
+
+POSE_KEYS = {'position_m', 'rotation', 'frame', 'site', 'camera', 'head_angles_deg', 'head_sign_note', 'mapping',
+             'mapping_validated', 'unmapped', 'model'}
+
+
+def _axes(pose):
+    import numpy as np
+    r = np.array(pose['rotation'])
+    return r[:, 0], r[:, 1], r[:, 2]  # optical x, y, z in the robot frame (forward, left, up)
+
+
+@render
+def test_camera_pose_at_mapped_zero_looks_forward_and_level_from_the_head():
+    import numpy as np
+    pose = twin.camera_pose(dict(NEUTRAL, mystery=4), RANGES)
+    assert set(pose) == POSE_KEYS
+    assert pose['camera'] == 'oak' and pose['site'] == 'head_camera_link/twin_head_optical'
+    assert pose['unmapped'] == ['mystery'] and pose['mapping'] == 'feetech_degrees_v1' and pose['mapping_validated'] is False
+    assert pose['head_angles_deg'] == {'pan': pytest.approx(0.0), 'tilt': pytest.approx(0.0)}
+    assert 'DOWN' in pose['head_sign_note'] and 'LEFT' in pose['head_sign_note']
+    assert 'image right' in pose['frame'] and 'floor' in pose['frame']
+    forward, left, up = pose['position_m']
+    assert 1.0 < up < 1.3                 # the OAK sits on the head, above the 0.9 m shoulders (model: 1.181 m)
+    assert 0.0 < forward < 0.2            # slightly ahead of the shoulder-pan midpoint (model: 0.037 m)
+    assert abs(left) < 0.01               # on the centre line
+    r = np.array(pose['rotation'])
+    assert np.allclose(r @ r.T, np.eye(3), atol=1e-9) and np.linalg.det(r) == pytest.approx(1.0)
+    x, y, z = _axes(pose)
+    assert z == pytest.approx([1.0, 0.0, 0.0], abs=1e-6)    # optical axis straight forward, level
+    assert x == pytest.approx([0.0, -1.0, 0.0], abs=1e-6)   # image right = the robot's right
+    assert y == pytest.approx([0.0, 0.0, -1.0], abs=1e-6)   # image down = down
+    json.dumps(pose, allow_nan=False)
+
+
+@render
+def test_camera_pose_tilt_down_and_pan_left_signs():
+    level = twin.camera_pose(NEUTRAL, RANGES)
+    down = twin.camera_pose(_ticks(head_motor_2=20), RANGES)
+    assert down['head_angles_deg']['tilt'] == pytest.approx(20.0, abs=0.1)
+    _, _, z = _axes(down)
+    assert z[0] == pytest.approx(math.cos(math.radians(20)), abs=0.002)
+    assert z[2] == pytest.approx(-math.sin(math.radians(20)), abs=0.002)   # ticks above the midpoint: looks DOWN
+    assert abs(z[1]) < 1e-6
+    assert down['position_m'][2] < level['position_m'][2]                     # the lens, ahead of the tilt axis, dips
+    up = twin.camera_pose(_ticks(head_motor_2=-20), RANGES)
+    assert _axes(up)[2][2] == pytest.approx(math.sin(math.radians(20)), abs=0.002)
+    pan = twin.camera_pose(_ticks(head_motor_1=30), RANGES)
+    _, _, z = _axes(pan)
+    assert z[1] == pytest.approx(math.sin(math.radians(30)), abs=0.002)    # ticks above the midpoint: looks LEFT
+    assert z[0] == pytest.approx(math.cos(math.radians(30)), abs=0.002) and abs(z[2]) < 1e-6
+    assert pan['position_m'][2] == pytest.approx(level['position_m'][2])
+    # a joint map sign of -1 on the tilt flips the assumption
+    flipped = twin.camera_pose(_ticks(head_motor_2=20), RANGES,
+                               joint_map={'validated': True, 'joints': {'head_motor_2': {'sign': -1}}})
+    assert _axes(flipped)[2][2] == pytest.approx(_axes(up)[2][2]) and flipped['mapping_validated'] is True
+
+
+@render
+def test_camera_pose_arms_do_not_move_the_camera():
+    level = twin.camera_pose(NEUTRAL, RANGES)
+    bent = twin.camera_pose(FOLDED, RANGES)
+    assert bent['position_m'] == level['position_m'] and bent['rotation'] == level['rotation']
+
+
+@render
+def test_camera_pose_rejects_unknown_camera_and_bad_joint_map():
+    with pytest.raises(ValueError, match='oak'):
+        twin.camera_pose(NEUTRAL, RANGES, camera='left_wrist')
+    with pytest.raises(ValueError):
+        twin.camera_pose(NEUTRAL, RANGES, joint_map={'joints': {'nope': {}}})
+
+
+@render
+def test_camera_pose_with_unmapped_head_keeps_the_model_zero():
+    ranges = {k: v for k, v in RANGES.items() if not k.startswith('head')}
+    pose = twin.camera_pose(NEUTRAL, ranges)
+    assert set(pose['unmapped']) == {'head_motor_1', 'head_motor_2'}
+    assert pose['head_angles_deg'] == {'pan': None, 'tilt': None}
+    assert pose['rotation'] == twin.camera_pose(NEUTRAL, RANGES)['rotation']
+
+
+@render
+def test_vendored_optical_site_is_misoriented_so_the_twin_adds_its_own():
+    """The upstream head_camera_rgb_optical_frame site carries URDF rpy numbers in MuJoCo's intrinsic euler: at zero
+    head its z axis points to the robot's left. camera_pose must not use it (documented in the module docstring)."""
+    import numpy as np
+
+    def probe():
+        import mujoco
+        t = twin._twin(twin.find_model()[0])
+        t.pose({})
+        sid = mujoco.mj_name2id(t.model, mujoco.mjtObj.mjOBJ_SITE, 'head_camera_rgb_optical_frame')
+        return None if sid < 0 else (t.axes @ t.data.site_xmat[sid].reshape(3, 3))[:, 2].tolist()
+    vendored_z = twin._executor().submit(probe).result()
+    if vendored_z is None:
+        pytest.skip('override model without the vendored site')
+    assert np.allclose(vendored_z, [0.0, 1.0, 0.0], atol=1e-4)   # left, not forward (euler rounded to 1.5708)
+    assert _axes(twin.camera_pose(NEUTRAL, RANGES))[2] == pytest.approx([1.0, 0.0, 0.0], abs=1e-6)

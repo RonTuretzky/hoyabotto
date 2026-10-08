@@ -110,6 +110,18 @@ the same under `claws`. In the chat these are the read-only tools `robot_get_twi
 `robot_get_claw_positions` (`farm/perception/twin_robot.py`); both refuse encoder readings older
 than 2 s and both are model estimates, not measurements.
 
+`camera_pose(positions_ticks, ranges)` gives the OAK head camera's optical frame in the same robot
+frame (lens position and a rotation whose columns are image-right, image-down and the viewing
+direction), from a site the twin adds to the model's `head_camera_link` (the vendored
+`head_camera_rgb_optical_frame` site is misoriented, see the module docstring). Head signs are
+unvalidated: ticks above the range midpoint tilt the camera down (`head_motor_2`) or pan it left
+(`head_motor_1`). `farm/perception/depth_scene.py` turns the OAK depth PNG into numbers with that
+pose: `scene_points(depth_mm, intrinsics, cam_pose)` returns a 5x3 grid of region distances, the
+nearest coherent object (position, pixel bbox, size), points at given pixels and the invalid
+fraction, all in the robot frame. The chat tool `robot_get_scene_points` (same wrapper) reads one
+`robot_get_depth` frame and the encoder state (each within 2 s), adds each claw's vector to the
+nearest object, and reminds the model that the stereo depth is blind under about 25 cm.
+
 ## What can never happen
 
 - Water moves without rules passing **and** one of: a named person in the viewer, or Jev at `approve` level with p ≥ 0.85 after earning it.

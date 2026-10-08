@@ -32,6 +32,21 @@ straight-line distance from the arm's shoulder point (where its shoulder-pan axi
 shoulder-lift axis height, the centre of the arm's workspace) to the tip; ``shoulder_up_m`` is that
 point's height. ``render_twin`` returns the same dict under ``'claws'``.
 
+``camera_pose`` poses the model the same way and reports the OAK head camera's optical frame in the
+robot frame: ``position_m`` [forward, left, up] of the lens and a 3x3 ``rotation`` whose columns are the
+optical x (image right), y (image down) and z (out of the lens, the viewing direction) axes in robot
+coordinates, so a camera point ``[x, y, z]`` maps to ``position + rotation @ [x, y, z]``. The frame is a
+site added at load time (``HEAD_SITE``) to the model's ``head_camera_link`` body (ROS camera_link
+convention: +x out of the lens, +z up) with the ROS optical convention. The vendored model's own
+``head_camera_rgb_optical_frame`` site is NOT used: its ``euler="-1.5708 0 -1.5708"`` is the URDF's
+extrinsic rpy, but MuJoCo applies euler intrinsically, so at zero head that site's z axis points to the
+robot's LEFT (its x is up and its y forward). Head sign assumptions, both unvalidated: at the mapped
+zero (midpoint of each head motor's saved range) the camera looks exactly forward and level; model
+``head_tilt_joint`` positive = look DOWN (the axis is the tilt link's +y, the robot's left), so
+``head_motor_2`` ticks above its midpoint tilt the camera down; model ``head_pan_joint`` positive = look
+LEFT, so ``head_motor_1`` ticks above its midpoint pan left. Checked numerically against the model; a
+joint map with ``sign: -1`` for either head motor flips the assumption.
+
 All MuJoCo/OpenGL work runs on one dedicated worker thread that owns the model and renderers,
 so ``render_twin`` and ``claw_positions`` may be called from any thread (e.g. a threaded HTTP
 server); calls are serialised. On macOS (CGL, the default; leave MUJOCO_GL unset or 'cgl', not
@@ -117,6 +132,20 @@ ARMS = {
     'left_arm': ('Rotation_L', 'Pitch_L', 'Fixed_Jaw', 'twin_tip_L'),
     'right_arm': ('Rotation_R', 'Pitch_R', 'Fixed_Jaw_2', 'twin_tip_R'),
 }
+# Head camera: the OAK's optical frame as a site added at load time to the model's head_camera_link body
+# (+x out of the lens, +z up). xyaxes gives the ROS optical convention: x = -link y (image right),
+# y = -link z (image down), z = x cross y = +link x (out of the lens). See the module docstring for why the
+# vendored head_camera_rgb_optical_frame site is not used.
+HEAD_CAMERA_BODY = 'head_camera_link'
+HEAD_SITE = 'twin_head_optical'
+HEAD_SITE_XYAXES = '0 -1 0 0 0 -1'
+HEAD_JOINTS = {'pan': 'head_pan_joint', 'tilt': 'head_tilt_joint'}
+CAMERAS_BY_NAME = {'oak': HEAD_SITE}
+CAMERA_FRAME = (FRAME + " rotation columns are the camera's optical x (image right), y (image down) and z (out of "
+                "the lens) axes in that frame; a camera point [x, y, z] in metres sits at position_m + rotation @ [x, y, z].")
+HEAD_SIGN_NOTE = ('head zero = midpoint of each head motor\'s saved range, camera level and forward; head_motor_2 '
+                  'ticks above the midpoint tilt the camera DOWN, head_motor_1 ticks above pan it LEFT (sign +1, '
+                  'unvalidated; a joint map sign of -1 flips either)')
 
 
 # ---------------------------------------------------------------- mapping (pure, no MuJoCo)
@@ -240,6 +269,9 @@ def _scene_xml(path):
         site = tip_sites.get(body.get('name'))
         if site is not None:  # claw tip marker; group 4 is never drawn (sitegroup is all off anyway)
             ET.SubElement(body, 'site', name=site, pos=TIP_POS, size='0.003', group='4', rgba='1 0 0 0')
+        if body.get('name') == HEAD_CAMERA_BODY:  # OAK optical frame (ROS convention) at the camera link origin
+            ET.SubElement(body, 'site', name=HEAD_SITE, pos='0 0 0', xyaxes=HEAD_SITE_XYAXES, size='0.003',
+                          group='4', rgba='0 1 0 0')
     for tag in ('actuator', 'tendon', 'keyframe', 'sensor'):  # wheel tendons/actuators unused
         for el in root.findall(tag):
             root.remove(el)
@@ -315,6 +347,18 @@ class _Twin:
             self.origin = anchors.mean(axis=0)
             self.origin[2] = 0.0
         self.axes = np.array([FORWARD, LEFT, UP])
+        self.head_site = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, HEAD_SITE)  # -1: no head camera body
+
+    def camera(self):
+        """The OAK optical frame in the robot frame for the pose set by ``pose``; None if the model lacks the
+        head camera body or the robot frame is undefined."""
+        if self.origin is None or self.head_site < 0:
+            return None
+        rotation = self.axes @ self.data.site_xmat[self.head_site].reshape(3, 3)
+        position = self.axes @ (self.data.site_xpos[self.head_site] - self.origin)
+        return {'position_m': [float(v) for v in position],
+                'rotation': [[float(v) for v in row] for row in rotation],
+                'site': f'{HEAD_CAMERA_BODY}/{HEAD_SITE}', 'frame': CAMERA_FRAME}
 
     def pose(self, model_deg):
         """Set the joint angles (deg, model convention) and run forward kinematics; no rendering."""
@@ -435,7 +479,7 @@ def _work(path, positions, ranges, joint_map, views, size):
         images = None
     else:
         images = twin.render(model_deg, views, size)
-    return angles, unmapped, images, twin.claws()
+    return angles, unmapped, images, twin.claws(), twin.camera()
 
 
 def _mapping_fields(joint_map):
@@ -461,7 +505,7 @@ def render_twin(positions_ticks, ranges, *, views=VIEWS, size=(640, 480), joint_
         raise ValueError(f'size must be within 16x16..{MAX_SIZE[0]}x{MAX_SIZE[1]}')
     _check_joint_map(joint_map)  # fail on the caller's thread with a clear message
     path, model_id = find_model()
-    angles, unmapped, images, claws = _executor().submit(
+    angles, unmapped, images, claws, _ = _executor().submit(
         _work, path, dict(positions_ticks), dict(ranges), joint_map, views, (width, height)).result()
     fields = _mapping_fields(joint_map)
     if claws is not None:
@@ -486,13 +530,38 @@ def claw_positions(positions_ticks, ranges, *, joint_map=None):
     """
     _check_joint_map(joint_map)
     path, model_id = find_model()
-    _, unmapped, _, claws = _executor().submit(
+    _, unmapped, _, claws, _ = _executor().submit(
         _work, path, dict(positions_ticks), dict(ranges), joint_map, None, None).result()
     if claws is None:
         raise RuntimeError(f'model {model_id} lacks the shoulder-pan joints/jaw bodies of {", ".join(ARMS)}: '
                            'no robot frame for claw positions')
     claws.update(_mapping_fields(joint_map), unmapped=list(unmapped), model=model_id)
     return claws
+
+
+def camera_pose(positions_ticks, ranges, *, joint_map=None, camera='oak'):
+    """The head camera's optical frame in the robot frame, from encoder ticks: forward kinematics, no rendering.
+
+    Returns {'position_m': [forward, left, up], 'rotation': 3x3 (columns = optical x, y, z axes in the robot
+    frame), 'frame', 'site', 'camera', 'head_angles_deg': {'pan', 'tilt'} (feetech_degrees_v1, None when that
+    motor is unmapped and the model keeps it at zero), 'head_sign_note', 'mapping', 'mapping_validated',
+    'unmapped', 'model'}. Only camera='oak' (the head camera) exists; ValueError otherwise, or for a bad
+    joint_map; RuntimeError if the model lacks the head camera body or the shoulder-pan joints (no robot frame);
+    FileNotFoundError for a missing model.
+    """
+    if camera not in CAMERAS_BY_NAME:
+        raise ValueError(f'unknown camera {camera!r}; the model has: {", ".join(CAMERAS_BY_NAME)}')
+    _check_joint_map(joint_map)
+    path, model_id = find_model()
+    angles, unmapped, _, _, pose = _executor().submit(
+        _work, path, dict(positions_ticks), dict(ranges), joint_map, None, None).result()
+    if pose is None:
+        raise RuntimeError(f'model {model_id} lacks the {HEAD_CAMERA_BODY} body or the shoulder-pan joints of '
+                           f'{", ".join(ARMS)}: no camera pose in the robot frame')
+    pose.update(_mapping_fields(joint_map), camera=camera, unmapped=list(unmapped), model=model_id,
+                head_angles_deg={'pan': angles.get('head_motor_1'), 'tilt': angles.get('head_motor_2')},
+                head_sign_note=HEAD_SIGN_NOTE)
+    return pose
 
 
 # ---------------------------------------------------------------- CLI (renders to files)
