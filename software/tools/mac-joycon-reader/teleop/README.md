@@ -5,13 +5,84 @@ The code in this branch is prepared locally. No teleoperation code was deployed,
 no owner/API was restarted, and no motor activation or movement was requested.
 Physical teleoperation has **not** been validated.
 
+## Hand-space and whole-body practice
+
+`run-simulator.command` now defaults to **Cartesian / whole-body** practice.
+The original joint-layer mode remains available with `--control-mode joint`.
+This new mode is explicitly **simulation-only** in both the bridge and owner;
+no physical kinematic calibration or deployment is implied.
+
+| Input | Behavior (in one session) |
+| --- | --- |
+| Hold upper **L / R** | Enable the matching arm; release stops it |
+| Each stick up/down, left/right | Move that gripper forward/back, sideways using coordinated arm joints |
+| Hold stick click + stick up/down | Raise/lower that gripper |
+| **ZL / ZR** while corresponding L/R is held | Move the gripper; each new press reverses open/close direction |
+| Left D-pad + L | Head pan/tilt |
+| **Y / A**, both L and R held | Drive forward/back |
+| **X / B**, both L and R held | Turn left/right |
+| Hold **+** + stick + matching L/R | Wrist pitch/roll when gyro is off |
+| **Home**, centered controls, both L and R held | Bounded return of arm/head/gripper joints to this session's starting pose; release L/R or command a move to cancel |
+| **−**, Escape, Stop, input loss, page blur | End the local session |
+
+The UI displays live X/Y stick values and held button names for mapping checks.
+The raw HID reader uses Nintendo's printed button labels. Verify the displayed
+button names when using Apple's controller profile; OS remapping is rejected.
+
+`Stick directions` selects robot-relative axes or directions relative to each
+gripper. XYZ + wrist pitch/roll are solved with a damped MuJoCo Jacobian against
+live simulated positions. SO101 has five arm axes: arbitrary independent XYZ,
+roll, pitch **and** yaw are not all simultaneously achievable. Targets have a
+15 mm lead bound, joint-rate limits remain 80 ticks/s (head 60), and unreachable
+motion is bounded rather than accumulated. Arm and base rates ramp while held;
+releasing hold-to-run buttons commands zero immediately. Wheels retain 2 cm/s
+limits. The solver is not a collision-free planner.
+
+### Independent gyro input
+
+The launcher selects the HID reader when both original Nintendo controllers
+are visible; otherwise it uses Apple GameController. While practice is stopped,
+use **Controller reader → Independent Joy-Cons + gyro** to try the raw backend.
+You can also run `run-simulator.command --input-backend hid`.
+
+The new reader uses `hidapi` and only opens Nintendo IDs 057e:2006/2007. It
+requests volatile 0x30 reports/IMU streaming, reads factory or user stick/IMU
+calibration from SPI, and integrates all three 5 ms IMU samples per packet.
+Each controller must remain still for 200 samples before its gyro is ready.
+Enable the gyro checkbox while stopped. Each L/R press anchors that controller's
+relative wrist orientation; release/repress to reanchor. A stale/missing gyro
+or changed gyro session stops practice. Long-held yaw/orientation can drift;
+there is no external tracking or absolute heading reference.
+
+The HID output allowlist includes only report mode, IMU enable/sensitivity and
+SPI **read** commands. No calibration/firmware writes, pairing changes or rumble
+are implemented. Switching readers restarts only the local input process and
+requires fresh hold-to-run checks.
+
+Source references:
+- [XLeRobot smooth Joy-Con teleop](https://github.com/Vector-Wangel/XLeRobot/blob/main/software/examples/7_xlerobot_2wheels_teleop_joycon_smooth.py)
+- [Windows adapter controls](https://github.com/box2ai-robotics/joycon-robotics/blob/master/hidapi_for_windows/README_hidapi.md)
+- [Nintendo report format](https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering/blob/master/bluetooth_hid_notes.md)
+- [Stick/IMU calibration layout](https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering/blob/master/spi_flash_notes.md)
+- [IMU units](https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering/blob/master/imu_sensor_notes.md)
+
+**Verification boundary:** 24 local Python tests passed, including measured
+positive/negative XYZ travel for both hands, simultaneous arms/grippers/head/
+wheels, wrist fallback, independent synthetic gyro input, gyro loss, bounded
+pose return, neutral gating, disconnect/timeout and physical whole-body claim
+rejection. All 20 existing fake-hardware suites passed. The browser reader selector and both movement-frame options were exercised.
+HID parsing/calibration used protocol fixtures; no real Joy-Con was visible during the initial HID
+probe. Independent physical gyro streams, printed button mapping and actual
+robot motion are therefore not yet verified. This is not a claim of complete
+physical Windows/Mac parity.
+
 ## MuJoCo 3D simulator
 
 Double-click `../run-simulator.command` for the live 3D XLeRobot in MuJoCo.
 This launcher rejects robot-connection flags. It uses the existing local Python
 3.12 environment with MuJoCo 3.14.0 and the existing full XLeRobot mesh model.
 No remote service or motor connection is used. Orbit, front, side and top views
-are available beside the same Joy-Con controls; rendered frames stay on localhost.
+are available beside the whole-body Joy-Con controls; rendered frames stay on localhost.
 
 The Joy-Con mapping and guarded owner drive simulated position actuators and
 wheel velocity actuators. Register readback comes from MuJoCo joint positions
@@ -72,10 +143,10 @@ stopping distance. Browser refresh preserves the local UI session token.
 The paired original Joy-Cons expose one Apple GameController profile named
 `Nintendo Switch Joy-Con (L/R)`. Independent controller profiles, OS-remapped
 profiles, unknown devices and demo frames cannot control the robot. No usable
-motion sensor appeared in the observed profile; these controls use sticks and
-buttons. Battery telemetry is not relied upon.
+motion sensor appeared in the observed Apple profile; the original joint-layer
+controls use sticks and buttons. The new optional HID backend is described above. Battery telemetry is not relied upon.
 
-## Prepared mapping
+## Original joint-layer mapping
 
 | Component group | Hold-to-run | Stick X | Stick Y |
 | --- | --- | --- | --- |
@@ -149,7 +220,8 @@ python3 test_joycon_teleop.py
 ```
 
 Seven native tests and eleven local mapping/bridge tests passed. With the MuJoCo
-environment, all 13 Python tests passed, including the two physics tests above.
+environment, the current expanded suite passes all 24 Python tests, including
+hand-space/whole-body physics and HID protocol tests.
 All 20 files in the
 robot deployment's fake-hardware suite passed, including new tests for all 16
 fake servos, scope exclusion, neutral gating, dropped/expired/replayed inputs,

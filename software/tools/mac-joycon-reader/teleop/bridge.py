@@ -3,7 +3,7 @@
 
 Starts DISARMED. No automatic arm/retry/reconnect. No serial access or model calls.
 """
-import argparse, json, os, secrets, signal, ssl, subprocess, threading, time, urllib.request, urllib.parse, socket
+import argparse, json, os, secrets, signal, ssl, subprocess, threading, time, urllib.request, urllib.parse, socket, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from mapping import Mapping
@@ -43,24 +43,37 @@ class Robot:
         return out['result']
 
 class Bridge:
-    def __init__(self,robot,reader,*,start=True):
-        self.robot=robot;self.reader=reader;self.mapping=Mapping();self.lock=threading.RLock()
+    def __init__(self,robot,reader,*,start=True,mapping=None,input_backend='apple'):
+        self.robot=robot;self.reader=reader;self.mapping=mapping or Mapping();self.lock=threading.RLock()
+        self.input_backend=input_backend
         self.frame=None;self.decoded=None;self.reader_error='Waiting for controller input'
         self.generation=0;self.armed=False;self.busy=False;self.scope='left';self.session=None;self.identity=None
         self.reason='Disarmed — test both triggers, then release them and center the sticks'
+        if getattr(self.mapping,'mode',None)=='cartesian':self.reason='Disarmed — test upper L/R buttons, release all buttons and center the sticks'
         self.robot_state={};self.ui_seen=0;self.sequence=0;self.rtt=None;self.closing=False
         self.release_pending=0;self.worker=None;self.reader_thread=None;self.proc=None
         if start:self.start()
     def start(self):
-        self.proc=subprocess.Popen([str(self.reader),'--json','--hz','30','--deadzone','0.12'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1)
-        self.reader_thread=threading.Thread(target=self.read_frames,daemon=True);self.reader_thread.start()
+        self.start_reader()
         self.worker=threading.Thread(target=self.run,daemon=True);self.worker.start()
+    def start_reader(self):
+        command=([sys.executable,str(Path(__file__).with_name('hid_reader.py'))] if self.input_backend=='hid' else [str(self.reader)])
+        self.proc=subprocess.Popen(command+['--json','--hz','30','--deadzone','0.12'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1)
+        self.reader_thread=threading.Thread(target=self.read_frames,daemon=True);self.reader_thread.start()
+    def stop_reader(self):
+        if self.proc:
+            self.proc.terminate()
+            try:self.proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:self.proc.kill();self.proc.wait(timeout=3)
+        if self.reader_thread:self.reader_thread.join(timeout=3)
+        self.proc=None;self.reader_thread=None
     def receive(self, frame):
         with self.lock:
             self.frame=frame
             try:self.decoded=self.mapping.decode(frame);self.reader_error=None
             except (ValueError,KeyError,TypeError,AttributeError) as e:
                 self.decoded=None;self.reader_error=str(e)
+                if frame.get('diagnostics'):self.reader_error+=' '+'; '.join(str(k).title()+': '+str(v) for k,v in frame['diagnostics'].items())
     def read_frames(self):
         try:
             for line in self.proc.stdout:
@@ -80,6 +93,7 @@ class Bridge:
         with self.lock:
             d=self.decoded or {}
             return dict(preview=self.robot.preview,simulation=self.robot.simulation,armed=self.armed,busy=self.busy or bool(self.release_pending),scope=self.scope,layer=self.mapping.layer,reason=self.reason,
+                        control_mode=getattr(self.mapping,'mode','joint'),input_backend=self.input_backend,control_info=getattr(self.mapping,'info',{})|{'gyro_enabled':getattr(self.mapping,'gyro_enabled',False)},reference_frame=getattr(self.mapping,'reference_frame','robot'),
                         controller=d,reader_error=self.reader_error,robot=self.robot_state,rtt_ms=self.rtt,
                         checked_triggers=sorted(self.mapping.checked),input_age_s=round(time.time()-self.frame['timestamp'],3) if self.frame else None)
     def detach(self, reason):
@@ -106,11 +120,39 @@ class Bridge:
         self.finish_release(session,generation,reason)
     def action(self,b):
         op=b.get('op')
+        if op=='input_backend':
+            with self.lock:
+                if not self.robot.simulation:raise ValueError('Reader selection is simulation-only')
+                if self.armed or self.busy or self.release_pending:raise ValueError('Stop practice before switching input')
+                if b.get('backend') not in ('apple','hid'):raise ValueError('Unknown reader')
+                self.busy=True
+            try:
+                self.stop_reader()
+                with self.lock:
+                    self.input_backend=b['backend'];self.frame=None;self.decoded=None
+                    self.mapping.checked.clear()
+                    if hasattr(self.mapping,'checked_bumpers'):self.mapping.checked_bumpers.clear()
+                    if hasattr(self.mapping,'reset'):self.mapping.reset();self.mapping.gyro_enabled=False
+                    self.reason='Reader changed — check L and R again'
+                self.start_reader()
+            except OSError as e:raise ValueError('Reader could not start: '+str(e)) from e
+            finally:
+                with self.lock:self.busy=False
+            return
         if op=='stop':
             reason='Operator STOP';session,generation=self.detach(reason)
             threading.Thread(target=self.finish_release,args=(session,generation,reason),daemon=True).start();return
         with self.lock:
             if self.busy or self.release_pending:raise ValueError('Wait for the current operation')
+            if op=='reference_frame':
+                if self.armed:raise ValueError('Stop practice before changing the movement frame')
+                if getattr(self.mapping,'mode',None)!='cartesian' or b.get('frame') not in ('robot','hand'):raise ValueError('Unknown hand-space frame')
+                self.mapping.reference_frame=b['frame'];self.mapping.reset();return
+            if op=='gyro':
+                if self.armed:raise ValueError('Stop practice before changing gyro mode')
+                if getattr(self.mapping,'mode',None)!='cartesian':raise ValueError('Hand-space mode required')
+                if b.get('enabled') is True and not self.valid().get('gyro_available'):raise ValueError('Both independent calibrated gyro streams required')
+                self.mapping.gyro_enabled=b.get('enabled') is True;self.mapping.reset();return
             if op=='layer':
                 d=self.valid()
                 if not d['neutral']:raise ValueError('Release triggers and center sticks before changing layers')
@@ -121,9 +163,11 @@ class Bridge:
             if op=='practice' and not self.robot.simulation:raise ValueError('Practice requires the local simulator')
             d=self.valid()
             if self.armed:raise ValueError('Already armed')
-            if not d['ready'] or not d['neutral']:raise ValueError('Test both triggers, release them, and center sticks before arming')
+            if not d['ready'] or not d['neutral']:raise ValueError('Test both hold-to-run buttons, release all buttons, and center sticks before arming')
             scope=b.get('scope')
-            if scope not in ('left','right','both','head','drive'):raise ValueError('Unknown scope')
+            if scope not in ('left','right','both','head','drive','wholebody'):raise ValueError('Unknown scope')
+            if scope=='wholebody' and (not self.robot.simulation or getattr(self.mapping,'mode',None)!='cartesian'):raise ValueError('Whole-body control requires local Cartesian simulation')
+            if hasattr(self.mapping,'reset'):self.mapping.reset()
             self.busy=True;generation=self.generation;self.scope=scope;self.identity=d['identity'];self.reason='Starting local practice…' if self.robot.simulation else 'Arming at measured positions…'
         try:
             session=self.robot.call('claim',{'scope':scope},timeout=6)
@@ -182,12 +226,8 @@ class Bridge:
             time.sleep(max(.005,.06-(time.monotonic()-started)))
     def close(self):
         self.closing=True;self.release('Teleop closed')
-        if self.proc:
-            self.proc.terminate()
-            try:self.proc.wait(timeout=3)
-            except subprocess.TimeoutExpired:self.proc.kill();self.proc.wait()
+        self.stop_reader()
         if self.worker:self.worker.join(timeout=3)
-        if self.reader_thread:self.reader_thread.join(timeout=3)
         if hasattr(self.robot,'close'):self.robot.close()
 
 
@@ -195,12 +235,16 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     ap.add_argument('--simulator',choices=('registers','mujoco'),default='registers',help='Local simulator backend')
     ap.add_argument('--model',type=Path,help='Optional XLeRobot MuJoCo model XML')
+    ap.add_argument('--control-mode',choices=('joint','cartesian'),default='joint')
+    ap.add_argument('--input-backend',choices=('apple','hid','auto'),default='apple')
     ap.add_argument('--connect-robot',action='store_true',help='Explicitly connect to the robot. Default is a local input preview with no network access.')
     ap.add_argument('--config',default=os.environ.get('XLEROBOT_ADMIN_CONFIG',DEFAULT_CONFIG))
     ap.add_argument('--reader',type=Path,default=Path(__file__).resolve().parents[1]/'.build/release/MacJoyConReader')
     ap.add_argument('--no-browser',action='store_true');ap.add_argument('--port',type=int,default=0)
     a=ap.parse_args()
     if a.connect_robot and a.simulator=='mujoco':ap.error('MuJoCo practice cannot be combined with a robot connection')
+    if a.control_mode=='cartesian' and (a.simulator!='mujoco' or a.connect_robot):ap.error('Cartesian control requires local MuJoCo simulation')
+    if a.connect_robot and a.input_backend!='apple':ap.error('HID input is currently simulation-only')
     if a.connect_robot:robot=Robot(a.config)
     elif a.simulator=='mujoco':
         from mujoco_simulator import MujocoRobot
@@ -208,7 +252,17 @@ def main():
     else:
         from simulator import SimulatedRobot
         robot=SimulatedRobot()
-    try:bridge=Bridge(robot,a.reader)
+    mapping=None
+    if a.control_mode=='cartesian':
+        mapping=robot.make_cartesian_mapping();mapping.feedback=robot.controller_feedback
+    backend=a.input_backend
+    if backend=='auto':
+        try:
+            import hid
+            ids={r['product_id'] for r in hid.enumerate(0x057e,0)}
+            backend='hid' if {0x2006,0x2007}<=ids else 'apple'
+        except ImportError:backend='apple'
+    try:bridge=Bridge(robot,a.reader,mapping=mapping,input_backend=backend)
     except Exception:
         if hasattr(robot,'close'):robot.close()
         raise

@@ -79,12 +79,16 @@ class SimulatedRobot:
                                    camera_metadata=lambda:dict(received_at=time.time(), seq=1),
                                    wheels=True, teleop=True)
         self.owner.inspect()
+        self.owner.simulation_wholebody = getattr(self.bus, 'cartesian_capable', False)
         self.persist()
         self.client = DirectJointClient(self.folder, {n:vars(c) for n,c in cal.items()})
         self.api = TeleopAPI(self.client)
         self.stopping = threading.Event()
         self.thread = threading.Thread(target=self.run, name='virtual-servo-owner', daemon=True)
         self.thread.start()
+
+    def controller_feedback(self):
+        return self.call('status')
 
     def persist(self):
         self.owner.state['simulation'] = True

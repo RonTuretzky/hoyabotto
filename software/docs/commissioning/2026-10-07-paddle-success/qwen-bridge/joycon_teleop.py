@@ -14,6 +14,7 @@ SCOPES = {a: [a+'_arm_'+j for j in JOINTS] for a in ('left', 'right')}
 SCOPES['both'] = SCOPES['left'] + SCOPES['right']
 SCOPES['head'] = ['head_motor_1', 'head_motor_2']
 SCOPES['drive'] = []
+SCOPES['wholebody'] = SCOPES['both'] + SCOPES['head']
 
 
 def finite(v, bound):
@@ -32,7 +33,7 @@ def validate_input(c, scope):
         raise ValueError('Two boolean deadman values required')
     if not finite(c['linear'], .02) or not finite(c['angular'], .16):
         raise ValueError('Invalid base rate')
-    if scope != 'drive' and (c['linear'] or c['angular']):
+    if scope not in ('drive', 'wholebody') and (c['linear'] or c['angular']):
         raise ValueError('Base rate outside driving mode')
     if c['linear'] or c['angular']:
         WheelPulseExecutor.check_request({'linear_m_s': c['linear'], 'angular_rad_s': c['angular'], 'duration_s': .2})
@@ -69,6 +70,8 @@ class ManualTeleop:
         scope, token = c.get('scope'), c.get('token')
         if scope not in SCOPES or not isinstance(token, str) or not 20 <= len(token) <= 128:
             raise ValueError('Known scope and unique session token required')
+        if scope == 'wholebody' and not getattr(o, 'simulation_wholebody', False):
+            raise ValueError('Whole-body Cartesian control is currently simulation-only')
         if self.active or o.enabled or (o.engine and o.engine.active) or any(r.get('Torque_Enable') != 0 for r in o.rows.values()):
             raise ValueError('Robot must be fully released before manual control')
         if not o.state.get('ok') or o.read_only or not o.camera_fresh():
@@ -79,7 +82,7 @@ class ManualTeleop:
             raise ValueError('Requested components unavailable')
         if set(names) & set(o.state.get('calibration_mismatches', {})):
             raise ValueError('Requested component calibration differs from hardware')
-        if scope == 'drive' and len(o.wheel_names) != 2:
+        if scope in ('drive', 'wholebody') and len(o.wheel_names) != 2:
             raise ValueError('Both wheels required')
         # An explicit arm action primes measured positions, never a remembered pose.
         try:
@@ -145,7 +148,7 @@ class ManualTeleop:
             self.targets[n] = max(lo+4, min(hi-4, self.targets[n] + rate*min(dt, .1)))
         if self.names: o.setpoints({n: round(v) for n, v in self.targets.items()})
         self.deadman = dict(c['deadman'])
-        if self.scope == 'drive': self.drive(c)
+        if self.scope in ('drive', 'wholebody'): self.drive(c)
         self.snapshot()
 
     def drive(self, c):

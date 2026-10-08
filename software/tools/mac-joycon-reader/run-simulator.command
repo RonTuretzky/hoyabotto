@@ -14,4 +14,4 @@ for argument in "$@"; do
     exit 2
   fi
 done
-exec "$sim_python" teleop/bridge.py --simulator mujoco "$@"
+exec "$sim_python" teleop/bridge.py --simulator mujoco --control-mode cartesian --input-backend auto "$@"

@@ -41,6 +41,9 @@ def scene_xml(path):
         wheel=world.find(f"./body[@name='chassis']/body[@name='{side}_wheel']")
         wheel.find('geom').set('group','2')
         wheel.find('geom').set('rgba','.08 .09 .11 1')
+    for side, body in (('left','Fixed_Jaw'),('right','Fixed_Jaw_2')):
+        jaw=world.find(f".//body[@name='{body}']")
+        ET.SubElement(jaw,'site',name=side+'_grip_center',pos='0 -.08 0',size='.006',rgba='1 .8 .2 1')
     ET.SubElement(asset,'texture',name='practice_grid',type='2d',builtin='checker',rgb1='.19 .23 .29',rgb2='.28 .33 .39',width='256',height='256')
     ET.SubElement(asset,'material',name='practice_floor',texture='practice_grid',texrepeat='12 12',reflectance='.05')
     ET.SubElement(world,'geom',name='practice_floor',type='plane',size='6 6 .1',material='practice_floor',contype='1',conaffinity='1',condim='3',friction='1 .005 .0001')
@@ -62,6 +65,7 @@ def scene_xml(path):
 
 class MujocoBus(VirtualBus):
     engine = 'MuJoCo '+mujoco.__version__
+    cartesian_capable = True
     def __init__(self,model_path=None,*,render=True):
         super().__init__()
         path=Path(model_path or os.environ.get('XLEROBOT_MUJOCO_MODEL',DEFAULT_MODEL)).expanduser().resolve()
@@ -178,3 +182,6 @@ class MujocoRobot(SimulatedRobot):
         return result
     def frame(self):return self.bus.frame()
     def set_view(self,view):self.bus.set_view(view)
+    def make_cartesian_mapping(self):
+        from cartesian import CartesianMapping
+        return CartesianMapping(self.bus.model, self.bus.map)
