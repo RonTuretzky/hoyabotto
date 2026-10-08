@@ -136,3 +136,7 @@ controller tests. See `VALIDATION.md` for the checked environment and results.
 
 The upstream robot script is a mapping reference only. Do not launch it alongside
 the robot's existing controller: it opens motor buses and commands a zero pose.
+
+## Prepared teleoperation
+
+The [local teleoperation preview](teleop/README.md) adds control mappings for both arms, grippers, head and driving. `run-teleop.command` defaults to local practice with virtual joints and a virtual base, with no robot connection. Robot-side integration remains local and undeployed.

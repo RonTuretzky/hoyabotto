@@ -36,6 +36,7 @@ class DirectJointClient:
                 operator_armed=state.get('operator_armed') is True,local_operator_gate=state.get('operator_armed') is True,
                 motor_owner_active=state.get('hardware_server') is True and 0<=state['status_age_s']<=1)
             result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),base_drive_supported=state.get('base_drive_supported') is True,base_drive_limits=state.get('base_drive_limits'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}),last_stop=state.get('last_stop'),stop_count=state.get('stop_count',0),release_errors=state.get('release_errors',[]))
+            if (state.get('teleop') or {}).get('active'):result['blockers'].append('MANUAL_CONTROL_ACTIVE: Joy-Con session owns the robot')
             if state.get('read_only') is True:result['blockers'].append('READ_ONLY_OWNER: calibration mismatch blocks activation')
             if state.get('control_mode')!='direct_joint' or state.get('hardware_server') is not True:result['blockers'].append('HARDWARE_OWNER_PROTOCOL_UNAVAILABLE')
             if not 0<=state['status_age_s']<=1:result['blockers'].append('OWNER_STATUS_STALE')
@@ -125,6 +126,8 @@ class DirectJointClient:
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in (linear_m_s,angular_rad_s,duration_s)) or not 0<duration_s<=3:raise ValueError('Finite linear_m_s, angular_rad_s and duration_s in (0,3] required')
         return self._command({'op':'base_pulse','linear_m_s':linear_m_s,'angular_rad_s':angular_rad_s,'duration_s':duration_s})
     def _validate(self,request,state):
+        if (state.get('teleop') or {}).get('active'):
+            raise ValueError('MANUAL_CONTROL_ACTIVE: Joy-Con session owns the robot; STOP remains available')
         if request['op']=='halt':return
         if request['op']=='base_pulse':
             if state.get('base_drive_supported') is not True:raise ValueError('UNSUPPORTED_OWNER_SCOPE: owner started without --wheels; base drive disabled')

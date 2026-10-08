@@ -25,8 +25,8 @@ OWNER_RECORD=WORK/'gemma-hardware-owner-process.json';API_RECORD=WORK/'gemma-rob
 OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api.log'
 # Files only the API process loads: these can be replaced by restarting the API alone, with motors untouched.
 API_ONLY=['gemma_robot_tools.py','gemma_reach_planner.py','right-arm-kinematics.json','wrist_cameras.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
-INSTALL=['calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py','gemma_reach_planner.py','right-arm-kinematics.json']
-TESTS=['test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_reach_planner_right.py']
+INSTALL=['joycon_teleop.py','joycon_teleop_api.py','calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py','gemma_reach_planner.py','right-arm-kinematics.json']
+TESTS=['test_joycon_teleop.py','test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_reach_planner_right.py']
 OWNER_ARGS=['--both-arms','--paddle-profile','--wheels','--allow-missing-bus'];  # an arm whose calibration mismatches stays read-only
 API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
@@ -368,6 +368,7 @@ def main():
  parser.add_argument('--dry-run',action='store_true',help='run tests and show what would change; stop nothing')
  parser.add_argument('--api-only',action='store_true',help='install API-side files and restart only the API (safe while motors hold); refuses if owner-side files changed')
  parser.add_argument('--cameras-only',action='store_true',help='only start missing wrist-camera publishers (run from Terminal); the server is not touched')
+ parser.add_argument('--joycon-teleop',action='store_true',help='explicitly enable manual Joy-Con sessions in the owner (starts disarmed)')
  parser.add_argument('--right-arm-only',action='store_true',help='only the right arm is movable (the left stays read-only)')
  parser.add_argument('--no-wheels',action='store_true',help='start the owner without base drive (robot_move_base refused)')
  parser.add_argument('--no-wrist-cams',action='store_true',help='do not start wrist-camera publishers')
@@ -418,6 +419,7 @@ def main():
   if owners and enabled and not args.release_holding:
    fail('motors are holding '+', '.join(enabled)+'. Stopping the owner turns their torque off and the arm will drop. '
         'Support the arm, then call robot_stop (or rerun with --release-holding).')
+ if args.joycon_teleop:OWNER_ARGS.append('--teleop')
  if args.no_wheels:OWNER_ARGS.remove('--wheels')
  if args.right_arm_only:OWNER_ARGS[OWNER_ARGS.index('--both-arms')]='--right-arm-only'
  if args.dry_run:
