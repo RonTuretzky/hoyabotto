@@ -88,8 +88,14 @@ except SystemExit:
 except Exception as e:
     error = repr(e)[:500]
 np.savez_compressed(cfg['npz'], **{k: np.array(v) for k, v in rec.items()})
-json.dump({'stop_reason': state['reason'], 'controller_error': error, 'samples': len(rec['time']),
-           'sim_time': rec['time'][-1] if rec['time'] else 0.0}, open(cfg['status'], 'w'))
+with open(cfg['status'], 'w') as f:
+    json.dump({'stop_reason': state['reason'], 'controller_error': error, 'samples': len(rec['time']),
+               'sim_time': rec['time'][-1] if rec['time'] else 0.0}, f)
+# The controller's renderer is only closed by FoldingSimulation.save(), which a stopped trial never reaches;
+# finalizing it during interpreter shutdown segfaults in glDeleteTextures. Outputs are written; skip teardown.
+import os
+sys.stdout.flush()
+os._exit(0)
 '''
 
 
