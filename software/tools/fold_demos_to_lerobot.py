@@ -53,15 +53,17 @@ def render_trial(job):
     model = mujoco.MjModel.from_xml_path(str(Path(trial) / 'run/scene.xml'))
     data = mujoco.MjData(model)
     renderer = mujoco.Renderer(model, height, width)
-    z = np.load(Path(trial) / 'demo.npz')
-    out = {key: np.empty((end + 1, height, width, 3), np.uint8) for key in CAMERAS}
-    for k in range(end + 1):
-        data.qpos[:] = z['qpos'][k]
-        mujoco.mj_forward(model, data)
-        for key, cam in CAMERAS.items():
-            renderer.update_scene(data, camera=cam)
-            out[key][k] = renderer.render()
-    renderer.close()
+    try:
+        z = np.load(Path(trial) / 'demo.npz')
+        out = {key: np.empty((end + 1, height, width, 3), np.uint8) for key in CAMERAS}
+        for k in range(end + 1):
+            data.qpos[:] = z['qpos'][k]
+            mujoco.mj_forward(model, data)
+            for key, cam in CAMERAS.items():
+                renderer.update_scene(data, camera=cam)
+                out[key][k] = renderer.render()
+    finally:
+        renderer.close()
     return out
 
 

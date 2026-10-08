@@ -17,9 +17,11 @@ harness reproduces the controller's physics before any policy result is trusted.
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import math
 import time
+import weakref
 from pathlib import Path
 
 import mujoco
@@ -32,6 +34,24 @@ TASK_HINGES = {'both-shorts': ('short_left_hinge', 'short_right_hinge'), 'right-
 TASK_TEXT = {'both-shorts': 'fold both short carton flaps and hold them',
              'right-short': 'fold the right short carton flap and hold it'}
 FOLDED, HOLD, DT = 80., 3., .1
+# A mujoco.Renderer finalized during interpreter shutdown segfaults (glDeleteTextures without a context);
+# close any still-open renderer before module teardown.
+_RENDERERS = weakref.WeakSet()
+
+
+@atexit.register
+def _close_renderers():
+    for r in list(_RENDERERS):
+        try:
+            r.close()
+        except Exception:
+            pass
+
+
+def make_renderer(model, height, width):
+    r = mujoco.Renderer(model, height, width)
+    _RENDERERS.add(r)
+    return r
 
 
 class Episode:
@@ -49,7 +69,7 @@ class Episode:
         self.robot_adr = [m.jnt_qposadr[m.joint(n).id] for n in ROBOT]
         self.lo, self.hi = m.actuator_ctrlrange[self.act_ids].T
         self.substeps = int(round(DT / m.opt.timestep))
-        self.renderer = mujoco.Renderer(m, height, width)
+        self.renderer = make_renderer(m, height, width)
         self.carton0 = d.qpos[12:15].copy()
         names = [m.geom(g).name for g in range(m.ngeom)]
         self.robot_geoms = {g for g, n in enumerate(names) if n.startswith(('left_', 'right_'))}
@@ -89,13 +109,48 @@ class Episode:
         return np.isfinite(d.qpos).all()
 
 
-def run(entry, task, policy, max_time, height, width, gif=None):
+class Video:
+    """Presentation MP4 (10 fps, real time): `station` and `front` cameras side by side with a caption."""
+
+    def __init__(self, ep, path, label, height=540, width=960):
+        import subprocess
+        self.ep, self.label = ep, label
+        self.renderer = make_renderer(ep.model, height, width)
+        self.proc = subprocess.Popen(['ffmpeg', '-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24',
+                                      '-s', f'{2 * width}x{height}', '-r', str(round(1 / DT)), '-i', '-',
+                                      '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-crf', '20', str(path)],
+                                     stdin=subprocess.PIPE)
+
+    def frame(self):
+        from PIL import Image, ImageDraw
+        views = []
+        for cam in ('station', 'front'):
+            self.renderer.update_scene(self.ep.data, camera=cam)
+            views.append(self.renderer.render())
+        im = Image.fromarray(np.concatenate(views, 1))
+        d = ImageDraw.Draw(im)
+        left, right = (self.ep.hinge_degrees(h) for h in ('short_left_hinge', 'short_right_hinge'))
+        d.rectangle((0, 0, im.width, 34), fill=(255, 255, 255))
+        d.text((12, 10), f'{self.label} | t = {self.ep.data.time:5.1f} s | short flaps: left {left:5.1f} deg, '
+                         f'right {right:5.1f} deg | SIMULATION', fill=(0, 0, 0))
+        self.proc.stdin.write(np.asarray(im, np.uint8).tobytes())
+
+    def close(self):
+        self.proc.stdin.close()
+        self.proc.wait()
+        self.renderer.close()
+
+
+def run(entry, task, policy, max_time, height, width, gif=None, video=None, label='policy'):
     ep = Episode(Path(entry['trial']), height, width)
     if policy is not None:
         policy.reset()
     folded_since, success, frames, k = None, False, [], 0
+    vid = Video(ep, video, label) if video else None
     t0 = time.time()
     while ep.data.time < max_time:
+        if vid:
+            vid.frame()
         imgs = ep.images()
         if gif is not None and k % 3 == 0:
             frames.append(np.concatenate([imgs['top'], imgs['front']], 1))
@@ -113,6 +168,10 @@ def run(entry, task, policy, max_time, height, width, gif=None):
                 break
         else:
             folded_since = None
+    if vid:
+        for _ in range(int(2 / DT)):
+            vid.frame()
+        vid.close()
     if gif is not None and frames:
         from PIL import Image
         ims = [Image.fromarray(f) for f in frames]
@@ -138,6 +197,8 @@ def main(argv=None):
     ap.add_argument('--episodes', type=int, default=20)
     ap.add_argument('--max-time', type=float, default=75.)
     ap.add_argument('--gifs', type=int, default=2, help='render this many episodes to GIF')
+    ap.add_argument('--videos', type=int, default=0, help='record this many episodes as presentation MP4s')
+    ap.add_argument('--label', default='Learned ACT policy (cameras + joints only)')
     ap.add_argument('--device', default='mps')
     ap.add_argument('--threads', type=int, default=3, help='torch CPU threads (keeps parallel evals from starving training)')
     ap.add_argument('--temporal-ensemble', type=float, metavar='COEFF',
@@ -161,7 +222,8 @@ def main(argv=None):
     rows = []
     for i, e in enumerate(entries):
         r = run(e, args.task, policy, args.max_time, *hw,
-                gif=str(args.out / f'seed{e["seed"]}.gif') if i < args.gifs else None)
+                gif=str(args.out / f'seed{e["seed"]}.gif') if i < args.gifs else None,
+                video=str(args.out / f'seed{e["seed"]}.mp4') if i < args.videos else None, label=args.label)
         rows.append(r)
         print(json.dumps(r), flush=True)
     n = len(rows)
