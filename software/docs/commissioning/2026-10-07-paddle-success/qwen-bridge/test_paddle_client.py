@@ -11,6 +11,17 @@ with tempfile.TemporaryDirectory() as tmp:
  except RuntimeError as exc:assert 'Insufficient owner lease' in str(exc)
  else:raise AssertionError('Expired lease accepted')
  assert not (folder/'command.json').exists()
+ # An explicit enable is not refused for an expired lease: the owner renews it (the enable is written as a command).
+ import threading
+ def owner_accepts():
+  for _ in range(200):
+   cmd=folder/'command.json'
+   if cmd.exists() and json.loads(cmd.read_text()).get('op')=='enable_motors':
+    state.update(completed=json.loads(cmd.read_text())['id'],enabled_motors=[n],lease_remaining=120,phase='holding');save();return
+   time.sleep(.01)
+ threading.Thread(target=owner_accepts,daemon=True).start()
+ res=c.set_motor_enable([n],True);assert res.get('completed') or res.get('accepted'),res
+ state['lease_remaining']=0;save()
  state['lease_remaining']=1;save()
  stop=threading.Event()
  def owner():

@@ -249,7 +249,9 @@ class DirectJointClient:
                 if state.get('hardware_server') is not True or not 0<=state['status_age_s']<=1:raise RuntimeError('Fresh hardware owner unavailable')
                 if not release and (state.get('phase') not in phases or state.get('operator_armed') is not True or state.get('ok') is not True):raise RuntimeError('Owner busy or unsafe')
                 self._validate(request,state)
-                if not release and state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else request.get('duration_s',0)+5):raise RuntimeError('Insufficient owner lease')
+                # An explicit enable renews the idle lease (the owner releases an expired lease in poll() before it reads
+                # the command, and enable re-reads the encoders), so it is never refused for a lease that just ran out.
+                if not release and request.get('op')!='enable_motors' and state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else request.get('duration_s',0)+5):raise RuntimeError('Insufficient owner lease')
                 command_file=self.folder/'command.json';old=json.loads(command_file.read_text()) if command_file.exists() else None
                 command_id=max(time.time_ns(),int((old or {}).get('id',0))+1)
                 command={**request,'id':command_id,'session_started':started}
