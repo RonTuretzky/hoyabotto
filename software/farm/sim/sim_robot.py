@@ -818,6 +818,7 @@ class SimRobot:
         self.command_counter = 0
         self.last_completed = None
         self.last_rejected = None
+        self.flap_pinched_ever = False
         self.counts = {'faults': 0, 'refusals': 0, 'moves': 0, 'gripper_closes': 0, 'base_pulses': 0, 'calls': 0}
         self.wall_started = time.monotonic()
         self.sim_started = float(data.time)
@@ -912,6 +913,8 @@ class SimRobot:
 
     def _poll(self, now):
         rows = self._poll_rows()
+        if not self.flap_pinched_ever and self.flap_bodies:
+            self.flap_pinched_ever = any(all(self._box_touching_jaw(arm, bodies=self.flap_bodies)) for arm in self.jaw_bodies)
         try:
             if self.motion is not None and self.motion.active:
                 self.motion.poll(now, rows)
@@ -1131,11 +1134,12 @@ class SimRobot:
                     'released_all': all(not m.enabled for m in self.motors.values()), 'last_stop': self.last_stop}
 
     def _flap_state(self):
-        """flap_angle_deg (0 vertical, 90 flat on the top; None without a hinged flap), flap_pinched_now (both jaws of one
-        arm touch the flap), flap_folded (>= FLAP_FOLDED_DEG and resting on the top: the box upright on the table and
-        no jaw touching the flap, i.e. it stays folded on its own)."""
+        """flap_angle_deg (0 vertical, 90 flat on the top; None without a hinged flap); flap_pinched_now (both jaws of one
+        arm touch the flap); flap_pinched_ever (so at any 10 Hz poll since the reset: a fold without it was a push);
+        flap_folded (>= FLAP_FOLDED_DEG and resting on the top: the box upright on the table and no jaw touching the flap,
+        i.e. it stays folded on its own)."""
         if self.flap_qadr is None:
-            return {'flap_angle_deg': None, 'flap_pinched_now': False, 'flap_folded': False}
+            return {'flap_angle_deg': None, 'flap_pinched_now': False, 'flap_pinched_ever': False, 'flap_folded': False}
         angle = math.degrees(float(self.data.qpos[self.flap_qadr]))
         pinched = touched = False
         for arm in self.jaw_bodies:
@@ -1145,7 +1149,7 @@ class SimRobot:
         rot = self.data.xmat[self.box_body].reshape(3, 3)
         upright = rot[2, 2] > math.cos(math.radians(10))
         resting = upright and self.box_start is not None and abs(float(self.data.xpos[self.box_body][2] - self.box_start[2])) < 0.01
-        return {'flap_angle_deg': round(angle, 1), 'flap_pinched_now': pinched,
+        return {'flap_angle_deg': round(angle, 1), 'flap_pinched_now': pinched, 'flap_pinched_ever': bool(self.flap_pinched_ever or pinched),
                 'flap_folded': bool(angle >= FLAP_FOLDED_DEG and resting and not touched)}
 
     def snapshot(self):

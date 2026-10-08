@@ -239,7 +239,7 @@ def test_flap_stands_open_on_its_hinge(robot):
     near, left, top, edge = box_frame(robot)
     score = robot.score()
     assert score['flap_angle_deg'] == pytest.approx(-8.0, abs=0.2) and score['flap_folded'] is False
-    assert score['flap_pinched_now'] is False
+    assert score['flap_pinched_now'] is False and score['flap_pinched_ever'] is False
     assert edge == pytest.approx(top + 0.07 * math.cos(math.radians(8)), abs=0.002)
     time.sleep(1.0)   # idle physics at 1x: the flap stays where it is
     assert robot.score()['flap_angle_deg'] == pytest.approx(-8.0, abs=0.2)
@@ -295,6 +295,7 @@ def test_scripted_fold_lays_the_flap_on_the_top(robot):
     time.sleep(1.0)
     score = robot.score()
     assert score['flap_folded'] is True and score['flap_angle_deg'] >= 75 and score['flap_pinched_now'] is False
+    assert score['flap_pinched_ever'] is True   # folded from a pinch, not knocked over
     assert abs(score['box_lifted_m']) < 0.01 and score['box_moved_m'] < 0.06 and score['faults'] == 0
 
 
