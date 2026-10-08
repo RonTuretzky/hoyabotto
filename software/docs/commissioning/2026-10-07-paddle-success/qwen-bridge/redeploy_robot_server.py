@@ -13,7 +13,7 @@ files are copied from the left config's model if that verifies, otherwise model-
 Refuses to stop an owner that is holding motors (torque off would drop the arm) unless
 --release-holding is given. Run with --dry-run first to see what would be replaced.
 """
-import argparse,difflib,json,os,shutil,signal,socket,subprocess,sys,time
+import argparse,difflib,json,os,re,shutil,signal,socket,subprocess,sys,time
 from pathlib import Path
 
 BRIDGE=Path(__file__).resolve().parent
@@ -26,7 +26,7 @@ OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api
 # Files only the API process loads: these can be replaced by restarting the API alone, with motors untouched.
 API_ONLY=['gemma_robot_tools.py','gemma_reach_planner.py','right-arm-kinematics.json','wrist_cameras.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
 INSTALL=['calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','paddle-procedure.json','restart_gemma_owner_released.py','gemma_reach_planner.py','right-arm-kinematics.json']
-TESTS=['test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_reach_planner_right.py']
+TESTS=['test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_reach_planner_right.py']
 OWNER_ARGS=['--both-arms','--paddle-profile','--wheels','--allow-missing-bus'];  # an arm whose calibration mismatches stays read-only
 API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
@@ -268,9 +268,72 @@ def ensure_model(dry_run):
           f"By hand: cd {SOFTWARE} && {PYTHON} -m carton.servo model-fetch --out {folder}")
  return dict(state,directory=str(folder),seeded_from=seeded)
 
+RELAY_RECORD=WORK/'gemma-hardware-relay-process.json';RELAY_LOG=WORK/'qwen-server-recovery/relay.log';NETWORK=WORK/'network.json'
+CLOUDFLARED=WORK/'bin/cloudflared'
+API_BIND=os.environ.get('XLEROBOT_API_BIND','0.0.0.0')  # LAN + loopback; mTLS with the pinned client certificate either way
+
+def relay_hostname(log_path):
+ try:found=re.findall(r'https://([a-z0-9-]+\.trycloudflare\.com)',Path(log_path).read_text(errors='replace'))
+ except OSError:return None
+ return found[-1] if found else None
+
+def resolves(host):
+ try:socket.getaddrinfo(host,443);return True
+ except OSError:return False
+
+def relay_processes():
+ out=subprocess.run(['ps','-axo','pid=,args='],capture_output=True,text=True).stdout;found=[]
+ for line in out.splitlines():
+  parts=line.split()
+  if len(parts)>=5 and Path(parts[1]).name=='cloudflared' and parts[2:4]==['tunnel','--url'] and parts[4]=='tcp://127.0.0.1:1241':found.append(int(parts[0]))
+ return found
+
+def ensure_relay(dry_run):
+ """Keep the Cloudflare TCP relay to the API alive. A quick tunnel whose hostname no longer resolves (it dies when the
+ Mac changes network) is replaced, not reused. Returns the current hostname (it changes whenever the relay restarts)."""
+ host=relay_hostname(RELAY_LOG);alive=relay_processes()
+ if alive and host and resolves(host):say(f'relay: {host} (pid {alive[0]})');return host
+ if dry_run:say(f'relay: {"dead hostname "+host if host else "no hostname"}; a restart would start a new quick tunnel');return None
+ if not CLOUDFLARED.exists():say(f'WARNING relay: {CLOUDFLARED} missing; only the LAN address works');return None
+ for pid in alive:
+  try:os.kill(pid,signal.SIGTERM)
+  except OSError:pass
+ RELAY_LOG.parent.mkdir(parents=True,exist_ok=True)
+ with RELAY_LOG.open('w') as log:
+  proc=subprocess.Popen([str(CLOUDFLARED),'tunnel','--url','tcp://127.0.0.1:1241','--no-autoupdate'],cwd=ROOT,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+ RELAY_RECORD.write_text(json.dumps({'pid':proc.pid,'started':time.time(),'log':str(RELAY_LOG)},indent=2))
+ deadline=time.time()+30
+ while time.time()<deadline and proc.poll() is None:
+  host=relay_hostname(RELAY_LOG)
+  if host:say(f'relay: started new quick tunnel {host} (pid {proc.pid}); the chat Mac must use this hostname');return host
+  time.sleep(.3)
+ say(f'WARNING relay: no hostname after 30 s; see {RELAY_LOG}');return None
+
+def lan_addresses():
+ name=subprocess.run(['scutil','--get','LocalHostName'],capture_output=True,text=True).stdout.strip()
+ ips=[]
+ for iface in ('en0','en1'):
+  ip=subprocess.run(['ipconfig','getifaddr',iface],capture_output=True,text=True).stdout.strip()
+  if ip:ips.append(ip)
+ return {'bonjour':f'{name}.local' if name else None,'ips':ips}
+
+def report_network(relay):
+ """What the chat Mac needs to reach this robot, also served by /admin/deploy."""
+ lan=lan_addresses()
+ info={'time':time.time(),'relay_hostname':relay,'api_bind':API_BIND,'lan':lan,
+       'lan_url':f"https://{lan['bonjour']}:{API_PORT}" if lan['bonjour'] and API_BIND!='127.0.0.1' else None}
+ NETWORK.write_text(json.dumps(info,indent=2))
+ say(f"network: LAN {info['lan_url'] or 'off'} ({', '.join(lan['ips']) or 'no LAN address'}); relay {relay or 'none'}")
+ return info
+
+def _listening(host):
+ try:
+  with socket.create_connection((host,API_PORT),timeout=.5):return True
+ except OSError:return False
+
 def start_api():
  API_LOG.parent.mkdir(parents=True,exist_ok=True)
- env=dict(os.environ,XLEROBOT_PASSIVE_RECOVERY='1',XLEROBOT_OAK_RAW_DIR=OAK_RAW_DIR)
+ env=dict(os.environ,XLEROBOT_PASSIVE_RECOVERY='1',XLEROBOT_OAK_RAW_DIR=OAK_RAW_DIR,XLEROBOT_API_BIND=API_BIND)
  with API_LOG.open('ab') as log:
   api=subprocess.Popen([PYTHON,str(WORK/'gemma_robot_tools.py')],cwd=ROOT,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True,env=env)
  API_RECORD.write_text(json.dumps({'pid':api.pid,'started_at':time.time(),'log':str(API_LOG),'detached':True,'armed':False},indent=2))
@@ -291,9 +354,18 @@ def main():
  parser.add_argument('--right-arm-only',action='store_true',help='only the right arm is movable (the left stays read-only)')
  parser.add_argument('--no-wheels',action='store_true',help='start the owner without base drive (robot_move_base refused)')
  parser.add_argument('--no-wrist-cams',action='store_true',help='do not start wrist-camera publishers')
+ parser.add_argument('--network-only',action='store_true',help='after a Wi-Fi change: repair the Cloudflare relay, make the API listen on the LAN (restarts only the API), report the addresses; motors untouched')
  parser.add_argument('--release-holding',action='store_true',help='allow stopping an owner that is holding motors (the arm will lose torque; support it first)')
  args=parser.parse_args()
  if not WORK.is_dir():fail(f'{WORK} not found; set XLEROBOT_WORK_ROOT')
+ if args.network_only:
+  lan=lan_addresses()
+  reachable=any(_listening(ip) for ip in lan['ips']) if API_BIND!='127.0.0.1' else True
+  if not reachable or not processes('gemma_robot_tools.py'):
+   say('restarting the API so it listens on the LAN (hardware owner and motors untouched)')
+   if stop(processes('gemma_robot_tools.py'),'API',10):fail('API did not exit')
+   start_api()
+  info=report_network(ensure_relay(False));record_deploy('network-only');print(json.dumps(info,indent=2));return
  if args.cameras_only:
   if setup_wrist_cameras(False):
    apis=processes('gemma_robot_tools.py')
@@ -301,8 +373,8 @@ def main():
     say('restarting the API so it uses the new wrist camera IDs (no motors involved)')
     if stop(apis,'API',10):fail('API did not exit')
     start_api()
-  record_deploy('cameras-only')
-  print(json.dumps({'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_camera_ids':WRIST_CAMERA_IDS,'identity_verified':IDENTITY_VERIFIED},indent=2));return
+  record_deploy('cameras-only');net=report_network(ensure_relay(False))
+  print(json.dumps({'network':net,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_camera_ids':WRIST_CAMERA_IDS,'identity_verified':IDENTITY_VERIFIED},indent=2));return
  if not Path(PYTHON).exists():fail(f'{PYTHON} not found; set XLEROBOT_PYTHON')
  run_tests();changed=show_changes();model=ensure_model(args.dry_run)
  if args.api_only:
@@ -315,7 +387,7 @@ def main():
     shutil.copy2(BRIDGE/name,WORK/name)
    say(f'installed {", ".join(changed)} (API only); previous copies in {backup}')
   if stop(processes('gemma_robot_tools.py'),'API',10):fail('API did not exit')
-  api=start_api();record_deploy('api-only');say(f'API restarted (pid {api.pid}); hardware owner and motors untouched');return
+  api=start_api();record_deploy('api-only');say(f'API restarted (pid {api.pid}); hardware owner and motors untouched');report_network(ensure_relay(False));return
  owners=processes('gemma_hardware_owner.py');apis=processes('gemma_robot_tools.py');status=read_status()
  say(f'running owner pids {owners or "none"}, API pids {apis or "none"}')
  if status:
@@ -328,7 +400,7 @@ def main():
  if args.right_arm_only:OWNER_ARGS[OWNER_ARGS.index('--both-arms')]='--right-arm-only'
  if args.dry_run:
   if not args.no_wrist_cams:setup_wrist_cameras(True)
-  say('dry run: nothing stopped or installed');return
+  ensure_relay(True);say(f"dry run: nothing stopped or installed; the API would listen on {API_BIND}");return
  # API first, so no new command reaches the owner while it shuts down.
  if stop(apis,'API',10):fail('API did not exit; owner left running')
  if owners:
@@ -361,10 +433,10 @@ def main():
    raise
   record_deploy('rolled-back')  # keep the checkout known so a fix can be deployed remotely
   say(f'ROLLBACK complete: the previous version is running again; the failed attempt is in {WORK/"redeploy.log"}');sys.exit(1)
- record_deploy('restart')
- print(json.dumps({'owner_pid':owner.pid,'owner_session_started':s['started'],'execution_profile':s['execution_profile'],'phase':s['phase'],
+ record_deploy('restart');net=report_network(ensure_relay(False))
+ print(json.dumps({'network':net,'owner_pid':owner.pid,'owner_session_started':s['started'],'execution_profile':s['execution_profile'],'phase':s['phase'],
                    'all_released':True,'motors':len(s.get('rows') or {}),'missing_buses':s.get('missing_buses'),'base_drive_supported':s.get('base_drive_supported'),'motor_writes':0,'stop_latched':False,'api_pid':api.pid,'api':f'https://127.0.0.1:{API_PORT}',
-                   'relay':'unchanged','installed':changed,'so101_model':model,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
+                   'installed':changed,'so101_model':model,'wrist_cameras_fresh':{n:wrist_fresh(n) for n in WRIST_CAMERA_IDS},'wrist_identity_verified':IDENTITY_VERIFIED},indent=2))
  say('done. Motors are released; enable all six right-arm joints explicitly before any pickup move.')
 
 def bring_up(args):

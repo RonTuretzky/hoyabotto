@@ -5,12 +5,24 @@
   python robot_admin.py deploy [REF] [--mode restart|cameras-only|dry-run|checkout-only] [--no-wait]
   python robot_admin.py job JOB_ID
 """
-import argparse,json,os,ssl,sys,time,urllib.error,urllib.request
+import argparse,socket,urllib.parse,json,os,ssl,sys,time,urllib.error,urllib.request
 CONFIG=os.environ.get('XLEROBOT_ADMIN_CONFIG','/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/.private/robot.json')
+
+def base_url(c):
+    """The direct LAN address when it answers (both Macs on one network), else the Cloudflare relay."""
+    lan=c.get('lan_url')
+    if lan:
+        u=urllib.parse.urlsplit(lan)
+        try:
+            with socket.create_connection((u.hostname,u.port or 443),timeout=.8):return lan.rstrip('/'),True
+        except OSError:pass
+    return c['url'].rstrip('/'),False
 
 def request(path,payload=None,timeout=20):
     c=json.load(open(CONFIG));ctx=ssl.create_default_context(cafile=c['server_certificate']);ctx.load_cert_chain(c['client_certificate'],c['client_key'])
-    req=urllib.request.Request(c['url'].rstrip('/')+path,data=None if payload is None else json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
+    base,lan=base_url(c)
+    if lan:ctx.check_hostname=False  # still verified against the robot's pinned certificate; its SAN lacks the LAN name
+    req=urllib.request.Request(base+path,data=None if payload is None else json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
     try:
         with urllib.request.urlopen(req,context=ctx,timeout=timeout) as r:return json.loads(r.read())
     except urllib.error.HTTPError as e:return json.loads(e.read() or b'{}')

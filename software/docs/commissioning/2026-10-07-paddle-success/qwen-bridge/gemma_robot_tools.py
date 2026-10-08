@@ -766,13 +766,15 @@ def main():
     ctx.load_verify_locations(cafile=str(TLS / 'gateway-server.pem'))
     ctx.verify_mode = ssl.CERT_REQUIRED
     servers = []
-    for host in ('127.0.0.1',):
+    # XLEROBOT_API_BIND=0.0.0.0 (set by the restart script) also serves the paired chat Mac directly over the LAN;
+    # every connection still needs the exact pinned client certificate.
+    for host in [h.strip() for h in os.environ.get('XLEROBOT_API_BIND', '127.0.0.1').split(',') if h.strip()]:
         server = ThreadingHTTPServer((host, 1241), Handler)
         server.daemon_threads = True
         server.socket = ctx.wrap_socket(server.socket, server_side=True)
         servers.append(server)
         threading.Thread(target=server.serve_forever, daemon=True).start()
-    print('mTLS tools ready: https://127.0.0.1:1241 via approved TCP relay; exact client certificate pinned; DIRECT_JOINT client installed; no owner started', flush=True)
+    print(f"mTLS tools ready on {', '.join(s.server_address[0] for s in servers)}:1241 (relay and/or LAN); exact client certificate pinned; DIRECT_JOINT client installed; no owner started", flush=True)
     try:
         threading.Event().wait()
     finally:

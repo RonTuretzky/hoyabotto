@@ -10,7 +10,7 @@ import json,os,re,signal,subprocess,sys,time
 from pathlib import Path
 
 REF=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$')
-MODES={'restart':[],'api-only':['--api-only'],'cameras-only':['--cameras-only'],'dry-run':['--dry-run'],'checkout-only':None}
+MODES={'restart':[],'api-only':['--api-only'],'network-only':['--network-only'],'cameras-only':['--cameras-only'],'dry-run':['--dry-run'],'checkout-only':None}
 MAX_LOG_BYTES=64*1024
 
 
@@ -59,6 +59,8 @@ def deploy_status(root):
     if checkout and Path(checkout).is_dir():
         status['head']=git(checkout,'rev-parse','HEAD')[1];status['branch']=git(checkout,'rev-parse','--abbrev-ref','HEAD')[1]
         status['dirty']=bool(git(checkout,'status','--porcelain')[1]);status['subject']=git(checkout,'log','-1','--format=%s')[1]
+    try:status['network']=json.loads((p['work']/'network.json').read_text())  # LAN address and relay hostname
+    except (OSError,ValueError):status['network']=None
     jobs=sorted(p['jobs'].glob('*.json')) if p['jobs'].exists() else []
     status['recent_jobs']=[job_status(root,j.stem,0) for j in jobs[-5:]]
     return status
