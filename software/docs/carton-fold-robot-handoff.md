@@ -32,6 +32,9 @@ lets them spring open.
   - A holding joint more than 96 ticks off its goal faults and releases
     everything. Press with small overdrive, a few millimetres past contact,
     never a large one.
+  - The heartbeat renewal is refused when a gripper's load is over 500 or an
+    arm joint's is over 800. Then send a real move of a few ticks: a move to
+    the current targets is a no-op and may not count.
 - Joint ticks to angles: the only mapping is the unvalidated LeRobot midpoint
   candidate (0° at the middle of each saved range). Check it before relying
   on it in contact.
