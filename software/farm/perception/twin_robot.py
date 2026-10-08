@@ -1,12 +1,14 @@
 """Digital-twin views for the chat's robot tools: a MODEL of the robot posed from live encoder readings.
 
-TwinRobot decorates the chat's robot client the same way TagRobot and CalibrationRobot do. It adds two
-read-only tools, robot_get_twin_view (rendered views) and robot_get_claw_positions (gripper tip positions
-in the robot frame, forward kinematics only, no images), and passes every other call to the inner robot
-unchanged. It reads the owner's status (robot_get_state with fresh=False, no serial access) and, on
-request, the phone camera; it never calls a motion or enable tool. Rendering and kinematics are done by
-farm.sim.xlerobot_twin, imported lazily so the chat starts even when the renderer or its dependencies
-are missing.
+TwinRobot decorates the chat's robot client the same way TagRobot and CalibrationRobot do. It adds three
+read-only tools, robot_get_twin_view (rendered views), robot_get_claw_positions (gripper tip positions
+in the robot frame, forward kinematics only, no images) and robot_get_scene_points (the OAK head depth
+image turned into robot-frame positions: region distances, the nearest object, points at given pixels
+and each claw's offset to the nearest object), and passes every other call to the inner robot
+unchanged. It reads the owner's status (robot_get_state with fresh=False, no serial access), the depth
+snapshot (robot_get_depth) and, on request, the phone camera; it never calls a motion or enable tool.
+Rendering and kinematics are done by farm.sim.xlerobot_twin, imported lazily so the chat starts even when
+the renderer or its dependencies are missing; the depth maths is farm.perception.depth_scene.
 """
 from __future__ import annotations
 
@@ -26,11 +28,15 @@ import numpy as np
 
 TOOL_NAME = "robot_get_twin_view"
 CLAW_TOOL_NAME = "robot_get_claw_positions"
+SCENE_TOOL_NAME = "robot_get_scene_points"
+DEPTH_TOOL_NAME = "robot_get_depth"
 VIEWS = ("front", "left", "right", "top")  # left/right: side views from the robot's left and right
 RENDERER_MODULE = "farm.sim.xlerobot_twin"
 JOINT_MAP_NAME = "twin-joint-map.json"
 CANDIDATE_MAPPING = "feetech_degrees_v1"
 MAX_STATE_AGE_S = 2.0
+MAX_QUERY_PIXELS = 10
+MAX_DEPTH_PIXELS = 4_000_000
 MAX_FUTURE_SKEW_S = 0.25  # same allowance as the AprilTag observer
 LOCK_TIMEOUT_S = 20.0
 LABEL_HEIGHT = 46
@@ -61,6 +67,22 @@ CLAW_DESCRIPTION = (
 NOTE_UNVALIDATED = "model estimate from encoder readings with the unvalidated candidate mapping; not measured"
 NOTE_VALIDATED = "model estimate from encoder readings with the validated joint map; not measured"
 
+SCENE_DESCRIPTION = (
+    "Numeric 3D positions from the head depth camera, in the robot frame (forward/left/up from the base): a 5x3 "
+    "grid of region distances, the nearest object's position and size, optional points at given pixels, and each "
+    "claw's offset to the nearest object. Use it for distances instead of guessing from images. The stereo depth "
+    "is blind closer than about 25 cm and on textureless or blown-out areas. Distances are straight-line metres "
+    "from the camera lens; pixels are [x, y] in the 640x360 OAK RGB/depth frame (x right, y down, origin top-left). "
+    "Read-only: reads one depth frame (robot_get_depth) and the owner's last encoder status (no serial access) and "
+    "sends nothing to the motors. Refuses when the depth frame or the encoder reading is older than 2 s. The "
+    "camera pose and claw positions come from the robot MODEL with the unvalidated candidate head/arm mapping "
+    "unless mapping_validated is true; the depth itself is measured."
+)
+SCENE_NOTE = ("robot-frame positions use the model camera pose and the unvalidated candidate head/arm mapping; "
+              "depth itself is measured")
+SCENE_NOTE_VALIDATED = ("robot-frame positions use the model camera pose and the validated joint map; depth itself "
+                        "is measured")
+
 
 def tool_schema():
     return {"type": "function", "function": {
@@ -82,6 +104,22 @@ def claw_tool_schema():
         "name": CLAW_TOOL_NAME,
         "description": CLAW_DESCRIPTION,
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+    }}
+
+
+def scene_tool_schema():
+    return {"type": "function", "function": {
+        "name": SCENE_TOOL_NAME,
+        "description": SCENE_DESCRIPTION,
+        "parameters": {"type": "object", "properties": {
+            "pixels": {"type": "array", "maxItems": MAX_QUERY_PIXELS, "default": [],
+                       "items": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 2,
+                                 "maxItems": 2},
+                       "description": "Up to 10 image pixels [x, y] whose robot-frame points you want (5x5 median "
+                                      "depth around each); null point when the depth there is invalid."},
+            "with_claws": {"type": "boolean", "default": True,
+                           "description": "Also give each claw tip's position and its vector to the nearest object."},
+        }, "additionalProperties": False},
     }}
 
 
@@ -185,6 +223,20 @@ def _claws_function():
     return _twin_function("claw_positions", "claw positions")
 
 
+def _camera_pose_function():
+    return _twin_function("camera_pose", "camera pose")
+
+
+def _decode_depth(data, what):
+    """16-bit PNG bytes -> uint16 (rows x columns) millimetres."""
+    if not isinstance(data, (bytes, bytearray)) or not data:
+        raise Refusal(f"{what} has no image bytes")
+    depth = cv2.imdecode(np.frombuffer(bytes(data), np.uint8), cv2.IMREAD_UNCHANGED)
+    if depth is None or depth.ndim != 2 or depth.dtype != np.uint16 or depth.size > MAX_DEPTH_PIXELS:
+        raise Refusal(f"{what} is not a 16-bit single-channel PNG")
+    return depth
+
+
 def _decode(data, what):
     if not isinstance(data, (bytes, bytearray)) or not data:
         raise Refusal(f"{what} has no image bytes")
@@ -219,7 +271,7 @@ class TwinRobot:
     passes through unchanged."""
 
     def __init__(self, robot, *, joint_map_path=None, clock=time.time, size=(640, 480),
-                 max_age_s=MAX_STATE_AGE_S, renderer=None, claws=None):
+                 max_age_s=MAX_STATE_AGE_S, renderer=None, claws=None, camera_pose=None):
         self.robot = robot
         if joint_map_path is None:
             config = _config_path(robot)
@@ -230,9 +282,11 @@ class TwinRobot:
         self.max_age_s = max_age_s
         self._renderer = renderer  # tests may inject; otherwise imported lazily on first use
         self._claws = claws
+        self._camera_pose = camera_pose
         self._lock = threading.Lock()
         self.last_catalog = None
         self._available = False
+        self._depth = False  # the server publishes robot_get_depth
         self._native = set()  # our tool names the server already publishes itself
         self._phone = False
 
@@ -248,8 +302,9 @@ class TwinRobot:
     def catalog(self):
         catalog = copy.deepcopy(self.robot.catalog())
         functions = {t["function"]["name"]: t["function"] for t in catalog["tools"]}
-        self._native = {name for name in (TOOL_NAME, CLAW_TOOL_NAME) if name in functions}
+        self._native = {name for name in (TOOL_NAME, CLAW_TOOL_NAME, SCENE_TOOL_NAME) if name in functions}
         self._available = "robot_get_state" in functions
+        self._depth = DEPTH_TOOL_NAME in functions
         cameras = (functions.get("robot_get_cameras", {}).get("parameters", {}).get("properties", {})
                    .get("cameras", {}).get("items", {}).get("enum", []))
         self._phone = isinstance(cameras, list) and "phone" in cameras
@@ -265,11 +320,16 @@ class TwinRobot:
                 metadata["claw_positions"] = {
                     "tool": CLAW_TOOL_NAME, "execution": "local_model_kinematics_from_owner_encoder_status",
                     "motor_access": False, "synthetic_images": False}
+            if SCENE_TOOL_NAME not in self._native and self._depth:
+                catalog["tools"].append(scene_tool_schema())
+                metadata["scene_points"] = {
+                    "tool": SCENE_TOOL_NAME, "execution": "local_depth_backprojection_with_model_camera_pose",
+                    "motor_access": False, "synthetic_images": False, "depth_tool": DEPTH_TOOL_NAME}
         self.last_catalog = catalog
         return catalog
 
     def call(self, name, args, request_id=None):
-        if name not in (TOOL_NAME, CLAW_TOOL_NAME):
+        if name not in (TOOL_NAME, CLAW_TOOL_NAME, SCENE_TOOL_NAME):
             return self._forward(name, args, request_id)
         if self.last_catalog is None:
             self.catalog()
@@ -277,12 +337,17 @@ class TwinRobot:
             return self._forward(name, args, request_id)
         if not self._available:
             return _fail("The robot server does not publish robot_get_state, so the twin cannot be posed.")
-        what = "twin view" if name == TOOL_NAME else "claw positions"
+        if name == SCENE_TOOL_NAME and not self._depth:
+            return _fail(f"The robot server does not publish {DEPTH_TOOL_NAME}, so there is no depth image to "
+                         "turn into positions.")
+        what = {TOOL_NAME: "twin view", CLAW_TOOL_NAME: "claw positions", SCENE_TOOL_NAME: "scene points"}[name]
         if not self._lock.acquire(timeout=LOCK_TIMEOUT_S):
             return _fail("Another twin render is still running; try again.")
         try:
             if name == TOOL_NAME:
                 return self._twin_view(args, request_id)
+            if name == SCENE_TOOL_NAME:
+                return self._scene_points(args, request_id)
             return self._claw_positions(args, request_id)
         except _NETWORK_ERRORS:
             raise  # the chat retries read-only tools on these while the robot server restarts
@@ -308,12 +373,12 @@ class TwinRobot:
             raise Refusal("compare_with_phone must be true or false")
         return views, compare
 
-    def _check_age(self, stamp, what):
+    def _check_age(self, stamp, what, product="twin view"):
         age = self.clock() - stamp
         if not -MAX_FUTURE_SKEW_S <= age <= self.max_age_s:
             raise Refusal(f"{what} is {age:.2f} s old on this machine's clock (allowed {-MAX_FUTURE_SKEW_S} to "
-                          f"{self.max_age_s} s): the owner may not be polling the servos, or the two Macs' clocks "
-                          "disagree. No twin view; use the real cameras.")
+                          f"{self.max_age_s} s): the owner may not be polling the servos or the cameras, or the two "
+                          f"Macs' clocks disagree. No {product}; use the real cameras.")
         return max(0.0, age)
 
     def _read_state(self, request_id):
@@ -490,6 +555,149 @@ class TwinRobot:
             "motor_writes": 0, "note": NOTE_VALIDATED if validated else NOTE_UNVALIDATED})
         if stale:
             result["note"] += f"; rows older than {self.max_age_s} s at state_time: {', '.join(stale)}"
+        return {"ok": True, "result": result}
+
+    # -- robot_get_scene_points --------------------------------------------------------------------
+
+    @staticmethod
+    def _scene_arguments(args):
+        if not isinstance(args, dict) or set(args) - {"pixels", "with_claws"}:
+            raise Refusal("Unknown scene points arguments; allowed: pixels, with_claws")
+        pixels = args.get("pixels", [])
+        if (not isinstance(pixels, list) or len(pixels) > MAX_QUERY_PIXELS
+                or any(not isinstance(p, list) or len(p) != 2 or any(type(v) is not int or v < 0 for v in p)
+                       for p in pixels)):
+            raise Refusal(f"pixels must be up to {MAX_QUERY_PIXELS} [x, y] pairs of non-negative integers")
+        with_claws = args.get("with_claws", True)
+        if type(with_claws) is not bool:
+            raise Refusal("with_claws must be true or false")
+        return pixels, with_claws
+
+    def _read_depth(self, request_id):
+        """One robot_get_depth snapshot -> (depth uint16 mm, manifest, image record, captured_at)."""
+        payload = self._forward(DEPTH_TOOL_NAME, {}, self._sub_id(request_id, "depth"))
+        result = _unwrap(payload, DEPTH_TOOL_NAME)
+        manifest = result.get("manifest")
+        if not isinstance(manifest, dict):
+            raise Refusal(f"{DEPTH_TOOL_NAME} returned no manifest (intrinsics unknown)")
+        images = [i for i in payload.get("images", []) if isinstance(i, dict)]
+        image = next((i for i in images if str(i.get("camera_id", "")).endswith(":depth")),
+                     images[0] if len(images) == 1 else None)
+        if image is None:
+            raise Refusal(f"{DEPTH_TOOL_NAME} returned no depth image")
+        if image.get("mime_type", image.get("mime")) != "image/png":
+            raise Refusal("Depth image is not a PNG")
+        encoded = image.get("data_base64", image.get("base64"))
+        if not isinstance(encoded, str):
+            raise Refusal("Depth image has no pixels")
+        stamp = image.get("captured_at")
+        if not _finite(stamp):
+            stamp = manifest.get("depth_captured_at", manifest.get("captured_at"))
+        if not _finite(stamp):
+            raise Refusal("Depth image has no timestamp")
+        self._check_age(stamp, "The depth frame", "scene points")
+        if manifest.get("depth_units", "mm") != "mm" or manifest.get("invalid_depth", 0) != 0:
+            raise Refusal("Depth manifest is not in millimetres with 0 = invalid")
+        depth = _decode_depth(base64.b64decode(encoded, validate=True), "Depth image")
+        width, height = manifest.get("width"), manifest.get("height")
+        if (_finite(width) and _finite(height)) and depth.shape != (int(height), int(width)):
+            raise Refusal(f"Depth image is {depth.shape[1]}x{depth.shape[0]} but the manifest says {width}x{height}")
+        return depth, manifest, image, float(stamp)
+
+    @staticmethod
+    def _distortion_from(manifest):
+        """(coefficients or None, explanation) from the OAK manifest: only pixels that still carry the lens
+        distortion are undistorted; a rectified_pinhole stream was already undistorted by the factory mesh."""
+        coefficients = manifest.get("distortion_coefficients")
+        projection = manifest.get("projection")
+        if coefficients is None:
+            return None, "manifest has no distortion_coefficients"
+        if projection == "rectified_pinhole":
+            return None, "manifest projection is rectified_pinhole: pixels already undistorted on the camera"
+        if manifest.get("distortion_model") not in (None, "Perspective"):
+            return None, f"manifest distortion_model {manifest.get('distortion_model')!r} is not OpenCV's Perspective model"
+        return coefficients, f"manifest projection {projection!r} carries the factory distortion"
+
+    def _scene_points(self, args, request_id):
+        pixels, with_claws = self._scene_arguments(args)
+        state, stamp, positions, ranges, stale = self._read_state(request_id)
+        self._check_age(stamp, "The encoder reading", "scene points")
+        depth, manifest, image, depth_stamp = self._read_depth(request_id)
+        joint_map, joint_map_sha = load_joint_map(self.joint_map_path)
+        intrinsics = manifest.get("intrinsics")
+        distortion, distortion_why = self._distortion_from(manifest)
+
+        from farm.perception import depth_scene
+        pose_fn = self._camera_pose or _camera_pose_function()
+        started = time.perf_counter()
+        try:
+            pose = pose_fn(positions, ranges, joint_map=joint_map, camera="oak")
+        except Exception as exc:
+            raise Refusal(f"Twin camera pose failed ({type(exc).__name__}: {str(exc)[:300]}). "
+                          "No scene points; use the real cameras.") from None
+        if not isinstance(pose, dict) or not isinstance(pose.get("position_m"), list):
+            raise Refusal("Twin camera pose returned no position")
+        try:
+            scene = depth_scene.scene_points(depth, intrinsics, pose, pixels=pixels, distortion=distortion)
+        except ValueError as exc:
+            raise Refusal(f"Depth scene cannot be computed: {exc}") from None
+        claws = None
+        claw_to_nearest = None
+        if with_claws:
+            claws_fn = self._claws or _claws_function()
+            try:
+                claws = claws_fn(positions, ranges, joint_map=joint_map)
+            except Exception as exc:
+                raise Refusal(f"Twin kinematics failed ({type(exc).__name__}: {str(exc)[:300]}). "
+                              "No scene points; use the real cameras.") from None
+            if not isinstance(claws, dict):
+                raise Refusal("Twin kinematics returned no claw positions")
+            claw_to_nearest = {}
+            centre = (scene.get("nearest") or {}).get("centre_m")
+            for arm in ("left_arm", "right_arm"):
+                tip = claws.get(arm)
+                if not isinstance(tip, dict) or centre is None:
+                    claw_to_nearest[arm] = None
+                    continue
+                delta = [centre[0] - tip["forward_m"], centre[1] - tip["left_m"], centre[2] - tip["up_m"]]
+                claw_to_nearest[arm] = {"forward_m": round(delta[0], 3), "left_m": round(delta[1], 3),
+                                        "up_m": round(delta[2], 3), "distance_m": round(math.hypot(*delta), 3)}
+            rounded = _round_claws(claws)
+            claws = {arm: rounded.get(arm) for arm in ("left_arm", "right_arm")}
+        compute_s = time.perf_counter() - started
+
+        validated = pose.get("mapping_validated") is True
+        camera = {"position_m": [round(float(v), 3) for v in pose["position_m"]],
+                  "rotation": [[round(float(v), 4) for v in row] for row in pose.get("rotation", [])],
+                  "head_angles_deg": pose.get("head_angles_deg"), "site": pose.get("site"),
+                  "head_sign_note": pose.get("head_sign_note"), "frame": pose.get("frame")}
+        note = SCENE_NOTE_VALIDATED if validated else SCENE_NOTE
+        if stale:
+            note += f"; encoder rows older than {self.max_age_s} s at state_time: {', '.join(stale)}"
+        result = {
+            **scene,
+            "camera": camera,
+            "claws": claws,
+            "claw_to_nearest_m": claw_to_nearest,
+            "depth_camera_id": image.get("camera_id"),
+            "depth_seq": image.get("seq", manifest.get("seq")),
+            "depth_captured_at": depth_stamp,
+            "depth_age_s": round(max(0.0, self.clock() - depth_stamp), 3),
+            "depth_minus_state_s": round(depth_stamp - stamp, 3),
+            "robot_frame_calibrated": manifest.get("robot_frame_calibrated", False) is True,
+            "undistortion": f"{scene['undistortion']} ({distortion_why})",
+            "state_time": stamp,
+            "state_age_s": round(max(0.0, self.clock() - stamp), 3),
+            "compute_s": round(compute_s, 3),
+            "state_source": state.get("source"), "state_cached": state.get("cached"),
+            "stale_motors": stale, "motors_posed": len(positions),
+            "mapping": pose.get("mapping", CANDIDATE_MAPPING), "mapping_validated": validated,
+            "unmapped": pose.get("unmapped", []), "model": pose.get("model"),
+            "joint_map": {"path": str(self.joint_map_path) if self.joint_map_path else None,
+                          "loaded": joint_map is not None, "sha256": joint_map_sha,
+                          "validated": bool(joint_map and joint_map.get("validated") is True)},
+            "motor_writes": 0, "note": note,
+        }
         return {"ok": True, "result": result}
 
     # -- plumbing -----------------------------------------------------------------------------------
