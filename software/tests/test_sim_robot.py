@@ -247,6 +247,12 @@ def test_flap_stands_open_on_its_hinge(robot):
     assert robot.score()['flap_angle_deg'] == pytest.approx(-8.0, abs=0.2)
 
 
+def test_a_dropped_box_lands_on_the_floor(robot):
+    robot.set_box_pose(0.40, 0.75, 0.755)   # beside the table (it spans +-45 cm left): nothing under it but the floor
+    time.sleep(1.5)
+    assert robot.box_pose()['up_m'] == pytest.approx(BOX_SIZE[2] / 2, abs=0.01)
+
+
 def test_gripper_closing_on_the_flap_reports_a_pinch(robot):
     res = grasp(robot)
     # the 3.5 mm flap stops the jaws ~25 ticks before their 1355 meeting point, ~40 short of the 1340 target (the real

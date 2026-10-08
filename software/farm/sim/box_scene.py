@@ -163,10 +163,14 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
     quality.set('shadowsize', '4096')   # the lamp's shadow falls on the box face the wrist cameras look at
 
     # Dark floor and dim room instead of the twin's bright checker and sky.
+    # The floor catches a dropped box (collision bit 2, which only the box and flap geoms carry, so the fixed robot's
+    # base never touches it); the twin's floor is visual only.
     for geom in world.findall('geom'):
         if geom.get('name') == 'twin_floor':
             geom.attrib.pop('material', None)
             geom.set('rgba', FLOOR_RGBA)
+            geom.set('contype', '2')
+            geom.set('conaffinity', '2')
     for tex in asset.findall('texture'):
         if tex.get('name') == 'twin_sky':
             tex.set('rgb1', '0.22 0.22 0.24')
@@ -206,7 +210,7 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
                                     BOX_MASS_KG / 12.0 * (depth ** 2 + height ** 2),
                                     BOX_MASS_KG / 12.0 * (depth ** 2 + width ** 2))))
     ET.SubElement(box, 'geom', name='box_body', type='box', size=_fmt((depth / 2.0, width / 2.0, height / 2.0)),
-                  material='scene_cardboard', contype='1', conaffinity='1', condim='4',
+                  material='scene_cardboard', contype='3', conaffinity='3', condim='4',
                   friction=f'{BOX_FRICTION} 0.005 0.0001', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
     # Flap: a plate hinged on the near top edge (the +x face in the box frame faces the robot), its outer face flush
     # with the near face. Joint axis -y: a positive angle swings the flap's free edge toward -x, i.e. inward over
@@ -247,7 +251,7 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
                                         mass / 12.0 * (FLAP_THICKNESS_M ** 2 + flap_width ** 2))))
         ET.SubElement(body, 'geom', name='flap' if i == 0 else f'flap_{i}', type='box', pos=_fmt((0.0, 0.0, length / 2.0)),
                       size=_fmt((FLAP_THICKNESS_M / 2.0, flap_width / 2.0, length / 2.0)), material='scene_flap',
-                      contype='1', conaffinity='1', condim='4', friction=f'{FLAP_FRICTION} {FLAP_TORSION_M} 0.0001',
+                      contype='3', conaffinity='3', condim='4', friction=f'{FLAP_FRICTION} {FLAP_TORSION_M} 0.0001',
                       priority='1', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
         # MuJoCo skips parent-child pairs only; panels further down the chain (and the box) would collide once bent.
         for other in ['box'] + chain[:-1]:
