@@ -70,8 +70,16 @@ TARGET = target_schema(POSITION_NAMES, 'Absolute raw encoder ticks by canonical 
 ARM_TARGET = target_schema(ARM_NAMES + ARM_ALIASES, 'Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {"right_arm_shoulder_lift": 2000}; select targets from fresh state and commandable_ranges.')
 HEAD_TARGET = target_schema([n for n in POSITION_NAMES if n.startswith('head_motor_')], 'Canonical head motor names and integer encoder ticks.')
 
+def range_margin():
+    """Ticks a target must stay inside the saved range: the pickup profile's executor needs 40 (it refuses
+    anything closer), other owners 4. Reported ranges match what the owner will accept."""
+    try:return 40 if DIRECT_CLIENT.status().get('execution_profile') == 'paddle-success-v1' else 4
+    except (OSError, ValueError, KeyError, NameError):return 40  # this robot runs the pickup profile; never report looser
+
+
 def commandable_ranges():
-    return {n: {'min_ticks': CAL[n]['range_min'] + 4, 'max_ticks': CAL[n]['range_max'] - 4, 'margin_ticks': 4} for n in POSITION_NAMES}
+    m = range_margin()
+    return {n: {'min_ticks': CAL[n]['range_min'] + m, 'max_ticks': CAL[n]['range_max'] - m, 'margin_ticks': m} for n in POSITION_NAMES}
 
 def execute_targets(positions, duration_s, wait=True, replace=False):
     """Run a target set through the owner. Under the pickup profile a long move becomes one continuous
@@ -147,7 +155,7 @@ def normalize_targets(targets, arm=None, head=False):
     for n, q in result.items():
         bounds = commandable_ranges()[n]
         if not bounds['min_ticks'] <= q <= bounds['max_ticks']:
-            raise ValueError(f"Target out of bounds: {n}={q}; commandable inclusive range [{bounds['min_ticks']}, {bounds['max_ticks']}] ticks (4-tick margin)")
+            raise ValueError(f"Target out of bounds: {n}={q}; commandable inclusive range [{bounds['min_ticks']}, {bounds['max_ticks']}] ticks ({bounds['margin_ticks']}-tick margin)")
     return result
 
 MOTOR_NAMES = {'type': 'array', 'items': {'type': 'string', 'enum': list(CAL)}, 'minItems': 1, 'maxItems': 16, 'uniqueItems': True}
@@ -196,7 +204,7 @@ for entry in TOOLS:
     if fn['name']=='robot_set_gripper':
         ranges={a:commandable_ranges()[a+'_arm_gripper'] for a in ('left','right')}
         message='; '.join(f"{a}: {b['min_ticks']}..{b['max_ticks']} inclusive ticks" for a,b in ranges.items())
-        fn['description'] += ' Validates first, then enables only this gripper if released and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: '+message+'. Raw calibration endpoints are invalid command targets; no clamping.'
+        fn['description'] += ' Validates first, then enables what is released (in the pickup profile all six joints of that arm, which hold where they are; otherwise only this gripper) and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: '+message+'. Raw calibration endpoints are invalid command targets; no clamping.'
         params['properties']['position_ticks']['description']='Commandable integer encoder ticks: '+message
         params['allOf']=[{'if':{'properties':{'arm':{'const':a}},'required':['arm']},'then':{'properties':{'position_ticks':{'minimum':b['min_ticks'],'maximum':b['max_ticks']}}}} for a,b in ranges.items()]
 # Retired 2026-10-08: the head is read-only in every owner scope, and the rest were historical context (old evidence,
@@ -268,7 +276,7 @@ def state(fresh=True):
     if 'live_rows' in result:result['live_rows']={n:{k:v for k,v in row.items() if k!='coherent_read_evidence'} for n,row in result['live_rows'].items()}
     result['commandable_ranges']=commandable_ranges()
     result['raw_calibration_ranges']={n:{'min_ticks':v['range_min'],'max_ticks':v['range_max']} for n,v in CAL.items()}
-    result['range_semantics']='raw_calibration_ranges and motor range are saved hardware limits, not command targets; use commandable_ranges (inclusive, 4-tick margin)'
+    result['range_semantics']=f'raw_calibration_ranges and motor range are saved hardware limits, not command targets; use commandable_ranges (inclusive, {range_margin()}-tick margin)'
     return result
 
 
@@ -655,8 +663,8 @@ def dispatch(name, args):
         args['positions'] = normalize_targets(args['positions'], arm=args.get('arm'), head=name == 'robot_move_head')
     if name == 'robot_set_gripper':
         n = args['arm'] + '_arm_gripper'
-        if not CAL[n]['range_min'] + 4 <= args['position_ticks'] <= CAL[n]['range_max'] - 4:
-            b=commandable_ranges()[n]
+        b=commandable_ranges()[n]
+        if not b['min_ticks'] <= args['position_ticks'] <= b['max_ticks']:
             raise ValueError(f"Gripper target out of bounds: {n}={args['position_ticks']}; valid inclusive range [{b['min_ticks']}, {b['max_ticks']}] ticks; readiness={json.dumps(DIRECT_CLIENT.readiness())}")
     if name == 'robot_move_joint_targets':
         return execute_targets(args['positions'], args['duration_s'], wait=args.get('wait', True), replace=args.get('replace', False)), None

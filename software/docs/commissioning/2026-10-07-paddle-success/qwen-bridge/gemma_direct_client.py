@@ -185,7 +185,13 @@ class DirectJointClient:
         with self.serialized():
             state=self.status();ready=self.readiness();started=state['started'];generation=self.cancel_generation
             if not ready['available_to_accept_authorized_command']:raise RuntimeError('Gripper owner unavailable: '+json.dumps(ready))
-            prospective=copy.deepcopy(state);prospective['rows'][name]['Torque_Enable']=1
+            # The pickup profile moves an arm only with all six of its joints enabled, so auto-enable takes the
+            # whole arm (released joints hold where they are); other owners enable just the gripper.
+            arm_joints=[m for m in state.get('supportsselectedjoints',[]) if m.startswith(arm+'_arm_')]
+            to_enable=[m for m in (arm_joints if state.get('execution_profile')=='paddle-success-v1' else [name]) if state['rows'][m].get('Torque_Enable')==0]
+            prospective=copy.deepcopy(state)
+            for m in to_enable:prospective['rows'][m]['Torque_Enable']=1
+            prospective['enabled_motors']=sorted(set(prospective.get('enabled_motors',[]))|set(to_enable))
             self._validate(request,prospective)
             from direct_joint_executor import DirectJointExecutor
             executor=DirectJointExecutor
@@ -198,18 +204,18 @@ class DirectJointClient:
             dry=executor([name],{name:state['ranges'][name]},lambda _: (_ for _ in ()).throw(AssertionError('Validation wrote')))
             dry.start(dict(request,id=1,session_started=started),{name:state['rows'][name]['Present_Position']},session_started=started)
             if state.get('enabled_motors') and state.get('lease_remaining',0)<=(0 if state.get('execution_profile')=='paddle-success-v1' else dry.duration+5):raise ValueError('Insufficient owner lease before gripper activation')
-            enabled_here=state['rows'][name]['Torque_Enable']==0;enable_attempted=False;phase='validated'
+            enabled_here=bool(to_enable);enable_attempted=False;phase='validated'
             try:
                 if enabled_here:
-                    self._validate({'op':'enable_motors','names':[name],'enabled':True},state)
+                    self._validate({'op':'enable_motors','names':to_enable,'enabled':True},state)
                     phase='enabling';enable_attempted=True
-                    activation=self.set_motor_enable([name],True)
+                    activation=self.set_motor_enable(to_enable,True)
                     if not activation.get('completed'):raise RuntimeError('Gripper enable not completed: '+json.dumps(activation))
                 latest=self.status()
                 if latest['started']!=started or generation!=self.cancel_generation:raise RuntimeError('Owner/STOP changed during gripper sequence')
                 phase='moving';result=self._command(request) if arm=='right' else self.execute({name:position},duration)
                 if not result.get('completed'):raise RuntimeError('Gripper move not completed: '+json.dumps(result))
-                return dict(result,gripper_auto_enabled=enabled_here,gripper=name,sequence_phase='completed')
+                return dict(result,gripper_auto_enabled=enabled_here,auto_enabled_motors=to_enable,gripper=name,sequence_phase='completed')
             except BaseException as exc:
                 cleanup='not_requested'
                 if enable_attempted:
