@@ -12,8 +12,8 @@ sites, the OAK optical site ``HEAD_SITE`` on ``HEAD_CAMERA_BODY``, floor, lights
   ``FLAP_RANGE_DEG``; the flap and the box are parent and child, so MuJoCo does not collide them and the stop is
   the top). It starts ``FLAP_OPEN_DEG`` outward like a real open flap. The crease is modelled as a light spring
   toward that open angle plus a larger hinge friction, so the flap stays where it is put (a folded flap stays
-  folded) and folds under about 1-2 N at its edge; ``seed`` jitters the box +-2 cm in forward/left and +-5 deg of
-  yaw;
+  folded) and starts to fold under about 0.9 N at its edge; its top 2 cm turns freely relative to the rest (see
+  ``FLAP_SEGMENTS_M``); ``seed`` jitters the box +-2 cm in forward/left and +-5 deg of yaw;
 - a bright lamp on the table behind the box (emissive white sphere on a stand plus a strong spotlight and a weaker
   directional fill, both pointing back at the robot; no shadow maps, which look blocky centimetres from a wrist
   lens), so a wrist camera looking level at the box is backlit;
@@ -49,7 +49,7 @@ AXES = np.array([twin.FORWARD, twin.LEFT, twin.UP], dtype=float)  # rows: robot 
 TABLE_NEAR_M = 0.30           # near edge forward of the robot origin
 TABLE_SIZE_M = (0.60, 0.90)   # depth (forward), width (left-right)
 TABLE_THICKNESS_M = 0.03
-FLAP_SEGMENTS_M = (0.03, 0.02, 0.02)   # panels bottom up: the crease panel, then two strips on bend joints
+FLAP_SEGMENTS_M = (0.05, 0.02)  # bottom up: the flap panel on the crease, then the top strip the pads hold
 FLAP_HEIGHT_M = sum(FLAP_SEGMENTS_M)    # 7 cm, the real carton's open flap is about 8
 FLAP_THICKNESS_M = 0.0035
 FLAP_MASS_KG = 0.01
@@ -57,12 +57,13 @@ FLAP_FRICTION = 1.2           # sliding friction of the jaw pads on the flap (pr
 FLAP_TORSION_M = 0.005        # torsional friction (the jaw meshes' own 0.2 m torsion / 0.1 m rolling lock any pinch rigid)
 FLAP_OPEN_DEG = -8.0          # rest angle: leaning 8 deg outward (toward the robot), like a real open flap
 FLAP_RANGE_DEG = (-60.0, 92.0)
-FLAP_STIFFNESS = 0.01         # N m/rad toward FLAP_OPEN_DEG (crease spring)
-FLAP_FRICTIONLOSS = 0.03      # N m: larger than the spring at 90 deg (0.017), so a folded flap stays down; ~0.5 N at the edge folds it
+FLAP_STIFFNESS = 0.02         # N m/rad toward FLAP_OPEN_DEG (crease spring)
+FLAP_FRICTIONLOSS = 0.06      # N m: about 0.9 N at the free edge starts the fold; more than the spring at 90 deg
+                              # (0.034 N m), so a folded flap stays down
 FLAP_DAMPING = 0.002          # N m s/rad
-FLAP_BEND_STIFFNESS = 0.01    # N m/rad back to straight
-FLAP_BEND_FRICTIONLOSS = 0.03  # N m: a push at the edge turns the crease (0.03 N m at 7 cm) before it bends the panels
-FLAP_BEND_DAMPING = 0.002
+FLAP_BEND_STIFFNESS = 0.005   # N m/rad: the top strip is the crushed edge between the pads, nearly free to turn
+FLAP_BEND_FRICTIONLOSS = 0.005
+FLAP_BEND_DAMPING = 0.001
 FLAP_BEND_RANGE_DEG = (-120.0, 120.0)
 FLAP_FOLDED_DEG = 75.0        # robot_frame_of_box / SimRobot.score: folded at or past this angle
 BOX_MASS_KG = 0.25
@@ -211,11 +212,12 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
     # with the near face. Joint axis -y: a positive angle swings the flap's free edge toward -x, i.e. inward over
     # the top. The body is posed at FLAP_OPEN_DEG and ``ref`` says so, so qpos reads the angle from vertical.
     # The flap is a chain of panels (FLAP_SEGMENTS_M, bottom up): ``box_flap`` (geom ``flap``) on the crease
-    # ``flap_hinge``, then ``box_flap_1``, ``box_flap_2``... (geoms ``flap_1``...) on bend joints ``flap_bend_1``...
+    # ``flap_hinge``, then ``box_flap_1`` (geom ``flap_1``, the top strip) on the bend joint ``flap_bend_1``.
     # A rigid plate pinched between pads that are not parallel to it is locked to the jaws, and this arm cannot tilt
-    # its jaws past about -60 deg pitch, so a rigid flap could never be folded from a pinch; real cardboard gives
-    # at the edge of the pads. The bend joints are that give: they hold the flap straight (friction larger than the
-    # torque that turns the crease) until a pinch forces them, then stay where they were bent, like crushed board.
+    # its jaws past about -60 deg pitch out there, so a rigid flap could never be folded from a pinch: carrying the
+    # pinch along the arc would drag the box instead. Real corrugated board crushes between the pads and turns there.
+    # The nearly free strip joint is that pivot: a pinch on the top 2 cm can carry the flap round the hinge, while a
+    # deeper pinch holds the stiff panel and locks it to the jaws (and drags the box), as stiff board would.
     open_rad = math.radians(FLAP_OPEN_DEG)
     flap_width = width - 0.002
     contact = root.find('contact')

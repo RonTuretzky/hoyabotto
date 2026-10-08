@@ -1801,10 +1801,10 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   is unmeasured. Settle corrections (up to 3 x 40 ticks, 57 max overdrive) are ported from the real executor.
 - Released joints keep 0.4 N m of gear friction: the folded arms rest; an extended released arm sags over a few seconds.
 - MuJoCo noslip_iterations=5 so a pinched box does not creep out of the soft jaw contacts.
-- The box's flap is 7 cm of three rigid panels (box_scene.FLAP_SEGMENTS_M): the crease hinge on the near top edge plus two
-  bend joints with friction that stand in for cardboard giving at the pads, so a pinch in the top ~4 cm can fold it while a
-  deeper pinch locks it to the jaws. It folds under about 0.5-1 N at the edge and stays where it is put (crease friction
-  beats its spring), unmeasured on the real carton. Jaw-flap contacts use the flap's friction 1.2 and 5 mm torsion.
+- The box's flap is 7 cm: a 5 cm panel on the crease hinge (box_scene.FLAP_SEGMENTS_M) plus a 2 cm top strip on a nearly free
+  joint that stands in for cardboard crushing between the pads, so a pinch on the top 2 cm can carry the flap round its hinge
+  while a deeper pinch locks it to the jaws. The crease folds under about 0.9 N at the edge and stays where it is put (its
+  friction beats its spring); none of this is measured on the real carton. Jaw-flap contacts use friction 1.2, 5 mm torsion.
 - score(): box_held_now = both jaws of one arm touch the box or flap and the box centre is >= 3 cm up; flap_angle_deg is
   the crease angle (0 vertical, + inward, 90 flat on the top); flap_folded = >= 75 deg with the box upright and resting
   on the table and no jaw touching the flap (it stays folded on its own).
