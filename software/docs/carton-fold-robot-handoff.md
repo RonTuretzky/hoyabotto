@@ -82,7 +82,7 @@ y −155 at about z 223 until the flap is at about **−15°**. Lift straight up
 (to about z 317) and park the right arm away.
 
 - Keep the near flap at −15°. At −17° the success rate fell from 20/30 to
-  9/20. At −13° it creeps back into the right forearm later.
+  9/20.
 - If the far flap leans outward, set it to about **+1° inward** (nearly
   upright) by hand before starting. The left claw can only reach its top edge
   from about +1°, and above about +1.6° it hits the upright shorts.
@@ -228,9 +228,9 @@ If the owner wants to tape, they tape the seam while the claws hold.
 - **Carton slides:** a hard push on the far or near flap can slide the empty
   carton. Push in small steps. If it moves more than about 15 mm, stop. Having
   a person hold the carton, or putting the contents in, helps.
-- **Do not reorder.** Long flaps first (or the near flap before the far flap)
-  failed in simulation: rigid shorts collide with half-closed long flaps
-  during their middle rotation and stall at about +1°.
+- **Do not reorder.** Closing the long flaps before the shorts failed in
+  simulation: rigid shorts collide with half-closed long flaps during their
+  middle rotation and stall at about +1°.
 
 ## What is not known
 
