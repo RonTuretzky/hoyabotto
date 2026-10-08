@@ -30,7 +30,7 @@ def recover_ports(buses,reason,state,now):
 class HardwareOwner:
  def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep):
   self.read_only=read_only
-  self.soft_release_s=soft_release_s;self.sleep=sleep  # >0: STOP/faults ease torque off over this many seconds
+  self.soft_release_s=soft_release_s;self.sleep=sleep;self.writer=None  # writer(): persist self.state now (set by main)  # >0: STOP/faults ease torque off over this many seconds
   self.paddle_profile=paddle_profile
   self.motion_count=0
   if camera_metadata is None:camera_metadata=lambda:json.loads(PHONE_CAMERA.read_text())
@@ -220,7 +220,10 @@ class HardwareOwner:
    start={n:self.read(n,'Torque_Limit') for n in names};steps=10
    for k in range(1,steps+1):
     for n in names:self.write(n,'Torque_Limit',int(start[n]*(steps-k)/steps))
+    self.state['releasing']=True;self.publish()
+    if self.writer:self.writer()  # keep status.json fresh through the 2 s ramp, so clients wait for the real stop reason
     self.sleep(self.soft_release_s/steps)
+   self.state['releasing']=False
    return None
   except Exception as e:return str(e)
  def release_all(self,reason,record=True):
@@ -231,7 +234,7 @@ class HardwareOwner:
   # Ease torque off unless the bus itself failed (those writes would fail too).
   soft=self.soft_release_s>0 and self.enabled and 'communication failure' not in reason
   if soft:
-   problem=self.soften()
+   problem=self.soften();self.state['releasing']=False
    self.state['last_release_mode']='soft' if problem is None else 'immediate (soft release failed: '+problem+')'
   elif self.enabled:self.state['last_release_mode']='immediate'
   for n in list(self.enabled):
@@ -357,7 +360,7 @@ def main():
   if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
   if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)  # before any check that needs it
   buses=live
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
   owner.state['missing_buses']=missing
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)

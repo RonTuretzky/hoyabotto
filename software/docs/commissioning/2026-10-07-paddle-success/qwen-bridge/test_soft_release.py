@@ -25,6 +25,14 @@ assert ('right_arm_shoulder_lift','Goal_Position',2100) in b.log and limits[:10]
 assert abs(sum(sleeps)-2.0)<1e-9 and len(sleeps)==10
 order=[f for n,f,v in b.log if n==lift];assert order.index('Torque_Enable')>order.index('Goal_Position') and limits[9]==0
 assert all(b.r[n]['Torque_Enable']==0 for n in names) and b.r[lift]['Torque_Limit']==1000 and o.state['last_release_mode']=='soft' and not o.enabled
+# The status file is written at every ramp step, so a client waiting on a move sees fresh status (not "telemetry stale")
+# for the whole 2 s and then the real stop reason.
+o,b=owner();writes=[];o.writer=lambda:writes.append((o.state['time'],o.state.get('releasing')))
+def tick(d):t[0]+=d
+o.sleep=lambda d:(sleeps.append(d),tick(d))
+o.release_all('Pickup closure did not become stationary')
+assert len(writes)==10 and all(r for _,r in writes) and writes[-1][0]>writes[0][0] and o.state['releasing'] is False
+assert o.state['last_stop']['reason']=='Pickup closure did not become stationary'
 # Communication failure: immediate release, no easing.
 o,b=owner();sleeps.clear();o.release_all('Coherent servo read communication failure: -6');assert sleeps==[] and o.state['last_release_mode']=='immediate'
 # If easing itself fails (writes rejected), it falls back to the immediate release path.
