@@ -59,6 +59,24 @@ about 5× this Mac). Closed loop, temporal ensembling 0.01, held-out starts:
 | batch 16, 25k steps | 20k | 8/16 | 14 / 62 mm | 0.60 mm |
 | **batch 16, 25k steps** | **25k** | **24/31** | 15 / 82 mm | 1.02 mm |
 
+Further cloud runs (same dataset, scored on the same 31 starts; full log in
+`…/fold-evals/scoreboard.jsonl`):
+
+| run | 30k | 35k | 40k | 45k | 50k |
+|---|---|---|---|---|---|
+| batch 16, 50k steps | 20/31 | 27/31 | 28/31 | **28/31** | 8/31 |
+
+| run | 15k | 20k | 25k |
+|---|---|---|---|
+| batch 32, learning rate 3e-5 | 27/31 | 6/31 | 25/31 |
+| batch 16, seed 2 | — | — | 1/31 |
+
+**Demo model: batch 16, 50k-step run, checkpoint 45k** (`RonTuretzky/act_carton_both_shorts_220_a100_bs16_50k`,
+`checkpoints/045000`). 28/31 on the first held-out set (carton slide median 10 mm, max 27 mm; flap penetration
+max 0.59 mm) and **31/32** on 32 further held-out starts from a second demo batch (max slide 23 mm, penetration
+0.13 mm): **59/63 overall**. Checkpoints swing widely (constant learning rate); the failing ones stall with the right
+arm parked while the left braces, so pick by score, never by "last". Two seeds of the same recipe gave 24/31 and 1/31.
+
 All seven 25k failures fold the right short but not the left. Batch 32 at the same learning rate is undertrained.
 Cloud cost for these two runs: 58 min, about $2.43. Checkpoints load into lerobot 0.6.1 after dropping the newer
 trainer's `dtype: null` config field.
