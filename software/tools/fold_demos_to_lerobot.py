@@ -10,6 +10,10 @@ closed-loop evaluation from unseen starts.
 
     PYTHONPATH=. python tools/fold_demos_to_lerobot.py --batches .../fold-demos/batch-01 \
         --out .../fold-datasets/both-shorts-v1 --task both-shorts
+
+`--cameras` picks the policy cameras, e.g. the robot's three (head + wrists) on a model-derived station
+(tools/record_measured_fold_demos.py with profiles/fold-station-xlerobot-220.json):
+`--cameras front=front left_wrist=left_wrist right_wrist=right_wrist`.
 """
 from __future__ import annotations
 
@@ -26,7 +30,7 @@ from farm.learning.recorder import EpisodeRecorder
 
 ROBOT = [f'{s}_{j}' for s in ('left', 'right') for j in
          ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper')]
-CAMERAS = {'top': 'overhead', 'front': 'front'}
+CAMERAS = {'top': 'overhead', 'front': 'front'}  # default; --cameras KEY=SCENE_CAMERA ... overrides
 TASK_TEXT = {'both-shorts': 'fold both short carton flaps and hold them',
              'right-short': 'fold the right short carton flap and hold it'}
 FOLDED, HOLD = 80., 3.
@@ -49,17 +53,17 @@ def task_end(qpos, time, model, task):
 
 def render_trial(job):
     """Render one trial's cameras up to `end` (worker process); returns uint8 arrays per camera."""
-    trial, end, height, width = job
+    trial, end, height, width, cameras = job
     model = mujoco.MjModel.from_xml_path(str(Path(trial) / 'run/scene.xml'))
     data = mujoco.MjData(model)
     renderer = mujoco.Renderer(model, height, width)
     try:
         z = np.load(Path(trial) / 'demo.npz')
-        out = {key: np.empty((end + 1, height, width, 3), np.uint8) for key in CAMERAS}
+        out = {key: np.empty((end + 1, height, width, 3), np.uint8) for key in cameras}
         for k in range(end + 1):
             data.qpos[:] = z['qpos'][k]
             mujoco.mj_forward(model, data)
-            for key, cam in CAMERAS.items():
+            for key, cam in cameras.items():
                 renderer.update_scene(data, camera=cam)
                 out[key][k] = renderer.render()
     finally:
@@ -74,14 +78,17 @@ def main(argv=None):
     ap.add_argument('--task', choices=sorted(TASK_TEXT), default='both-shorts')
     ap.add_argument('--height', type=int, default=240)
     ap.add_argument('--width', type=int, default=320)
+    ap.add_argument('--cameras', nargs='+', default=[f'{k}={v}' for k, v in CAMERAS.items()],
+                    help='policy camera KEY=SCENE_CAMERA pairs (default: top=overhead front=front)')
     ap.add_argument('--holdout-every', type=int, default=10)
     ap.add_argument('--max-episodes', type=int)
     ap.add_argument('--workers', type=int, default=8)
     args = ap.parse_args(argv)
+    cameras = dict(item.split('=', 1) for item in args.cameras)
     if args.out.exists():
         raise SystemExit(f'{args.out} exists; choose a new dataset directory')
     trials = sorted(t for b in args.batches for t in b.glob('trial-*') if (t / 'demo.json').exists())
-    rec = EpisodeRecorder(args.out, f'local/carton_{args.task.replace("-", "_")}_sim', 10, list(CAMERAS),
+    rec = EpisodeRecorder(args.out, f'local/carton_{args.task.replace("-", "_")}_sim', 10, list(cameras),
                           (args.height, args.width), ROBOT, robot_type='xlerobot_sim')
     used, holdout, skipped, todo = [], [], [], []
     for t in trials:
@@ -104,21 +111,22 @@ def main(argv=None):
             todo.append((t, demo, end, [model.jnt_qposadr[model.joint(n).id] for n in ROBOT]))
     try:
         with mp.get_context('spawn').Pool(args.workers) as pool:
-            rendered = pool.imap(render_trial, [(str(t), end, args.height, args.width) for t, _, end, _ in todo])
+            rendered = pool.imap(render_trial, [(str(t), end, args.height, args.width, cameras)
+                                                   for t, _, end, _ in todo])
             for (t, demo, end, adr), images in zip(todo, rendered):
                 z = np.load(t / 'demo.npz')
                 rec.start_episode(TASK_TEXT[args.task])
                 for k in range(end + 1):
                     state = dict(zip(ROBOT, z['qpos'][k][adr]))
                     action = dict(zip(ROBOT, z['ctrl'][min(k + 1, end)]))
-                    rec.tick(state, action, {key: images[key][k] for key in CAMERAS})
+                    rec.tick(state, action, {key: images[key][k] for key in cameras})
                 n = rec.end_episode(save=True)
                 used.append({'trial': str(t), 'seed': demo['seed'], 'frames': n})
                 print(json.dumps(used[-1]), flush=True)
     finally:
         rec.close()
     (args.out / 'conversion.json').write_text(json.dumps(
-        {'task': args.task, 'cameras': CAMERAS, 'joints': ROBOT, 'fps': 10, 'episodes': used,
+        {'task': args.task, 'cameras': cameras, 'joints': ROBOT, 'fps': 10, 'episodes': used,
          'skipped': skipped, 'simulation_only': True}, indent=1))
     (args.out / 'holdout.json').write_text(json.dumps(holdout, indent=1))
     print(f'{len(used)} episodes, {sum(u["frames"] for u in used)} frames; {len(holdout)} held out')

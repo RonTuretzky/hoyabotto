@@ -1,0 +1,318 @@
+{
+ "samples": 4381,
+ "margin_px": 4.0,
+ "pan_deg": 0.0,
+ "fovy_deg": 54.0,
+ "results": [
+  {
+   "tilt_deg": 54.0,
+   "coverage": 0.046336452864642774,
+   "mean_fraction_of_points_in_frame": 0.7766328626862777,
+   "flap_edges_all_in_frame": 0.2604428212736818,
+   "claw_tips_all_in_frame": 0.7085140378908925,
+   "median_worst_vertical_offset_px": 94.44544796428818,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3551
+    ],
+    [
+     "long_near_edge_-1",
+     3010
+    ],
+    [
+     "left_gripper_link",
+     2651
+    ],
+    [
+     "right_gripper_link",
+     1324
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050965,
+    0.419458
+   ]
+  },
+  {
+   "tilt_deg": 55.0,
+   "coverage": 0.05683633873544853,
+   "mean_fraction_of_points_in_frame": 0.7776437212639002,
+   "flap_edges_all_in_frame": 0.2965076466560146,
+   "claw_tips_all_in_frame": 0.7085140378908925,
+   "median_worst_vertical_offset_px": 89.51346834799529,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3551
+    ],
+    [
+     "long_near_edge_-1",
+     2927
+    ],
+    [
+     "left_gripper_link",
+     2782
+    ],
+    [
+     "right_gripper_link",
+     1324
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050914,
+    0.418778
+   ]
+  },
+  {
+   "tilt_deg": 56.0,
+   "coverage": 0.06665144944076695,
+   "mean_fraction_of_points_in_frame": 0.7804317344376694,
+   "flap_edges_all_in_frame": 0.33348550559233053,
+   "claw_tips_all_in_frame": 0.7085140378908925,
+   "median_worst_vertical_offset_px": 90.19280190806941,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3553
+    ],
+    [
+     "long_near_edge_-1",
+     2841
+    ],
+    [
+     "left_gripper_link",
+     2792
+    ],
+    [
+     "right_gripper_link",
+     1323
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050851,
+    0.4181
+   ]
+  },
+  {
+   "tilt_deg": 57.0,
+   "coverage": 0.06665144944076695,
+   "mean_fraction_of_points_in_frame": 0.7800567385137123,
+   "flap_edges_all_in_frame": 0.3353115727002967,
+   "claw_tips_all_in_frame": 0.7087422962793882,
+   "median_worst_vertical_offset_px": 95.26218743975834,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3556
+    ],
+    [
+     "left_gripper_link",
+     2851
+    ],
+    [
+     "long_near_edge_-1",
+     2833
+    ],
+    [
+     "right_gripper_link",
+     1323
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050776,
+    0.417422
+   ]
+  },
+  {
+   "tilt_deg": 58.0,
+   "coverage": 0.07190139237616983,
+   "mean_fraction_of_points_in_frame": 0.7921218247627761,
+   "flap_edges_all_in_frame": 0.35517005249942935,
+   "claw_tips_all_in_frame": 0.7089705546678841,
+   "median_worst_vertical_offset_px": 100.39901440191285,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3558
+    ],
+    [
+     "left_gripper_link",
+     2857
+    ],
+    [
+     "long_near_edge_-1",
+     2740
+    ],
+    [
+     "right_gripper_link",
+     1323
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050689,
+    0.416746
+   ]
+  },
+  {
+   "tilt_deg": 59.0,
+   "coverage": 0.07167313398767405,
+   "mean_fraction_of_points_in_frame": 0.7920403039097419,
+   "flap_edges_all_in_frame": 0.3553983108879251,
+   "claw_tips_all_in_frame": 0.7091988130563798,
+   "median_worst_vertical_offset_px": 105.62553599264238,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3560
+    ],
+    [
+     "left_gripper_link",
+     2861
+    ],
+    [
+     "long_near_edge_-1",
+     2739
+    ],
+    [
+     "right_gripper_link",
+     1324
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050591,
+    0.416072
+   ]
+  },
+  {
+   "tilt_deg": 60.0,
+   "coverage": 0.07167313398767405,
+   "mean_fraction_of_points_in_frame": 0.7917631330094256,
+   "flap_edges_all_in_frame": 0.3560830860534125,
+   "claw_tips_all_in_frame": 0.7087422962793882,
+   "median_worst_vertical_offset_px": 110.92513426431096,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3563
+    ],
+    [
+     "left_gripper_link",
+     2868
+    ],
+    [
+     "long_near_edge_-1",
+     2737
+    ],
+    [
+     "right_gripper_link",
+     1329
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050481,
+    0.415399
+   ]
+  },
+  {
+   "tilt_deg": 61.0,
+   "coverage": 0.03035836566993837,
+   "mean_fraction_of_points_in_frame": 0.7615515048749457,
+   "flap_edges_all_in_frame": 0.1522483451266834,
+   "claw_tips_all_in_frame": 0.7085140378908925,
+   "median_worst_vertical_offset_px": 116.1715480993632,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3566
+    ],
+    [
+     "left_gripper_link",
+     2873
+    ],
+    [
+     "long_near_edge_-1",
+     2737
+    ],
+    [
+     "right_gripper_link",
+     1336
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050359,
+    0.414729
+   ]
+  },
+  {
+   "tilt_deg": 62.0,
+   "coverage": 0.010499885870805753,
+   "mean_fraction_of_points_in_frame": 0.6911664003652154,
+   "flap_edges_all_in_frame": 0.0561515635699612,
+   "claw_tips_all_in_frame": 0.7085140378908925,
+   "median_worst_vertical_offset_px": 121.68338285326816,
+   "most_missed": [
+    [
+     "left_moving_jaw_so101_v1_link",
+     3571
+    ],
+    [
+     "left_gripper_link",
+     2937
+    ],
+    [
+     "long_near_edge_-1",
+     2714
+    ],
+    [
+     "long_far_edge_-1",
+     2451
+    ]
+   ],
+   "camera_position_arm_base_m": [
+    0.002,
+    0.050225,
+    0.41406
+   ]
+  }
+ ],
+ "best": {
+  "tilt_deg": 58.0,
+  "coverage": 0.07190139237616983,
+  "mean_fraction_of_points_in_frame": 0.7921218247627761,
+  "flap_edges_all_in_frame": 0.35517005249942935,
+  "claw_tips_all_in_frame": 0.7089705546678841,
+  "median_worst_vertical_offset_px": 100.39901440191285,
+  "most_missed": [
+   [
+    "left_moving_jaw_so101_v1_link",
+    3558
+   ],
+   [
+    "left_gripper_link",
+    2857
+   ],
+   [
+    "long_near_edge_-1",
+    2740
+   ],
+   [
+    "right_gripper_link",
+    1323
+   ]
+  ],
+  "camera_position_arm_base_m": [
+   0.002,
+   0.050689,
+   0.416746
+  ]
+ }
+}

@@ -1,0 +1,98 @@
+{
+ "schema": "xlerobot-fold-station-measurement/1",
+ "measured": false,
+ "model_derived": true,
+ "note": "Derived from the XLeRobot model (owner: source of truth), not measured on the robot. Base spacing from the model Base origins; base height above the carton support and setback kept from the simulation. Policy cameras: front (head OAK), left_wrist, right_wrist. The overhead camera does not exist on the robot and is not a policy input.",
+ "station": {
+  "base_height_above_table_m": 0.12,
+  "base_line_to_table_edge_m": 0.15,
+  "base_spacing_m": 0.22,
+  "carton_near_wall_to_table_edge_m": 0.01,
+  "park_targets_follow_bases": true,
+  "sources": "xlerobot.xml: Base/Base_2 at y=-/+0.11; height/setback: simulation"
+ },
+ "cameras": {
+  "front": {
+   "position_m": [
+    0.002,
+    0.050689,
+    0.416746
+   ],
+   "rotation_cv": [
+    [
+     1.0,
+     -0.0,
+     0.0
+    ],
+    [
+     -0.0,
+     -0.848048096,
+     0.529919264
+    ],
+    [
+     0.0,
+     -0.529919264,
+     -0.848048096
+    ]
+   ],
+   "fovy_deg": 54.0,
+   "head_tilt_deg": 58,
+   "head_pan_deg": 0.0,
+   "sources": "xlerobot.xml: head_camera_link at head_tilt_joint 58 deg, head_pan_joint 0.0 deg; OAK-D Lite colour VFOV 54.0 deg (4:3 spec)"
+  },
+  "left_wrist": {
+   "frame": "left_gripper_link",
+   "position_m": [
+    0.0035,
+    0.068,
+    -0.0138
+   ],
+   "rotation_cv": [
+    [
+     0.999993155,
+     -7.4e-06,
+     0.003699967
+    ],
+    [
+     0.0,
+     -0.999998,
+     -0.001999982
+    ],
+    [
+     0.003699975,
+     0.001999969,
+     -0.999991155
+    ]
+   ],
+   "fovy_deg": 90.0,
+   "sources": "xlerobot.xml: Left_Arm_Camera lens via ICP of Fixed_Jaw onto SO101 gripper_link (1.7 mm RMS); vertical FOV 90.0 deg assumed"
+  },
+  "right_wrist": {
+   "frame": "right_gripper_link",
+   "position_m": [
+    0.0035,
+    0.068,
+    -0.0138
+   ],
+   "rotation_cv": [
+    [
+     0.999993155,
+     -7.4e-06,
+     0.003699967
+    ],
+    [
+     0.0,
+     -0.999998,
+     -0.001999982
+    ],
+    [
+     0.003699975,
+     0.001999969,
+     -0.999991155
+    ]
+   ],
+   "fovy_deg": 90.0,
+   "sources": "xlerobot.xml: Right_Arm_Camera lens via ICP of Fixed_Jaw onto SO101 gripper_link (1.7 mm RMS); vertical FOV 90.0 deg assumed"
+  }
+ }
+}

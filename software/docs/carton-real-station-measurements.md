@@ -78,6 +78,9 @@ simulation) and a bounded encoder/CAD angle when a flap is edge-on to the
 camera. Verify the real camera sees the near flap below about 20° and above
 about 25°, and the far flap below about 38° and above about 46°.
 
+For the imitation-learning fold policy's two cameras (`top`, `front`), what to measure and how to put
+the measured poses into the simulation is in `carton-fold-policy-station-gap.md`.
+
 ## 5. Not covered by the simulation
 
 Taping and hands-clear retention, jaw friction and wear, servo compliance
