@@ -49,7 +49,6 @@ class FakeRobot:
         self.rate = rate_per_s
         self.pos = {j: 0.0 for j in ALL_JOINTS}
         self.goal = dict(self.pos)
-        self.temp = {j: 35.0 for j in ALL_JOINTS}
         self.load = {j: 50.0 for j in ALL_JOINTS}
         self._t = time.time()
         self._connected = False
@@ -81,8 +80,7 @@ class FakeRobot:
     def health(self) -> Reading[dict[str, dict[str, float]]]:
         if not self._connected:
             return invalid(self.name, "not connected")
-        hot = self.faults.get("servo_overtemp")
-        out = {j: {"temperature": (70.0 if hot else self.temp[j]), "load": self.load[j]} for j in ALL_JOINTS}
+        out = {j: {"load": self.load[j]} for j in ALL_JOINTS}
         return Reading(out, Status.OK, source=self.name)
 
     def move_to(self, targets: dict[str, float], max_step: float | None = None) -> Reading[dict[str, float]]:

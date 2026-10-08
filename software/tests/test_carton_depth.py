@@ -1,0 +1,152 @@
+import copy
+import os
+import time
+
+import cv2
+import numpy as np
+import pytest
+
+from carton.servo.common import Refused, atomic_json
+from carton.servo.depth import DepthObserver, camera_point, fit_table, verify_depth_lift
+from farm.oak_camera import StreamWriter
+
+
+def spec(folder):
+    names = ["tool", "paddle", "bottom", *[f"table{i}" for i in range(6)]]
+    ref = folder / "ref.png"
+    cv2.imwrite(str(ref), np.random.default_rng(15).integers(0, 255, (100, 100, 3), dtype=np.uint8))
+    return {"manifest": str(folder / "oak.json"), "camera_id": "oak-test", "reference": str(ref),
+            "regions": {n: {"roi": [10, 10, 24, 24], "point": [22, 22], "anchor": n.startswith("table")} for n in names},
+            "table_features": names[3:], "tool": "tool", "paddle": "paddle", "bottom": "bottom",
+            "up_hint_camera": [0, 0, -1], "min_lift_mm": 10, "min_clearance_mm": 10, "max_slip_mm": 5}
+
+
+def stream(folder, keep=90):
+    return StreamWriter(folder, {"device_id": "test", "alignment": "CAM_A RGB", "projection": "rectified_pinhole",
+                                "coordinate_frame": "CAM_A_optical", "intrinsics": [[100, 0, 50], [0, 100, 50], [0, 0, 1]]}, keep)
+
+
+def publish(writer, depth=None):
+    if depth is None:
+        depth = np.full((100, 100), 500, dtype=np.uint16)
+    now = time.time()-.01
+    return writer.publish(np.zeros((100, 100, 3), np.uint8), depth, now, now+.001)
+
+
+def test_atomic_depth_stream_roundtrip_and_bounded_storage(tmp_path):
+    s = spec(tmp_path)
+    writer = stream(tmp_path, keep=3)
+    for _ in range(10):
+        m = publish(writer)
+    observer = DepthObserver(s)
+    record, rgb, depth = observer.read()
+    assert record["seq"] == 10 and rgb.shape == (100, 100, 3)
+    assert depth.dtype == np.uint16 and np.all(depth == 500)
+    assert len(list(tmp_path.glob("*-depth.png"))) == 3
+    assert record["robot_frame_calibrated"] is False
+    assert record["host"] == os.uname().nodename
+
+
+@pytest.mark.parametrize("mutation", [
+    {"depth_units": "m"}, {"camera_id": "other"}, {"host": "other-Mac"}, {"seq": -1},
+    {"captured_at": 0}, {"projection": "distorted"}, {"depth_sha256": "incorrect"},
+    {"depth_image": "../outside.png"}, {"rgb_captured_at": time.time()+1000}, {"width": 200},
+])
+def test_wrong_units_stale_time_wrong_camera_and_corrupt_frames_refuse(tmp_path, mutation):
+    s = spec(tmp_path)
+    m = publish(stream(tmp_path))
+    atomic_json(tmp_path / "oak.json", {**m, **mutation})
+    with pytest.raises(Refused):
+        DepthObserver(s).read()
+
+
+def test_restart_requires_registration_and_intrinsics_are_bound(tmp_path):
+    s = spec(tmp_path)
+    writer = stream(tmp_path)
+    publish(writer)
+    observer = DepthObserver(s)
+    observer.read()
+    publish(stream(tmp_path))
+    with pytest.raises(Refused, match="restarted"):
+        observer.read()
+
+
+def test_metric_camera_point_rejects_missing_and_mixed_background_depth():
+    k = [[100, 0, 50], [0, 100, 50], [0, 0, 1]]
+    depth = np.full((100, 100), 500, np.uint16)
+    assert camera_point(depth, [60, 50], k) == pytest.approx([50, 0, 500])
+    depth[48:51, 58:61] = 0
+    with pytest.raises(Refused, match="valid pixels"):
+        camera_point(depth, [60, 50], k)
+    depth[48:51, 58:61] = 1000
+    with pytest.raises(Refused, match="dispersion"):
+        camera_point(depth, [60, 50], k)
+
+
+def test_table_plane_and_lift_distinguish_sliding_from_lifting():
+    points = [[x, y, 500] for x in (-100, 0, 100) for y in (-100, 100)]
+    normal, center = fit_table(points, [0, 0, -1])
+    assert normal == pytest.approx([0, 0, -1])
+    s = {"tool": "tool", "paddle": "paddle", "min_lift_mm": 10, "min_clearance_mm": 10, "max_slip_mm": 5}
+    before = {"stream": "x", "seq": 1, "normal": normal.tolist(), "points": {"tool": [0, 0, 490], "paddle": [20, 0, 490]}}
+    after = {"stream": "x", "seq": 2, "points": {"tool": [0, 0, 470], "paddle": [20, 0, 470]}, "bottom_clearance_mm": 20}
+    assert verify_depth_lift(before, after, s)["paddle_lift_mm"] == 20
+    after["points"] = {"tool": [20, 0, 490], "paddle": [40, 0, 490]}
+    with pytest.raises(Refused, match="did not verify"):
+        verify_depth_lift(before, after, s)
+    with pytest.raises(Refused, match="clustered"):
+        fit_table(np.zeros((6, 3)), [0, 0, -1])
+
+
+def test_publisher_rejects_old_captures_instead_of_timestamping_them_as_new(tmp_path):
+    writer = stream(tmp_path)
+    with pytest.raises(ValueError, match="stale"):
+        writer.publish(np.zeros((100, 100, 3), np.uint8), np.full((100, 100), 500, np.uint16), 1, 1)
+    assert not (tmp_path / "oak.json").exists()
+
+
+def test_real_tracker_and_depth_consumer_verify_lift_and_detect_camera_displacement(tmp_path):
+    s = spec(tmp_path)
+    locations = {f"table{i}": p for i, p in enumerate([(30, 30), (150, 30), (270, 30),
+                                                       (30, 210), (150, 210), (270, 210)])}
+    locations.update(tool=(100, 120), paddle=(140, 120), bottom=(180, 120))
+    rng = np.random.default_rng(19)
+    rgb = np.full((240, 300, 3), 24, np.uint8)
+    for name, (x, y) in locations.items():
+        rgb[y-12:y+12, x-12:x+12] = rng.integers(35, 230, (24, 24, 3), dtype=np.uint8)
+        s["regions"][name] = {"roi": [x-12, y-12, 24, 24], "point": [x, y], "anchor": name.startswith("table")}
+    cv2.imwrite(s["reference"], rgb)
+    writer = stream(tmp_path)
+    writer.metadata["intrinsics"] = [[200, 0, 150], [0, 200, 120], [0, 0, 1]]
+    observer = DepthObserver(s)
+
+    def frame(lift=0, table_shift=0):
+        depth = np.full((240, 300), 500+table_shift, np.uint16)
+        for name in ("tool", "paddle", "bottom"):
+            x, y = locations[name]
+            depth[y-6:y+7, x-6:x+7] = (490 if name == "bottom" else 480)-lift
+        stamp = time.time()-.005
+        writer.publish(rgb, depth, stamp, stamp)
+        return observer.observe(stamp)
+
+    before = frame()
+    after = frame(lift=20)
+    result = verify_depth_lift(before, after, s)
+    assert result["paddle_lift_mm"] == pytest.approx(20)
+    assert result["bottom_clearance_mm"] == pytest.approx(30)
+    with pytest.raises(Refused, match="registration moved"):
+        frame(lift=20, table_shift=6)
+
+
+def test_three_camera_skew_uses_both_head_and_wrist_timestamps(tmp_path):
+    s = spec(tmp_path)
+    m = publish(stream(tmp_path))
+    observer = DepthObserver(s)
+    stamp = m["captured_at"]
+    # The depth frame is within 300ms of the older RGB camera, but the full
+    # group spans 500ms. The previous oldest-timestamp-only check accepted it.
+    times = iter([stamp+.6, stamp+2])
+    observer.clock = lambda: next(times)
+    observer.read = lambda: (m, None, None)
+    with pytest.raises(Refused, match="synchronized"):
+        observer.observe({"head": stamp+.25, "right_wrist": stamp+.5})

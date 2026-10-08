@@ -1,0 +1,409 @@
+{
+  "simulation_only": true,
+  "hardware_commands": 0,
+  "full_task_complete": false,
+  "station_change": "Separate square-carton setup proposal; robot/table locations, contact physics and original motor limits unchanged.",
+  "measured_material": false,
+  "cases": {
+    "claws": {
+      "configuration": {
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/minor-yaw0-hd-release-claws",
+        "tool": "claws",
+        "video": true,
+        "fold_right": true,
+        "along": -0.1,
+        "radius": 0.115,
+        "clearance": -0.002,
+        "axis_sign": 1,
+        "normal_only": true,
+        "paddle_contact": "handle",
+        "paddle_axis_yaw": 0.0,
+        "paddle_axis_mode": "rise",
+        "paddle_along_travel": 0.085,
+        "near_open_degrees": -5.729577951308233,
+        "right_pre_out": 0.045,
+        "right_pre_up": 0.0,
+        "normal_offset": false,
+        "pre_height": 0.035,
+        "carton_yaw_degrees": 0.0,
+        "park_back": true,
+        "floor_marker_x": 0.08,
+        "center_floor_marker": true,
+        "close_left": false,
+        "left_target_degrees": 75.0,
+        "press_left": true,
+        "scan_tool": false,
+        "width": 1280,
+        "height": 720,
+        "release_left_minor": true
+      },
+      "stage": "Release left short to observe spring-back",
+      "error": null,
+      "angles": {
+        "short_left": 57.86756065863801,
+        "short_right": 90.16353239964698,
+        "long_far": -5.7172724214871735,
+        "long_near": -8.682477005815466
+      },
+      "motion": {
+        "max_translation_mm": 1.098720004227944,
+        "max_rotation_degrees": 0.007850642973718088,
+        "minimum_bottom_corner_table_clearance_mm": 9.980960130432425,
+        "max_horizontal_translation_mm": 0.032667795830067466,
+        "max_absolute_vertical_translation_mm": 1.0987200042279437
+      },
+      "time": 49.30600000001429,
+      "both_shorts_held": {
+        "angles": {
+          "short_left": 91.18873439197435,
+          "short_right": 90.16400358232978,
+          "long_far": -5.734751368682265,
+          "long_near": -8.670537719873986
+        },
+        "motion": {
+          "max_translation_mm": 1.098720004227944,
+          "max_rotation_degrees": 0.007850642973718088,
+          "minimum_bottom_corner_table_clearance_mm": 9.980960130432425,
+          "max_horizontal_translation_mm": 0.032667795830067466,
+          "max_absolute_vertical_translation_mm": 1.0987200042279437
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 91.4649351258009,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 90.72587950219625
+          },
+          "short_right": {
+            "degrees": 90.17376259320194,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 89.65869863719334
+          },
+          "long_far": {
+            "degrees": -5.7313736395858115,
+            "pixel_support": 1877,
+            "median_deviation_deg": 0.23688670963805425,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -8.549326341919096,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": -8.889060778454088
+          }
+        },
+        "held_only": true,
+        "full_task_complete": false
+      },
+      "release_test": {
+        "angles": {
+          "short_left": 57.86756065863801,
+          "short_right": 90.16353239964698,
+          "long_far": -5.7172724214871735,
+          "long_near": -8.682477005815466
+        },
+        "motion": {
+          "max_translation_mm": 1.098720004227944,
+          "max_rotation_degrees": 0.007850642973718088,
+          "minimum_bottom_corner_table_clearance_mm": 9.980960130432425,
+          "max_horizontal_translation_mm": 0.032667795830067466,
+          "max_absolute_vertical_translation_mm": 1.0987200042279437
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 57.78308228589224,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 57.65912593660804
+          },
+          "short_right": {
+            "degrees": 89.81442978124105,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 90.31600531594796
+          },
+          "long_far": {
+            "degrees": -6.257592817964846,
+            "pixel_support": 1913,
+            "median_deviation_deg": 0.250431933476837,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -8.358392363675268,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": -8.40573395873633
+          }
+        },
+        "passive_observation_seconds": 5.0,
+        "full_task_complete": false
+      },
+      "material": {
+        "cardboard_mass_kg": 0.272,
+        "contents_mass_kg": 0.0,
+        "contents_top_m": 0.102,
+        "table_friction": 0.35,
+        "hinge_stiffness": 0.018,
+        "hinge_friction": 0.004,
+        "hinge_damping": 0.008,
+        "hinge_rest_degrees": 0.0,
+        "flap_stiffness": null,
+        "parameters_measured": false,
+        "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+        "total_mass_kg": 0.272,
+        "spring_moments_at_90_degrees_Nm": [
+          0.028274333882308135,
+          0.028274333882308135,
+          0.028274333882308135,
+          0.028274333882308135
+        ],
+        "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+        "contents_model": "Absent"
+      },
+      "source_sha256": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_short_flap_brace.py": "46bbd5492f20be9b6d266c10dd1bdd5919561867c1d8ee7db671eb37bc7a99d1",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_bridge.py": "9f431ffc2ea0aac8169cd2fcac20541d321fa378333c51e5a6361eb54552e835",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_cascade.py": "7d671eb13d6e2f8fba9129bdfd16d747c71811a521247e4cb5b5da38cd8da986",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_grasp.py": "b577623aefca470c298ec7cd6a4b9529974675e72c5f18e2bbc5ea191ddb3cf2",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_hinge_tags.py": "8297096f1245bc351301bcb6dd7afe23d1839a09573c0d702211d89927175729",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_markers.py": "ce47a300d4d5eb7b6cd6359653d094a26415b1795f1f6cd5d234d6a855279968",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_paddle.py": "b96a1cbd91b03cf272d40dcbd4df47f16ea1e1f3ac520a97fedf0c3f1a07f5ca",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_paths.py": "a7323dbb02594074dc7eb861d2c8dec7c8e5546e77cc7fc11cfb6dca228bc5f2",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_sim.py": "46e6d41cca96dcc02669e165707e45d6055fac276a97468032d3940df39c9e02",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tool_tags.py": "7ed8713fd183e48297041ea1dd49d4bf2a459e4e03efa631b66dde5946a15b5e",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_transfers.py": "0435b4a60d470e259b653b726f69cd29065076687ba16b508964487cab022964",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_vision.py": "c000797e4b6cf245f9cfcabf514b9e7c223cf2ad52f2a9541a5a159e62e0b073",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/simulate_bimanual_folding.py": "78998786cebab441ade9856d688110d3e6585d548f074b9184bb42c9da485fc6"
+      },
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/minor-yaw0-hd-release-claws/result.json",
+      "result_sha256": "8a0764beecf81a6f93cd5a567a921da3139c9af827b97a3170d4159c6de67f5f",
+      "physics_stats": {
+        "max_bad_penetration_mm": 0.0,
+        "carton_contact_simulated": true,
+        "cart": {
+          "model": "three-tray fixed cart approximation",
+          "source": "local molmoact2-mac-sim/build_scene.py tray/post/mount dimensions",
+          "dimensions_measured": false,
+          "collision_enabled": true,
+          "width_m": 0.5,
+          "depth_m": 0.36,
+          "front_edge_ahead_of_base_line_m": 0.115,
+          "front_edge_to_table_edge_m": 0.03499999999999999,
+          "static_table_overlaps": []
+        },
+        "max_robot_flap_penetration_mm": 0.12500079977156328
+      },
+      "full_task_complete": false,
+      "hinge_registration_observations": 0
+    },
+    "paddle": {
+      "configuration": {
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/minor-yaw0-hd-paddle",
+        "tool": "paddle",
+        "video": true,
+        "fold_right": true,
+        "along": -0.1,
+        "radius": 0.115,
+        "clearance": -0.002,
+        "axis_sign": 1,
+        "normal_only": true,
+        "paddle_contact": "handle",
+        "paddle_axis_yaw": 0.0,
+        "paddle_axis_mode": "rise",
+        "paddle_along_travel": 0.0,
+        "near_open_degrees": -5.729577951308233,
+        "right_pre_out": 0.045,
+        "right_pre_up": 0.0,
+        "normal_offset": false,
+        "pre_height": 0.035,
+        "carton_yaw_degrees": 0.0,
+        "park_back": true,
+        "floor_marker_x": 0.08,
+        "center_floor_marker": true,
+        "close_left": false,
+        "left_target_degrees": 75.0,
+        "press_left": false,
+        "scan_tool": true,
+        "width": 1280,
+        "height": 720,
+        "release_left_minor": false
+      },
+      "stage": "right minor fold with left-minor brace",
+      "error": "Bridge IK failed: 8.44 mm, axis 4.65 deg",
+      "angles": {
+        "short_left": 7.25852608434783,
+        "short_right": 62.68356627502278,
+        "long_far": -5.877690248959688,
+        "long_near": -5.685275422817731
+      },
+      "motion": {
+        "max_translation_mm": 1.4252582676321168,
+        "max_rotation_degrees": 0.04434021165798652,
+        "minimum_bottom_corner_table_clearance_mm": 9.950708421937627,
+        "max_horizontal_translation_mm": 1.00037343332076,
+        "max_absolute_vertical_translation_mm": 1.0987200042279437
+      },
+      "time": 26.619999999996125,
+      "both_shorts_held": null,
+      "release_test": null,
+      "material": {
+        "cardboard_mass_kg": 0.272,
+        "contents_mass_kg": 0.0,
+        "contents_top_m": 0.102,
+        "table_friction": 0.35,
+        "hinge_stiffness": 0.018,
+        "hinge_friction": 0.004,
+        "hinge_damping": 0.008,
+        "hinge_rest_degrees": 0.0,
+        "flap_stiffness": null,
+        "parameters_measured": false,
+        "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+        "total_mass_kg": 0.272,
+        "spring_moments_at_90_degrees_Nm": [
+          0.028274333882308135,
+          0.028274333882308135,
+          0.028274333882308135,
+          0.028274333882308135
+        ],
+        "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+        "contents_model": "Absent"
+      },
+      "source_sha256": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_short_flap_brace.py": "46bbd5492f20be9b6d266c10dd1bdd5919561867c1d8ee7db671eb37bc7a99d1",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_bridge.py": "9f431ffc2ea0aac8169cd2fcac20541d321fa378333c51e5a6361eb54552e835",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_cascade.py": "7d671eb13d6e2f8fba9129bdfd16d747c71811a521247e4cb5b5da38cd8da986",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_grasp.py": "b577623aefca470c298ec7cd6a4b9529974675e72c5f18e2bbc5ea191ddb3cf2",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_hinge_tags.py": "8297096f1245bc351301bcb6dd7afe23d1839a09573c0d702211d89927175729",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_markers.py": "ce47a300d4d5eb7b6cd6359653d094a26415b1795f1f6cd5d234d6a855279968",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_paddle.py": "b96a1cbd91b03cf272d40dcbd4df47f16ea1e1f3ac520a97fedf0c3f1a07f5ca",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_paths.py": "a7323dbb02594074dc7eb861d2c8dec7c8e5546e77cc7fc11cfb6dca228bc5f2",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_sim.py": "46e6d41cca96dcc02669e165707e45d6055fac276a97468032d3940df39c9e02",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tool_tags.py": "7ed8713fd183e48297041ea1dd49d4bf2a459e4e03efa631b66dde5946a15b5e",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_transfers.py": "0435b4a60d470e259b653b726f69cd29065076687ba16b508964487cab022964",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_vision.py": "c000797e4b6cf245f9cfcabf514b9e7c223cf2ad52f2a9541a5a159e62e0b073",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/simulate_bimanual_folding.py": "78998786cebab441ade9856d688110d3e6585d548f074b9184bb42c9da485fc6"
+      },
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/minor-yaw0-hd-paddle/result.json",
+      "result_sha256": "8d09b7864e545f6f6ec0fd832213687c2078e85071301bd1517677ec0d95cd1a",
+      "physics_stats": {
+        "max_bad_penetration_mm": 0.0,
+        "carton_contact_simulated": true,
+        "cart": {
+          "model": "three-tray fixed cart approximation",
+          "source": "local molmoact2-mac-sim/build_scene.py tray/post/mount dimensions",
+          "dimensions_measured": false,
+          "collision_enabled": true,
+          "width_m": 0.5,
+          "depth_m": 0.36,
+          "front_edge_ahead_of_base_line_m": 0.115,
+          "front_edge_to_table_edge_m": 0.03499999999999999,
+          "static_table_overlaps": []
+        },
+        "max_robot_flap_penetration_mm": 0.13013098126639452
+      },
+      "full_task_complete": false,
+      "hinge_registration_observations": 0
+    }
+  },
+  "hinge_tag_rendered_validation": [
+    {
+      "time": 0.4000000000000003,
+      "registration": {
+        "visible_ids": [
+          24,
+          25
+        ],
+        "selected_id": 25,
+        "max_translation_disagreement_mm": 0.7042785606817668,
+        "max_rotation_disagreement_degrees": 0.7145705292393167
+      },
+      "position_error_mm": 1.1240453851522245,
+      "rotation_error_degrees": 0.22704583354694652,
+      "observed_tags": [
+        1,
+        2,
+        4,
+        20,
+        24,
+        25
+      ]
+    },
+    {
+      "time": 35.76199999999774,
+      "registration": {
+        "source": "paired short-flap hinges from fresh RGB-D tags",
+        "visible_ids": [
+          11,
+          12
+        ],
+        "selected_id": null,
+        "hinge_spacing_error_mm": 0.5687843824868088,
+        "hinge_axis_disagreement_degrees": 0.2576966973908253,
+        "hinge_perpendicular_error_degrees": 0.34433220578472834,
+        "physical_mounts_measured": false
+      },
+      "position_error_mm": 0.7387498642088095,
+      "rotation_error_degrees": 0.3996495966550095,
+      "observed_tags": [
+        1,
+        11,
+        12,
+        20
+      ]
+    }
+  ],
+  "camera_audit": {
+    "static_only": true,
+    "source": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/camera-visibility-audit/result.json",
+    "candidates": 32,
+    "candidates_with_all_sampled_frames_valid": 0
+  },
+  "planning_contact_equivalence": {
+    "actual_cad_states_checked": 21,
+    "max_absolute_contact_difference": 0.0,
+    "comparison_uses_64MB_solver_arena_only": true,
+    "physical_model_changes": false
+  },
+  "test_result": "105 folding tests passed",
+  "remaining": [
+    "all four flaps folded",
+    "paddle hand transfer",
+    "robot tape placement",
+    "five seconds with both arms clear and carton retained"
+  ],
+  "gifs_directory": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/review-hd",
+  "verified_gifs": [
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/review-hd/square-claws-full.gif",
+      "frames": 249,
+      "playback_seconds": 51.81,
+      "bytes": 11911494,
+      "sha256": "f4ea5bf05e902f2636a237b69c5f3fcdfc2656ff0dfb4a9c18db57e76ebfe42f"
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/review-hd/square-full-comparison.gif",
+      "frames": 249,
+      "playback_seconds": 51.81,
+      "bytes": 24520573,
+      "sha256": "4c07a2e55dd364a05d4afdde1a56f51b616dbaaca4dbea49c6bea9e24f11e8dc"
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/review-hd/square-paddle-full.gif",
+      "frames": 135,
+      "playback_seconds": 29.12,
+      "bytes": 7184024,
+      "sha256": "34a8104bcf5118bb8fdbf15111d7a4b07995299fc8133141c18b6c9c86ac7106"
+    }
+  ]
+}

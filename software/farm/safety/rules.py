@@ -1,7 +1,7 @@
 """Local safety rules. Code, not config; no model output can relax them.
 
 - joint targets are clamped to the calibrated normalized range and to a max step per tick
-- servo temperature / load ceilings stop motion
+- a servo load ceiling stops motion
 - a stale joint reading (watchdog) stops motion
 - pour parameters are bounded
 """
@@ -45,8 +45,6 @@ def check_health(h: Reading, limits: LimitsCfg) -> HealthVerdict:
     if h.status is not Status.OK or not h.value:
         return HealthVerdict(False, f"health {h.status.value}: {h.note}")
     for m, d in h.value.items():
-        if d.get("temperature", 0) >= limits.servo_temp_max_c:
-            return HealthVerdict(False, f"{m} temperature {d['temperature']:.0f}C >= {limits.servo_temp_max_c}C")
         if abs(d.get("load", 0)) >= limits.servo_load_max:
             return HealthVerdict(False, f"{m} load {d['load']:.0f} >= {limits.servo_load_max}")
     return HealthVerdict(True)

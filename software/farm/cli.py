@@ -3,14 +3,14 @@
   farm set-motor-id --name head_motor_1   give one loose servo its bus ID (replaces Feetech's Windows FD tool)
   farm devices                      list serial ports and cameras (fill the profile from this)
   farm calibrate  -p paper-tray-v0  one-time LeRobot range-of-motion calibration by hand (setup, not operation)
-  farm calibrate --auto --arm left [--motor gripper | --unfold-only]   UNTESTED ON THE CART: the arm finds its own limits (LeRobot PR #3282)
+  farm calibrate --auto --arm left [--motor gripper | --unfold-only]   the arm finds its own limits; see docs/auto-calibration.md for the unchanged PR runner (LeRobot PR #3282)
   farm calibrate --head             hands-on, two joints: calibrate only the head
   farm calibration-report           read the saved calibration; flag wrapped, short or mismatched joint ranges (no motion)
   farm robot-test -p paper-tray-v0 [--move] [--ask] [--only head|left|right]   motors only: read every joint; --move nudges each one
+  farm servo-protection -p paper-tray-v0 [--write] [--limit 200] [--yes] [--only head|left|right]   read, and with --write permanently turn off, each servo's own temperature cutoff (EEPROM; no motion; ports auto-detected if the profile has none)
   farm check      -p paper-tray-v0  connect everything, verify camera identities with the vision model, report
   farm teach      -p ... --arm right --goal "..." --save pour_B     LLM-servo the arm to a goal and save the keyframe
   farm teach-all  -p ...            learn every keyframe the profile needs, in order
-  farm soak       -p ... [--keyframe pour_B] [--minutes 20]   hold a pose, log servo temperature and load, stop at the ceiling
   farm mcp        -p ...            stdio MCP server: state, camera frames and named skills for an agent (no raw joint access)
   farm calibrate-pour -p ... --tilt 25 --seconds 1.5 --ml 28        record a measured cup pour
   farm once       -p ... --tray B   run one care cycle (viewer included)
@@ -29,6 +29,8 @@
   --record on run/once/sim writes the robot's own runs to data/dataset (LeRobotDataset)
 """
 from __future__ import annotations
+
+from dataclasses import replace
 
 import argparse
 import json
@@ -179,6 +181,46 @@ def _teach_one(s, name, arm, goal):
     return out.ok
 
 
+def cmd_servo_protection(a):
+    """Read every servo's EEPROM temperature protection; with --write, turn it off for good. Nothing moves."""
+    from .adapters.base import ARM_JOINTS, HEAD_JOINTS, arm_joint
+    from .config import load_profile
+    from .tools import servo_protection
+    p = load_profile(a.profile)
+    if p.robot.kind == "sim" or p.simulated:
+        sys.exit("servo-protection writes real servo EEPROM; there is nothing to do on the simulator")
+    from .adapters.robot_lerobot import LeRobotXLeRobot, find_serial_ports
+    cfg = p.robot
+    if not cfg.port1 or not cfg.port2:
+        from .tools.bus_probe import probe_ports
+        cands = [d["device"] for d in find_serial_ports() if "usbmodem" in (d["device"] or "") or "ttyACM" in (d["device"] or "")]
+        found = {r.get("guess"): r["port"] for r in probe_ports(cands) if "ids" in r}
+        if "bus1 (left arm + head)" not in found or "bus2 (right arm + wheels)" not in found:
+            sys.exit(f"could not find both motor boards on {cands or 'no USB serial ports'}: {found}; fill in port1/port2 in the profile or plug both boards in")
+        cfg = replace(cfg, port1=found["bus1 (left arm + head)"], port2=found["bus2 (right arm + wheels)"])
+        print(f"boards: bus1 {cfg.port1}, bus2 {cfg.port2}")
+    r = LeRobotXLeRobot(cfg).robot
+    only = None
+    if a.only == "head":
+        only = list(HEAD_JOINTS)
+    elif a.only:
+        only = [arm_joint(a.only, j) for j in ARM_JOINTS]
+    if a.write and not a.yes:
+        print(f"This writes the servos' permanent memory: temperature limit {a.limit} C and no unload or alarm on temperature.")
+        print("Torque is switched off on each servo while it is written, so support the arms or leave them folded at rest.")
+        input("Press ENTER to write, Ctrl-C to stop … ")
+    connected = []
+    try:
+        for bus in (r.bus1, r.bus2):
+            bus.connect(handshake=bool(a.write))      # a read-only pass must not change anything, not even torque
+            connected.append(bus)
+        res = servo_protection.run([r.bus1, r.bus2], write=a.write, only=only, limit=a.limit)
+    finally:
+        for bus in connected:
+            bus.disconnect(disable_torque=bool(a.write))
+    sys.exit(0 if res["ok"] else 1)
+
+
 def cmd_teach(a):
     _log()
     s = _system(a)
@@ -190,38 +232,6 @@ def cmd_teach(a):
     ok = _teach_one(s, a.save, a.arm, a.goal)
     s.disconnect()
     sys.exit(0 if ok else 1)
-
-
-def cmd_soak(a):
-    """Hold a pose and log servo temperature and load; stop at the ceiling. Run before leaving the robot unattended."""
-    _log()
-    from .safety.rules import SafetyStop
-    from .tools import soak
-    s = _system(a)
-    problems = s.connect()
-    if any(p.startswith("robot") for p in problems):
-        sys.exit("robot not connected: " + "; ".join(problems))
-    from .viewer.app import serve_in_thread
-    serve_in_thread(s, s.profile.viewer_port)
-    limit = s.profile.limits.servo_temp_max_c
-    try:
-        if a.keyframe:
-            print(f"moving to keyframe {a.keyframe}")
-            s.skills.move_joints(s.skills.keyframe_or_fail(a.keyframe), max_s=10)
-        else:
-            print("holding the current pose")
-        path = s.profile.data_path / "soak" / time.strftime("soak-%Y%m%d-%H%M%S.csv")
-        res = soak.run(s.robot, a.minutes, path, interval_s=a.interval, temp_max_c=limit, should_stop=s.skills.estop.is_set)
-        s.store.event(None, "soak_test", {**res, "keyframe": a.keyframe})
-        print(soak.summary(res, limit))
-    except SafetyStop as e:
-        print("safety stop:", e)
-    finally:
-        try:
-            s.skills.go_rest()
-        except Exception as e:  # noqa: BLE001 - too hot to move is a valid outcome; disconnect lets the motors go limp
-            print("did not return to rest:", e)
-        s.disconnect()
 
 
 def cmd_mcp(a):
@@ -596,8 +606,8 @@ def main(argv=None):
         ("devices", cmd_devices, [("--probe", {"action": "store_true"})]), ("calibrate", cmd_calibrate, [("--auto", {"action": "store_true"}), ("--arm", {"choices": ["left", "right"], "default": ""}), ("--motor", {"default": ""}), ("--unfold-only", {"action": "store_true"}), ("--velocity", {"type": int, "default": 0}), ("--head", {"action": "store_true"})]), ("check", cmd_check, []),
         ("calibration-report", cmd_calibration_report, [("--file", {"default": ""})]),
         ("robot-test", cmd_robot_test, [("--move", {"action": "store_true"}), ("--delta", {"type": float, "default": 5.0}), ("--only", {"choices": ["head", "left", "right"]}), ("--ask", {"action": "store_true"})]),
+        ("servo-protection", cmd_servo_protection, [("--write", {"action": "store_true"}), ("--limit", {"type": int, "default": 200}), ("--yes", {"action": "store_true"}), ("--only", {"choices": ["head", "left", "right"]})]),
         ("teach", cmd_teach, [("--arm", {"required": True}), ("--goal", {"required": True}), ("--save", {"required": True})]),
-        ("soak", cmd_soak, [("--keyframe", {"default": ""}), ("--minutes", {"type": float, "default": 20.0}), ("--interval", {"type": float, "default": 2.0})]),
         ("mcp", cmd_mcp, []),
         ("teach-all", cmd_teach_all, [("--force", {"action": "store_true"})]),
         ("calibrate-pour", cmd_calibrate_pour, [("--tilt", {"type": float, "required": True}), ("--seconds", {"type": float, "required": True}), ("--ml", {"type": float, "required": True}), ("--who", {"required": True})]),

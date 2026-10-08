@@ -1,0 +1,103 @@
+{
+  "recorded_at": "2026-10-06T03:58:32.269353+00:00",
+  "scope": "Software integration, simulated API tests and live read-only Gemma inference",
+  "live_tools": [
+    "robot_calibration_status",
+    "robot_calibrate_tags"
+  ],
+  "live_local_chat": {
+    "installed": true,
+    "reloaded_while_idle": true,
+    "catalog_tool_count": 23,
+    "connected_after_reload": true
+  },
+  "live_readiness": {
+    "status": "BLOCKED",
+    "blockers": [
+      "Selected arm blockers: {'right_arm_elbow_flex': ['CURRENT_POSITION_OUTSIDE_SAVED_RANGE']}"
+    ],
+    "detected_tag_ids": [
+      1,
+      2
+    ],
+    "tag_2_border_clearance_px": 7.929077148437443,
+    "tag_2_mount": {
+      "arm": "right",
+      "body": "fixed_gripper_housing",
+      "source": "Direct user confirmation in carton chat on 2026-10-06"
+    },
+    "frame": {
+      "camera_id": "oak-1944301091DA1C2E00",
+      "seq": 161782,
+      "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+      "sha256": "047496389be91362aed97db0d010ce6b975f48ebe59639bfabc4ba55dbce589c",
+      "captured_at": 1791258954.259132,
+      "received_at": null,
+      "timestamp_basis": "capture",
+      "age_s_on_observer_clock": 0.3866291046142578,
+      "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+      "capture_age_within_limit": true,
+      "clock_synchronization_verified": false,
+      "new_since_last_call": true
+    }
+  },
+  "right_arm_geometry_status": "NEEDS_GEOMETRIC_CONFIGURATION",
+  "gemma_read_only_probe": {
+    "passed": true,
+    "model": "google/gemma-4-e4b",
+    "answer": "Based on the calibration status check:\n\n*   **Calibration Status:** Blocked (`\"status\": \"BLOCKED\"`).\n*   **Detected Tags:** Tag IDs 1 and 2 are detected.\n*   **Tag 2 Clearance:** The tag-2 border clearance is approximately **7.93 pixels**.\n*   **Blockers:** Calibration is currently blocked because the `right_arm_elbow_flex` is in a position outside the saved range.",
+    "motor_tools_exposed": false
+  },
+  "tests": {
+    "repository_passed": 628,
+    "repository_skipped": 8,
+    "new_api_integration_tests_passed": 30,
+    "existing_pilot_unittest_passed": 26
+  },
+  "simulated_registration": {
+    "scope": "API-level simulated owner and analytic camera/FK; real OpenCV fitter",
+    "train_poses": 8,
+    "held_out_poses": 3,
+    "returned_to_origin": true,
+    "released": true,
+    "physical_or_collision_validation": false
+  },
+  "owner_contract_verified": {
+    "source": "Read-only source audit in Start robot auto calibration, turn 01a10f56-2eb2-7e33-a170-1ae4b56df681",
+    "success_phase_after_enable_move": "holding",
+    "success_phase_after_release": "idle",
+    "completion_verified_by_endpoint_and_fresh_readbacks": true
+  },
+  "local_artifacts": {
+    "integration-readiness-001.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-calibration/integration-readiness-001.json",
+      "sha256": "7271cc60015b8125d2fbf94394492e8da4e55e78d8b0ca6c8f0d2091260532fd"
+    },
+    "gemma-calibration-status-probe.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-calibration/gemma-calibration-status-probe.json",
+      "sha256": "bb89e91873acde334bdcb400b3fda5121f251417c5b80b816f96c213697c476e"
+    },
+    "installed-tool-catalog.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-calibration/installed-tool-catalog.json",
+      "sha256": "fcec2aa17cea2f52b73f038427d8e424d30a9779dc52843fa3ec8206a4573b79"
+    },
+    "visibility-recheck-001/annotated-0.jpg": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-calibration/visibility-recheck-001/annotated-0.jpg",
+      "sha256": "203081a0535f8f87a0f542346041e72b38539c4b2c0db5b2a5faa361214e3c1a"
+    }
+  },
+  "physical_calibration_movements_by_this_work": 0,
+  "physical_registration_validated": false,
+  "physical_grasp_validated": false,
+  "remaining": [
+    "Resolve the right elbow saved-range discrepancy before holding the arm",
+    "Bind the right-arm candidate model configuration before registration collection",
+    "Run supervised physical probes and independent registration validation",
+    "Validate physical jaw/paddle contact geometry before grasping"
+  ],
+  "limitations": [
+    "Local motion lock coordinates the installed Gemma wrapper and CLI, not arbitrary remote clients",
+    "Owner refusals, lease expiry or unobservable/degenerate pose sets abort without retry",
+    "An accepted hand-eye fit covers the sampled configuration range and does not activate grasp motion"
+  ]
+}

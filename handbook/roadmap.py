@@ -143,7 +143,7 @@ def d_hardware():
 
 def d_upstream():
     cols = [
-        ('FeetechMotorsBus', ['Serial protocol to STS3215 servos.', 'Read positions, load, temperature.', 'Write goal positions.']),
+        ('FeetechMotorsBus', ['Serial protocol to STS3215 servos.', 'Read positions and load.', 'Write goal positions.']),
         ('XLerobot2Wheels', ['Two buses, 14 joints + 2 wheels.', 'get_observation() → dict of joint.pos + camera frames', 'send_action() → dict of joint.pos targets', 'Calibration file per robot id.']),
         ('SO101Kinematics', ['Analytical IK for the SO-101 arm.', 'x/y/pitch → joint angles.', 'Used by every teleop example.']),
         ('Teleop examples', ['Keyboard, Xbox, Joy-Con, VR.', 'Two-wheel keyboard script exists.', 'This is how we teach poses.']),
@@ -180,7 +180,7 @@ def d_stack():
     # side rails
     s += box(950, 30, 210, 160, 'Config profile', ['paper-tray-v0.yaml: ports, camera identities, tray positions, enabled sensors, motion limits.'], kind='bd', fs=13, tfs=15)
     s += box(950, 210, 210, 150, 'Simulator', ['Fake robot, fake cameras, fake ESP32 behind the same adapter interface. Fault injection.'], kind='bd', fs=13, tfs=15)
-    s += box(950, 380, 210, 170, 'Local safety rules', ['Joint limits, max step per tick, servo temperature, watchdog, torque-off on disconnect. Never overridden by a model.'], kind='bd', fs=13, tfs=15)
+    s += box(950, 380, 210, 170, 'Local safety rules', ['Joint limits, max step per tick, servo load, watchdog, torque-off on disconnect. Never overridden by a model.'], kind='bd', fs=13, tfs=15)
     s += elbow([(60, 560), (60, 70), (150, 70)])
     s += label(20, 320, 'commands ↓', 13, 700, GREY)
     s += elbow([(120, 70), (120, 560), (150, 560)], kind='grey')
@@ -190,7 +190,7 @@ def d_stack():
 def d_adapters():
     s = box(40, 30, 1120, 74, 'One interface for every device', ['read() → {value, t, seq, status}    status ∈ { OK, STALE, INVALID, NOT_APPLICABLE }    — nothing upstream ever sees a bare number'], kind='bd', fs=14, tfs=17, cw=140)
     cards = [
-        ('Robot adapter', ['Wraps XLerobot2Wheels.', 'joints(), frames(), move_to(targets, max_step), stop(), torque_off().', 'Checks load/temperature each tick.', 'Disconnect → INVALID and a safe stop.'], 'bd'),
+        ('Robot adapter', ['Wraps XLerobot2Wheels.', 'joints(), frames(), move_to(targets, max_step), stop(), torque_off().', 'Checks load each tick.', 'Disconnect → INVALID and a safe stop.'], 'bd'),
         ('Camera adapter', ['Names head / left_wrist / right_wrist by device identity, never by index 0-1-2.', 'Every frame carries capture time.', 'Old frame → STALE. No device → INVALID.'], 'bd'),
         ('ESP32 adapter', ['Serial JSON lines at ~5 Hz:', '{"seq":812,"t_ms":93410,', ' "lux":412.5,"ok":true}', 'Gap in seq or no line for 1 s → STALE.', 'Sensor error flag → INVALID.'], 'bd'),
         ('Human adapter', ['Buttons and typed confirmations from the viewer.', 'Each one is a timestamped, signed-by-name record.', 'Absent → the cycle waits; it does not assume.'], 'hu'),
@@ -383,7 +383,7 @@ def d_sim():
     s += box(690, 60, 220, 180, 'Real devices', ['XLerobot2Wheels', 'OpenCV cameras', 'ESP32 serial', 'browser buttons'], kind='ex', fs=14, tfs=16)
     s += box(690, 280, 220, 180, 'Fakes', ['FakeRobot: kinematic model, instant or slow', 'FakeCamera: replays saved frames', 'FakeESP32: scripted lux', 'FakeHuman: scripted answers'], kind='bd', fs=13, tfs=16)
     s += arrow(620, 150, 690, 150) + arrow(620, 370, 690, 370)
-    s += box(950, 60, 210, 400, 'Fault injection', ['stale frame', 'camera unplugged', 'serial gap', 'servo overtemp', 'crash after ATTEMPT', 'human never answers', 'wrong tray in nest', 'lost acknowledgement'], kind='bad', fs=13, tfs=16)
+    s += box(950, 60, 210, 400, 'Fault injection', ['stale frame', 'camera unplugged', 'serial gap', 'crash after ATTEMPT', 'human never answers', 'wrong tray in nest', 'lost acknowledgement'], kind='bad', fs=13, tfs=16)
     s += arrow(910, 370, 950, 370)
     s += label(40, 510, 'Every simulated record carries simulated = true, so fake episodes can never be counted as farm evidence.', 14, 700, ORANGE)
     s += label(40, 540, 'This is what gets built first, on the Mac, before the robot exists — and it stays as the regression suite forever.', 14, 400, GREY)
@@ -394,7 +394,7 @@ def d_config():
     s = f'<rect x="40" y="40" width="520" height="470" rx="10" fill="{INK}"/>'
     for i, line in enumerate(cfg):
         s += f'<text x="60" y="{72 + i * 30}" font-size="14" font-family="ui-monospace,monospace" fill="#fff">{e(line)}</text>'
-    s += box(620, 40, 540, 220, 'Local safety rules (code, not config)', ['Joint range from calibration; refuse targets outside it.', 'Max step per tick — the arm cannot jump.', 'Servo temperature / load ceiling → stop.', 'Watchdog: no fresh observation for 0.5 s → stop.', 'Disconnect → torque off (upstream default), after return_upright if a bottle is held.', 'No model output can relax any of these.'], kind='bd', fs=13.5, tfs=16, cw=64)
+    s += box(620, 40, 540, 220, 'Local safety rules (code, not config)', ['Joint range from calibration; refuse targets outside it.', 'Max step per tick — the arm cannot jump.', 'Servo load ceiling → stop.', 'Watchdog: no fresh observation for 0.5 s → stop.', 'Disconnect → torque off (upstream default), after return_upright if a bottle is held.', 'No model output can relax any of these.'], kind='bd', fs=13.5, tfs=16, cw=64)
     s += box(620, 290, 540, 220, 'Deferred — exists in the design, off in V0', ['Base driving and battery power.', 'Pump, relay, moisture probe, scale, leak pads.', 'Fixed overhead camera.', 'Printer pickup, table construction.', 'Any pour without a human “yes”.', 'Each returns when its own test passes; nothing is promised by date.'], kind='df', fs=13.5, tfs=16, cw=64)
     return svg(1200, 540, s, 'Config profile, safety rules and deferred items')
 
@@ -522,7 +522,7 @@ SLIDES = [
 
  ('adapters', 'Layer 1', 'Device adapters: one interface, four devices',
   'Robot, cameras, ESP32 and the human each expose read() with a status. OK, STALE, INVALID and NOT_APPLICABLE mean different things.', d_adapters, [
-  ('Robot', 'Wraps XLerobot2Wheels. Adds per-tick load and temperature checks, a clamped move_to, and stop / torque_off.'),
+  ('Robot', 'Wraps XLerobot2Wheels. Adds per-tick load checks, a clamped move_to, and stop / torque_off.'),
   ('Cameras', 'Bound by device identity, not by index — indices reshuffle on reconnect. Every frame carries its capture time.'),
   ('ESP32', 'Firmware prints one JSON line per reading with a sequence number. A gap or silence becomes STALE on the Mac side; an I²C error becomes INVALID.'),
   ('Human', 'Buttons in the viewer are an input device too: each press is a named, timestamped record.')],
@@ -591,14 +591,14 @@ SLIDES = [
  ('simulator', 'Building it before the robot exists', 'The simulator is the same program with fakes plugged in',
   'Because everything above layer 1 talks to adapters, fakes make the whole farm program runnable on the Mac this week.', d_sim, [
   ('Fakes', 'FakeRobot with a kinematic model, FakeCamera replaying saved frames, FakeESP32 with scripted lux, FakeHuman with scripted answers.'),
-  ('Faults', 'Stale frames, unplugged camera, serial gaps, overtemp, crash after ATTEMPT, silent human, wrong tray. Each has a test.'),
+  ('Faults', 'Stale frames, unplugged camera, serial gaps, crash after ATTEMPT, silent human, wrong tray. Each has a test.'),
   ('Forever', 'The fakes become the regression suite. Every later change to the orchestrator runs against them first.')],
   'All simulated records carry simulated = true. They are never counted as farm evidence or used to tune thresholds for the real system.'),
 
  ('config', 'Config, safety, deferrals', 'One profile names what exists; code enforces what may move',
   'The config profile lists ports, camera identities, tray nests and enabled sensors. Safety limits are code and outrank every model.', d_config, [
   ('Profile', 'paper-tray-v0: two serial ports, three camera identities, esp32_light on, everything else off, tray B with its nest and pour keyframe.'),
-  ('Safety', 'Calibrated joint ranges, max step per tick, servo temperature ceiling, 0.5 s watchdog, torque-off on disconnect after upright.'),
+  ('Safety', 'Calibrated joint ranges, max step per tick, servo load ceiling, 0.5 s watchdog, torque-off on disconnect after upright.'),
   ('Deferred', 'Driving, battery, pump, probe, scale, overhead camera, printer pickup, unsupervised pouring. Each returns when its own test passes.')],
   'A wrong profile is the most likely way to hurt the robot: the assembly guide’s port-discovery and calibration steps come before the first move.'),
 

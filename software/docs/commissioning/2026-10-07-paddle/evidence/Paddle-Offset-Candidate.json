@@ -1,0 +1,31 @@
+{
+  "status": "UNVALIDATED_IMAGE_ESTIMATE",
+  "source": "OAK-Offset-Check.jpg",
+  "method": "tag-plane homography from 40mm black square",
+  "visually_selected_handle_grip_pixel": [
+    175,
+    325
+  ],
+  "tag3_to_handle_xy_mm": [
+    2.2768287658691406,
+    -41.660125732421875
+  ],
+  "alternative_pixel_selection_xy_mm": [
+    [
+      7.608977317810059,
+      -35.13022232055664
+    ],
+    [
+      -2.958543539047241,
+      -48.07151794433594
+    ]
+  ],
+  "limitations": [
+    "Manual pixel selection, not fitted CAD alignment",
+    "Assumed handle and tag lie on the same plane; thickness not corrected",
+    "Actual paddle dimensions not independently verified",
+    "Jaw offset not established; tag2 not visible in phone side view",
+    "Not a robot command target"
+  ],
+  "motor_writes": 0
+}

@@ -1,0 +1,4628 @@
+{
+  "component_test_only": true,
+  "full_task_complete": false,
+  "hardware_commands": false,
+  "folding_integration_enabled": false,
+  "tape_parameters_measured": false,
+  "adhesion_tuned_for_closure": false,
+  "recommended_coupon_numerics": {
+    "integrator": "discrete",
+    "solver": "Newton",
+    "exact_constraint_inertia_diagonal": true,
+    "timestep_s": 2.5e-05,
+    "reference_timestep_s": 1e-05
+  },
+  "convergence_scope": "One free 80 x 24 mm strip on one free 50 g coupon, declared 20 mm/s compliant peel capped at 0.15 N. Agreement within stated tolerances, not a physical tape-strength or full robot-retention certificate.",
+  "audit_tolerances": {
+    "sustained_separation_difference_s": 0.001,
+    "peak_force_relative_difference": 0.01,
+    "instrument_work_relative_difference": 0.01,
+    "force_trace_rms_N": 0.001,
+    "end_position_trace_rms_mm": 0.05,
+    "end_position_trace_max_mm": 0.5,
+    "penetration_limit_mm": 0.05
+  },
+  "trace_comparison_window_s": [
+    0.2,
+    4.5
+  ],
+  "trace_sample_spacing_s": 0.05,
+  "material_parameters": {
+    "length_m": 0.08,
+    "width_m": 0.024,
+    "backing_thickness_m": 0.0001,
+    "adhesive_thickness_m": 2e-05,
+    "density_kg_m3": 750.0,
+    "backing_young_pa": 200000000.0,
+    "poisson": 0.3,
+    "segments": 16,
+    "angular_damping_Nm_s": 2e-07,
+    "adhesion_per_contact_N": 0.02,
+    "adhesion_range_m": 2e-05,
+    "surface_friction": 0.5
+  },
+  "known_limits": [
+    "No robot tape pickup or placement tested.",
+    "No bridging of two moving carton flaps tested.",
+    "No ability to retain approximately 0.028 Nm crease torque established.",
+    "Peel/contact history and total work at larger timesteps remain different despite similar peak forces.",
+    "Actual masking-tape peel strength, pressing history and cardboard condition require measurement.",
+    "Adhesion is a finite force per native contact point; contact count is not calibrated bond area."
+  ],
+  "tests": {
+    "passed": 14,
+    "junit_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/junit.xml"
+  },
+  "primary_documentation": [
+    "https://mujoco.readthedocs.io/en/latest/computation/index.html#numerical-integration",
+    "https://mujoco.readthedocs.io/en/latest/XMLreference.html#option-flag-diagexact",
+    "https://mujoco.readthedocs.io/en/latest/computation/index.html#adhesion"
+  ],
+  "cases": [
+    {
+      "case": "discrete-exact-newton-100us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-100us/result.json",
+      "result_sha256": "85ba9e4767741e03e67be64c1ecbd0425299227a5816dc046286140827e5018b",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-100us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 0.0001,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.699999999997724,
+      "peak_instrument_force_N": 0.08222733371682843,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 4.879535692608918,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0007153045416831142,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.0038999999999999972,
+        "last_adhesive_contact_s": 4.5826000000026585,
+        "last_tensile_contact_s": 4.5826000000026585,
+        "first_separation_at_least_50ms_s": 4.0231000000039625,
+        "recontacts_after_complete_separation": 2,
+        "complete_separation_intervals_s": [
+          [
+            1.0096999999999052,
+            1.0097999999999052
+          ],
+          [
+            4.0231000000039625,
+            4.128500000003717
+          ],
+          [
+            4.582700000002658,
+            6.699999999997724
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.5500000000027345,
+      "first_sample_with_tension_s": 0.2499999999999888,
+      "last_sample": {
+        "time": 6.699999999997724,
+        "instrument_force_N": 0.0018844827181718675,
+        "end_z_mm": 125.94699690487163,
+        "plate_translation_mm": 0.5225613804474073,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.699899999997724
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true,
+      "comparison_with_10us_reference": {
+        "sustained_separation_difference_s": 0.5596899999917113,
+        "peak_force_relative_difference": 0.00022085577816853422,
+        "instrument_work_relative_difference": 0.050060743784722014,
+        "force_trace_rms_N": 0.0003658911664038048,
+        "force_trace_max_N": 0.0023499658338093535,
+        "end_position_trace_rms_mm": 0.4247741530277615,
+        "end_position_trace_max_mm": 3.926923334940227
+      },
+      "passes_stated_coupon_tolerances": false
+    },
+    {
+      "case": "discrete-exact-newton-10us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-10us/result.json",
+      "result_sha256": "a0c248f6eaa8863d72c1c88c13c66d6214e7c35ec5e8cf44c0e82bafe813be7b",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-10us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 1e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.699999999915521,
+      "peak_instrument_force_N": 0.0822091773449933,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 0.08581169436407377,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0007530002966010806,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.003790000000000009,
+        "last_adhesive_contact_s": 4.582779999995674,
+        "last_tensile_contact_s": 4.582779999995674,
+        "first_separation_at_least_50ms_s": 4.582789999995674,
+        "recontacts_after_complete_separation": 1,
+        "complete_separation_intervals_s": [
+          [
+            1.0101399999981502,
+            1.0101499999981502
+          ],
+          [
+            4.582789999995674,
+            6.699999999915521
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.549999999996915,
+      "first_sample_with_tension_s": 0.25000000000010925,
+      "last_sample": {
+        "time": 6.699999999915521,
+        "instrument_force_N": 0.0023914457396407144,
+        "end_z_mm": 125.86399722112479,
+        "plate_translation_mm": 0.5225613483696016,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.6999899999155215
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true,
+      "comparison_with_10us_reference": {
+        "sustained_separation_difference_s": 0.0,
+        "peak_force_relative_difference": 0.0,
+        "instrument_work_relative_difference": 0.0,
+        "force_trace_rms_N": 0.0,
+        "force_trace_max_N": 0.0,
+        "end_position_trace_rms_mm": 0.0,
+        "end_position_trace_max_mm": 0.0
+      },
+      "passes_stated_coupon_tolerances": true
+    },
+    {
+      "case": "discrete-exact-newton-250us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-250us/result.json",
+      "result_sha256": "d2dc7bd7397516a73c182a34bb50c621dfb8b6fc84833680678388b73305746c",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-250us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 0.00025,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.700000000002443,
+      "peak_instrument_force_N": 0.08225358413523907,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 24.65440776273458,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0007214815863873203,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.004000000000000002,
+        "last_adhesive_contact_s": 4.582749999999855,
+        "last_tensile_contact_s": 4.582749999999855,
+        "first_separation_at_least_50ms_s": 4.017999999999165,
+        "recontacts_after_complete_separation": 4,
+        "complete_separation_intervals_s": [
+          [
+            0.7562499999999445,
+            0.7564999999999444
+          ],
+          [
+            1.2627500000000054,
+            1.2630000000000055
+          ],
+          [
+            4.0159999999991625,
+            4.016249999999163
+          ],
+          [
+            4.017999999999165,
+            4.14524999999932
+          ],
+          [
+            4.582999999999855,
+            6.700000000002443
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.549999999999815,
+      "first_sample_with_tension_s": 0.25000000000000017,
+      "last_sample": {
+        "time": 6.700000000002443,
+        "instrument_force_N": 0.0010995806052436373,
+        "end_z_mm": 126.01839880170404,
+        "plate_translation_mm": 0.5225619449375207,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.699750000002442
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true,
+      "comparison_with_10us_reference": {
+        "sustained_separation_difference_s": 0.5647899999965089,
+        "peak_force_relative_difference": 0.0005401682838816643,
+        "instrument_work_relative_difference": 0.041857500396786824,
+        "force_trace_rms_N": 0.004716149055920188,
+        "force_trace_max_N": 0.018708516016736537,
+        "end_position_trace_rms_mm": 0.8104617141719108,
+        "end_position_trace_max_mm": 6.188266053303877
+      },
+      "passes_stated_coupon_tolerances": false
+    },
+    {
+      "case": "discrete-exact-newton-25us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-25us/result.json",
+      "result_sha256": "a6331695904ca65c8933e33db5c8339dfc8d1b1c587f4d6509e6a11365fecf5b",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-25us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 2.5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.69999999998772,
+      "peak_instrument_force_N": 0.08221044403817264,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 0.08113633957322802,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0007541727238455916,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.003799999999999991,
+        "last_adhesive_contact_s": 4.5827999999926545,
+        "last_tensile_contact_s": 4.5827999999926545,
+        "first_separation_at_least_50ms_s": 4.5828249999926545,
+        "recontacts_after_complete_separation": 1,
+        "complete_separation_intervals_s": [
+          [
+            1.0100500000009807,
+            1.0100750000009806
+          ],
+          [
+            4.5828249999926545,
+            6.69999999998772
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.549999999992731,
+      "first_sample_with_tension_s": 0.24999999999997655,
+      "last_sample": {
+        "time": 6.69999999998772,
+        "instrument_force_N": 0.0028642623097221266,
+        "end_z_mm": 125.85502848862662,
+        "plate_translation_mm": 0.5225613284461395,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.69997499998772
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true,
+      "comparison_with_10us_reference": {
+        "sustained_separation_difference_s": 3.499999698064471e-05,
+        "peak_force_relative_difference": 1.5408172423589992e-05,
+        "instrument_work_relative_difference": 0.0015570076795496665,
+        "force_trace_rms_N": 0.0002466372299656772,
+        "force_trace_max_N": 0.001250274118566174,
+        "end_position_trace_rms_mm": 0.028852266306993075,
+        "end_position_trace_max_mm": 0.18950127770051495
+      },
+      "passes_stated_coupon_tolerances": true
+    },
+    {
+      "case": "discrete-exact-newton-500us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-500us/result.json",
+      "result_sha256": "e0e75ab7999033fe6718a7874339b3fc962494251196b6c6c0f9ae390525f727",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-500us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 0.0005,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": "Tape penetration exceeds half the backing thickness; one-sided adhesion is unverified",
+      "duration_s": 4.013500000000495,
+      "peak_instrument_force_N": 0.04032783373095704,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 94.90845199239845,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0004115615842504202,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.004,
+        "last_adhesive_contact_s": 4.0130000000004955,
+        "last_tensile_contact_s": 4.010000000000497,
+        "first_separation_at_least_50ms_s": null,
+        "recontacts_after_complete_separation": 5,
+        "complete_separation_intervals_s": [
+          [
+            0.3760000000000003,
+            0.3765000000000003
+          ],
+          [
+            1.0089999999999444,
+            1.0094999999999443
+          ],
+          [
+            1.0109999999999442,
+            1.011499999999944
+          ],
+          [
+            1.012499999999944,
+            1.012999999999944
+          ],
+          [
+            4.012500000000496,
+            4.0130000000004955
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.000000000000503,
+      "first_sample_with_tension_s": 0.25000000000000017,
+      "last_sample": {
+        "time": 4.000000000000503,
+        "instrument_force_N": 0.023484433704642805,
+        "end_z_mm": 79.79715146146201,
+        "plate_translation_mm": 0.5113506578297682,
+        "contacts": 4,
+        "adhesive_contacts": 4,
+        "total_tensile_contact_force_N": 0.03825280800457458,
+        "contact_solution_time_s": 3.999500000000503
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true,
+      "comparison_with_10us_reference": {
+        "sustained_separation_difference_s": null,
+        "peak_force_relative_difference": 0.509448518603707,
+        "instrument_work_relative_difference": 0.4534376864017963,
+        "force_trace_rms_N": 0.0105051325616095,
+        "force_trace_max_N": 0.04277308126388395,
+        "end_position_trace_rms_mm": 1.9583401490334436,
+        "end_position_trace_max_mm": 5.71769478858883
+      },
+      "passes_stated_coupon_tolerances": false
+    },
+    {
+      "case": "discrete-exact-newton-50us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-50us/result.json",
+      "result_sha256": "01b323ab769cc3ead786149f76614eef57eb343cd9b44bffecafed85767ee5af",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-50us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.6999999999910544,
+      "peak_instrument_force_N": 0.08222333142947816,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 0.14533303779558757,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0007002259061029517,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.0038000000000000035,
+        "last_adhesive_contact_s": 4.582599999995989,
+        "last_tensile_contact_s": 4.582599999995989,
+        "first_separation_at_least_50ms_s": 4.582649999995989,
+        "recontacts_after_complete_separation": 1,
+        "complete_separation_intervals_s": [
+          [
+            1.009949999999919,
+            1.0099999999999192
+          ],
+          [
+            4.582649999995989,
+            6.6999999999910544
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.549999999996065,
+      "first_sample_with_tension_s": 0.24999999999998063,
+      "last_sample": {
+        "time": 6.6999999999910544,
+        "instrument_force_N": 0.0013136093907267453,
+        "end_z_mm": 126.01376808240092,
+        "plate_translation_mm": 0.5225613420204269,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.699949999991055
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "14f2b0dd13795ff016eec51c0848664a4455e7ab3cbe2a92e47091ed0e9eb21b",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true,
+      "comparison_with_10us_reference": {
+        "sustained_separation_difference_s": 0.00013999999968472565,
+        "peak_force_relative_difference": 0.0001721715864574822,
+        "instrument_work_relative_difference": 0.07008548434355705,
+        "force_trace_rms_N": 0.0002605255527667089,
+        "force_trace_max_N": 0.0012502741185393903,
+        "end_position_trace_rms_mm": 0.03840460562966958,
+        "end_position_trace_max_mm": 0.25522299805545856
+      },
+      "passes_stated_coupon_tolerances": false
+    },
+    {
+      "case": "discrete-exact-newton-flipped-25us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-flipped-25us/result.json",
+      "result_sha256": "712ebfe9ddd798d800dfcd7fed7347ef054675e95b1f5700d17df76523112e9f",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-flipped-25us",
+        "adhesion": 0.02,
+        "flipped": true,
+        "dt": 2.5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.69999999998772,
+      "peak_instrument_force_N": 0.033964526982304115,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 5.4488984252436765,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.00014668142612030607,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 4.1464249999936715,
+        "last_adhesive_contact_s": 4.33604999999323,
+        "last_tensile_contact_s": 4.33604999999323,
+        "first_separation_at_least_50ms_s": 4.3360749999932295,
+        "recontacts_after_complete_separation": 0,
+        "complete_separation_intervals_s": [
+          [
+            4.3360749999932295,
+            6.69999999998772
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.299999999993314,
+      "first_sample_with_tension_s": 4.149999999993663,
+      "last_sample": {
+        "time": 6.69999999998772,
+        "instrument_force_N": 0.0017131299748073296,
+        "end_z_mm": 125.9666164358945,
+        "plate_translation_mm": 0.5225616319697757,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.69997499998772
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-exact-newton-hold-25us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-hold-25us/result.json",
+      "result_sha256": "6805726bd2e1498c323a756c39333cfa25e9b4b05dd4dd0afe3e82a21b4b4200",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-hold-25us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 2.5e-05,
+        "seconds": 2.2,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "hold",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 2.1999999999982074,
+      "peak_instrument_force_N": 0.01,
+      "max_single_contact_tension_N": 0.00497345077752113,
+      "max_penetration_um": 0.0002748818402511037,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 8.671910844511959e-08,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.003799999999999991,
+        "last_adhesive_contact_s": 2.1999749999982074,
+        "last_tensile_contact_s": 2.1999749999982074,
+        "first_separation_at_least_50ms_s": null,
+        "recontacts_after_complete_separation": 0,
+        "complete_separation_intervals_s": [],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 2.1999999999982074,
+      "first_sample_with_tension_s": 0.24999999999997655,
+      "last_sample": {
+        "time": 2.1999999999982074,
+        "instrument_force_N": 0.01,
+        "end_z_mm": 5.5451287984740905,
+        "plate_translation_mm": 0.5175875680214675,
+        "contacts": 64,
+        "adhesive_contacts": 64,
+        "total_tensile_contact_force_N": 0.009946864204448706,
+        "contact_solution_time_s": 2.1999749999982074
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-exact-newton-zero-25us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-zero-25us/result.json",
+      "result_sha256": "fca594e7ae275e953685ec4e295323d9b444016e8547f54d582b042444ad4b5e",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-exact-newton-zero-25us",
+        "adhesion": 0.0,
+        "flipped": false,
+        "dt": 2.5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": true,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.69999999998772,
+      "peak_instrument_force_N": 0.006040572088746034,
+      "max_single_contact_tension_N": 0.0,
+      "max_penetration_um": 5.448898425244482,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0001374446625756798,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.004374999999999987,
+        "last_adhesive_contact_s": 4.161149999993637,
+        "last_tensile_contact_s": null,
+        "first_separation_at_least_50ms_s": 4.161174999993637,
+        "recontacts_after_complete_separation": 385,
+        "complete_separation_intervals_s": [
+          [
+            0.20004999999998205,
+            0.20007499999998204
+          ],
+          [
+            2.219924999998161,
+            2.219949999998161
+          ],
+          [
+            3.5035499999951694,
+            3.5035749999951693
+          ],
+          [
+            3.5090499999951565,
+            3.5090749999951565
+          ],
+          [
+            3.5141999999951445,
+            3.5142249999951445
+          ],
+          [
+            3.519124999995133,
+            3.519149999995133
+          ],
+          [
+            3.523899999995122,
+            3.523924999995122
+          ],
+          [
+            3.528549999995111,
+            3.528574999995111
+          ],
+          [
+            3.5330749999951006,
+            3.5330999999951005
+          ],
+          [
+            3.5374999999950902,
+            3.53752499999509
+          ],
+          [
+            3.54184999999508,
+            3.54187499999508
+          ],
+          [
+            3.54612499999507,
+            3.54614999999507
+          ],
+          [
+            3.5503249999950603,
+            3.5503499999950603
+          ],
+          [
+            3.5544749999950507,
+            3.5544999999950506
+          ],
+          [
+            3.558599999995041,
+            3.558624999995041
+          ],
+          [
+            3.5626749999950316,
+            3.5626999999950315
+          ],
+          [
+            3.566724999995022,
+            3.566749999995022
+          ],
+          [
+            3.5707499999950127,
+            3.5707749999950127
+          ],
+          [
+            3.5747499999950034,
+            3.5747749999950034
+          ],
+          [
+            3.578749999994994,
+            3.578774999994994
+          ],
+          [
+            3.582749999994985,
+            3.5827749999949847
+          ],
+          [
+            3.5867249999949755,
+            3.5867499999949755
+          ],
+          [
+            3.5906999999949663,
+            3.590724999994966
+          ],
+          [
+            3.594674999994957,
+            3.594699999994957
+          ],
+          [
+            3.5986499999949477,
+            3.5986749999949477
+          ],
+          [
+            3.6026249999949385,
+            3.6026499999949384
+          ],
+          [
+            3.606599999994929,
+            3.606624999994929
+          ],
+          [
+            3.61057499999492,
+            3.61059999999492
+          ],
+          [
+            3.6145499999949107,
+            3.6145749999949106
+          ],
+          [
+            3.6184999999949015,
+            3.6185249999949014
+          ],
+          [
+            3.6224499999948923,
+            3.622474999994892
+          ],
+          [
+            3.626374999994883,
+            3.626399999994883
+          ],
+          [
+            3.630274999994874,
+            3.630299999994874
+          ],
+          [
+            3.634149999994865,
+            3.634174999994865
+          ],
+          [
+            3.637999999994856,
+            3.638024999994856
+          ],
+          [
+            3.641824999994847,
+            3.641849999994847
+          ],
+          [
+            3.6456249999948382,
+            3.645649999994838
+          ],
+          [
+            3.6494249999948294,
+            3.6494499999948293
+          ],
+          [
+            3.6531999999948206,
+            3.6532249999948205
+          ],
+          [
+            3.656949999994812,
+            3.656974999994812
+          ],
+          [
+            3.660674999994803,
+            3.660699999994803
+          ],
+          [
+            3.6643999999947945,
+            3.6644249999947944
+          ],
+          [
+            3.668099999994786,
+            3.668124999994786
+          ],
+          [
+            3.6717749999947773,
+            3.6717999999947772
+          ],
+          [
+            3.6754499999947687,
+            3.6754749999947687
+          ],
+          [
+            3.6790999999947602,
+            3.67912499999476
+          ],
+          [
+            3.682724999994752,
+            3.6827499999947517
+          ],
+          [
+            3.6863499999947433,
+            3.6863749999947433
+          ],
+          [
+            3.689949999994735,
+            3.689974999994735
+          ],
+          [
+            3.6935249999947266,
+            3.6935499999947266
+          ],
+          [
+            3.6970999999947183,
+            3.697124999994718
+          ],
+          [
+            3.70064999999471,
+            3.70067499999471
+          ],
+          [
+            3.704174999994702,
+            3.7041999999947017
+          ],
+          [
+            3.7076749999946936,
+            3.7076999999946936
+          ],
+          [
+            3.7111749999946855,
+            3.7111999999946854
+          ],
+          [
+            3.7146499999946774,
+            3.7146749999946773
+          ],
+          [
+            3.7180999999946693,
+            3.7181249999946693
+          ],
+          [
+            3.7215499999946613,
+            3.7215749999946612
+          ],
+          [
+            3.7249749999946533,
+            3.7249999999946533
+          ],
+          [
+            3.7283999999946453,
+            3.7284249999946453
+          ],
+          [
+            3.7317999999946374,
+            3.7318249999946373
+          ],
+          [
+            3.7351999999946295,
+            3.7352249999946294
+          ],
+          [
+            3.7385749999946216,
+            3.7385999999946216
+          ],
+          [
+            3.7419499999946138,
+            3.7419749999946137
+          ],
+          [
+            3.745324999994606,
+            3.745349999994606
+          ],
+          [
+            3.748674999994598,
+            3.748699999994598
+          ],
+          [
+            3.7520249999945903,
+            3.75204999999459
+          ],
+          [
+            3.7553749999945825,
+            3.7553999999945824
+          ],
+          [
+            3.7587249999945747,
+            3.7587499999945746
+          ],
+          [
+            3.762049999994567,
+            3.762074999994567
+          ],
+          [
+            3.765374999994559,
+            3.765399999994559
+          ],
+          [
+            3.7686999999945514,
+            3.7687249999945514
+          ],
+          [
+            3.7719999999945437,
+            3.7720249999945437
+          ],
+          [
+            3.775299999994536,
+            3.775324999994536
+          ],
+          [
+            3.7785999999945283,
+            3.7786249999945283
+          ],
+          [
+            3.7818749999945207,
+            3.7818999999945206
+          ],
+          [
+            3.785149999994513,
+            3.785174999994513
+          ],
+          [
+            3.7883999999945055,
+            3.7884249999945054
+          ],
+          [
+            3.791649999994498,
+            3.791674999994498
+          ],
+          [
+            3.7948749999944904,
+            3.7948999999944903
+          ],
+          [
+            3.798099999994483,
+            3.798124999994483
+          ],
+          [
+            3.8012999999944754,
+            3.8013249999944754
+          ],
+          [
+            3.804499999994468,
+            3.804524999994468
+          ],
+          [
+            3.8076749999944606,
+            3.8076999999944605
+          ],
+          [
+            3.810849999994453,
+            3.810874999994453
+          ],
+          [
+            3.813999999994446,
+            3.8140249999944458
+          ],
+          [
+            3.8171499999944385,
+            3.8171749999944384
+          ],
+          [
+            3.820274999994431,
+            3.820299999994431
+          ],
+          [
+            3.823399999994424,
+            3.823424999994424
+          ],
+          [
+            3.8264999999944167,
+            3.8265249999944166
+          ],
+          [
+            3.8295999999944095,
+            3.8296249999944094
+          ],
+          [
+            3.8326749999944023,
+            3.8326999999944023
+          ],
+          [
+            3.835749999994395,
+            3.835774999994395
+          ],
+          [
+            3.838799999994388,
+            3.838824999994388
+          ],
+          [
+            3.841849999994381,
+            3.841874999994381
+          ],
+          [
+            3.844874999994374,
+            3.844899999994374
+          ],
+          [
+            3.847899999994367,
+            3.8479249999943668
+          ],
+          [
+            3.85089999999436,
+            3.8509249999943598
+          ],
+          [
+            3.853899999994353,
+            3.853924999994353
+          ],
+          [
+            3.856874999994346,
+            3.856899999994346
+          ],
+          [
+            3.859849999994339,
+            3.859874999994339
+          ],
+          [
+            3.862799999994332,
+            3.862824999994332
+          ],
+          [
+            3.8657499999943252,
+            3.865774999994325
+          ],
+          [
+            3.8686749999943184,
+            3.8686999999943184
+          ],
+          [
+            3.8715999999943116,
+            3.8716249999943115
+          ],
+          [
+            3.874499999994305,
+            3.8745249999943048
+          ],
+          [
+            3.877399999994298,
+            3.877424999994298
+          ],
+          [
+            3.8802749999942914,
+            3.8802999999942913
+          ],
+          [
+            3.8831499999942847,
+            3.8831749999942846
+          ],
+          [
+            3.886024999994278,
+            3.886049999994278
+          ],
+          [
+            3.8888749999942713,
+            3.8888999999942713
+          ],
+          [
+            3.8917249999942647,
+            3.8917499999942646
+          ],
+          [
+            3.894549999994258,
+            3.894574999994258
+          ],
+          [
+            3.8973749999942515,
+            3.8973999999942515
+          ],
+          [
+            3.900174999994245,
+            3.900199999994245
+          ],
+          [
+            3.9029749999942385,
+            3.9029999999942384
+          ],
+          [
+            3.905774999994232,
+            3.905799999994232
+          ],
+          [
+            3.9085499999942255,
+            3.9085749999942254
+          ],
+          [
+            3.911324999994219,
+            3.911349999994219
+          ],
+          [
+            3.9140749999942126,
+            3.9140999999942125
+          ],
+          [
+            3.916824999994206,
+            3.916849999994206
+          ],
+          [
+            3.9195749999942,
+            3.9195999999941997
+          ],
+          [
+            3.9222999999941934,
+            3.9223249999941934
+          ],
+          [
+            3.925024999994187,
+            3.925049999994187
+          ],
+          [
+            3.927724999994181,
+            3.9277499999941807
+          ],
+          [
+            3.9304249999941745,
+            3.9304499999941744
+          ],
+          [
+            3.933124999994168,
+            3.933149999994168
+          ],
+          [
+            3.935799999994162,
+            3.935824999994162
+          ],
+          [
+            3.9384749999941557,
+            3.9384999999941557
+          ],
+          [
+            3.9411249999941496,
+            3.9411499999941495
+          ],
+          [
+            3.9437749999941434,
+            3.9437999999941433
+          ],
+          [
+            3.9463999999941373,
+            3.946424999994137
+          ],
+          [
+            3.949024999994131,
+            3.949049999994131
+          ],
+          [
+            3.951624999994125,
+            3.951649999994125
+          ],
+          [
+            3.954224999994119,
+            3.954249999994119
+          ],
+          [
+            3.956799999994113,
+            3.956824999994113
+          ],
+          [
+            3.959349999994107,
+            3.959374999994107
+          ],
+          [
+            3.961899999994101,
+            3.961924999994101
+          ],
+          [
+            3.9644249999940953,
+            3.964449999994095
+          ],
+          [
+            3.9669499999940894,
+            3.9669749999940893
+          ],
+          [
+            3.9694499999940835,
+            3.9694749999940835
+          ],
+          [
+            3.9719499999940777,
+            3.9719749999940777
+          ],
+          [
+            3.974424999994072,
+            3.974449999994072
+          ],
+          [
+            3.976899999994066,
+            3.976924999994066
+          ],
+          [
+            3.9793499999940605,
+            3.9793749999940604
+          ],
+          [
+            3.9817999999940548,
+            3.9818249999940547
+          ],
+          [
+            3.984224999994049,
+            3.984249999994049
+          ],
+          [
+            3.9866249999940435,
+            3.9866499999940435
+          ],
+          [
+            3.989024999994038,
+            3.989049999994038
+          ],
+          [
+            3.9913999999940324,
+            3.9914249999940323
+          ],
+          [
+            3.993774999994027,
+            3.993799999994027
+          ],
+          [
+            3.9961249999940214,
+            3.9961499999940213
+          ],
+          [
+            3.998474999994016,
+            3.998499999994016
+          ],
+          [
+            4.000799999994011,
+            4.000824999994011
+          ],
+          [
+            4.0031249999940055,
+            4.0031499999940054
+          ],
+          [
+            4.005424999994,
+            4.005449999994
+          ],
+          [
+            4.007699999993995,
+            4.007724999993995
+          ],
+          [
+            4.0099749999939895,
+            4.0099999999939895
+          ],
+          [
+            4.012224999993984,
+            4.012249999993984
+          ],
+          [
+            4.014474999993979,
+            4.014499999993979
+          ],
+          [
+            4.016699999993974,
+            4.016724999993974
+          ],
+          [
+            4.018899999993969,
+            4.018924999993969
+          ],
+          [
+            4.021099999993964,
+            4.0211249999939636
+          ],
+          [
+            4.0232749999939585,
+            4.0232999999939585
+          ],
+          [
+            4.0254499999939535,
+            4.025474999993953
+          ],
+          [
+            4.0275999999939485,
+            4.027624999993948
+          ],
+          [
+            4.0297499999939435,
+            4.029774999993943
+          ],
+          [
+            4.0318749999939385,
+            4.031899999993938
+          ],
+          [
+            4.033974999993934,
+            4.0339999999939335
+          ],
+          [
+            4.036074999993929,
+            4.036099999993929
+          ],
+          [
+            4.038149999993924,
+            4.038174999993924
+          ],
+          [
+            4.040224999993919,
+            4.040249999993919
+          ],
+          [
+            4.042274999993914,
+            4.042299999993914
+          ],
+          [
+            4.0442999999939095,
+            4.0443249999939095
+          ],
+          [
+            4.046324999993905,
+            4.046349999993905
+          ],
+          [
+            4.0483249999939,
+            4.0483499999939
+          ],
+          [
+            4.0503249999938955,
+            4.0503499999938954
+          ],
+          [
+            4.052299999993891,
+            4.052324999993891
+          ],
+          [
+            4.054249999993886,
+            4.054274999993886
+          ],
+          [
+            4.056199999993882,
+            4.056224999993882
+          ],
+          [
+            4.058124999993877,
+            4.058149999993877
+          ],
+          [
+            4.060024999993873,
+            4.060049999993873
+          ],
+          [
+            4.0619249999938685,
+            4.061949999993868
+          ],
+          [
+            4.063799999993864,
+            4.063824999993864
+          ],
+          [
+            4.06564999999386,
+            4.06567499999386
+          ],
+          [
+            4.0674999999938555,
+            4.067524999993855
+          ],
+          [
+            4.069324999993851,
+            4.069349999993851
+          ],
+          [
+            4.071124999993847,
+            4.071149999993847
+          ],
+          [
+            4.072924999993843,
+            4.072949999993843
+          ],
+          [
+            4.074699999993839,
+            4.074724999993839
+          ],
+          [
+            4.076449999993835,
+            4.076474999993835
+          ],
+          [
+            4.0781999999938305,
+            4.0782249999938305
+          ],
+          [
+            4.0799249999938265,
+            4.0799499999938265
+          ],
+          [
+            4.0816249999938226,
+            4.0816499999938225
+          ],
+          [
+            4.083299999993819,
+            4.083324999993819
+          ],
+          [
+            4.084974999993815,
+            4.084999999993815
+          ],
+          [
+            4.086624999993811,
+            4.086649999993811
+          ],
+          [
+            4.088249999993807,
+            4.088274999993807
+          ],
+          [
+            4.089849999993803,
+            4.089874999993803
+          ],
+          [
+            4.0914499999938,
+            4.0914749999938
+          ],
+          [
+            4.093024999993796,
+            4.093049999993796
+          ],
+          [
+            4.094574999993792,
+            4.094599999993792
+          ],
+          [
+            4.096099999993789,
+            4.096124999993789
+          ],
+          [
+            4.097599999993785,
+            4.097624999993785
+          ],
+          [
+            4.099099999993782,
+            4.099124999993782
+          ],
+          [
+            4.100574999993778,
+            4.100599999993778
+          ],
+          [
+            4.102024999993775,
+            4.102049999993775
+          ],
+          [
+            4.103449999993772,
+            4.103474999993772
+          ],
+          [
+            4.104849999993768,
+            4.104874999993768
+          ],
+          [
+            4.106224999993765,
+            4.106249999993765
+          ],
+          [
+            4.107599999993762,
+            4.107624999993762
+          ],
+          [
+            4.108949999993759,
+            4.108974999993759
+          ],
+          [
+            4.110274999993756,
+            4.110299999993756
+          ],
+          [
+            4.111574999993753,
+            4.111599999993753
+          ],
+          [
+            4.11284999999375,
+            4.11287499999375
+          ],
+          [
+            4.114099999993747,
+            4.114124999993747
+          ],
+          [
+            4.115324999993744,
+            4.115349999993744
+          ],
+          [
+            4.116524999993741,
+            4.116549999993741
+          ],
+          [
+            4.117724999993738,
+            4.117749999993738
+          ],
+          [
+            4.118899999993736,
+            4.118924999993736
+          ],
+          [
+            4.120049999993733,
+            4.120074999993733
+          ],
+          [
+            4.12117499999373,
+            4.12119999999373
+          ],
+          [
+            4.122274999993728,
+            4.122299999993728
+          ],
+          [
+            4.123349999993725,
+            4.123374999993725
+          ],
+          [
+            4.124399999993723,
+            4.124424999993723
+          ],
+          [
+            4.1254249999937205,
+            4.12544999999372
+          ],
+          [
+            4.126399999993718,
+            4.126424999993718
+          ],
+          [
+            4.127249999993716,
+            4.127274999993716
+          ],
+          [
+            4.127849999993715,
+            4.127874999993715
+          ],
+          [
+            4.128324999993714,
+            4.128349999993714
+          ],
+          [
+            4.128699999993713,
+            4.128724999993713
+          ],
+          [
+            4.129024999993712,
+            4.129049999993712
+          ],
+          [
+            4.1292999999937114,
+            4.129324999993711
+          ],
+          [
+            4.129549999993711,
+            4.129574999993711
+          ],
+          [
+            4.12977499999371,
+            4.12979999999371
+          ],
+          [
+            4.12999999999371,
+            4.13002499999371
+          ],
+          [
+            4.130199999993709,
+            4.130224999993709
+          ],
+          [
+            4.130374999993709,
+            4.130399999993709
+          ],
+          [
+            4.1305499999937085,
+            4.1305749999937085
+          ],
+          [
+            4.130724999993708,
+            4.130749999993708
+          ],
+          [
+            4.130874999993708,
+            4.130899999993708
+          ],
+          [
+            4.131049999993707,
+            4.131099999993707
+          ],
+          [
+            4.131374999993707,
+            4.1314249999937065
+          ],
+          [
+            4.131599999993706,
+            4.131624999993706
+          ],
+          [
+            4.131674999993706,
+            4.131699999993706
+          ],
+          [
+            4.1318499999937055,
+            4.131899999993705
+          ],
+          [
+            4.132099999993705,
+            4.132124999993705
+          ],
+          [
+            4.132149999993705,
+            4.132174999993705
+          ],
+          [
+            4.1322999999937045,
+            4.132324999993704
+          ],
+          [
+            4.132374999993704,
+            4.132399999993704
+          ],
+          [
+            4.132524999993704,
+            4.132574999993704
+          ],
+          [
+            4.132749999993703,
+            4.132799999993703
+          ],
+          [
+            4.132924999993703,
+            4.132974999993703
+          ],
+          [
+            4.1331249999937025,
+            4.1331499999937025
+          ],
+          [
+            4.133174999993702,
+            4.133199999993702
+          ],
+          [
+            4.133299999993702,
+            4.133349999993702
+          ],
+          [
+            4.133499999993702,
+            4.1335499999937015
+          ],
+          [
+            4.133649999993701,
+            4.133699999993701
+          ],
+          [
+            4.133849999993701,
+            4.133924999993701
+          ],
+          [
+            4.1340999999937,
+            4.1341749999937
+          ],
+          [
+            4.1343249999937,
+            4.1343749999937
+          ],
+          [
+            4.134449999993699,
+            4.134499999993699
+          ],
+          [
+            4.134624999993699,
+            4.134674999993699
+          ],
+          [
+            4.134749999993699,
+            4.134799999993699
+          ],
+          [
+            4.134924999993698,
+            4.134999999993698
+          ],
+          [
+            4.135149999993698,
+            4.135224999993698
+          ],
+          [
+            4.135324999993697,
+            4.135374999993697
+          ],
+          [
+            4.135474999993697,
+            4.135549999993697
+          ],
+          [
+            4.135674999993697,
+            4.1357249999936965
+          ],
+          [
+            4.135774999993696,
+            4.135799999993696
+          ],
+          [
+            4.135849999993696,
+            4.135899999993696
+          ],
+          [
+            4.135999999993696,
+            4.136074999993696
+          ],
+          [
+            4.136199999993695,
+            4.136274999993695
+          ],
+          [
+            4.136374999993695,
+            4.136449999993695
+          ],
+          [
+            4.1365749999936945,
+            4.136674999993694
+          ],
+          [
+            4.136824999993694,
+            4.136924999993694
+          ],
+          [
+            4.137024999993693,
+            4.137099999993693
+          ],
+          [
+            4.137199999993693,
+            4.137249999993693
+          ],
+          [
+            4.137299999993693,
+            4.137349999993693
+          ],
+          [
+            4.1374249999936925,
+            4.137499999993692
+          ],
+          [
+            4.137599999993692,
+            4.137674999993692
+          ],
+          [
+            4.137749999993692,
+            4.137799999993692
+          ],
+          [
+            4.1378749999936915,
+            4.137949999993691
+          ],
+          [
+            4.138024999993691,
+            4.138099999993691
+          ],
+          [
+            4.138199999993691,
+            4.1382749999936905
+          ],
+          [
+            4.13834999999369,
+            4.13842499999369
+          ],
+          [
+            4.13849999999369,
+            4.13854999999369
+          ],
+          [
+            4.13859999999369,
+            4.13864999999369
+          ],
+          [
+            4.1386999999936895,
+            4.138749999993689
+          ],
+          [
+            4.138799999993689,
+            4.138849999993689
+          ],
+          [
+            4.138924999993689,
+            4.139024999993689
+          ],
+          [
+            4.1391499999936885,
+            4.139299999993688
+          ],
+          [
+            4.139449999993688,
+            4.139599999993687
+          ],
+          [
+            4.139724999993687,
+            4.139849999993687
+          ],
+          [
+            4.139949999993687,
+            4.140074999993686
+          ],
+          [
+            4.140199999993686,
+            4.140349999993686
+          ],
+          [
+            4.140474999993685,
+            4.140624999993685
+          ],
+          [
+            4.140749999993685,
+            4.140899999993684
+          ],
+          [
+            4.140999999993684,
+            4.141124999993684
+          ],
+          [
+            4.141224999993684,
+            4.141349999993683
+          ],
+          [
+            4.141449999993683,
+            4.141574999993683
+          ],
+          [
+            4.141649999993683,
+            4.141749999993682
+          ],
+          [
+            4.141824999993682,
+            4.141924999993682
+          ],
+          [
+            4.141999999993682,
+            4.1421249999936816
+          ],
+          [
+            4.142224999993681,
+            4.142374999993681
+          ],
+          [
+            4.142474999993681,
+            4.14262499999368
+          ],
+          [
+            4.14272499999368,
+            4.14287499999368
+          ],
+          [
+            4.14294999999368,
+            4.143049999993679
+          ],
+          [
+            4.143124999993679,
+            4.143249999993679
+          ],
+          [
+            4.143324999993679,
+            4.1434499999936785
+          ],
+          [
+            4.143524999993678,
+            4.143649999993678
+          ],
+          [
+            4.143724999993678,
+            4.1438499999936775
+          ],
+          [
+            4.143899999993677,
+            4.143949999993677
+          ],
+          [
+            4.143974999993677,
+            4.144024999993677
+          ],
+          [
+            4.144074999993677,
+            4.144199999993677
+          ],
+          [
+            4.1442749999936765,
+            4.144399999993676
+          ],
+          [
+            4.144474999993676,
+            4.144624999993676
+          ],
+          [
+            4.144674999993676,
+            4.1447249999936755
+          ],
+          [
+            4.144749999993675,
+            4.144774999993675
+          ],
+          [
+            4.144799999993675,
+            4.144899999993675
+          ],
+          [
+            4.144974999993675,
+            4.1451499999936745
+          ],
+          [
+            4.145224999993674,
+            4.145349999993674
+          ],
+          [
+            4.145424999993674,
+            4.1455999999936735
+          ],
+          [
+            4.145674999993673,
+            4.145824999993673
+          ],
+          [
+            4.145899999993673,
+            4.146074999993672
+          ],
+          [
+            4.146149999993672,
+            4.146299999993672
+          ],
+          [
+            4.146349999993672,
+            4.1464249999936715
+          ],
+          [
+            4.1464499999936715,
+            4.146499999993671
+          ],
+          [
+            4.146524999993671,
+            4.146599999993671
+          ],
+          [
+            4.146649999993671,
+            4.146799999993671
+          ],
+          [
+            4.1468749999936705,
+            4.14707499999367
+          ],
+          [
+            4.14714999999367,
+            4.147324999993669
+          ],
+          [
+            4.147399999993669,
+            4.147599999993669
+          ],
+          [
+            4.147649999993669,
+            4.1477249999936685
+          ],
+          [
+            4.1477499999936684,
+            4.147799999993668
+          ],
+          [
+            4.147824999993668,
+            4.147924999993668
+          ],
+          [
+            4.147974999993668,
+            4.148124999993668
+          ],
+          [
+            4.1481749999936675,
+            4.148324999993667
+          ],
+          [
+            4.148374999993667,
+            4.148499999993667
+          ],
+          [
+            4.148549999993667,
+            4.148699999993666
+          ],
+          [
+            4.148749999993666,
+            4.148924999993666
+          ],
+          [
+            4.1489999999936655,
+            4.149274999993665
+          ],
+          [
+            4.149349999993665,
+            4.149549999993664
+          ],
+          [
+            4.149599999993664,
+            4.149749999993664
+          ],
+          [
+            4.149774999993664,
+            4.149799999993664
+          ],
+          [
+            4.149824999993664,
+            4.149974999993663
+          ],
+          [
+            4.150024999993663,
+            4.150224999993663
+          ],
+          [
+            4.150274999993663,
+            4.150424999993662
+          ],
+          [
+            4.150474999993662,
+            4.150699999993662
+          ],
+          [
+            4.1507499999936615,
+            4.150924999993661
+          ],
+          [
+            4.150974999993661,
+            4.1511749999936605
+          ],
+          [
+            4.15119999999366,
+            4.15124999999366
+          ],
+          [
+            4.15127499999366,
+            4.15139999999366
+          ],
+          [
+            4.15142499999366,
+            4.15152499999366
+          ],
+          [
+            4.15154999999366,
+            4.151649999993659
+          ],
+          [
+            4.151674999993659,
+            4.151799999993659
+          ],
+          [
+            4.151824999993659,
+            4.151924999993659
+          ],
+          [
+            4.151949999993659,
+            4.152074999993658
+          ],
+          [
+            4.152099999993658,
+            4.152199999993658
+          ],
+          [
+            4.152224999993658,
+            4.152374999993658
+          ],
+          [
+            4.1524249999936576,
+            4.152749999993657
+          ],
+          [
+            4.152799999993657,
+            4.152999999993656
+          ],
+          [
+            4.153024999993656,
+            4.153099999993656
+          ],
+          [
+            4.153124999993656,
+            4.1533249999936555
+          ],
+          [
+            4.153349999993655,
+            4.153449999993655
+          ],
+          [
+            4.153474999993655,
+            4.153649999993655
+          ],
+          [
+            4.153674999993655,
+            4.153799999993654
+          ],
+          [
+            4.153824999993654,
+            4.153999999993654
+          ],
+          [
+            4.154024999993654,
+            4.1541749999936535
+          ],
+          [
+            4.154199999993653,
+            4.154374999993653
+          ],
+          [
+            4.154399999993653,
+            4.154549999993653
+          ],
+          [
+            4.1545749999936525,
+            4.154799999993652
+          ],
+          [
+            4.154849999993652,
+            4.155324999993651
+          ],
+          [
+            4.155374999993651,
+            4.15577499999365
+          ],
+          [
+            4.15582499999365,
+            4.1562999999936485
+          ],
+          [
+            4.1563249999936485,
+            4.156449999993648
+          ],
+          [
+            4.156474999993648,
+            4.156799999993647
+          ],
+          [
+            4.156824999993647,
+            4.157074999993647
+          ],
+          [
+            4.157099999993647,
+            4.157449999993646
+          ],
+          [
+            4.157474999993646,
+            4.157799999993645
+          ],
+          [
+            4.157824999993645,
+            4.158199999993644
+          ],
+          [
+            4.158224999993644,
+            4.158699999993643
+          ],
+          [
+            4.158724999993643,
+            4.159249999993642
+          ],
+          [
+            4.159274999993642,
+            4.15997499999364
+          ],
+          [
+            4.15999999999364,
+            4.161149999993637
+          ],
+          [
+            4.161174999993637,
+            6.69999999998772
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.149999999993663,
+      "first_sample_with_tension_s": null,
+      "last_sample": {
+        "time": 6.69999999998772,
+        "instrument_force_N": 0.0017240650780625333,
+        "end_z_mm": 125.96762050513607,
+        "plate_translation_mm": 0.5225614091157198,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.69997499998772
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-newton-10us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-10us/result.json",
+      "result_sha256": "a8b944043b36c9927b2524a92d2599f02502f8d9c3180a51bb8df8a56d644b8e",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-10us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 1e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": false,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.699999999915521,
+      "peak_instrument_force_N": 0.07581339070459302,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 0.08755015643479201,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0006901315490020171,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.0035500000000000084,
+        "last_adhesive_contact_s": 4.5670299999962705,
+        "last_tensile_contact_s": 4.5670299999962705,
+        "first_separation_at_least_50ms_s": 4.56703999999627,
+        "recontacts_after_complete_separation": 1,
+        "complete_separation_intervals_s": [
+          [
+            1.0297099999982784,
+            1.0297199999982785
+          ],
+          [
+            4.56703999999627,
+            6.699999999915521
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.549999999996915,
+      "first_sample_with_tension_s": 0.25000000000010925,
+      "last_sample": {
+        "time": 6.699999999915521,
+        "instrument_force_N": 0.0018880472448732592,
+        "end_z_mm": 125.9547296684684,
+        "plate_translation_mm": 0.10775549766973953,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.6999899999155215
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "14f2b0dd13795ff016eec51c0848664a4455e7ab3cbe2a92e47091ed0e9eb21b",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-newton-25us-baseline",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-25us-baseline/result.json",
+      "result_sha256": "fd26845def1b93ba6a6c65f7cfbedce7fdc266740c179725a9c8677d93f3bf88",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-25us-baseline",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 2.5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton"
+      },
+      "error": null,
+      "duration_s": 6.69999999998772,
+      "peak_instrument_force_N": 0.07679956606370171,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 0.21988608747015945,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": null,
+      "contact_timeline": {},
+      "last_sample_with_adhesive_contact_s": 4.549999999992731,
+      "first_sample_with_tension_s": 0.24999999999997655,
+      "last_sample": {
+        "time": 6.69999999998772,
+        "instrument_force_N": 0.00036324335710427385,
+        "end_z_mm": 126.10316853578054,
+        "plate_translation_mm": 0.10775550221918188,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "82e1505556219aa20a7054baffdc39f381d1df16004e01cda35bac456add9c77",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-newton-50us-baseline",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-50us-baseline/result.json",
+      "result_sha256": "3a55f9de73970fa0e146807add3c4c55dbffbff4cf2984002478115d26941a5d",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-50us-baseline",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton"
+      },
+      "error": null,
+      "duration_s": 6.6999999999910544,
+      "peak_instrument_force_N": 0.08221133724218677,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 0.49501843485085567,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": null,
+      "contact_timeline": {},
+      "last_sample_with_adhesive_contact_s": 4.599999999995949,
+      "first_sample_with_tension_s": 0.24999999999998063,
+      "last_sample": {
+        "time": 6.6999999999910544,
+        "instrument_force_N": 0.0036751155438969284,
+        "end_z_mm": 125.72647605975925,
+        "plate_translation_mm": 0.10775550750062363,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "82e1505556219aa20a7054baffdc39f381d1df16004e01cda35bac456add9c77",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-newton-flipped-50us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-flipped-50us/result.json",
+      "result_sha256": "f3812c3497252415f54f6fe179b1048683b08b62136b42cc8eaaeb5301302951",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-flipped-50us",
+        "adhesion": 0.02,
+        "flipped": true,
+        "dt": 5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": false,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.6999999999910544,
+      "peak_instrument_force_N": 0.034595948759984306,
+      "max_single_contact_tension_N": 0.02,
+      "max_penetration_um": 6.86339361687855,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.0001414331921458473,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 4.1671499999969575,
+        "last_adhesive_contact_s": 4.358199999996512,
+        "last_tensile_contact_s": 4.358199999996512,
+        "first_separation_at_least_50ms_s": 4.358249999996512,
+        "recontacts_after_complete_separation": 0,
+        "complete_separation_intervals_s": [
+          [
+            4.358249999996512,
+            6.6999999999910544
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.349999999996531,
+      "first_sample_with_tension_s": 4.199999999996881,
+      "last_sample": {
+        "time": 6.6999999999910544,
+        "instrument_force_N": 0.0016164037091784967,
+        "end_z_mm": 125.97751884582989,
+        "plate_translation_mm": 0.10775548498868893,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.699949999991055
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-newton-hold-50us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-hold-50us/result.json",
+      "result_sha256": "b97bb5f3ff904b1a7e868b9e2cb328cd3e3dbb1feb90f9e9f9d7739d57ad8ff0",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-hold-50us",
+        "adhesion": 0.02,
+        "flipped": false,
+        "dt": 5e-05,
+        "seconds": 2.2,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": false,
+        "mode": "hold",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 2.200000000001542,
+      "peak_instrument_force_N": 0.01,
+      "max_single_contact_tension_N": 0.004973509830272706,
+      "max_penetration_um": 1.8985700344034426e-05,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 2.994889237079959e-08,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.003600000000000003,
+        "last_adhesive_contact_s": 2.199950000001542,
+        "last_tensile_contact_s": 2.199950000001542,
+        "first_separation_at_least_50ms_s": null,
+        "recontacts_after_complete_separation": 0,
+        "complete_separation_intervals_s": [],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 2.200000000001542,
+      "first_sample_with_tension_s": 0.24999999999998063,
+      "last_sample": {
+        "time": 2.200000000001542,
+        "instrument_force_N": 0.01,
+        "end_z_mm": 5.954974363194566,
+        "plate_translation_mm": 0.10597979061996425,
+        "contacts": 64,
+        "adhesive_contacts": 64,
+        "total_tensile_contact_force_N": 0.009947014429072256,
+        "contact_solution_time_s": 2.199950000001542
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    },
+    {
+      "case": "discrete-newton-zero-50us",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-zero-50us/result.json",
+      "result_sha256": "f194a7e7fc0c8bf508d86a24f9ef3637f8edf620297a6a780831036b70d0fae3",
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/tape-convergence-2026-10-07/discrete-newton-zero-50us",
+        "adhesion": 0.0,
+        "flipped": false,
+        "dt": 5e-05,
+        "seconds": 6.7,
+        "lift_distance": 0.12,
+        "no_video": true,
+        "integrator": "discrete",
+        "solver": "Newton",
+        "exact_impedance": false,
+        "mode": "peel",
+        "hold_force": 0.01
+      },
+      "error": null,
+      "duration_s": 6.6999999999910544,
+      "peak_instrument_force_N": 0.0018903209896203735,
+      "max_single_contact_tension_N": 0.0,
+      "max_penetration_um": 6.863393616878592,
+      "max_wrong_face_tension_N": 0.0,
+      "instrument_work_J": 0.00013668153513243775,
+      "contact_timeline": {
+        "first_adhesive_contact_s": 0.004150000000000003,
+        "last_adhesive_contact_s": 4.180749999996926,
+        "last_tensile_contact_s": null,
+        "first_separation_at_least_50ms_s": 4.180799999996926,
+        "recontacts_after_complete_separation": 517,
+        "complete_separation_intervals_s": [
+          [
+            2.35110000000119,
+            2.35115000000119
+          ],
+          [
+            2.5260000000007823,
+            2.526050000000782
+          ],
+          [
+            2.530450000000772,
+            2.530500000000772
+          ],
+          [
+            2.5349000000007615,
+            2.5349500000007614
+          ],
+          [
+            2.539400000000751,
+            2.539450000000751
+          ],
+          [
+            2.5439500000007405,
+            2.5440000000007403
+          ],
+          [
+            2.5485500000007297,
+            2.5486000000007296
+          ],
+          [
+            2.553200000000719,
+            2.5532500000007188
+          ],
+          [
+            2.557900000000708,
+            2.557950000000708
+          ],
+          [
+            2.5627500000006966,
+            2.5628000000006965
+          ],
+          [
+            2.567700000000685,
+            2.567750000000685
+          ],
+          [
+            2.572800000000673,
+            2.572850000000673
+          ],
+          [
+            2.577950000000661,
+            2.578000000000661
+          ],
+          [
+            2.583150000000649,
+            2.583200000000649
+          ],
+          [
+            2.588350000000637,
+            2.588400000000637
+          ],
+          [
+            2.593550000000625,
+            2.5936000000006247
+          ],
+          [
+            2.5987500000006127,
+            2.5988000000006126
+          ],
+          [
+            2.6040000000006005,
+            2.6040500000006004
+          ],
+          [
+            2.6092500000005883,
+            2.609300000000588
+          ],
+          [
+            2.614500000000576,
+            2.614550000000576
+          ],
+          [
+            2.619750000000564,
+            2.6198000000005637
+          ],
+          [
+            2.6250000000005516,
+            2.6250500000005514
+          ],
+          [
+            2.6302000000005394,
+            2.6302500000005393
+          ],
+          [
+            2.6354000000005273,
+            2.635450000000527
+          ],
+          [
+            2.6405500000005153,
+            2.640600000000515
+          ],
+          [
+            2.6457000000005033,
+            2.645750000000503
+          ],
+          [
+            2.6508000000004914,
+            2.6508500000004913
+          ],
+          [
+            2.6558500000004797,
+            2.6559000000004795
+          ],
+          [
+            2.660800000000468,
+            2.660850000000468
+          ],
+          [
+            2.6657000000004567,
+            2.6657500000004566
+          ],
+          [
+            2.6705000000004455,
+            2.6705500000004454
+          ],
+          [
+            2.6752000000004346,
+            2.6752500000004344
+          ],
+          [
+            2.6798500000004237,
+            2.6799000000004236
+          ],
+          [
+            2.684450000000413,
+            2.684500000000413
+          ],
+          [
+            2.6889500000004025,
+            2.6890000000004024
+          ],
+          [
+            2.693450000000392,
+            2.693500000000392
+          ],
+          [
+            2.6979000000003817,
+            2.6979500000003815
+          ],
+          [
+            2.7023000000003714,
+            2.7023500000003713
+          ],
+          [
+            2.706700000000361,
+            2.706750000000361
+          ],
+          [
+            2.711100000000351,
+            2.711150000000351
+          ],
+          [
+            2.7155000000003406,
+            2.7155500000003405
+          ],
+          [
+            2.7199000000003304,
+            2.7199500000003303
+          ],
+          [
+            2.72435000000032,
+            2.72440000000032
+          ],
+          [
+            2.7288000000003096,
+            2.7288500000003095
+          ],
+          [
+            2.733300000000299,
+            2.733350000000299
+          ],
+          [
+            2.7378500000002886,
+            2.7379000000002884
+          ],
+          [
+            2.742450000000278,
+            2.7425000000002777
+          ],
+          [
+            2.747100000000267,
+            2.747150000000267
+          ],
+          [
+            2.751800000000256,
+            2.751850000000256
+          ],
+          [
+            2.756600000000245,
+            2.7566500000002447
+          ],
+          [
+            2.7614500000002336,
+            2.7615000000002334
+          ],
+          [
+            2.766350000000222,
+            2.766400000000222
+          ],
+          [
+            2.7713000000002106,
+            2.7713500000002105
+          ],
+          [
+            2.776250000000199,
+            2.776300000000199
+          ],
+          [
+            2.7812000000001875,
+            2.7812500000001874
+          ],
+          [
+            2.786150000000176,
+            2.786200000000176
+          ],
+          [
+            2.7911000000001644,
+            2.7911500000001643
+          ],
+          [
+            2.796050000000153,
+            2.796100000000153
+          ],
+          [
+            2.8009500000001415,
+            2.8010000000001414
+          ],
+          [
+            2.80585000000013,
+            2.80590000000013
+          ],
+          [
+            2.8107500000001187,
+            2.8108000000001185
+          ],
+          [
+            2.8156500000001072,
+            2.815700000000107
+          ],
+          [
+            2.820550000000096,
+            2.8206000000000957
+          ],
+          [
+            2.8254500000000844,
+            2.8255000000000843
+          ],
+          [
+            2.830350000000073,
+            2.830400000000073
+          ],
+          [
+            2.8352000000000617,
+            2.8352500000000616
+          ],
+          [
+            2.8400500000000504,
+            2.8401000000000503
+          ],
+          [
+            2.844850000000039,
+            2.844900000000039
+          ],
+          [
+            2.849600000000028,
+            2.849650000000028
+          ],
+          [
+            2.854300000000017,
+            2.854350000000017
+          ],
+          [
+            2.8589500000000063,
+            2.859000000000006
+          ],
+          [
+            2.8635499999999956,
+            2.8635999999999955
+          ],
+          [
+            2.868099999999985,
+            2.868149999999985
+          ],
+          [
+            2.8725999999999745,
+            2.8726499999999744
+          ],
+          [
+            2.877049999999964,
+            2.877099999999964
+          ],
+          [
+            2.8814999999999538,
+            2.8815499999999536
+          ],
+          [
+            2.8858999999999435,
+            2.8859499999999434
+          ],
+          [
+            2.8902999999999333,
+            2.890349999999933
+          ],
+          [
+            2.894699999999923,
+            2.894749999999923
+          ],
+          [
+            2.899049999999913,
+            2.8990999999999127
+          ],
+          [
+            2.9033999999999027,
+            2.9034499999999026
+          ],
+          [
+            2.9077999999998925,
+            2.9078499999998924
+          ],
+          [
+            2.912199999999882,
+            2.912249999999882
+          ],
+          [
+            2.916649999999872,
+            2.9166999999998717
+          ],
+          [
+            2.9210999999998615,
+            2.9211499999998614
+          ],
+          [
+            2.925599999999851,
+            2.925649999999851
+          ],
+          [
+            2.9301499999998404,
+            2.9301999999998403
+          ],
+          [
+            2.9347499999998297,
+            2.9347999999998295
+          ],
+          [
+            2.939349999999819,
+            2.939399999999819
+          ],
+          [
+            2.943999999999808,
+            2.944049999999808
+          ],
+          [
+            2.948699999999797,
+            2.948749999999797
+          ],
+          [
+            2.953399999999786,
+            2.953449999999786
+          ],
+          [
+            2.958149999999775,
+            2.958199999999775
+          ],
+          [
+            2.962899999999764,
+            2.962949999999764
+          ],
+          [
+            2.967649999999753,
+            2.967699999999753
+          ],
+          [
+            2.972349999999742,
+            2.972399999999742
+          ],
+          [
+            2.977049999999731,
+            2.977099999999731
+          ],
+          [
+            2.98174999999972,
+            2.98179999999972
+          ],
+          [
+            2.986449999999709,
+            2.986499999999709
+          ],
+          [
+            2.991149999999698,
+            2.991199999999698
+          ],
+          [
+            2.9957999999996874,
+            2.9958499999996873
+          ],
+          [
+            3.0004499999996765,
+            3.0004999999996764
+          ],
+          [
+            3.0050999999996657,
+            3.0051499999996656
+          ],
+          [
+            3.009749999999655,
+            3.0097999999996548
+          ],
+          [
+            3.014399999999644,
+            3.014449999999644
+          ],
+          [
+            3.019049999999633,
+            3.019099999999633
+          ],
+          [
+            3.0236999999996224,
+            3.0237499999996222
+          ],
+          [
+            3.0282999999996116,
+            3.0283499999996115
+          ],
+          [
+            3.032899999999601,
+            3.032949999999601
+          ],
+          [
+            3.0374499999995903,
+            3.03749999999959
+          ],
+          [
+            3.04194999999958,
+            3.0419999999995797
+          ],
+          [
+            3.0464499999995693,
+            3.046499999999569
+          ],
+          [
+            3.050899999999559,
+            3.050949999999559
+          ],
+          [
+            3.0552999999995487,
+            3.0553499999995486
+          ],
+          [
+            3.0596999999995385,
+            3.0597499999995383
+          ],
+          [
+            3.0640499999995283,
+            3.064099999999528
+          ],
+          [
+            3.068399999999518,
+            3.068449999999518
+          ],
+          [
+            3.072699999999508,
+            3.072749999999508
+          ],
+          [
+            3.076999999999498,
+            3.077049999999498
+          ],
+          [
+            3.081299999999488,
+            3.081349999999488
+          ],
+          [
+            3.085599999999478,
+            3.085649999999478
+          ],
+          [
+            3.089899999999468,
+            3.089949999999468
+          ],
+          [
+            3.094249999999458,
+            3.094299999999458
+          ],
+          [
+            3.098599999999448,
+            3.0986499999994477
+          ],
+          [
+            3.1029999999994375,
+            3.1030499999994374
+          ],
+          [
+            3.1073999999994273,
+            3.107449999999427
+          ],
+          [
+            3.111849999999417,
+            3.111899999999417
+          ],
+          [
+            3.1162999999994065,
+            3.1163499999994064
+          ],
+          [
+            3.120799999999396,
+            3.120849999999396
+          ],
+          [
+            3.1252999999993856,
+            3.1253499999993855
+          ],
+          [
+            3.129799999999375,
+            3.129849999999375
+          ],
+          [
+            3.1342999999993646,
+            3.1343499999993645
+          ],
+          [
+            3.138849999999354,
+            3.138899999999354
+          ],
+          [
+            3.1433999999993434,
+            3.1434499999993433
+          ],
+          [
+            3.147899999999333,
+            3.147949999999333
+          ],
+          [
+            3.1523999999993224,
+            3.1524499999993223
+          ],
+          [
+            3.156899999999312,
+            3.156949999999312
+          ],
+          [
+            3.1613999999993014,
+            3.1614499999993013
+          ],
+          [
+            3.165899999999291,
+            3.165949999999291
+          ],
+          [
+            3.1703999999992805,
+            3.1704499999992803
+          ],
+          [
+            3.17484999999927,
+            3.17489999999927
+          ],
+          [
+            3.1792999999992597,
+            3.1793499999992596
+          ],
+          [
+            3.1837499999992493,
+            3.1837999999992492
+          ],
+          [
+            3.188199999999239,
+            3.188249999999239
+          ],
+          [
+            3.1926499999992286,
+            3.1926999999992285
+          ],
+          [
+            3.1970999999992182,
+            3.197149999999218
+          ],
+          [
+            3.201549999999208,
+            3.2015999999992077
+          ],
+          [
+            3.2059499999991976,
+            3.2059999999991975
+          ],
+          [
+            3.2103499999991874,
+            3.2103999999991872
+          ],
+          [
+            3.214749999999177,
+            3.214799999999177
+          ],
+          [
+            3.219099999999167,
+            3.219149999999167
+          ],
+          [
+            3.223449999999157,
+            3.2234999999991567
+          ],
+          [
+            3.227749999999147,
+            3.2277999999991467
+          ],
+          [
+            3.232049999999137,
+            3.2320999999991367
+          ],
+          [
+            3.236299999999127,
+            3.2363499999991268
+          ],
+          [
+            3.240549999999117,
+            3.240599999999117
+          ],
+          [
+            3.244799999999107,
+            3.244849999999107
+          ],
+          [
+            3.2489999999990973,
+            3.249049999999097
+          ],
+          [
+            3.2531999999990875,
+            3.2532499999990874
+          ],
+          [
+            3.2573999999990777,
+            3.2574499999990776
+          ],
+          [
+            3.261599999999068,
+            3.261649999999068
+          ],
+          [
+            3.265799999999058,
+            3.265849999999058
+          ],
+          [
+            3.270049999999048,
+            3.270099999999048
+          ],
+          [
+            3.2742999999990383,
+            3.274349999999038
+          ],
+          [
+            3.2785499999990284,
+            3.2785999999990283
+          ],
+          [
+            3.2827999999990185,
+            3.2828499999990184
+          ],
+          [
+            3.2870999999990085,
+            3.2871499999990084
+          ],
+          [
+            3.2913999999989985,
+            3.2914499999989983
+          ],
+          [
+            3.2956999999989884,
+            3.2957499999989883
+          ],
+          [
+            3.2999999999989784,
+            3.3000499999989783
+          ],
+          [
+            3.3042999999989684,
+            3.3043499999989683
+          ],
+          [
+            3.3085999999989584,
+            3.3086499999989583
+          ],
+          [
+            3.3128999999989484,
+            3.3129499999989482
+          ],
+          [
+            3.3171999999989383,
+            3.317249999998938
+          ],
+          [
+            3.3214999999989283,
+            3.321549999998928
+          ],
+          [
+            3.3257999999989183,
+            3.325849999998918
+          ],
+          [
+            3.3300999999989083,
+            3.330149999998908
+          ],
+          [
+            3.3343999999988982,
+            3.334449999998898
+          ],
+          [
+            3.3386999999988882,
+            3.338749999998888
+          ],
+          [
+            3.3429499999988783,
+            3.342999999998878
+          ],
+          [
+            3.3471999999988684,
+            3.3472499999988683
+          ],
+          [
+            3.3514499999988585,
+            3.3514999999988584
+          ],
+          [
+            3.3556999999988486,
+            3.3557499999988485
+          ],
+          [
+            3.3599499999988387,
+            3.3599999999988386
+          ],
+          [
+            3.364199999998829,
+            3.3642499999988287
+          ],
+          [
+            3.368449999998819,
+            3.3684999999988188
+          ],
+          [
+            3.372699999998809,
+            3.372749999998809
+          ],
+          [
+            3.376899999998799,
+            3.376949999998799
+          ],
+          [
+            3.3810999999987894,
+            3.3811499999987893
+          ],
+          [
+            3.3852999999987796,
+            3.3853499999987795
+          ],
+          [
+            3.38949999999877,
+            3.3895499999987697
+          ],
+          [
+            3.39364999999876,
+            3.39369999999876
+          ],
+          [
+            3.3977999999987505,
+            3.3978499999987504
+          ],
+          [
+            3.401949999998741,
+            3.4019999999987407
+          ],
+          [
+            3.4060499999987313,
+            3.406099999998731
+          ],
+          [
+            3.4101499999987217,
+            3.4101999999987216
+          ],
+          [
+            3.414249999998712,
+            3.414299999998712
+          ],
+          [
+            3.4183499999987026,
+            3.4183999999987025
+          ],
+          [
+            3.422399999998693,
+            3.422449999998693
+          ],
+          [
+            3.4264499999986837,
+            3.4264999999986836
+          ],
+          [
+            3.4304999999986743,
+            3.430549999998674
+          ],
+          [
+            3.434549999998665,
+            3.4345999999986647
+          ],
+          [
+            3.4385999999986554,
+            3.4386499999986553
+          ],
+          [
+            3.442649999998646,
+            3.442699999998646
+          ],
+          [
+            3.4467499999986364,
+            3.4467999999986363
+          ],
+          [
+            3.450849999998627,
+            3.4508999999986267
+          ],
+          [
+            3.4549499999986173,
+            3.454999999998617
+          ],
+          [
+            3.4590499999986077,
+            3.4590999999986076
+          ],
+          [
+            3.463149999998598,
+            3.463199999998598
+          ],
+          [
+            3.4672499999985886,
+            3.4672999999985885
+          ],
+          [
+            3.471349999998579,
+            3.471399999998579
+          ],
+          [
+            3.4754499999985695,
+            3.4754999999985694
+          ],
+          [
+            3.47954999999856,
+            3.47959999999856
+          ],
+          [
+            3.4836499999985504,
+            3.4836999999985503
+          ],
+          [
+            3.487749999998541,
+            3.4877999999985407
+          ],
+          [
+            3.4918499999985313,
+            3.491899999998531
+          ],
+          [
+            3.4959499999985217,
+            3.4959999999985216
+          ],
+          [
+            3.4999999999985123,
+            3.500049999998512
+          ],
+          [
+            3.504049999998503,
+            3.5040999999985027
+          ],
+          [
+            3.5080999999984934,
+            3.5081499999984933
+          ],
+          [
+            3.512149999998484,
+            3.512199999998484
+          ],
+          [
+            3.5161999999984745,
+            3.5162499999984744
+          ],
+          [
+            3.520249999998465,
+            3.520299999998465
+          ],
+          [
+            3.5242999999984557,
+            3.5243499999984556
+          ],
+          [
+            3.5282999999984463,
+            3.5283499999984462
+          ],
+          [
+            3.532299999998437,
+            3.532349999998437
+          ],
+          [
+            3.5362999999984277,
+            3.5363499999984276
+          ],
+          [
+            3.5402999999984184,
+            3.5403499999984183
+          ],
+          [
+            3.544299999998409,
+            3.544349999998409
+          ],
+          [
+            3.5482999999983997,
+            3.5483499999983996
+          ],
+          [
+            3.5522499999983905,
+            3.5522999999983904
+          ],
+          [
+            3.5561999999983813,
+            3.556249999998381
+          ],
+          [
+            3.560149999998372,
+            3.560199999998372
+          ],
+          [
+            3.564099999998363,
+            3.564149999998363
+          ],
+          [
+            3.5680499999983537,
+            3.5680999999983536
+          ],
+          [
+            3.5719499999983446,
+            3.5719999999983445
+          ],
+          [
+            3.5758499999983355,
+            3.5758999999983354
+          ],
+          [
+            3.5797499999983264,
+            3.5797999999983263
+          ],
+          [
+            3.5836499999983173,
+            3.5836999999983172
+          ],
+          [
+            3.5874999999983084,
+            3.5875499999983083
+          ],
+          [
+            3.5913499999982994,
+            3.5913999999982993
+          ],
+          [
+            3.5951999999982904,
+            3.5952499999982903
+          ],
+          [
+            3.5990499999982815,
+            3.5990999999982813
+          ],
+          [
+            3.6028999999982725,
+            3.6029499999982724
+          ],
+          [
+            3.6067499999982635,
+            3.6067999999982634
+          ],
+          [
+            3.6105999999982545,
+            3.6106499999982544
+          ],
+          [
+            3.6144499999982456,
+            3.6144999999982454
+          ],
+          [
+            3.6182999999982366,
+            3.6183499999982365
+          ],
+          [
+            3.6221499999982276,
+            3.6221999999982275
+          ],
+          [
+            3.6259999999982186,
+            3.6260499999982185
+          ],
+          [
+            3.6298499999982097,
+            3.6298999999982096
+          ],
+          [
+            3.6336999999982007,
+            3.6337499999982006
+          ],
+          [
+            3.6375499999981917,
+            3.6375999999981916
+          ],
+          [
+            3.6413999999981828,
+            3.6414499999981826
+          ],
+          [
+            3.645249999998174,
+            3.6452999999981737
+          ],
+          [
+            3.649099999998165,
+            3.6491499999981647
+          ],
+          [
+            3.652949999998156,
+            3.6529999999981557
+          ],
+          [
+            3.656749999998147,
+            3.656799999998147
+          ],
+          [
+            3.660549999998138,
+            3.660599999998138
+          ],
+          [
+            3.6643499999981293,
+            3.664399999998129
+          ],
+          [
+            3.6681499999981204,
+            3.6681999999981203
+          ],
+          [
+            3.6719499999981116,
+            3.6719999999981114
+          ],
+          [
+            3.6757499999981027,
+            3.6757999999981026
+          ],
+          [
+            3.679499999998094,
+            3.679549999998094
+          ],
+          [
+            3.6832499999980852,
+            3.683299999998085
+          ],
+          [
+            3.6869999999980765,
+            3.6870499999980764
+          ],
+          [
+            3.6907499999980677,
+            3.6907999999980676
+          ],
+          [
+            3.694499999998059,
+            3.694549999998059
+          ],
+          [
+            3.6982499999980503,
+            3.69829999999805
+          ],
+          [
+            3.7019499999980416,
+            3.7019999999980415
+          ],
+          [
+            3.705649999998033,
+            3.705699999998033
+          ],
+          [
+            3.7093499999980244,
+            3.7093999999980243
+          ],
+          [
+            3.7130499999980158,
+            3.7130999999980157
+          ],
+          [
+            3.716749999998007,
+            3.716799999998007
+          ],
+          [
+            3.7204499999979985,
+            3.7204999999979984
+          ],
+          [
+            3.72409999999799,
+            3.72414999999799
+          ],
+          [
+            3.7277499999979815,
+            3.7277999999979814
+          ],
+          [
+            3.731399999997973,
+            3.731449999997973
+          ],
+          [
+            3.7350499999979645,
+            3.7350999999979644
+          ],
+          [
+            3.738699999997956,
+            3.738749999997956
+          ],
+          [
+            3.7422999999979476,
+            3.7423499999979475
+          ],
+          [
+            3.745899999997939,
+            3.745949999997939
+          ],
+          [
+            3.749499999997931,
+            3.7495499999979307
+          ],
+          [
+            3.7530999999979224,
+            3.7531499999979223
+          ],
+          [
+            3.756699999997914,
+            3.756749999997914
+          ],
+          [
+            3.7602999999979057,
+            3.7603499999979055
+          ],
+          [
+            3.7638499999978974,
+            3.7638999999978973
+          ],
+          [
+            3.767399999997889,
+            3.767449999997889
+          ],
+          [
+            3.770949999997881,
+            3.7709999999978807
+          ],
+          [
+            3.7744999999978726,
+            3.7745499999978724
+          ],
+          [
+            3.7780499999978643,
+            3.778099999997864
+          ],
+          [
+            3.781599999997856,
+            3.781649999997856
+          ],
+          [
+            3.7851499999978477,
+            3.7851999999978476
+          ],
+          [
+            3.7886999999978395,
+            3.7887499999978393
+          ],
+          [
+            3.792249999997831,
+            3.792299999997831
+          ],
+          [
+            3.795799999997823,
+            3.795849999997823
+          ],
+          [
+            3.7992999999978148,
+            3.7993499999978146
+          ],
+          [
+            3.8027999999978066,
+            3.8028499999978065
+          ],
+          [
+            3.8062999999977984,
+            3.8063499999977983
+          ],
+          [
+            3.8097999999977903,
+            3.80984999999779
+          ],
+          [
+            3.813299999997782,
+            3.813349999997782
+          ],
+          [
+            3.816799999997774,
+            3.816849999997774
+          ],
+          [
+            3.820249999997766,
+            3.820299999997766
+          ],
+          [
+            3.823699999997758,
+            3.8237499999977578
+          ],
+          [
+            3.82714999999775,
+            3.8271999999977497
+          ],
+          [
+            3.830599999997742,
+            3.8306499999977417
+          ],
+          [
+            3.8340499999977338,
+            3.8340999999977337
+          ],
+          [
+            3.837449999997726,
+            3.8374999999977257
+          ],
+          [
+            3.840849999997718,
+            3.840899999997718
+          ],
+          [
+            3.84424999999771,
+            3.84429999999771
+          ],
+          [
+            3.847649999997702,
+            3.847699999997702
+          ],
+          [
+            3.851049999997694,
+            3.851099999997694
+          ],
+          [
+            3.8543999999976863,
+            3.8544499999976862
+          ],
+          [
+            3.8577499999976785,
+            3.8577999999976784
+          ],
+          [
+            3.8610999999976707,
+            3.8611499999976706
+          ],
+          [
+            3.864449999997663,
+            3.864499999997663
+          ],
+          [
+            3.867799999997655,
+            3.867849999997655
+          ],
+          [
+            3.8710999999976474,
+            3.8711499999976473
+          ],
+          [
+            3.8743999999976397,
+            3.8744499999976396
+          ],
+          [
+            3.877699999997632,
+            3.877749999997632
+          ],
+          [
+            3.8809999999976244,
+            3.8810499999976242
+          ],
+          [
+            3.8842499999976168,
+            3.8842999999976167
+          ],
+          [
+            3.887499999997609,
+            3.887549999997609
+          ],
+          [
+            3.8907499999976016,
+            3.8907999999976015
+          ],
+          [
+            3.893999999997594,
+            3.894049999997594
+          ],
+          [
+            3.8972499999975865,
+            3.8972999999975864
+          ],
+          [
+            3.900449999997579,
+            3.900499999997579
+          ],
+          [
+            3.9036499999975716,
+            3.9036999999975714
+          ],
+          [
+            3.906849999997564,
+            3.906899999997564
+          ],
+          [
+            3.9100499999975566,
+            3.9100999999975565
+          ],
+          [
+            3.9131999999975493,
+            3.913249999997549
+          ],
+          [
+            3.916349999997542,
+            3.916399999997542
+          ],
+          [
+            3.9194999999975346,
+            3.9195499999975345
+          ],
+          [
+            3.9226499999975273,
+            3.922699999997527
+          ],
+          [
+            3.92579999999752,
+            3.92584999999752
+          ],
+          [
+            3.9289499999975126,
+            3.9289999999975125
+          ],
+          [
+            3.9320499999975054,
+            3.9320999999975053
+          ],
+          [
+            3.935149999997498,
+            3.935199999997498
+          ],
+          [
+            3.938249999997491,
+            3.938299999997491
+          ],
+          [
+            3.9413499999974837,
+            3.9413999999974836
+          ],
+          [
+            3.9444499999974765,
+            3.9444999999974764
+          ],
+          [
+            3.9474999999974694,
+            3.9475499999974692
+          ],
+          [
+            3.9505499999974623,
+            3.950599999997462
+          ],
+          [
+            3.953599999997455,
+            3.953649999997455
+          ],
+          [
+            3.956649999997448,
+            3.956699999997448
+          ],
+          [
+            3.959649999997441,
+            3.959699999997441
+          ],
+          [
+            3.962649999997434,
+            3.962699999997434
+          ],
+          [
+            3.965649999997427,
+            3.965699999997427
+          ],
+          [
+            3.96864999999742,
+            3.96869999999742
+          ],
+          [
+            3.971599999997413,
+            3.971649999997413
+          ],
+          [
+            3.9745499999974063,
+            3.974599999997406
+          ],
+          [
+            3.9774999999973994,
+            3.9775499999973993
+          ],
+          [
+            3.9804499999973926,
+            3.9804999999973925
+          ],
+          [
+            3.983349999997386,
+            3.9833999999973857
+          ],
+          [
+            3.986249999997379,
+            3.986299999997379
+          ],
+          [
+            3.9891499999973723,
+            3.989199999997372
+          ],
+          [
+            3.9919999999973657,
+            3.9920499999973655
+          ],
+          [
+            3.994849999997359,
+            3.994899999997359
+          ],
+          [
+            3.9976999999973524,
+            3.9977499999973523
+          ],
+          [
+            4.000549999997346,
+            4.000599999997346
+          ],
+          [
+            4.003349999997339,
+            4.003399999997339
+          ],
+          [
+            4.006149999997333,
+            4.006199999997333
+          ],
+          [
+            4.008949999997326,
+            4.008999999997326
+          ],
+          [
+            4.01169999999732,
+            4.01174999999732
+          ],
+          [
+            4.014449999997313,
+            4.014499999997313
+          ],
+          [
+            4.017199999997307,
+            4.017249999997307
+          ],
+          [
+            4.019899999997301,
+            4.0199499999973005
+          ],
+          [
+            4.022599999997294,
+            4.022649999997294
+          ],
+          [
+            4.025299999997288,
+            4.025349999997288
+          ],
+          [
+            4.027949999997282,
+            4.027999999997282
+          ],
+          [
+            4.030599999997276,
+            4.030649999997276
+          ],
+          [
+            4.0332499999972695,
+            4.033299999997269
+          ],
+          [
+            4.0358499999972635,
+            4.035899999997263
+          ],
+          [
+            4.038449999997257,
+            4.038499999997257
+          ],
+          [
+            4.041049999997251,
+            4.041099999997251
+          ],
+          [
+            4.043599999997245,
+            4.043649999997245
+          ],
+          [
+            4.0461499999972395,
+            4.046199999997239
+          ],
+          [
+            4.0486999999972335,
+            4.048749999997233
+          ],
+          [
+            4.051199999997228,
+            4.051249999997228
+          ],
+          [
+            4.053699999997222,
+            4.053749999997222
+          ],
+          [
+            4.056199999997216,
+            4.056249999997216
+          ],
+          [
+            4.05864999999721,
+            4.05869999999721
+          ],
+          [
+            4.061099999997205,
+            4.0611499999972045
+          ],
+          [
+            4.063549999997199,
+            4.063599999997199
+          ],
+          [
+            4.065949999997193,
+            4.065999999997193
+          ],
+          [
+            4.068349999997188,
+            4.068399999997188
+          ],
+          [
+            4.070749999997182,
+            4.070799999997182
+          ],
+          [
+            4.073099999997177,
+            4.0731499999971765
+          ],
+          [
+            4.075449999997171,
+            4.075499999997171
+          ],
+          [
+            4.077799999997166,
+            4.077849999997166
+          ],
+          [
+            4.08009999999716,
+            4.08014999999716
+          ],
+          [
+            4.082399999997155,
+            4.082449999997155
+          ],
+          [
+            4.08464999999715,
+            4.08469999999715
+          ],
+          [
+            4.0868999999971445,
+            4.086949999997144
+          ],
+          [
+            4.089149999997139,
+            4.089199999997139
+          ],
+          [
+            4.091349999997134,
+            4.091399999997134
+          ],
+          [
+            4.093549999997129,
+            4.093599999997129
+          ],
+          [
+            4.095699999997124,
+            4.095749999997124
+          ],
+          [
+            4.097849999997119,
+            4.097899999997119
+          ],
+          [
+            4.099999999997114,
+            4.100049999997114
+          ],
+          [
+            4.102099999997109,
+            4.102149999997109
+          ],
+          [
+            4.104199999997104,
+            4.104249999997104
+          ],
+          [
+            4.106249999997099,
+            4.106299999997099
+          ],
+          [
+            4.108299999997095,
+            4.1083499999970945
+          ],
+          [
+            4.11029999999709,
+            4.11034999999709
+          ],
+          [
+            4.112299999997085,
+            4.112349999997085
+          ],
+          [
+            4.114249999997081,
+            4.114299999997081
+          ],
+          [
+            4.116199999997076,
+            4.116249999997076
+          ],
+          [
+            4.118099999997072,
+            4.118149999997072
+          ],
+          [
+            4.119999999997067,
+            4.120049999997067
+          ],
+          [
+            4.121849999997063,
+            4.121899999997063
+          ],
+          [
+            4.123699999997059,
+            4.123749999997059
+          ],
+          [
+            4.1254999999970545,
+            4.125549999997054
+          ],
+          [
+            4.12729999999705,
+            4.12734999999705
+          ],
+          [
+            4.129049999997046,
+            4.129099999997046
+          ],
+          [
+            4.130799999997042,
+            4.130849999997042
+          ],
+          [
+            4.132499999997038,
+            4.132549999997038
+          ],
+          [
+            4.134149999997034,
+            4.134199999997034
+          ],
+          [
+            4.1357999999970305,
+            4.13584999999703
+          ],
+          [
+            4.137399999997027,
+            4.137449999997027
+          ],
+          [
+            4.138999999997023,
+            4.139049999997023
+          ],
+          [
+            4.1405499999970194,
+            4.140599999997019
+          ],
+          [
+            4.142049999997016,
+            4.142099999997016
+          ],
+          [
+            4.1435499999970125,
+            4.143599999997012
+          ],
+          [
+            4.144999999997009,
+            4.145049999997009
+          ],
+          [
+            4.146349999997006,
+            4.146399999997006
+          ],
+          [
+            4.147549999997003,
+            4.147599999997003
+          ],
+          [
+            4.148549999997001,
+            4.148599999997001
+          ],
+          [
+            4.149249999996999,
+            4.149299999996999
+          ],
+          [
+            4.149849999996998,
+            4.149899999996998
+          ],
+          [
+            4.150299999996997,
+            4.150349999996997
+          ],
+          [
+            4.150699999996996,
+            4.150749999996996
+          ],
+          [
+            4.151049999996995,
+            4.151099999996995
+          ],
+          [
+            4.151399999996994,
+            4.151449999996994
+          ],
+          [
+            4.151649999996994,
+            4.1516999999969935
+          ],
+          [
+            4.151999999996993,
+            4.1520999999969925
+          ],
+          [
+            4.1525499999969915,
+            4.152649999996991
+          ],
+          [
+            4.1529499999969905,
+            4.15304999999699
+          ],
+          [
+            4.15334999999699,
+            4.1533999999969895
+          ],
+          [
+            4.153499999996989,
+            4.153549999996989
+          ],
+          [
+            4.153699999996989,
+            4.153749999996989
+          ],
+          [
+            4.1538499999969885,
+            4.153899999996988
+          ],
+          [
+            4.154099999996988,
+            4.154199999996988
+          ],
+          [
+            4.154449999996987,
+            4.154549999996987
+          ],
+          [
+            4.154749999996986,
+            4.154799999996986
+          ],
+          [
+            4.154899999996986,
+            4.154999999996986
+          ],
+          [
+            4.155249999996985,
+            4.155349999996985
+          ],
+          [
+            4.155499999996985,
+            4.155599999996984
+          ],
+          [
+            4.155799999996984,
+            4.155899999996984
+          ],
+          [
+            4.156099999996983,
+            4.156249999996983
+          ],
+          [
+            4.156499999996982,
+            4.156649999996982
+          ],
+          [
+            4.1568499999969815,
+            4.156949999996981
+          ],
+          [
+            4.157099999996981,
+            4.1572499999969805
+          ],
+          [
+            4.15749999999698,
+            4.1576999999969795
+          ],
+          [
+            4.157949999996979,
+            4.158149999996978
+          ],
+          [
+            4.158399999996978,
+            4.158599999996977
+          ],
+          [
+            4.158799999996977,
+            4.1589999999969764
+          ],
+          [
+            4.159249999996976,
+            4.159499999996975
+          ],
+          [
+            4.159699999996975,
+            4.1598499999969745
+          ],
+          [
+            4.159999999996974,
+            4.160149999996974
+          ],
+          [
+            4.1602499999969735,
+            4.160349999996973
+          ],
+          [
+            4.160449999996973,
+            4.160549999996973
+          ],
+          [
+            4.160649999996973,
+            4.160799999996972
+          ],
+          [
+            4.160949999996972,
+            4.1610999999969716
+          ],
+          [
+            4.161199999996971,
+            4.161299999996971
+          ],
+          [
+            4.161349999996971,
+            4.161399999996971
+          ],
+          [
+            4.161449999996971,
+            4.161499999996971
+          ],
+          [
+            4.1615499999969705,
+            4.16164999999697
+          ],
+          [
+            4.16174999999697,
+            4.16184999999697
+          ],
+          [
+            4.16189999999697,
+            4.1619999999969695
+          ],
+          [
+            4.162099999996969,
+            4.162199999996969
+          ],
+          [
+            4.162299999996969,
+            4.162499999996968
+          ],
+          [
+            4.162649999996968,
+            4.1628499999969675
+          ],
+          [
+            4.162999999996967,
+            4.1632499999969665
+          ],
+          [
+            4.163399999996966,
+            4.163599999996966
+          ],
+          [
+            4.1636999999969655,
+            4.163849999996965
+          ],
+          [
+            4.163949999996965,
+            4.164099999996965
+          ],
+          [
+            4.164199999996964,
+            4.164399999996964
+          ],
+          [
+            4.1645499999969635,
+            4.164849999996963
+          ],
+          [
+            4.1649999999969625,
+            4.165249999996962
+          ],
+          [
+            4.165349999996962,
+            4.165449999996961
+          ],
+          [
+            4.165499999996961,
+            4.165649999996961
+          ],
+          [
+            4.165749999996961,
+            4.16594999999696
+          ],
+          [
+            4.16599999999696,
+            4.16604999999696
+          ],
+          [
+            4.16609999999696,
+            4.1662499999969596
+          ],
+          [
+            4.166349999996959,
+            4.166599999996959
+          ],
+          [
+            4.1666999999969585,
+            4.166849999996958
+          ],
+          [
+            4.166899999996958,
+            4.166999999996958
+          ],
+          [
+            4.167049999996958,
+            4.167199999996957
+          ],
+          [
+            4.167299999996957,
+            4.167599999996956
+          ],
+          [
+            4.167749999996956,
+            4.168149999996955
+          ],
+          [
+            4.168249999996955,
+            4.1683999999969545
+          ],
+          [
+            4.168449999996954,
+            4.168599999996954
+          ],
+          [
+            4.168699999996954,
+            4.169049999996953
+          ],
+          [
+            4.169149999996953,
+            4.169399999996952
+          ],
+          [
+            4.169499999996952,
+            4.169849999996951
+          ],
+          [
+            4.169949999996951,
+            4.17024999999695
+          ],
+          [
+            4.17034999999695,
+            4.170699999996949
+          ],
+          [
+            4.170749999996949,
+            4.170799999996949
+          ],
+          [
+            4.170849999996949,
+            4.171149999996948
+          ],
+          [
+            4.171249999996948,
+            4.171699999996947
+          ],
+          [
+            4.171799999996947,
+            4.172149999996946
+          ],
+          [
+            4.172249999996946,
+            4.172749999996944
+          ],
+          [
+            4.172799999996944,
+            4.172849999996944
+          ],
+          [
+            4.172899999996944,
+            4.173299999996943
+          ],
+          [
+            4.173399999996943,
+            4.1739999999969415
+          ],
+          [
+            4.174099999996941,
+            4.17464999999694
+          ],
+          [
+            4.17469999999694,
+            4.174899999996939
+          ],
+          [
+            4.174949999996939,
+            4.175349999996938
+          ],
+          [
+            4.175399999996938,
+            4.175749999996937
+          ],
+          [
+            4.175799999996937,
+            4.1761499999969365
+          ],
+          [
+            4.176199999996936,
+            4.176699999996935
+          ],
+          [
+            4.176749999996935,
+            4.177249999996934
+          ],
+          [
+            4.177299999996934,
+            4.1778499999969325
+          ],
+          [
+            4.177899999996932,
+            4.178549999996931
+          ],
+          [
+            4.178599999996931,
+            4.179449999996929
+          ],
+          [
+            4.179499999996929,
+            4.180749999996926
+          ],
+          [
+            4.180799999996926,
+            6.6999999999910544
+          ]
+        ],
+        "measurement": "Detected adhesive/sample contacts at every solver step; no geometric bond is inferred when absent."
+      },
+      "last_sample_with_adhesive_contact_s": 4.149999999996997,
+      "first_sample_with_tension_s": null,
+      "last_sample": {
+        "time": 6.6999999999910544,
+        "instrument_force_N": 0.001712691242893441,
+        "end_z_mm": 125.96909072589388,
+        "plate_translation_mm": 0.10775544336351191,
+        "contacts": 0,
+        "adhesive_contacts": 0,
+        "total_tensile_contact_force_N": 0.0,
+        "contact_solution_time_s": 6.699949999991055
+      },
+      "actuators": 0,
+      "equality_constraints": 0,
+      "sources": {
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_tape_adhesion.py": "f01236352382fdd945229726583c42089e48fbef9c47acffdfd3b01b0fa3b5be",
+        "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tape.py": "d4d965f538dffe06b4a277019805af1bd24fda9aa5f0f1f5b23de79b615ba720"
+      },
+      "source_snapshots_verified": true
+    }
+  ]
+}

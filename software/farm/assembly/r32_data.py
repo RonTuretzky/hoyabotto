@@ -1,4 +1,4 @@
-"""R3.2 physical-recording boundary and session-separated training selection."""
+"""R3.3 physical-recording boundary and session-separated training selection."""
 from __future__ import annotations
 import hashlib
 import json
@@ -24,7 +24,7 @@ def schema_for(profile):
 
 def read_sessions(path):
  d=json.loads(Path(path).read_text())
- if d.get('schema')!='r32-sessions-1':raise ValueError('R3.2 session plan required')
+ if d.get('schema')!='r32-sessions-1':raise ValueError('R3.3 session plan required')
  for sid,row in d['sessions'].items():
   if not sid or row.get('split') not in ('train','val','test'):raise ValueError('invalid session split')
   t=row.get('declared_at')
@@ -86,7 +86,7 @@ class Recorder:
   self.rec=None
   info=self.root/'meta/info.json';marker=self.root/'meta/r32_schema.json'
   if info.exists():
-   if not marker.exists() or json.loads(marker.read_text())!=self.schema.to_dict():raise ValueError('refuse non-R3.2 or changed dataset')
+   if not marker.exists() or json.loads(marker.read_text())!=self.schema.to_dict():raise ValueError('refuse non-R3.3 or changed dataset')
    issues=self.schema.problems_with_info(json.loads(info.read_text()))
    if issues:raise ValueError('; '.join(issues))
    # A data write without provenance must be reconciled before recording can resume.
@@ -102,7 +102,7 @@ class Recorder:
    marker=self.root/'meta/r32_schema.json'
    if not marker.exists():marker.write_text(json.dumps(self.schema.to_dict(),indent=2))
   self.active=meta;self.rejected=0;self.tick_check.prev_t=None;self.tick_check.origin=None
-  self.rec.start_episode('R3.2 '+meta['stage'])
+  self.rec.start_episode('R3.3 '+meta['stage'])
  def tick(self,joints,action_sent,frames,now,t_action):
   if self.active is None:raise ValueError('no active episode')
   v=self.tick_check.build(joints,action_sent,frames,now,t_action)
@@ -137,7 +137,7 @@ class Recorder:
 def select_episodes(root,profile,sessions_file,stage):
  """Files-only selection; launch additionally opens LeRobot payloads and checks frames."""
  root=Path(root);info=json.loads((root/'meta/info.json').read_text());schema=schema_for(profile)
- if json.loads((root/'meta/r32_schema.json').read_text())!=schema.to_dict():raise ValueError('wrong R3.2 schema marker')
+ if json.loads((root/'meta/r32_schema.json').read_text())!=schema.to_dict():raise ValueError('wrong R3.3 schema marker')
  issues=schema.problems_with_info(info)
  if issues:raise ValueError('; '.join(issues))
  sessions=read_sessions(sessions_file);rows=[];seen=set();selected={k:[] for k in ('train','val','test')}
@@ -177,7 +177,7 @@ def declare_session(path,session_id,split):
 def main():
  import argparse
  from .r32 import SOFTWARE
- ap=argparse.ArgumentParser(description='Declare an immutable R3.2 collection session before recording')
- ap.add_argument('--sessions',type=Path,default=SOFTWARE/'data/r32/sessions.json');ap.add_argument('--session',required=True);ap.add_argument('--split',required=True,choices=['train','val','test'])
+ ap=argparse.ArgumentParser(description='Declare an immutable R3.3 collection session before recording')
+ ap.add_argument('--sessions',type=Path,default=SOFTWARE/'data/r33/sessions.json');ap.add_argument('--session',required=True);ap.add_argument('--split',required=True,choices=['train','val','test'])
  a=ap.parse_args();print(json.dumps(declare_session(a.sessions,a.session,a.split),indent=2));return 0
 if __name__=='__main__':raise SystemExit(main())

@@ -39,6 +39,7 @@ Usage examples:
 import argparse
 import contextlib
 import sys
+import traceback
 import time
 from collections.abc import Callable
 
@@ -341,6 +342,14 @@ def _calibrate_motors(
         ccw_first=ccw_first,
         reference_positions=reference_positions,
     )
+    # farm: reject impossible/short sweeps before applying offsets or moving to derived targets.
+    from farm.tools.calibration_report import NOMINAL
+    for m in motor_names:
+        rmin, rmax, *_ = raw_results[m]
+        span_deg = (rmax - rmin) * 360.0 / FULL_TURN
+        _, low, high = NOMINAL[m]
+        if not (0 <= rmin < rmax <= 4095 and low <= span_deg <= high):
+            raise RuntimeError(f"{m}: invalid measured travel {span_deg:.1f} degrees; expected {low}..{high}")
     print("Preparing to write registers")
     result: dict[str, tuple[int, int, int]] = {}
     for m in motor_names:
@@ -389,12 +398,13 @@ def _calibrate_motors(
 # ====================== Connection and initialization (shared) ======================
 
 
-def _connect_and_clear(port: str) -> FeetechMotorsBus:
+def _connect_and_clear(port: str, motor_names: list[str] | None = None) -> FeetechMotorsBus:
     """Create bus, clear residual Overload, then formally connect. Raises exception on failure."""
-    bus = FeetechMotorsBus(port=port, motors=SO_FOLLOWER_MOTORS.copy())
+    names = MOTOR_NAMES if motor_names is None else motor_names
+    bus = FeetechMotorsBus(port=port, motors={m: SO_FOLLOWER_MOTORS[m] for m in names})
     bus.connect(handshake=False)
     print("Clearing residual servo state...")
-    all_zero = dict.fromkeys(MOTOR_NAMES, 0)
+    all_zero = dict.fromkeys(names, 0)
     for _ in range(3):
         with contextlib.suppress(COMM_ERR):
             bus.sync_write("Goal_Velocity", all_zero)
@@ -412,10 +422,11 @@ def _run_with_bus(
     port: str,
     interactive: bool,
     body: Callable[[FeetechMotorsBus], None],
+    *, motor_names: list[str] | None = None,
 ) -> int:
     """Connect bus then execute body(bus), with unified handling of connection failure, KeyboardInterrupt, Exception and disconnect. Returns 0 success, 1 error, 130 user interrupt."""
     try:
-        bus = _connect_and_clear(port)
+        bus = _connect_and_clear(port, motor_names)
     except Exception as e:
         print(f"Connection failed: {e}", file=sys.stderr)
         return 1
@@ -426,7 +437,7 @@ def _run_with_bus(
         bus.safe_disable_all()
         return 130
     except Exception as e:
-        print(f"Exception: {e}", file=sys.stderr)
+        traceback.print_exc()  # farm: retain the initiating error and cleanup exception chain
         bus.safe_disable_all()
         if interactive:
             with contextlib.suppress(EOFError):
@@ -453,52 +464,37 @@ INIT_CHECKS = [
 
 
 def _run_init(bus: FeetechMotorsBus, *, interactive: bool = True) -> None:
-    """Stage 0: Lock=1, PID, limits, Homing_Offset, enable torque. If parameter error and interactive, wait for Enter."""
-    print(f"\n{'=' * 20} Stage 0: Initialize {'=' * 20}")
-    for m in MOTOR_NAMES:
-        print(f"Configuring servo: {motor_label(m)}")
-        try:
-            bus.write("Torque_Enable", m, 0)
-            time.sleep(0.05)
-        except COMM_ERR:
-            pass
-        param_set_ok = True
-        try:
-            for reg, expected in INIT_CHECKS:
-                bus.write(reg, m, expected, normalize=(reg != "Homing_Offset"))
-                time.sleep(0.01)
-                got = bus.read(reg, m, normalize=False)
-                if got != expected:
-                    print(f"  [Warning] {reg} set failed on {m}: expected={expected}, got={got}")
-                    param_set_ok = False
-            # Position limits: write/read/compare separately
-            bus.write_position_limits(m, 0, 4095)
-            time.sleep(0.05)
-            limits = bus.read_position_limits(m)
-            if limits != (0, 4095):
-                print(f"  [Warning] Position_Limits set failed on {m}: expected=(0, 4095), got={limits}")
-                param_set_ok = False
-            time.sleep(0.2)
-            # Finally enable torque
-            bus.write("Torque_Enable", m, 1)
-            time.sleep(0.05)
-            te_read = bus.read("Torque_Enable", m, normalize=False)
-            if te_read != 1:
-                print(f"  [Warning] Torque_Enable failed on {m}: expected=1, got={te_read}")
-                param_set_ok = False
-            time.sleep(0.1)
-        except Exception as e:
-            print(f"  [Exception] Error setting parameters on {m}: {e}")
-            param_set_ok = False
-        if not param_set_ok and interactive:
-            with contextlib.suppress(Exception):
-                input(
-                    "  [Warning] Parameter set/verify failed, check wiring and power, press Enter to force continue..."
-                )
-    print(
-        f"Initialized and torque enabled (P={DEFAULT_P_COEFFICIENT}, "
-        f"Acc={DEFAULT_ACCELERATION}, Torque={DEFAULT_TORQUE_LIMIT})."
-    )
+    """farm: fail closed; prepare verified hold targets before enabling selected motors."""
+    names = list(bus.motors)
+    # Disable every selected motor before changing any offsets or control modes.
+    for m in names:
+        bus.write("Torque_Enable", m, 0, num_retry=3)
+        time.sleep(0.05)
+        if bus.read("Torque_Enable", m, normalize=False, num_retry=3) != 0:
+            raise RuntimeError(f"{m}: torque did not disable")
+    for m in names:
+        for reg, expected in INIT_CHECKS:
+            bus.write(reg, m, expected, normalize=False, num_retry=3)
+            time.sleep(0.01)
+            if bus.read(reg, m, normalize=False, num_retry=3) != expected:
+                raise RuntimeError(f"{m}: {reg} verification failed")
+        bus.write_position_limits(m, 0, 4095)
+        time.sleep(0.05)
+        if bus.read_position_limits(m) != (0, 4095):
+            raise RuntimeError(f"{m}: position limits verification failed")
+        # Read after offset changes: an old Goal_Position uses a different frame.
+        present = bus.read("Present_Position", m, normalize=False, num_retry=3)
+        if not 0 <= present <= 4095:
+            raise RuntimeError(f"{m}: position outside single-turn range: {present}")
+        bus.write("Goal_Velocity", m, 0, normalize=False)
+        bus.write("Goal_Position", m, present, normalize=False)
+        if bus.read("Goal_Position", m, normalize=False, num_retry=3) != present:
+            raise RuntimeError(f"{m}: hold target verification failed")
+    for m in names:
+        bus.write("Torque_Enable", m, 1)
+        if bus.read("Torque_Enable", m, normalize=False, num_retry=3) != 1:
+            raise RuntimeError(f"{m}: torque enable verification failed")
+    print("Selected motors initialized with verified hold targets.")
 
 
 # ====================== Public entry points (full calibration / unfold only / single motor) ======================
@@ -721,7 +717,7 @@ def calibrate_single_motor(
             input("  Calibration complete, press Enter to disable torque and exit...")
         bus.safe_disable_all()
 
-    return _run_with_bus(port, interactive, body)
+    return _run_with_bus(port, interactive, body, motor_names=[motor_name])
 
 
 # ====================== CLI entry point ======================

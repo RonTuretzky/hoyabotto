@@ -1,0 +1,85 @@
+{
+  "status": "UPSTREAM_KINEMATICS_CHECKED",
+  "environment": "URDF_NUMERICAL_ONLY",
+  "source": {
+    "solver": "lerobot.model.kinematics.RobotKinematics",
+    "lerobot": "0.6.1",
+    "placo": "0.9.15",
+    "model_repository": "TheRobotStudio/SO-ARM100",
+    "model_revision": "5f6d2b876a53a4872e405b991dd925556c9e38a4",
+    "frame": "gripper_frame_link"
+  },
+  "cases": [
+    {
+      "target_degrees": [
+        10,
+        -15,
+        25,
+        -10,
+        5
+      ],
+      "degrees": [
+        10.007236491827543,
+        -15.015734472919483,
+        25.128359348627765,
+        -10.112512824626121,
+        5.002215055825959
+      ],
+      "position_error_m": 0.00027547304771435963,
+      "orientation_error_deg": 0.007568752255860475,
+      "orientation_constrained": true,
+      "iterations": 2
+    },
+    {
+      "target_degrees": [
+        -20,
+        25,
+        -30,
+        15,
+        -10
+      ],
+      "degrees": [
+        -20.000049958909095,
+        24.908865003262953,
+        -29.84109291733079,
+        14.932228240639876,
+        -10.000008388157058
+      ],
+      "position_error_m": 0.00013071676889465263,
+      "orientation_error_deg": 4.911981721466228e-05,
+      "orientation_constrained": true,
+      "iterations": 3
+    },
+    {
+      "target_degrees": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "degrees": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "position_error_m": 0.0,
+      "orientation_error_deg": 0.0,
+      "orientation_constrained": true,
+      "iterations": 0
+    }
+  ],
+  "motor_writes": 0,
+  "robot_connected": false,
+  "physical_calibration_verified": false,
+  "collision_checked": false,
+  "physical_task_completed": false,
+  "upstream_suite": {
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 15.87
+  }
+}

@@ -31,14 +31,10 @@ class FarmTools:
     def get_state(self) -> dict[str, Any]:
         s = self.s
         j, h = s.robot.joints(), s.robot.health()
-        hot = None
-        if h.ok and h.value:
-            name, v = max(h.value.items(), key=lambda kv: kv[1].get("temperature", 0))
-            hot = {"joint": name, "temperature_c": v.get("temperature")}
         return {
             "profile": s.profile.name, "simulated": s.profile.simulated,
             "joints_status": j.status.value, "joints": {k: round(float(v), 1) for k, v in (j.value or {}).items()} if j.ok else {},
-            "health_status": h.status.value, "hottest": hot,
+            "health_status": h.status.value,
             "stop_pressed": s.skills.estop.is_set(), "needs_person": bool(s.state.get("needs_person")),
             "cameras": {n: c.frame().status.value for n, c in s.cameras.items()},
             "keyframes": s.keyframes.names(), "held": dict(s.skills.held),
@@ -147,7 +143,7 @@ def build_server(system):
 
     @mcp.tool()
     def get_state() -> dict:
-        """Joint positions, hottest servo, camera status, taught keyframes, whether STOP is pressed or a person is needed."""
+        """Joint positions, camera status, taught keyframes, whether STOP is pressed or a person is needed."""
         return t.get_state()
 
     @mcp.tool()

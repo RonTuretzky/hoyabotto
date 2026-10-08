@@ -1,4 +1,4 @@
-"""Evaluate explicit R3.2 validation/test episodes from a frozen training selection."""
+"""Evaluate explicit R3.3 validation/test episodes from a frozen training selection."""
 from __future__ import annotations
 import argparse
 import json
@@ -8,7 +8,7 @@ from farm.assembly.r32_data import digest, schema_for, select_episodes
 from farm.learning.infer import resolve_pretrained_dir
 
 def verify_selection(plan,checkpoint,profile,split):
- if plan.get('revision')!='R3.2' or split not in ('val','test'):raise ValueError('R3.2 validation or test selection required')
+ if plan.get('revision')!='R3.3' or split not in ('val','test'):raise ValueError('R3.3 validation or test selection required')
  s=plan['selection'];root=Path(s['root']);sessions=Path(s['sessions_file'])
  # Revalidate session membership and record provenance, not just a claimed held-out flag.
  current=select_episodes(root,profile,sessions,s['stage'])

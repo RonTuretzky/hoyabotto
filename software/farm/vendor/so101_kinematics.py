@@ -36,46 +36,31 @@ class SO101Kinematics:
         theta1_offset = math.atan2(0.028, 0.11257)  # theta1 offset when joint2=0
         theta2_offset = math.atan2(0.0052, 0.1349) + theta1_offset  # theta2 offset when joint3=0
         
-        # Calculate distance from origin to target point
+        # Reject impossible targets rather than silently commanding a different
+        # point. This is geometry only; motor-unit conversion is a separate step.
+        if not all(math.isfinite(v) for v in (x, y, l1, l2)) or min(l1, l2) <= 0:
+            raise ValueError("Finite coordinates and positive link lengths required")
         r = math.sqrt(x**2 + y**2)
         r_max = l1 + l2  # Maximum reachable distance
-        
-        # If target point is beyond maximum workspace, scale it to the boundary
-        if r > r_max:
-            scale_factor = r_max / r
-            x *= scale_factor
-            y *= scale_factor
-            r = r_max
-        
-        # If target point is less than minimum workspace (|l1-l2|), scale it
         r_min = abs(l1 - l2)
-        if r < r_min and r > 0:
-            scale_factor = r_min / r
-            x *= scale_factor
-            y *= scale_factor
-            r = r_min
-        
-        # Use law of cosines to calculate theta2
-        cos_theta2 = -(r**2 - l1**2 - l2**2) / (2 * l1 * l2)
-        
-        # Clamp cos_theta2 to valid range [-1, 1] to avoid domain errors
-        cos_theta2 = max(-1.0, min(1.0, cos_theta2))
-        
-        # Calculate theta2 (elbow angle)
-        theta2 = math.pi - math.acos(cos_theta2)
-        
-        # Calculate theta1 (shoulder angle)
+        if r < r_min - 1e-10 or r > r_max + 1e-10 or r == 0:
+            raise ValueError("Target outside the two-link workspace")
+        cos_delta = (r**2 - l1**2 - l2**2) / (2 * l1 * l2)
+        delta = math.acos(max(-1.0, min(1.0, cos_delta)))
+        # FK uses theta1 + theta2 - pi for the forearm direction. Therefore
+        # theta2 = pi - delta, not delta. The old inverse mixed these angles.
+        theta2 = math.pi - delta
         beta = math.atan2(y, x)
-        gamma = math.atan2(l2 * math.sin(theta2), l1 + l2 * math.cos(theta2))
+        gamma = math.atan2(l2 * math.sin(delta), l1 + l2 * math.cos(delta))
         theta1 = beta + gamma
         
         # Convert theta1 and theta2 to joint2 and joint3 angles
         joint2 = theta1 + theta1_offset
         joint3 = theta2 + theta2_offset
         
-        # Ensure angles are within URDF limits
-        joint2 = max(-0.1, min(3.45, joint2))
-        joint3 = max(-0.2, min(math.pi, joint3))
+        # Do not conceal an unreachable joint configuration by clamping it.
+        if not -0.1 <= joint2 <= 3.45 or not -0.2 <= joint3 <= math.pi:
+            raise ValueError("Target exceeds model joint limits")
         
         # Convert from radians to degrees
         joint2_deg = math.degrees(joint2)
@@ -118,7 +103,7 @@ class SO101Kinematics:
         theta1 = joint2_rad - theta1_offset
         theta2 = joint3_rad - theta2_offset
         
-        # Forward kinematics calculations
+        # Match the upstream IK convention: theta2 = pi - delta.
         x = l1 * math.cos(theta1) + l2 * math.cos(theta1 + theta2 - math.pi)
         y = l1 * math.sin(theta1) + l2 * math.sin(theta1 + theta2 - math.pi)
         

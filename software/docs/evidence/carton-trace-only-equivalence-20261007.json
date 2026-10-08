@@ -1,0 +1,10 @@
+{
+  "trace_only": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/trace-only-near-check-01/trial-000/run",
+  "rendered_reference": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/parallel-near-clearance-01/trial-001/run",
+  "state_count": 563,
+  "reference_state_count": 563,
+  "all_timestamps_and_qpos_exactly_equal": true,
+  "labels_may_differ": true,
+  "hardware_commands": false,
+  "full_task_complete": false
+}

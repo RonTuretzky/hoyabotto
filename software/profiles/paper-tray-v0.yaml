@@ -9,15 +9,24 @@ keyframes_file: keyframes.yaml
 robot:
   kind: lerobot
   id: farm_xlerobot
-  port1: ""            # bus 1 = left arm (IDs 1-6) + head (7-8); e.g. /dev/tty.usbmodem58A60000001
-  port2: ""            # bus 2 = right arm (IDs 1-6) + wheels (9-10)
+  port1: "/dev/cu.usbmodem5B790186401"            # bus 1 = left arm (IDs 1-6) + head (7-8); e.g. /dev/tty.usbmodem58A60000001
+  port2: "/dev/cu.usbmodem5B790182091"            # bus 2 = right arm (IDs 1-6) + wheels (9-10)
   max_relative_target: 8
   wheels: false
+  position_settings:
+    right_arm_elbow_flex:
+      P_Coefficient: 32               # verified recovery and small move/return under gravity
+      Torque_Limit: 400               # tested 40% torque cap
+      Goal_Velocity: 100              # tested low position-mode speed
+    right_arm_gripper:
+      P_Coefficient: 32               # verified small movement-and-return with this response
+      Torque_Limit: 500               # reduce the claw's torque cap to 50%
+      Goal_Velocity: 200              # explicit low position-mode speed
 
 cameras:               # identity by device name substring, never by index
-  head:        {match: "head", width: 640, height: 480, fps: 30}
-  left_wrist:  {match: "left", width: 640, height: 480, fps: 30}
-  right_wrist: {match: "right", width: 640, height: 480, fps: 30}
+  head:        {index_or_path: 0, match: "head", width: 640, height: 480, fps: 30}
+  left_wrist:  {index_or_path: 1, match: "left", width: 640, height: 480, fps: 30}
+  right_wrist: {index_or_path: 2, match: "right", width: 640, height: 480, fps: 30}
 
 light:
   enabled: true
@@ -38,7 +47,6 @@ trays:
 limits:
   pour_tilt_max_deg: 40
   pour_s_max: 4
-  servo_temp_max_c: 55
   servo_load_max: 800
   watchdog_s: 0.5
   step_deg_max: 6

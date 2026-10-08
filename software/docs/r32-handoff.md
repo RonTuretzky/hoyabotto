@@ -1,3 +1,5 @@
+> Superseded after physical R3.2 print feedback. Read [the R3.3 handoff](r33-handoff.md). The current preparation profile now pins R3.3 parts.
+
 # R3.2 planter training handoff
 
 Prepared 2026-10-04. Start here on the Mac connected to the robot.

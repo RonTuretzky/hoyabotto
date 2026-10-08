@@ -1,0 +1,212 @@
+{
+  "success": true,
+  "duration_s": 1.0,
+  "speed_m_s": 0.02,
+  "before": {
+    "base_left_wheel": 2304,
+    "base_right_wheel": 398
+  },
+  "settings_before": {
+    "base_left_wheel": {
+      "Operating_Mode": 0,
+      "Acceleration": 0,
+      "Torque_Limit": 1000,
+      "Lock": 1,
+      "Homing_Offset": 85
+    },
+    "base_right_wheel": {
+      "Operating_Mode": 0,
+      "Acceleration": 0,
+      "Torque_Limit": 1000,
+      "Lock": 1,
+      "Homing_Offset": 85
+    }
+  },
+  "commands": {
+    "base_left_wheel": -261,
+    "base_right_wheel": 261
+  },
+  "pulse_elapsed_s": 1.001905250013806,
+  "after": {
+    "base_left_wheel": 2066,
+    "base_right_wheel": 639
+  },
+  "wheel_delta_ticks": {
+    "base_left_wheel": -238,
+    "base_right_wheel": 241
+  },
+  "estimated_cm": {
+    "base_left_wheel": 1.825437137583913,
+    "base_right_wheel": 1.8484468494021977
+  },
+  "stop_samples": [
+    {
+      "t": 0.0021348329610191286,
+      "position": {
+        "base_left_wheel": 2112,
+        "base_right_wheel": 594
+      },
+      "velocity": {
+        "base_left_wheel": -250,
+        "base_right_wheel": 200
+      }
+    },
+    {
+      "t": 0.04880933300592005,
+      "position": {
+        "base_left_wheel": 2101,
+        "base_right_wheel": 604
+      },
+      "velocity": {
+        "base_left_wheel": -200,
+        "base_right_wheel": 200
+      }
+    },
+    {
+      "t": 0.0996256250073202,
+      "position": {
+        "base_left_wheel": 2090,
+        "base_right_wheel": 615
+      },
+      "velocity": {
+        "base_left_wheel": -250,
+        "base_right_wheel": 200
+      }
+    },
+    {
+      "t": 0.15580599999520928,
+      "position": {
+        "base_left_wheel": 2079,
+        "base_right_wheel": 626
+      },
+      "velocity": {
+        "base_left_wheel": -200,
+        "base_right_wheel": 200
+      }
+    },
+    {
+      "t": 0.20882604201324284,
+      "position": {
+        "base_left_wheel": 2071,
+        "base_right_wheel": 635
+      },
+      "velocity": {
+        "base_left_wheel": -150,
+        "base_right_wheel": 150
+      }
+    },
+    {
+      "t": 0.26484854199225083,
+      "position": {
+        "base_left_wheel": 2067,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": -50,
+        "base_right_wheel": 50
+      }
+    },
+    {
+      "t": 0.3197925419663079,
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    },
+    {
+      "t": 0.37599345797207206,
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    },
+    {
+      "t": 0.4298233750159852,
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    },
+    {
+      "t": 0.4848884579841979,
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    }
+  ],
+  "released_stop_samples": [
+    {
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    },
+    {
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    },
+    {
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    },
+    {
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    },
+    {
+      "position": {
+        "base_left_wheel": 2066,
+        "base_right_wheel": 639
+      },
+      "velocity": {
+        "base_left_wheel": 0,
+        "base_right_wheel": 0
+      }
+    }
+  ],
+  "release": {
+    "base_left_wheel": true,
+    "base_right_wheel": true
+  },
+  "settings_restored": true,
+  "post_restore_release_verified": true
+}

@@ -66,7 +66,7 @@ Show the user the three lines you changed.
 There are two ways. Ask the user which one they want; do not choose for them.
 
 - **4A, by hand (known to work):** the user sweeps every joint. About ten minutes.
-- **4B, automatic (never run on this robot):** each arm finds its own limits; only the head is done by hand.
+- **4B, automatic (completed runs and unresolved failures are recorded in STATUS.md):** each arm finds its own limits; only the head is done by hand.
 
 Whichever is used, finish with `farm calibration-report` (end of 4A) before Step 5.
 
@@ -97,9 +97,11 @@ It prints each joint's swept range in degrees and flags three things: a reading 
 
 Known trap: if a joint (usually wrist roll) was near the end of its travel at step 1, its reading wraps and the calibration is wrong. The fix is to switch 12 V off, put that joint at mid-travel, switch 12 V on, and run `farm calibrate` again. Do not try to correct it by turning the joint.
 
-## Step 4B — Automatic calibration (the user, in their own Terminal window — pause at every stage)
+## Step 4B — Automatic calibration (one arm at a time)
 
-This is LeRobot pull request #3282, vendored in `farm/vendor/autocal`. Each joint is driven to its mechanical stops and the stall is detected. Its author tested it on one free-standing SO-101. **It has never been run on this robot or on a cart**, where the arm shares its space with the neck, the other arm and the tray rim. Say that to the user in those words before starting.
+This is LeRobot pull request #3282, vendored in `farm/vendor/autocal`. Each joint is driven to its mechanical stops and the stall is detected. Its author tested it on one free-standing SO-101. Runs have completed on this robot, and others have failed or measured cart-affected ranges. Consult the current STATUS.md instead of claiming it is untested. The arm shares space with the neck, the other arm and the tray rim. For the unchanged pinned routine and verified evidence workflow, follow `software/docs/auto-calibration.md`; default300/20s, optional200/20s, one arm at a time under ServoOwnership.
+
+With explicit owner authorization, an agent may run the commands while the owner watches or the agent monitors a fresh complete camera view. Authorization persists; do not repeatedly ask permission for the same routine. Physical preflight and failure checks still apply.
 
 Before any stage, the user confirms: the other arm is folded and turned away; the top tray is clear; the head camera cable has slack; they can reach the battery switch. Switching 12 V off stops everything. Ctrl-C makes the motors go limp, so the arm drops.
 
@@ -128,9 +130,9 @@ Repeat for the right arm (`--arm right`). Then the head, which stays hands-on be
 farm calibrate --head
 ```
 
-Finish with `farm calibration-report`. It must say `LOOKS COMPLETE` before Step 5. Whatever the outcome, write what happened at each stage into `software/STATUS.md`: this is the first run of this code on this robot and the next session needs to know.
+Finish with `farm calibration-report`. It must say `LOOKS COMPLETE` before Step 5. Whatever the outcome, write what happened at each stage into `software/STATUS.md`: distinguish historical success, current hardware feedback, candidate completion and full-range validation.
 
-Stages 1 to 3 change settings stored inside the servos (offset and limits) without saving a file. That is harmless once a full calibration exists, because connecting rewrites them from the file. If the user gives up partway, they must still calibrate (4A or 4B) before anything else moves.
+Stages 1 to 3 change servo offsets, limits and modes without saving a complete file. After any incomplete run, a saved file is not proof that hardware matches it. Recalibrate or deliberately restore a verified snapshot with torque off, verified hold targets and readback; do not blindly reconnect and enable torque. A completed upstream run also needs candidate/range and release validation before normal operation.
 
 ## Step 5 — Motors-only test (you, then the user watches)
 
@@ -138,7 +140,7 @@ Stages 1 to 3 change settings stored inside the servos (offset and limits) witho
 farm robot-test
 ```
 
-Reads every joint, temperature and load; nothing moves. Every row should have a number and the last line should be `ALL OK`.
+Reads every joint and load; nothing moves. Every row should have a number and the last line should be `ALL OK`.
 
 Then the moving test. Tell the user first: arms folded at rest, hands clear, each joint will move a few degrees and return, and the motors go limp when it finishes. Because it asks a question after each joint, the user runs it in their Terminal window:
 

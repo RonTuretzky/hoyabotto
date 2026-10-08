@@ -12,7 +12,7 @@ import numpy as np
 
 from ..status import Reading, Status, unknown
 
-EXTRACTOR_VERSION = "apriltag-1"
+EXTRACTOR_VERSION = "apriltag-2"
 _detector = None
 
 
@@ -25,19 +25,30 @@ def _get_detector():
 
 
 def detect_tags(frame: Reading[np.ndarray]) -> Reading[dict[int, dict[str, Any]]]:
-    """All 36h11 tags in the frame: {id: {center, corners, margin}}. UNKNOWN when the frame is not OK."""
+    """All 36h11 tags: {id: {center, corners, margin, hamming}}; UNKNOWN on ambiguous identity or bad frames."""
     if frame.status is not Status.OK or frame.value is None:
         return Reading(None, frame.status, frame.t, source="perception.tags", note=frame.note)
     try:
         det = _get_detector()
     except Exception as e:  # noqa: BLE001
         return unknown("perception.tags", f"detector unavailable: {e}")
-    gray = cv2.cvtColor(frame.value, cv2.COLOR_RGB2GRAY)
-    found = {}
-    for d in det.detect(gray):
+    try:
+        gray = cv2.cvtColor(frame.value, cv2.COLOR_RGB2GRAY)
+        detections = det.detect(gray)
+    except Exception as e:  # noqa: BLE001
+        return unknown("perception.tags", f"detection failed: {e}")
+    found, seen = {}, set()
+    for d in detections:
+        tag_id = int(d.tag_id)
+        if tag_id in seen:
+            return unknown("perception.tags", f"duplicate tag ID {tag_id}: object identity is ambiguous")
+        seen.add(tag_id)
+        if not np.isfinite(d.decision_margin) or not np.isfinite(d.corners).all() or not np.isfinite(d.center).all():
+            return unknown("perception.tags", "nonfinite tag measurement")
         if d.decision_margin < 20:   # weak decode: do not trust
             continue
-        found[int(d.tag_id)] = {"center": [float(d.center[0]), float(d.center[1])], "corners": d.corners.astype(float).tolist(), "margin": float(d.decision_margin)}
+        found[tag_id] = {"center": [float(d.center[0]), float(d.center[1])], "corners": d.corners.astype(float).tolist(),
+                         "margin": float(d.decision_margin), "hamming": int(d.hamming)}
     return Reading(found, Status.OK, frame.t, source="perception.tags", meta={"extractor": EXTRACTOR_VERSION})
 
 

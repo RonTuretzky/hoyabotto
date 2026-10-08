@@ -8,6 +8,7 @@ sensor-shopping.html
 *.blend1
 software/.env
 software/.venv/
+software/.venv-oak/
 software/data/
 __pycache__/
 *.pyc

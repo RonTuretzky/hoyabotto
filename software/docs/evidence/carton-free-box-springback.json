@@ -1,0 +1,593 @@
+{
+  "simulation_only": true,
+  "hardware_commands": 0,
+  "physical_validation": false,
+  "measured_materials": false,
+  "scope": "Updated free-box and resistance sensitivity simulation. No comparative paddle success or autonomous physical fold claimed.",
+  "success_definition": "Four flaps closed under contact, then still closed with no hand contact during the full requested release interval",
+  "folding_cases": [
+    {
+      "case": "loaded-weak",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.96,
+        "table_friction": 0.7,
+        "stiffness": 0.008,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/loaded-weak"
+      },
+      "success": true,
+      "held_closure_passed": true,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": true,
+        "passed": true,
+        "reason": null,
+        "flap_angle_extrema_degrees": {
+          "short_left": [
+            91.84233891355017,
+            91.84233891672187
+          ],
+          "short_right": [
+            91.84233891355478,
+            91.8423389167226
+          ],
+          "long_far": [
+            90.25707831486137,
+            90.25707831486588
+          ],
+          "long_near": [
+            90.25707831486083,
+            90.25707831486716
+          ]
+        },
+        "final_flap_degrees": {
+          "short_left": 91.84233891504277,
+          "short_right": 91.84233891522969,
+          "long_far": 90.25707831486359,
+          "long_near": 90.25707831486359
+        },
+        "robot_flap_contacts": [],
+        "duration_s": 5.0,
+        "closure_maintained_during_withdrawal": true,
+        "visual_observation": {
+          "world_from_box": [
+            [
+              0.8661718068094849,
+              -0.49974007125181447,
+              -0.002502453520708749,
+              4.872423250920632e-05
+            ],
+            [
+              0.49973282526999974,
+              0.8661743510136042,
+              -0.0030161223159081985,
+              0.07776831472150757
+            ],
+            [
+              0.003674838235297795,
+              0.0013619219479181766,
+              0.9999923203367875,
+              0.00043029251065643167
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "tags": [
+            1,
+            10,
+            13,
+            14,
+            20
+          ],
+          "angles": {
+            "short_left": {
+              "degrees": 85.86041625253226,
+              "pixel_support": 1857,
+              "median_deviation_deg": 1.1647686965486486,
+              "method": "aligned_depth_cardboard_plane"
+            },
+            "short_right": {
+              "degrees": 87.07910372266701,
+              "pixel_support": 1922,
+              "median_deviation_deg": 0.6422841791196774,
+              "method": "aligned_depth_cardboard_plane"
+            },
+            "long_far": {
+              "degrees": 89.69552564412449,
+              "method": "apriltag_aligned_depth_plane",
+              "depth_check_degrees": 89.02373626484298
+            },
+            "long_near": {
+              "degrees": 90.71378920395024,
+              "method": "apriltag_aligned_depth_plane",
+              "depth_check_degrees": 88.7202335100502
+            }
+          },
+          "seq": 30,
+          "label": "Observe flaps after both hands release"
+        }
+      },
+      "error": null,
+      "carton_motion": {
+        "max_translation_mm": 1.1136133483640118,
+        "max_rotation_degrees": 0.06614799559452882,
+        "minimum_bottom_corner_table_clearance_mm": 9.786638619383309
+      }
+    },
+    {
+      "case": "empty-weak",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.008,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/empty-weak"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "IK left target [-0.1032638750494701, -0.15163985171201688, 0.20408844970761889] misses by 9.6 mm",
+      "carton_motion": {
+        "max_translation_mm": 36.387770420263266,
+        "max_rotation_degrees": 8.293197966086986,
+        "minimum_bottom_corner_table_clearance_mm": -34.17354415933993
+      }
+    },
+    {
+      "case": "empty-resistant",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/empty-resistant"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "Robot collision exceeded 1 mm",
+      "carton_motion": {
+        "max_translation_mm": 228.43928268216976,
+        "max_rotation_degrees": 63.13027598854517,
+        "minimum_bottom_corner_table_clearance_mm": -34.351297037042954
+      }
+    },
+    {
+      "case": "empty-slippery",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.0,
+        "table_friction": 0.15,
+        "stiffness": 0.018,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/empty-slippery"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "Fresh carton ID 10 and aligned depth required",
+      "carton_motion": {
+        "max_translation_mm": 331.8553896070952,
+        "max_rotation_degrees": 94.0448884321679,
+        "minimum_bottom_corner_table_clearance_mm": -34.245590823945655
+      }
+    },
+    {
+      "case": "loaded-resistant",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.96,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/loaded-resistant"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "IK left target [-0.0933268314149, -0.15225425991176356, 0.20279534622003956] misses by 8.6 mm",
+      "carton_motion": {
+        "max_translation_mm": 33.79933683375078,
+        "max_rotation_degrees": 7.461245694430872,
+        "minimum_bottom_corner_table_clearance_mm": -34.039751802815125
+      }
+    },
+    {
+      "case": "loaded-strong",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.96,
+        "table_friction": 0.35,
+        "stiffness": 0.04,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/loaded-strong"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "IK left target [-0.09027859795727279, -0.15231134527675413, 0.20357747888961658] misses by 8.4 mm",
+      "carton_motion": {
+        "max_translation_mm": 33.63558995482967,
+        "max_rotation_degrees": 7.753057600022685,
+        "minimum_bottom_corner_table_clearance_mm": -34.04138664277048
+      }
+    },
+    {
+      "case": "empty-unequal",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "flap_stiffness": [
+          0.012,
+          0.024,
+          0.04,
+          0.018
+        ],
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/empty-unequal"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "Fresh carton ID 10 and aligned depth required",
+      "carton_motion": {
+        "max_translation_mm": 237.44452611540305,
+        "max_rotation_degrees": 63.75724601398053,
+        "minimum_bottom_corner_table_clearance_mm": -34.08930152994605
+      }
+    },
+    {
+      "case": "empty-heavy",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.0,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "cardboard_mass": 0.45,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/empty-heavy"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "IK left target [-0.10074757707706597, -0.1526687004578845, 0.2019542406223859] misses by 9.3 mm",
+      "carton_motion": {
+        "max_translation_mm": 35.14681968446067,
+        "max_rotation_degrees": 6.940328057921001,
+        "minimum_bottom_corner_table_clearance_mm": -33.93101102453641
+      }
+    },
+    {
+      "case": "light-load",
+      "configuration": {
+        "strategy": "diagonal",
+        "base_height": 0.06,
+        "base_to_table_edge": 0.15,
+        "box_from_table_edge": 0.01,
+        "base_spacing": 0.3,
+        "table_tag_x": -0.5,
+        "table_tag_y": 0.55,
+        "backup_table_tag_x": 0.45,
+        "backup_table_tag_y": 0.7,
+        "yaw": 30,
+        "dy": 0.07579259463549806,
+        "width": 960,
+        "height": 540,
+        "contents_mass": 0.15,
+        "table_friction": 0.35,
+        "stiffness": 0.018,
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix/light-load"
+      },
+      "success": false,
+      "held_closure_passed": false,
+      "release_test": {
+        "requested_seconds": 5.0,
+        "performed": false,
+        "passed": false,
+        "reason": "No verified held closure to release"
+      },
+      "error": "Actual fingertips missed target by over 35 mm",
+      "carton_motion": {
+        "max_translation_mm": 35.590570948246196,
+        "max_rotation_degrees": 7.231885166236105,
+        "minimum_bottom_corner_table_clearance_mm": -33.82186496114994
+      }
+    }
+  ],
+  "passive_material_tests": [
+    {
+      "name": "springback-weak",
+      "test": "passive springback from explicitly preset closed initial condition",
+      "robot_folding_success": null,
+      "no_robot_flap_contact": true,
+      "remains_closed": true,
+      "material": {
+        "cardboard_mass_kg": 0.272,
+        "contents_mass_kg": 0.96,
+        "contents_top_m": 0.102,
+        "table_friction": 0.35,
+        "hinge_stiffness": 0.008,
+        "hinge_friction": 0.004,
+        "hinge_damping": 0.008,
+        "hinge_rest_degrees": 0.0,
+        "flap_stiffness": null,
+        "parameters_measured": false,
+        "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+        "total_mass_kg": 1.232,
+        "spring_moments_at_90_degrees_Nm": [
+          0.012566370614359173,
+          0.012566370614359173,
+          0.012566370614359173,
+          0.012566370614359173
+        ],
+        "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+        "contents_model": "Rigid contents volume attached to box; load shifting is not modeled"
+      },
+      "initial_flap_degrees": {
+        "short_left": 90.0,
+        "short_right": 90.0,
+        "long_far": 90.0,
+        "long_near": 90.0
+      },
+      "final_flap_degrees": {
+        "short_left": 91.84233891524322,
+        "short_right": 91.8423389150294,
+        "long_far": 90.2570783148635,
+        "long_near": 90.25707831486346
+      }
+    },
+    {
+      "name": "springback-moderate",
+      "test": "passive springback from explicitly preset closed initial condition",
+      "robot_folding_success": null,
+      "no_robot_flap_contact": true,
+      "remains_closed": false,
+      "material": {
+        "cardboard_mass_kg": 0.272,
+        "contents_mass_kg": 0.96,
+        "contents_top_m": 0.102,
+        "table_friction": 0.35,
+        "hinge_stiffness": 0.018,
+        "hinge_friction": 0.004,
+        "hinge_damping": 0.008,
+        "hinge_rest_degrees": 0.0,
+        "flap_stiffness": null,
+        "parameters_measured": false,
+        "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+        "total_mass_kg": 1.232,
+        "spring_moments_at_90_degrees_Nm": [
+          0.028274333882308135,
+          0.028274333882308135,
+          0.028274333882308135,
+          0.028274333882308135
+        ],
+        "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+        "contents_model": "Rigid contents volume attached to box; load shifting is not modeled"
+      },
+      "initial_flap_degrees": {
+        "short_left": 90.0,
+        "short_right": 90.0,
+        "long_far": 90.0,
+        "long_near": 90.0
+      },
+      "final_flap_degrees": {
+        "short_left": 88.54714639150941,
+        "short_right": 88.54714639063847,
+        "long_far": 48.37343685592127,
+        "long_near": 48.37343685592179
+      }
+    },
+    {
+      "name": "springback-strong",
+      "test": "passive springback from explicitly preset closed initial condition",
+      "robot_folding_success": null,
+      "no_robot_flap_contact": true,
+      "remains_closed": false,
+      "material": {
+        "cardboard_mass_kg": 0.272,
+        "contents_mass_kg": 0.96,
+        "contents_top_m": 0.102,
+        "table_friction": 0.35,
+        "hinge_stiffness": 0.04,
+        "hinge_friction": 0.004,
+        "hinge_damping": 0.008,
+        "hinge_rest_degrees": 0.0,
+        "flap_stiffness": null,
+        "parameters_measured": false,
+        "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+        "total_mass_kg": 1.232,
+        "spring_moments_at_90_degrees_Nm": [
+          0.06283185307179587,
+          0.06283185307179587,
+          0.06283185307179587,
+          0.06283185307179587
+        ],
+        "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+        "contents_model": "Rigid contents volume attached to box; load shifting is not modeled"
+      },
+      "initial_flap_degrees": {
+        "short_left": 90.0,
+        "short_right": 90.0,
+        "long_far": 90.0,
+        "long_near": 90.0
+      },
+      "final_flap_degrees": {
+        "short_left": 6.434095879254527,
+        "short_right": 6.434095886959563,
+        "long_far": 0.4579136098683723,
+        "long_near": 0.45791361466700115
+      }
+    }
+  ],
+  "focused_tests_passed": 94,
+  "empty_weak_recorded_peak_horizontal_motion_mm": 34.555137996370696,
+  "source_hashes": {
+    "tools/simulate_bimanual_folding.py": "2db009949a25f155930d92d82b210990f84955228423acd81d453ab4a5095bd9",
+    "carton/folding_sim.py": "1aa724d31693d972a0ad774db553ed01edf5317419f44cc6c7b94116c7574c68",
+    "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+    "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+    "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+    "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+    "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00"
+  },
+  "controller_source": {
+    "class": "DiagonalFoldingController",
+    "path": "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_diagonal.py",
+    "sha256": "c0b2d8afea2f9b9daa4f61bb760bb92b649a6788c89fd03cd87bfa76c17a2406"
+  },
+  "new_tool_hashes": {
+    "tools/probe_carton_springback.py": "28ea672cee3ce0a6ad9c68204a2f679ffe3f242332a54afbd1cf51e59530f77e",
+    "tools/evaluate_free_carton.py": "b5ad1dddb74390ffdf4048d5f9a10537522651510246b5ad08aabb4ab470cd86"
+  },
+  "local_artifacts": {
+    "folding_matrix": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/reproduced-matrix",
+    "gif": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/free-box-v2/free-box-and-springback.gif"
+  },
+  "gif_sha256": "cfce5f6f380a6dcfd3f2a047849bbc3a2331b8311600dcbcd84cbca4f19d1a9a",
+  "gif_scope": "Left and middle: recorded failed empty-box folding attempt. Right: separate passive material test beginning with preset closed flaps; not a robot folding demonstration.",
+  "references": [
+    "https://mujoco.readthedocs.io/en/stable/modeling.html#contact-parameters",
+    "https://journals.sagepub.com/doi/10.1243/09544062JMES242"
+  ]
+}

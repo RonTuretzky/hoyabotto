@@ -1,0 +1,70 @@
+{
+  "simulation_only": true,
+  "geometry_reconstruction_only": true,
+  "executed_force_evidence": false,
+  "source_run": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/near-first-02",
+  "source_frame_time": 7.085999999999442,
+  "source_frame_file_sha256": "917d194370d7fe6f2bcc797e0181ce98743a1638dbc7e8bf5ba4e5e0366c039f",
+  "contacts": [
+    {
+      "geoms": [
+        "long_near_cardboard",
+        "left_moving_jaw_so101_v1_part_37"
+      ],
+      "distance_mm": -0.004895784451858841,
+      "position_world_m": [
+        0.002154180311250113,
+        -0.12122654482793399,
+        0.23333872102750328
+      ]
+    },
+    {
+      "geoms": [
+        "short_left_cardboard",
+        "long_near_cardboard"
+      ],
+      "distance_mm": -0.008823430238463274,
+      "position_world_m": [
+        -0.17176189234883704,
+        -0.11911302475364967,
+        0.24713303570583273
+      ]
+    },
+    {
+      "geoms": [
+        "short_left_cardboard",
+        "long_near_cardboard"
+      ],
+      "distance_mm": -0.014422432870829394,
+      "position_world_m": [
+        -0.17474652865731474,
+        -0.11912970941921135,
+        0.24743576366362463
+      ]
+    },
+    {
+      "geoms": [
+        "short_right_cardboard",
+        "long_near_cardboard"
+      ],
+      "distance_mm": -0.014413850297089364,
+      "position_world_m": [
+        0.17896605678809838,
+        -0.11682067125365597,
+        0.24743529771617376
+      ]
+    },
+    {
+      "geoms": [
+        "short_right_cardboard",
+        "long_near_cardboard"
+      ],
+      "distance_mm": -0.008812821056640078,
+      "position_world_m": [
+        0.17598146814601986,
+        -0.11684295481477137,
+        0.24713246021546817
+      ]
+    }
+  ]
+}

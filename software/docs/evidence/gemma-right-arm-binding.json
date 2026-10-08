@@ -1,0 +1,68 @@
+{
+  "recorded_at": "2026-10-06T03:24:30.643234+00:00",
+  "mount_confirmation": {
+    "tag_id": 2,
+    "arm": "right",
+    "body": "fixed_gripper_housing",
+    "source": "Direct user response in carton chat on 2026-10-06"
+  },
+  "invalidated": {
+    "reason": "Earlier captures paired right-mounted tag 2 with left-arm encoder readings and candidate FK. Do not relabel those rows.",
+    "local_record": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-metric/INVALIDATED-left-arm-samples.json",
+    "accepted_independent_right_arm_poses": 0,
+    "camera_only_observations_invalidated": false
+  },
+  "corrected_capture": {
+    "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-calibration/right-baseline-002",
+    "frame": {
+      "camera_id": "oak-1944301091DA1C2E00",
+      "seq": 132971,
+      "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+      "sha256": "07ae8fb79ab931b7f25a7412f7c700311deb9a5708d58d36b63d965972e31ac2",
+      "captured_at": 1791257032.201727,
+      "received_at": null,
+      "timestamp_basis": "capture",
+      "age_s_on_observer_clock": 0.33791303634643555,
+      "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+      "capture_age_within_limit": true,
+      "clock_synchronization_verified": false,
+      "new_since_last_call": true
+    },
+    "detected_tag_ids": [
+      1,
+      3
+    ],
+    "accepted": false,
+    "reason": "Need metric table and gripper tags in the same frame",
+    "files": {
+      "before.json": "45d4c8c3fa140d984425dfed358fb9716437d1d1d4db8f172bd2008511477fce",
+      "after.json": "4062ed569970b5821dae44d0db96e7bd43f68c7a938e04034bcf59e045aee4f6",
+      "observation.json": "7db4be603802189fbeaa691376ad71aa2619f019c47d5254ac1f70b4e529c0f2",
+      "arm-geometry-status.json": "b37dbef8d24a48dcbd9a69cdca631cde31844d9c4c7ec58d6defcdc954a7f19d",
+      "annotated-0.jpg": "d8b0250e45b47e8631aa6b19dff952efd8cb29cc5b0ae692851667c09d99b1ce",
+      "sample-rejected.json": "eb3248c12c37c29efdc4ef4d2b0b098fceade1c5f1c5623a4f44acb0a1fd4599"
+    }
+  },
+  "right_elbow": {
+    "position_ticks": 3155,
+    "recorded_range": {
+      "min_ticks": 1002,
+      "max_ticks": 3092
+    },
+    "range_provenance_audit_pending": true
+  },
+  "right_arm_geometry_status": "NEEDS_GEOMETRIC_CONFIGURATION",
+  "implementation": {
+    "arm_argument_required": true,
+    "confirmed_mount_checked_in_capture_assembly_fit": true,
+    "old_unbound_samples_rejected": true,
+    "existing_automatic_visual_probe": "software/carton/servo/controller.py:Experiment.calibrate",
+    "current_gemma_owner_and_tag_observer_bridge_implemented": false
+  },
+  "tests": {
+    "targeted_pytest_passed": 88
+  },
+  "motor_writes_by_this_work": 0,
+  "physical_registration_validated": false,
+  "physical_grasp_validated": false
+}

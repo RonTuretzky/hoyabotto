@@ -1,0 +1,12 @@
+{
+  "forward_distance_cm_encoder_estimate": {
+    "base_left_wheel": 19.895730818876764,
+    "base_right_wheel": 20.08747841736247
+  },
+  "mean_cm": 19.991604618119617,
+  "pulses": 11,
+  "all_pulses_passed": true,
+  "wheel_release_verified": true,
+  "floor_distance_independently_measured": false,
+  "arm_motion": false
+}

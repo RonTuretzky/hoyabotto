@@ -1,0 +1,800 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-06T03:06:36.876499+00:00",
+  "scope": "Metric camera observations and offline registration utilities; physical grasp incomplete",
+  "dependencies": {
+    "opencv-python": "4.11.0.86",
+    "numpy": "2.2.6",
+    "pupil-apriltags": "1.0.4.post11",
+    "placo": "0.9.15"
+  },
+  "tag_sizes": {
+    "schema": 1,
+    "family": "tag36h11",
+    "camera_ids": [
+      "oak-1944301091DA1C2E00"
+    ],
+    "tags": {
+      "1": {
+        "black_square_mm": 60,
+        "source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied."
+      },
+      "2": {
+        "black_square_mm": 40,
+        "source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied."
+      },
+      "3": {
+        "black_square_mm": 40,
+        "source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied."
+      }
+    }
+  },
+  "physical_observation": {
+    "frame": {
+      "camera_id": "oak-1944301091DA1C2E00",
+      "seq": 114893,
+      "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+      "sha256": "8ec4c0bd5066ac1821c518f7c549ff276f488957f4adfbc48030a394f591b7fe",
+      "captured_at": 1791255826.302729,
+      "received_at": null,
+      "timestamp_basis": "capture",
+      "age_s_on_observer_clock": 0.8625819683074951,
+      "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+      "capture_age_within_limit": true,
+      "clock_synchronization_verified": false,
+      "new_since_last_call": true
+    },
+    "stationary_bracket_verified": true,
+    "capture_bracket_s": [
+      1791255825.533047,
+      1791255827.79349
+    ],
+    "maximum_encoder_change_ticks": 0,
+    "pose_3d": {
+      "status": "CAMERA_RELATIVE_ESTIMATE",
+      "coordinate_frame": "CAM_A_optical",
+      "units": "mm",
+      "method": "opencv_ippe_square",
+      "depth_used": false,
+      "robot_frame_calibrated": false,
+      "contact_offset_calibrated": false,
+      "physical_accuracy_validated": false,
+      "geometry_config_sha256": "26319f6b38c2166c3535fc2da57fe33eac5814fb35cc31c1cf808ee1e70dc75f",
+      "tags": [
+        {
+          "tag_id": 1,
+          "black_square_mm": 60,
+          "size_source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied.",
+          "status": "POSE_ESTIMATED",
+          "center_camera_mm": [
+            -100.25599671165801,
+            117.0361744612912,
+            537.0569632081917
+          ],
+          "camera_from_tag": [
+            [
+              -0.9002454186461482,
+              -0.4352568056811762,
+              -0.010473744069828761,
+              -0.10025599671165801
+            ],
+            [
+              0.29430748404606166,
+              -0.6260942192555528,
+              0.7220728034272283,
+              0.11703617446129119
+            ],
+            [
+              -0.32084465250506927,
+              0.6469602319486094,
+              0.6917377879196005,
+              0.5370569632081917
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "transform_translation_units": "metres",
+          "orientation_ambiguous": false,
+          "reprojection_rms_px": 0.0009139235220417386,
+          "alternative_position_spread_mm": 0.0,
+          "position_std_mm_at_assumed_half_pixel_noise": [
+            0.900957140306072,
+            1.0531653855716432,
+            4.576509342676221
+          ],
+          "coarse_position_only": true,
+          "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+          "uncertainty_excludes": [
+            "print_size",
+            "camera_calibration",
+            "paper_warp",
+            "mounting"
+          ],
+          "candidate_reprojection_rms_px": [
+            0.0009139235220417386,
+            1.7874197368606082
+          ]
+        },
+        {
+          "tag_id": 2,
+          "black_square_mm": 40,
+          "size_source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied.",
+          "status": "POSE_ESTIMATED",
+          "center_camera_mm": [
+            28.691783863605814,
+            61.33790136405149,
+            265.5611914778322
+          ],
+          "camera_from_tag": [
+            [
+              0.21473889448318878,
+              -0.956941509708591,
+              0.19532064456370274,
+              0.028691783863605814
+            ],
+            [
+              0.8808842794775059,
+              0.27613836537637176,
+              0.3844352862793171,
+              0.06133790136405149
+            ],
+            [
+              -0.42181760675146435,
+              0.08950167687763055,
+              0.9022523795870858,
+              0.2655611914778322
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "transform_translation_units": "metres",
+          "orientation_ambiguous": false,
+          "reprojection_rms_px": 0.5865730225397026,
+          "alternative_position_spread_mm": 0.0,
+          "position_std_mm_at_assumed_half_pixel_noise": [
+            0.24042653781215587,
+            0.4289888410361523,
+            1.6040530638104329
+          ],
+          "coarse_position_only": false,
+          "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+          "uncertainty_excludes": [
+            "print_size",
+            "camera_calibration",
+            "paper_warp",
+            "mounting"
+          ],
+          "candidate_reprojection_rms_px": [
+            0.5865730225397026,
+            1.1983038602402347
+          ]
+        },
+        {
+          "tag_id": 3,
+          "black_square_mm": 40,
+          "size_source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied.",
+          "status": "POSITION_ONLY_AMBIGUOUS_ORIENTATION",
+          "center_camera_mm": [
+            162.59188012548327,
+            32.73390917390733,
+            617.5906382413259
+          ],
+          "camera_from_tag": null,
+          "transform_translation_units": "metres",
+          "orientation_ambiguous": true,
+          "reprojection_rms_px": 0.08516221566850639,
+          "alternative_position_spread_mm": 0.7364859865657886,
+          "position_std_mm_at_assumed_half_pixel_noise": [
+            2.4244508888005125,
+            0.5808807563985614,
+            9.11686077026003
+          ],
+          "coarse_position_only": true,
+          "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+          "uncertainty_excludes": [
+            "print_size",
+            "camera_calibration",
+            "paper_warp",
+            "mounting"
+          ],
+          "candidate_reprojection_rms_px": [
+            0.08516221566850639,
+            0.44099545482698305
+          ]
+        }
+      ],
+      "gripper_to_paddle_mm": {
+        "from_tag": 2,
+        "to_tag": 3,
+        "delta_camera_mm": [
+          133.90009626187745,
+          -28.60399219014416,
+          352.0294467634937
+        ],
+        "tag_center_distance_mm": 377.71967851406066,
+        "contact_offset_calibrated": false,
+        "robot_motion_target": false
+      },
+      "camera_calibration": {
+        "camera_id": "oak-1944301091DA1C2E00",
+        "image_size_px": [
+          640,
+          360
+        ],
+        "intrinsics": [
+          [
+            504.89410400390625,
+            0.0,
+            314.7537841796875
+          ],
+          [
+            0.0,
+            504.9738464355469,
+            192.5926513671875
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "projection": "rectified_pinhole",
+        "effective_distortion": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "coordinate_frame": "CAM_A_optical",
+        "lens_position": 79
+      },
+      "calibration_sha256": "16c936bdbc93ec19377815afeb7dd36a5c2e242facb29916f295e6ac7de78c45",
+      "axes": "+x camera right, +y camera down, +z forward"
+    },
+    "same_pose_capture_count": 2,
+    "independent_calibration_poses": 1,
+    "candidate_fk_assembled": true,
+    "single_pose_fit": {
+      "status": "EXPECTED_REJECTION",
+      "reason": "Need at least eight fitting poses and three held-out validation poses",
+      "motor_writes": 0,
+      "transform_produced": false
+    }
+  },
+  "gemma_live_probe": {
+    "model": "google/gemma-4-e4b",
+    "motor_tools_exposed": false,
+    "motor_writes": 0,
+    "calls": [
+      {
+        "name": "robot_get_tags",
+        "arguments": {
+          "cameras": [
+            "oak"
+          ],
+          "include_images": false
+        },
+        "result": {
+          "ok": true,
+          "result": {
+            "schema": 1,
+            "family": "tag36h11",
+            "observations": {
+              "oak": {
+                "status": "OBSERVED",
+                "frame": {
+                  "camera_id": "oak-1944301091DA1C2E00",
+                  "seq": 115564,
+                  "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+                  "sha256": "89bf7af4280887a6b53136db8c7f88fc095fdbd3a24cb12a9374b9ca7f1b8a14",
+                  "captured_at": 1791255871.0293832,
+                  "received_at": null,
+                  "timestamp_basis": "capture",
+                  "age_s_on_observer_clock": 0.7628147602081299,
+                  "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+                  "capture_age_within_limit": true,
+                  "clock_synchronization_verified": false,
+                  "new_since_last_call": true
+                },
+                "image_size_px": [
+                  640,
+                  360
+                ],
+                "tags": [
+                  {
+                    "tag_id": 1,
+                    "role": "table_anchor",
+                    "center_px": [
+                      220.51656497624492,
+                      302.62079618190523
+                    ],
+                    "corners_px": [
+                      [
+                        237.7881164550782,
+                        272.34094238281256
+                      ],
+                      [
+                        185.16291809082034,
+                        291.4741821289063
+                      ],
+                      [
+                        201.28964233398435,
+                        336.32873535156256
+                      ],
+                      [
+                        257.150146484375,
+                        314.1709594726562
+                      ]
+                    ],
+                    "decision_margin": 79.5895004272461,
+                    "hamming": 0,
+                    "shortest_edge_px": 46.09380149859633,
+                    "status": "DETECTED"
+                  },
+                  {
+                    "tag_id": 2,
+                    "role": "gripper",
+                    "center_px": [
+                      368.8402329877759,
+                      309.5026800625238
+                    ],
+                    "corners_px": [
+                      [
+                        324.4254455566406,
+                        283.25265502929676
+                      ],
+                      [
+                        341.7550659179688,
+                        356.7437438964844
+                      ],
+                      [
+                        417.7916259765625,
+                        338.43392944335943
+                      ],
+                      [
+                        395.5563659667968,
+                        262.9052734375
+                      ]
+                    ],
+                    "decision_margin": 47.14847946166992,
+                    "hamming": 0,
+                    "shortest_edge_px": 73.98394269054715,
+                    "status": "DETECTED"
+                  },
+                  {
+                    "tag_id": 3,
+                    "role": "paddle",
+                    "center_px": [
+                      447.65468408646905,
+                      219.39654994942902
+                    ],
+                    "corners_px": [
+                      [
+                        449.50433349609364,
+                        203.562255859375
+                      ],
+                      [
+                        424.48583984375,
+                        214.81983947753903
+                      ],
+                      [
+                        445.7178039550782,
+                        235.97760009765622
+                      ],
+                      [
+                        471.3182373046875,
+                        224.07098388671878
+                      ]
+                    ],
+                    "decision_margin": 68.744873046875,
+                    "hamming": 0,
+                    "shortest_edge_px": 27.434617065895306,
+                    "status": "DETECTED"
+                  }
+                ],
+                "expected_ids": [
+                  1,
+                  2,
+                  3
+                ],
+                "missing_ids": [],
+                "gripper_to_paddle_px": {
+                  "from_tag": 2,
+                  "to_tag": 3,
+                  "units": "pixels",
+                  "dx": 78.81445109869316,
+                  "dy": -90.10613011309476,
+                  "axes": "+x=image right, +y=image down",
+                  "contact_offset_calibrated": false
+                },
+                "pose_3d": {
+                  "status": "CAMERA_RELATIVE_ESTIMATE",
+                  "coordinate_frame": "CAM_A_optical",
+                  "units": "mm",
+                  "method": "opencv_ippe_square",
+                  "depth_used": false,
+                  "robot_frame_calibrated": false,
+                  "contact_offset_calibrated": false,
+                  "physical_accuracy_validated": false,
+                  "geometry_config_sha256": "26319f6b38c2166c3535fc2da57fe33eac5814fb35cc31c1cf808ee1e70dc75f",
+                  "tags": [
+                    {
+                      "tag_id": 1,
+                      "black_square_mm": 60,
+                      "size_source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied.",
+                      "status": "POSE_ESTIMATED",
+                      "center_camera_mm": [
+                        -100.19327711598204,
+                        116.94892867988169,
+                        536.7954938285721
+                      ],
+                      "camera_from_tag": [
+                        [
+                          -0.899888139669206,
+                          -0.4359819386695975,
+                          -0.011003873708606643,
+                          -0.10019327711598204
+                        ],
+                        [
+                          0.29401600680785184,
+                          -0.625112532892256,
+                          0.7230414296302761,
+                          0.11694892867988169
+                        ],
+                        [
+                          -0.3221116635942587,
+                          0.6474210920065298,
+                          0.6907170229562984,
+                          0.5367954938285722
+                        ],
+                        [
+                          0.0,
+                          0.0,
+                          0.0,
+                          1.0
+                        ]
+                      ],
+                      "transform_translation_units": "metres",
+                      "orientation_ambiguous": false,
+                      "reprojection_rms_px": 0.014855802556836814,
+                      "alternative_position_spread_mm": 0.0,
+                      "position_std_mm_at_assumed_half_pixel_noise": [
+                        0.9001387329347489,
+                        1.0520029880180388,
+                        4.572610658548391
+                      ],
+                      "coarse_position_only": true,
+                      "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+                      "uncertainty_excludes": [
+                        "print_size",
+                        "camera_calibration",
+                        "paper_warp",
+                        "mounting"
+                      ],
+                      "candidate_reprojection_rms_px": [
+                        0.014855802556836814,
+                        1.77749606526153
+                      ]
+                    },
+                    {
+                      "tag_id": 2,
+                      "black_square_mm": 40,
+                      "size_source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied.",
+                      "status": "POSE_ESTIMATED",
+                      "center_camera_mm": [
+                        28.693545725310027,
+                        61.33387006283849,
+                        265.561385265097
+                      ],
+                      "camera_from_tag": [
+                        [
+                          0.21365175067685466,
+                          -0.956262216611452,
+                          0.19978864460741336,
+                          0.028693545725310028
+                        ],
+                        [
+                          0.8814849397209903,
+                          0.27686558125277727,
+                          0.3825307189790692,
+                          0.06133387006283849
+                        ],
+                        [
+                          -0.4211142724698333,
+                          0.09438232355115009,
+                          0.9020835585040273,
+                          0.265561385265097
+                        ],
+                        [
+                          0.0,
+                          0.0,
+                          0.0,
+                          1.0
+                        ]
+                      ],
+                      "transform_translation_units": "metres",
+                      "orientation_ambiguous": false,
+                      "reprojection_rms_px": 0.5529897205095705,
+                      "alternative_position_spread_mm": 0.0,
+                      "position_std_mm_at_assumed_half_pixel_noise": [
+                        0.24112080736229585,
+                        0.4289912213982671,
+                        1.6060213419976042
+                      ],
+                      "coarse_position_only": false,
+                      "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+                      "uncertainty_excludes": [
+                        "print_size",
+                        "camera_calibration",
+                        "paper_warp",
+                        "mounting"
+                      ],
+                      "candidate_reprojection_rms_px": [
+                        0.5529897205095705,
+                        1.2262258174098413
+                      ]
+                    },
+                    {
+                      "tag_id": 3,
+                      "black_square_mm": 40,
+                      "size_source": "User confirmed print-kit dimensions unchanged and printed correctly; no separate ruler measurement supplied.",
+                      "status": "POSITION_ONLY_AMBIGUOUS_ORIENTATION",
+                      "center_camera_mm": [
+                        162.67679147179075,
+                        32.71283670870719,
+                        617.8627757339348
+                      ],
+                      "camera_from_tag": null,
+                      "transform_translation_units": "metres",
+                      "orientation_ambiguous": true,
+                      "reprojection_rms_px": 0.07913068484648396,
+                      "alternative_position_spread_mm": 0.7430191517249829,
+                      "position_std_mm_at_assumed_half_pixel_noise": [
+                        2.426748305898202,
+                        0.580890054233253,
+                        9.124884012959878
+                      ],
+                      "coarse_position_only": true,
+                      "precision_note": "Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance",
+                      "uncertainty_excludes": [
+                        "print_size",
+                        "camera_calibration",
+                        "paper_warp",
+                        "mounting"
+                      ],
+                      "candidate_reprojection_rms_px": [
+                        0.07913068484648396,
+                        0.44633500289060424
+                      ]
+                    }
+                  ],
+                  "gripper_to_paddle_mm": {
+                    "from_tag": 2,
+                    "to_tag": 3,
+                    "delta_camera_mm": [
+                      133.98324574648072,
+                      -28.621033354131306,
+                      352.3013904688378
+                    ],
+                    "tag_center_distance_mm": 378.0038933890716,
+                    "contact_offset_calibrated": false,
+                    "robot_motion_target": false
+                  },
+                  "camera_calibration": {
+                    "camera_id": "oak-1944301091DA1C2E00",
+                    "image_size_px": [
+                      640,
+                      360
+                    ],
+                    "intrinsics": [
+                      [
+                        504.89410400390625,
+                        0.0,
+                        314.7537841796875
+                      ],
+                      [
+                        0.0,
+                        504.9738464355469,
+                        192.5926513671875
+                      ],
+                      [
+                        0.0,
+                        0.0,
+                        1.0
+                      ]
+                    ],
+                    "projection": "rectified_pinhole",
+                    "effective_distortion": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "coordinate_frame": "CAM_A_optical",
+                    "lens_position": 79
+                  },
+                  "calibration_sha256": "16c936bdbc93ec19377815afeb7dd36a5c2e242facb29916f295e6ac7de78c45",
+                  "axes": "+x camera right, +y camera down, +z forward"
+                }
+              }
+            },
+            "role_mapping": {
+              "1": "table_anchor",
+              "2": "gripper",
+              "3": "paddle"
+            },
+            "role_mapping_source": "printed_carton_kit_verify_physical_mounting",
+            "coordinate_system": "per_image_pixels_and_per_camera_optical_mm",
+            "depth_used": false,
+            "metric_pose_available": true,
+            "physical_task_completed": false,
+            "observation_id": "d3955caecc6eee3dee778ca9"
+          },
+          "motor_writes": 0
+        },
+        "latency_s": 5.661
+      }
+    ],
+    "answer": "The following measurements were observed from the `oak` camera:\n\n**Visible Tag IDs and Roles:**\n*   Tag ID 1 (Role: `table_anchor`) - Detected.\n*   Tag ID 2 (Role: `gripper`) - Detected.\n*   Tag ID 3 (Role: `paddle`) - Detected.\n\n**Camera-Relative Tag Centre Distances (in millimetres):**\n*   **Tag 1 (`table_anchor`):** [-100.19, 116.95, 536.80] mm\n*   **Tag 2 (`gripper`):** [28.69, 61.33, 265.56] mm\n*   **Tag 3 (`paddle`):** [162.68, 32.71, 617.86] mm\n\n**Gripper-to-Paddle Tag Centre Separation:**\n*   The measured tag center distance between the gripper (Tag 2) and paddle (Tag 3) is **378.00 mm**.\n\n**Sufficiency for Grasp Command:**\nThe data provides the necessary positional information, including the gripper-to-paddle separation. However, it is crucial to note that the measurement includes a `contact_offset_calibrated: false` flag, and the individual tag pose estimates are described as \"Local sensitivity estimate, not a measured accuracy guarantee or grasp clearance.\" Therefore, while the data is present, it does **not** currently suffice to command a grasp due to these stated limitations in calibration and accuracy.",
+    "passed": true
+  },
+  "earlier_probe": {
+    "passed": false,
+    "reason": "Stale/future frame or unsynchronized host clocks",
+    "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-metric/gemma-live-verification.json",
+    "motor_writes": 0
+  },
+  "local_chat_deployment": {
+    "connected": true,
+    "busy": false,
+    "tool_count": 21,
+    "metric_tag_tool_description": "Read AprilTag36h11 measurements from existing robot camera snapshots. Returns pixel centers/corners, quality, missing IDs, frame identity/timing, gripper-to-paddle pixel displacement and annotated images. The marker-kit mapping is 1=table anchor, 2=gripper, 3=paddle; verify physical mounting. Phone receipt time is not capture time. Missing/stale tags are unknown. Pixels are not millimetres, joint directions, jaw contact or grasp proof. Use fresh observations and measured motor results between movements. This tool reads only; it neither authorizes nor performs motor commands. Configured tag widths and matching camera intrinsics also provide camera-relative tag-centre estimates in millimetres, with pose ambiguity and uncertainty. These are not robot-frame coordinates or jaw/contact targets. Inspect pose_3d.status and provenance.",
+    "owner_phase": "stopped",
+    "enabled_motors": [],
+    "all_torque_readbacks_zero": true,
+    "remote_owner_restarted": false
+  },
+  "simulations": [
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-metric/simulation/result.json",
+      "sha256": "e9a9c6c3324fdfdd5a1dbf1539d9319ac7b066311638c2d336f712fb0f6034dc",
+      "image_size_px": [
+        640,
+        480
+      ],
+      "opencv_version": "5.0.0",
+      "passed": false,
+      "nominal_frames": 46,
+      "all_tags_detected_frames": 46,
+      "metric_validation": {
+        "compared_tag_positions": 138,
+        "expected_tag_positions": 138,
+        "max_position_error_mm": 6.718621584197553,
+        "passed": false
+      },
+      "negative_controls": {
+        "occlusion_rejected": true,
+        "duplicate_identity_rejected": true,
+        "undersized_tag_rejected": true,
+        "stale_frame_rejected": true,
+        "hash_mismatch_rejected": true,
+        "reacquired": true,
+        "stop_enforced": true
+      }
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-metric/simulation-1280/result.json",
+      "sha256": "3c2c2ff9eb5ad6d997de648b80427aa2f54bf3ca1e8dda17bf1c652cd03cdae9",
+      "image_size_px": [
+        1280,
+        960
+      ],
+      "opencv_version": "5.0.0",
+      "passed": false,
+      "nominal_frames": 46,
+      "all_tags_detected_frames": 46,
+      "metric_validation": {
+        "compared_tag_positions": 138,
+        "expected_tag_positions": 138,
+        "acceptance_target_mm": 5,
+        "max_position_error_mm": 5.049436124538538,
+        "passed": false
+      },
+      "negative_controls": {
+        "occlusion_rejected": true,
+        "duplicate_identity_rejected": true,
+        "undersized_tag_rejected": true,
+        "stale_frame_rejected": true,
+        "hash_mismatch_rejected": true,
+        "reacquired": true,
+        "stop_enforced": true
+      }
+    },
+    {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-metric/simulation-1920/result.json",
+      "sha256": "9787e2c572707e517d97366a86b852daf289eb350dfc81926d3f56ae3f3696f6",
+      "image_size_px": [
+        1920,
+        1440
+      ],
+      "opencv_version": "4.11.0",
+      "passed": true,
+      "nominal_frames": 46,
+      "all_tags_detected_frames": 46,
+      "metric_validation": {
+        "compared_tag_positions": 138,
+        "expected_tag_positions": 138,
+        "acceptance_target_mm": 5,
+        "max_position_error_mm": 4.731879555283038,
+        "passed": true
+      },
+      "negative_controls": {
+        "occlusion_rejected": true,
+        "duplicate_identity_rejected": true,
+        "undersized_tag_rejected": true,
+        "stale_frame_rejected": true,
+        "hash_mismatch_rejected": true,
+        "reacquired": true,
+        "stop_enforced": true
+      }
+    }
+  ],
+  "verification": {
+    "repository_pytest": {
+      "passed": 583,
+      "skipped": 8
+    },
+    "pilot_unittest": {
+      "passed": 26
+    },
+    "session_client_checks": "passed"
+  },
+  "hardware": {
+    "motor_writes_by_this_work": 0,
+    "owner_phase": "stopped",
+    "root_failure": "Coherent servo read communication failure: -7",
+    "suspected_transaction": "right gripper ID6, address56, length15; inferred from row timestamps and source polling order",
+    "usb_contention_established": false,
+    "diagnostic_logging_implemented": true,
+    "diagnostic_logging_loaded_in_remote_owner": false,
+    "servo_fault_fixed": false
+  },
+  "physical_grasp_validated": false,
+  "remaining": [
+    "Diagnose/recover the latched servo owner using transaction evidence",
+    "Collect at least eight diverse training and three held-out stationary poses",
+    "Validate camera-to-arm registration, physical jaw contact offset and workspace/path",
+    "Validate real camera measurement accuracy before a physical grasp"
+  ],
+  "later_recovery_follow_up": {
+    "recorded_at": "2026-10-06T03:10:30.465680+00:00",
+    "source": "Fresh local chat /api/status after a separate direct user recovery request in Connect Gemma 4 EB to robot",
+    "owner_started": 1791256154.344943,
+    "owner_phase": "idle",
+    "motion_ready": true,
+    "enabled_motors": [],
+    "all16_released": true,
+    "diagnostics_staged_on_remote": true,
+    "remote_hardware_independent_tests_passed": 23,
+    "remote_owner_replaced_by_other_chat": true,
+    "stability_check_in_progress": true,
+    "physical_grasp_validated": false
+  },
+  "registration_data_invalidation": {
+    "recorded_at": "2026-10-06T03:24:30.643234+00:00",
+    "reason": "Earlier captures paired right-mounted tag 2 with left-arm encoder readings and candidate FK. Do not relabel those rows.",
+    "accepted_independent_right_arm_poses": 0,
+    "camera_only_observations_invalidated": false,
+    "correction_evidence": "gemma-right-arm-binding.json"
+  }
+}

@@ -1,0 +1,4 @@
+# Isolated, camera-only environment tested on Apple Silicon macOS.
+depthai==2.33.0.0
+opencv-python==5.0.0.93
+numpy==2.5.3

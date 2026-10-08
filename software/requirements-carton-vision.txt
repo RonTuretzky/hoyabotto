@@ -1,0 +1,5 @@
+# Optional isolated camera/tag tools. No LeRobot, training stack or DepthAI needed.
+# Run from software/ with this environment's Python; do not replace the live robot env.
+numpy==2.2.6
+opencv-python==5.0.0.93
+pupil-apriltags==1.0.4.post11

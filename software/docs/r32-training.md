@@ -1,9 +1,11 @@
-# R3.2 training preparation
+# R3.3 training preparation
 
-This package is prepared offline. No R3.2 model has been trained, and no robot
-commands have run. The R3.2 parts are pinned by SHA-256 in
-`profiles/r32-assembly-v0.json`; they match the open-front basket, deeper
-reservoir and four-tab retainer shown in the deck.
+The existing `r32` Python entrypoint and profile filenames are retained for compatibility. The active profile, exact part hashes, metadata revision and new data/r33 directory now target R3.3. R3.2 recordings are not interchangeable.
+
+This package is prepared offline. No R3.3 model has been trained, and no robot
+commands have run. The R3.3 parts are pinned by SHA-256 in
+`profiles/r32-assembly-v0.json`; they match the open-front basket, wider, lower-seating
+reservoir and heavier four-tab gravity retainer shown in the deck.
 
 ## Prepared now
 
@@ -33,9 +35,9 @@ Run from `software/` using the existing environment:
 
 ```sh
 .venv/bin/python -m farm.assembly.r32
-.venv/bin/python -m farm.assembly.r32 --rehearse --out data/r32/rehearsals/no-ring.json
-.venv/bin/python -m farm.assembly.r32 --rehearse --with-retainer --out data/r32/rehearsals/with-ring.json
-.venv/bin/python -m farm.assembly.r32 --rehearse --fault double_cloth --out data/r32/rehearsals/double-cloth.json
+.venv/bin/python -m farm.assembly.r32 --rehearse --out data/r33/rehearsals/no-ring.json
+.venv/bin/python -m farm.assembly.r32 --rehearse --with-retainer --out data/r33/rehearsals/with-ring.json
+.venv/bin/python -m farm.assembly.r32 --rehearse --fault double_cloth --out data/r33/rehearsals/double-cloth.json
 .venv/bin/python -m pytest -q tests/test_r32_preparation.py
 ```
 
@@ -49,11 +51,11 @@ Start with `PLACE_RESERVOIR`, dry: side-fin grasp, lift, level transfer, stable
 seating, verified release. Then prepare basket handling, cloth placement, grow pad,
 tail guidance, optional ring, loaded basket transfer and final dry verification.
 Wetting/filling is a separate fixed-station integration, not part of this initial
-arm policy. The optional ring's release gap is not a measured motion.
+arm policy. The ring has a rear pickup handle. Fully seat it, confirm support, then open above the rim and retreat vertically; no drop and no latch. Real grip force and jaw clearance remain unmeasured.
 
 Keep the existing robot-driven visual-teaching approach; no manual teleoperation
 is introduced here. The R2a executor contract and watering commands have different
-parts/stages and must not be used as an R3.2 executor.
+parts/stages and must not be used as an R3.3 executor.
 
 ## What waits for the connected Mac
 
@@ -63,7 +65,7 @@ measured fixture frames, printed-part fit, actual gripper thresholds, and usable
 approach/release paths. Keep the base parked and existing hardware limits intact.
 None of those measurements is inferred from a Blender pose or STL coordinate.
 
-A live R3.2 observer/executor adapter still needs to be connected to the existing
+A live R3.3 observer/executor adapter still needs to be connected to the existing
 bounded visual-teaching controller and STOP/watchdog handling. The preparation
 here supplies the state/evidence contract and recorder API, not that hardware
 integration. The adapter must retain torque/hold behavior for an uncertain held
@@ -115,25 +117,25 @@ traces, Blender renders or synthetic images into this physical recording path.
 
 ```sh
 # Prints the exact optimizer command and selected indices; does not train.
-.venv/bin/python -m farm.learning.r32_train --stage PLACE_RESERVOIR --output data-train/r32-reservoir-v0
+.venv/bin/python -m farm.learning.r32_train --stage PLACE_RESERVOIR --output data-train/r33-reservoir-v0
 # When dataset validation succeeds, start the offline optimizer.
-.venv/bin/python -m farm.learning.r32_train --stage PLACE_RESERVOIR --output data-train/r32-reservoir-v0 --launch
+.venv/bin/python -m farm.learning.r32_train --stage PLACE_RESERVOIR --output data-train/r33-reservoir-v0 --launch
 ```
 
-With no R3.2 recordings, this reports `WAITING_FOR_R3.2_RECORDINGS` and exits 2.
+With no R3.3 recordings, this reports `WAITING_FOR_R3.3_RECORDINGS` and exits 2.
 Defaults: ACT, MPS, 5,000 steps, batch size 8. These are starting experiment settings,
 not a promised data requirement or success threshold. Choose a new output name
 for each experiment; no checkpoints or training subsets are overwritten.
 
-The frozen selection is `data-train/r32-reservoir-v0.selection.json`; the optimizer
+The frozen selection is `data-train/r33-reservoir-v0.selection.json`; the optimizer
 log sits beside it. The training-only dataset is in
-`data-train/r32-reservoir-v0.datasets/train`. It reindexes original episode IDs;
+`data-train/r33-reservoir-v0.datasets/train`. It reindexes original episode IDs;
 the manifest records that mapping and the copied dataset hashes.
 
 ```sh
-.venv/bin/python -m farm.learning.r32_evaluate --selection data-train/r32-reservoir-v0.selection.json --checkpoint data-train/r32-reservoir-v0 --split val --out data-train/r32-reservoir-v0.val.json
+.venv/bin/python -m farm.learning.r32_evaluate --selection data-train/r33-reservoir-v0.selection.json --checkpoint data-train/r33-reservoir-v0 --split val --out data-train/r33-reservoir-v0.val.json
 # Use the reserved test sessions after model selection is finished.
-.venv/bin/python -m farm.learning.r32_evaluate --selection data-train/r32-reservoir-v0.selection.json --checkpoint data-train/r32-reservoir-v0 --split test --out data-train/r32-reservoir-v0.test.json
+.venv/bin/python -m farm.learning.r32_evaluate --selection data-train/r33-reservoir-v0.selection.json --checkpoint data-train/r33-reservoir-v0 --split test --out data-train/r33-reservoir-v0.test.json
 ```
 
 Evaluation verifies the frozen dataset, split and checkpoint training selection.
@@ -143,7 +145,7 @@ validation is still required before autonomous use.
 
 ## Transfer
 
-The code and [connected-Mac handoff](r32-handoff.md) are also committed to the
+The code and [connected-Mac handoff](r33-handoff.md) are also committed to the
 project repository. Prefer a clean fast-forward update that preserves the robot
 Mac’s local work. Do not apply the transfer patch after pulling those same changes.
 

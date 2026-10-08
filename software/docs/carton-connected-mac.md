@@ -1,5 +1,12 @@
 # Carton task: handoff to the Mac connected to the robot
 
+**For the current no-demonstration route, start with
+[measured visual control](carton-visual-controller.md) and its
+[upstream comparison](carton-upstream-review.md).** The checkpoint/teaching
+workflow below is historical context. Legacy physical Cartesian/LLM teaching
+now refuses because its geometric and normalized motor units were mixed.
+The new route first commissions local alignment; grasping/folding remain unvalidated.
+
 Updated October 4, 2026. Start here for **box closing**, separate from watering and R2a planter assembly.
 The immediate goal is to install the published checkpoint, verify it without motors, preserve the
 robot's existing calibration, and establish the real station. Physical carton execution is unvalidated.
@@ -199,7 +206,7 @@ The October 4 follow-up resolves these teaching CLI gaps:
   software sequence now, but still needs physical testing with a marked strip and an already-closed box.
 
 Then teach and verify one pose/step at a time with STOP and physical power cutoff available. Preserve
-the existing step/temperature/load limits. Reset the carton as needed; never use simulator keyframes
+the existing step/load limits. Reset the carton as needed; never use simulator keyframes
 as real poses. Once all prerequisites and actual observations pass, the single-cycle command is:
 
 ```sh

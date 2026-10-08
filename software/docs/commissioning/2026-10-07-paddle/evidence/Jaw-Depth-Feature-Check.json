@@ -1,0 +1,67 @@
+{
+  "status": "UNVALIDATED_JAW_DEPTH_FEATURES",
+  "features": [
+    {
+      "feature": "fixed_jaw_tip",
+      "pixel": [
+        559,
+        179
+      ],
+      "valid_fraction": 1.0,
+      "depth_p10_p90_mm": [
+        371.0,
+        375.0
+      ],
+      "depth_median_mm": 371.0,
+      "point_in_tag2_frame_mm": [
+        -74.76796768080963,
+        2.2504730729287448,
+        15.839870936971302
+      ]
+    },
+    {
+      "feature": "fixed_jaw_inner_surface",
+      "pixel": [
+        548,
+        215
+      ],
+      "valid_fraction": 0.9591836734693877,
+      "depth_p10_p90_mm": [
+        367.0,
+        371.0
+      ],
+      "depth_median_mm": 367.0,
+      "point_in_tag2_frame_mm": [
+        -47.175275723193735,
+        -1.2290909332225466,
+        12.814798847767907
+      ]
+    },
+    {
+      "feature": "moving_jaw_inner_surface",
+      "pixel": [
+        574,
+        218
+      ],
+      "valid_fraction": 1.0,
+      "depth_p10_p90_mm": [
+        355.0,
+        355.0
+      ],
+      "depth_median_mm": 355.0,
+      "point_in_tag2_frame_mm": [
+        -49.41916931910659,
+        -16.34179362691199,
+        21.076689162186593
+      ]
+    }
+  ],
+  "contact_point_validated": false,
+  "motor_writes": 0,
+  "limitations": [
+    "Manual RGB feature selection",
+    "RGB/depth alignment not independently commissioned",
+    "Edge depth can combine jaw and background",
+    "No CAD fit or contact-centre verification"
+  ]
+}

@@ -1,0 +1,308 @@
+{
+  "revision": "R3.3",
+  "status": "CAD only; R3.3 physical fit, print and grasp untested",
+  "parts": {
+    "reservoir": {
+      "dimensions_mm": [
+        152.0,
+        94.0,
+        45.0
+      ],
+      "bounds_mm": [
+        [
+          -76.0,
+          -47.0,
+          0.0
+        ],
+        [
+          76.0,
+          47.0,
+          45.0
+        ]
+      ],
+      "watertight": true,
+      "components": 1,
+      "volume_mm3": 98686.0,
+      "downward_area_beyond_45_deg_mm2": 0.0,
+      "sha256": "5745d599e849447134b0bf4429c705dd5ded043a207de2baf854c7c0cbf454a8"
+    },
+    "basket": {
+      "dimensions_mm": [
+        132.0,
+        85.869,
+        38.0
+      ],
+      "bounds_mm": [
+        [
+          -66.0,
+          -42.869,
+          0.0
+        ],
+        [
+          66.0,
+          43.0,
+          38.0
+        ]
+      ],
+      "watertight": true,
+      "components": 1,
+      "volume_mm3": 31914.398032601242,
+      "downward_area_beyond_45_deg_mm2": 0.0,
+      "sha256": "f1f5ee7ee10b72f97859644417b335ff7ca21d8c73b41cc8d23260229f06df81"
+    },
+    "retainer": {
+      "dimensions_mm": [
+        118.6,
+        72.6,
+        34.0
+      ],
+      "bounds_mm": [
+        [
+          -59.3,
+          -36.3,
+          0.0
+        ],
+        [
+          59.3,
+          36.3,
+          34.0
+        ]
+      ],
+      "watertight": true,
+      "components": 1,
+      "volume_mm3": 13967.068907598275,
+      "downward_area_beyond_45_deg_mm2": 0.0,
+      "sha256": "b22136d93e1adc97ffde374dfecd30bb7cbe3c0d45f028f75aea5a10e8386b88"
+    },
+    "plate": {
+      "dimensions_mm": [
+        152.0,
+        196.3,
+        45.0
+      ],
+      "bounds_mm": [
+        [
+          34.0,
+          11.7,
+          0.0
+        ],
+        [
+          186.0,
+          208.0,
+          45.0
+        ]
+      ],
+      "watertight": true,
+      "components": 2,
+      "volume_mm3": 112653.0728250405,
+      "downward_area_beyond_45_deg_mm2": 0.0,
+      "sha256": "3de4b884b52c1123288704ec3d7ce00689941de5baaba02a05d466809e949931"
+    },
+    "assembly": {
+      "dimensions_mm": [
+        152.0,
+        94.0,
+        68.4
+      ],
+      "bounds_mm": [
+        [
+          -76.0,
+          -47.0,
+          0.0
+        ],
+        [
+          76.0,
+          47.0,
+          68.4
+        ]
+      ],
+      "watertight": true,
+      "components": 2,
+      "volume_mm3": 144567.46441517235,
+      "downward_area_beyond_45_deg_mm2": 4078.922720639108,
+      "sha256": "71f416dae68f2508b4588685ac86cf7b12defd7590c0aea47c89f5682cfb6cbf"
+    }
+  },
+  "collisions": {
+    "basket_lower_0.0": 0,
+    "retainer_lower_0.0": 0,
+    "basket_lower_1.0": 0,
+    "retainer_lower_1.0": 0,
+    "basket_lower_2.0": 0,
+    "retainer_lower_2.0": 0,
+    "basket_lower_3.0": 0,
+    "retainer_lower_3.0": 0,
+    "basket_lower_4.0": 0,
+    "retainer_lower_4.0": 0,
+    "basket_lower_5.0": 0,
+    "retainer_lower_5.0": 0,
+    "basket_lower_6.0": 0,
+    "retainer_lower_6.0": 0,
+    "basket_lower_7.0": 0,
+    "retainer_lower_7.0": 0,
+    "basket_lower_8.0": 0,
+    "retainer_lower_8.0": 0,
+    "basket_lower_9.0": 0,
+    "retainer_lower_9.0": 0,
+    "basket_lower_10.0": 0,
+    "retainer_lower_10.0": 0,
+    "basket_lower_11.0": 0,
+    "retainer_lower_11.0": 0,
+    "basket_lower_12.0": 0,
+    "retainer_lower_12.0": 0,
+    "basket_lower_13.0": 0,
+    "retainer_lower_13.0": 0,
+    "basket_lower_14.0": 0,
+    "retainer_lower_14.0": 0,
+    "basket_lower_15.0": 0,
+    "retainer_lower_15.0": 0,
+    "basket_lower_16.0": 0,
+    "retainer_lower_16.0": 0,
+    "basket_lower_17.0": 0,
+    "retainer_lower_17.0": 0,
+    "basket_lower_18.0": 0,
+    "retainer_lower_18.0": 0,
+    "basket_lower_19.0": 0,
+    "retainer_lower_19.0": 0,
+    "basket_lower_20.0": 0,
+    "retainer_lower_20.0": 0,
+    "basket_lower_21.0": 0,
+    "retainer_lower_21.0": 0,
+    "basket_lower_22.0": 0,
+    "retainer_lower_22.0": 0,
+    "basket_lower_23.0": 0,
+    "retainer_lower_23.0": 0,
+    "basket_lower_24.0": 0,
+    "retainer_lower_24.0": 0,
+    "basket_lower_25.0": 0,
+    "retainer_lower_25.0": 0,
+    "basket_lower_26.0": 0,
+    "retainer_lower_26.0": 0,
+    "basket_lower_27.0": 0,
+    "retainer_lower_27.0": 0,
+    "basket_lower_28.0": 0,
+    "retainer_lower_28.0": 0,
+    "basket_lower_29.0": 0,
+    "retainer_lower_29.0": 0,
+    "basket_lower_30.0": 0,
+    "retainer_lower_30.0": 0,
+    "basket_lower_31.0": 0,
+    "retainer_lower_31.0": 0,
+    "basket_lower_32.0": 0,
+    "retainer_lower_32.0": 0,
+    "basket_lower_33.0": 0,
+    "retainer_lower_33.0": 0,
+    "basket_lower_34.0": 0,
+    "retainer_lower_34.0": 0,
+    "basket_lower_35.0": 0,
+    "retainer_lower_35.0": 0,
+    "basket_lower_36.0": 0,
+    "retainer_lower_36.0": 0,
+    "basket_lower_37.0": 0,
+    "retainer_lower_37.0": 0,
+    "basket_lower_38.0": 0,
+    "retainer_lower_38.0": 0,
+    "basket_lower_39.0": 0,
+    "retainer_lower_39.0": 0,
+    "basket_lower_40.0": 0,
+    "retainer_lower_40.0": 0,
+    "basket_lower_41.0": 0,
+    "retainer_lower_41.0": 0,
+    "basket_lower_42.0": 0,
+    "retainer_lower_42.0": 0,
+    "basket_lower_43.0": 0,
+    "retainer_lower_43.0": 0,
+    "basket_lower_44.0": 0,
+    "retainer_lower_44.0": 0,
+    "basket_lower_45.0": 0,
+    "retainer_lower_45.0": 0,
+    "basket_lower_46.0": 0,
+    "retainer_lower_46.0": 0,
+    "basket_lower_47.0": 0,
+    "retainer_lower_47.0": 0,
+    "basket_lower_48.0": 0,
+    "retainer_lower_48.0": 0,
+    "basket_lower_49.0": 0,
+    "retainer_lower_49.0": 0,
+    "basket_lower_50.0": 0,
+    "retainer_lower_50.0": 0,
+    "basket_lower_51.0": 0,
+    "retainer_lower_51.0": 0,
+    "basket_lower_52.0": 0,
+    "retainer_lower_52.0": 0,
+    "basket_lower_53.0": 0,
+    "retainer_lower_53.0": 0,
+    "basket_lower_54.0": 0,
+    "retainer_lower_54.0": 0,
+    "basket_lower_55.0": 0,
+    "retainer_lower_55.0": 0,
+    "basket_lower_56.0": 0,
+    "retainer_lower_56.0": 0,
+    "basket_lower_57.0": 0,
+    "retainer_lower_57.0": 0,
+    "basket_lower_58.0": 0,
+    "retainer_lower_58.0": 0,
+    "basket_lower_59.0": 0,
+    "retainer_lower_59.0": 0,
+    "basket_lower_60.0": 0,
+    "retainer_lower_60.0": 0,
+    "cloth_route_reservoir": 0,
+    "cloth_route_basket": 0,
+    "cloth_route_ring": 0,
+    "opening_jaw-1_basket": 0,
+    "opening_jaw-1_reservoir": 0,
+    "opening_jaw-1_ring": 0.0,
+    "retreat_jaw-1_basket": 0,
+    "retreat_jaw-1_reservoir": 0,
+    "retreat_jaw-1_ring": 0,
+    "lowering_jaw-1_basket": 0,
+    "lowering_jaw-1_reservoir": 0,
+    "lowering_jaw-1_ring": 0.0,
+    "opening_jaw1_basket": 0,
+    "opening_jaw1_reservoir": 0,
+    "opening_jaw1_ring": 0.0,
+    "retreat_jaw1_basket": 0,
+    "retreat_jaw1_reservoir": 0,
+    "retreat_jaw1_ring": 0,
+    "lowering_jaw1_basket": 0,
+    "lowering_jaw1_reservoir": 0,
+    "lowering_jaw1_ring": 0.0,
+    "palm_basket": 0,
+    "palm_ring": 0,
+    "wrist_basket": 0,
+    "wrist_ring": 0
+  },
+  "assembly": {
+    "basket_floor_z_mm": 27,
+    "basket_rim_z_mm": 45,
+    "reservoir_rim_z_mm": 45,
+    "opening_mm": [
+      134,
+      88
+    ],
+    "retainer_z_mm": 34.4,
+    "cloth_thickness_assumption_mm": 2,
+    "grow_pad_thickness_assumption_mm": 3,
+    "cloth_bottom_z_mm": 29.4
+  },
+  "retainer": {
+    "handle_mm": [
+      16,
+      6,
+      34
+    ],
+    "jaw_tip_clearance_above_rear_rim_mm": 13.4,
+    "pad_coverage_mm2": 64.0,
+    "retention": "Gravity seated; no latch. Print retainer solid. Mass is an estimate, not proof of mat retention.",
+    "estimated_solid_mass_g_at_1_2_g_cm3": 16.76,
+    "solid_density_assumption_g_cm3": 1.2
+  },
+  "plate": {
+    "minimum_edge_margin_mm": 11.699999809265137
+  },
+  "physical_feedback": {
+    "revision": "R3.2",
+    "user_report": "Print finished; basket perched too high on three rests; retainer too light and lacks grip",
+    "response": "Wider reservoir; 8 mm lower seating; raised handle; heavier solid gravity ring; reservoir and ring revised; existing R3.2 basket can be reused"
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "schema": 1,
+  "date": "2026-10-06",
+  "status": "SIMULATED_CALIBRATION_AND_USE_PASSED",
+  "physical_motor_writes": 0,
+  "physical_registration_validated": false,
+  "physical_grasp_validated": false,
+  "full_local_run": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-e2e/calibration-use-04",
+  "full_result_sha256": "595d5ace2621b824ab7043771faef2a501d204e207ee51beae6796a1ffb333cf",
+  "simulation_source_sha256": "757e80e079c0a8c628d09a547f159ab7d9788d91afc7a7736e895f196e9f0eef",
+  "robot_model": {
+    "solver": "lerobot.model.kinematics.RobotKinematics",
+    "lerobot": "0.6.1",
+    "placo": "0.9.15",
+    "model_repository": "TheRobotStudio/SO-ARM100",
+    "model_revision": "5f6d2b876a53a4872e405b991dd925556c9e38a4",
+    "frame": "gripper_frame_link"
+  },
+  "camera_resolution_px": [
+    1920,
+    1440
+  ],
+  "calibration_residuals": {
+    "train": {
+      "count": 8,
+      "position_rms_mm": 1.0310765534246524,
+      "position_max_mm": 1.7509867718712573,
+      "orientation_max_degrees": 0.08560205611641204
+    },
+    "validation": {
+      "count": 3,
+      "position_rms_mm": 0.6370362449702204,
+      "position_max_mm": 0.8847873264429743,
+      "orientation_max_degrees": 0.1068344423592258
+    }
+  },
+  "calibration_command_count": 78,
+  "calibration_path_ticks": 1247,
+  "calibration_cleanup": {
+    "release_confirmed": true,
+    "owner_started": 999.0
+  },
+  "calibration_arm_table_penetration_mm": 0,
+  "independent_camera_transform_error": {
+    "position_mm": 8.601458164692756,
+    "orientation_degrees": 0.9277503310245302
+  },
+  "trials": [
+    {
+      "name": "nominal",
+      "paddle_displacement_m": [
+        0,
+        0,
+        0
+      ],
+      "close_jaw": true,
+      "target_from_registered_tag_m": [
+        0.3837117851588446,
+        0.03056886643685723,
+        -0.058834172539888145
+      ],
+      "independent_true_handle_m": [
+        0.38000000891702224,
+        0.025000024242456613,
+        -0.05700104525103376
+      ],
+      "handle_estimation_error_mm": 6.938994301239631,
+      "lift_and_hold_verified": true,
+      "release_verified": true,
+      "passed": true,
+      "lift_hold": [
+        {
+          "step": "lift",
+          "clearance_mm": 64.5,
+          "contact_geoms": [
+            "moving_jaw_so101_v1_part_17",
+            "wrist_roll_follower_so101_v1_part_3"
+          ]
+        },
+        {
+          "step": "hold",
+          "clearance_mm": 64.63,
+          "contact_geoms": [
+            "moving_jaw_so101_v1_part_17",
+            "wrist_roll_follower_so101_v1_part_3"
+          ]
+        }
+      ],
+      "maximum_arm_table_penetration_mm": 0.0
+    },
+    {
+      "name": "moved_paddle",
+      "paddle_displacement_m": [
+        0.005,
+        0.015,
+        0
+      ],
+      "close_jaw": true,
+      "target_from_registered_tag_m": [
+        0.388719664937329,
+        0.04550319385707856,
+        -0.05876749787050672
+      ],
+      "independent_true_handle_m": [
+        0.38500001202888595,
+        0.040000035967739,
+        -0.05700048901543723
+      ],
+      "handle_estimation_error_mm": 6.873345968899215,
+      "lift_and_hold_verified": true,
+      "release_verified": true,
+      "passed": true,
+      "lift_hold": [
+        {
+          "step": "lift",
+          "clearance_mm": 62.79,
+          "contact_geoms": [
+            "moving_jaw_so101_v1_part_17",
+            "wrist_roll_follower_so101_v1_part_3"
+          ]
+        },
+        {
+          "step": "hold",
+          "clearance_mm": 62.51,
+          "contact_geoms": [
+            "moving_jaw_so101_v1_part_17",
+            "wrist_roll_follower_so101_v1_part_3"
+          ]
+        }
+      ],
+      "maximum_arm_table_penetration_mm": 0.067
+    },
+    {
+      "name": "open_jaw_negative",
+      "paddle_displacement_m": [
+        0,
+        0,
+        0
+      ],
+      "close_jaw": false,
+      "target_from_registered_tag_m": [
+        0.3837117851588446,
+        0.03056886643685723,
+        -0.058834172539888145
+      ],
+      "independent_true_handle_m": [
+        0.38000000891702224,
+        0.025000024242456613,
+        -0.05700104525103376
+      ],
+      "handle_estimation_error_mm": 6.938994301239631,
+      "lift_and_hold_verified": false,
+      "release_verified": true,
+      "passed": true,
+      "lift_hold": [
+        {
+          "step": "lift",
+          "clearance_mm": -0.0,
+          "contact_geoms": [
+            "table",
+            "wrist_roll_follower_so101_v1_part_3"
+          ]
+        },
+        {
+          "step": "hold",
+          "clearance_mm": -0.0,
+          "contact_geoms": [
+            "table",
+            "wrist_roll_follower_so101_v1_part_3"
+          ]
+        }
+      ],
+      "maximum_arm_table_penetration_mm": 0.0
+    }
+  ],
+  "limitations": [
+    "Illustrative station/camera geometry, assumed friction 0.8 and paddle mass 30g",
+    "Encoder quantization modeled; USB, servo loads, torque release and watchdog electronics are fixtures",
+    "Ground truth used only to evaluate error and contact, not to choose targets",
+    "Simulated mount offset must not be copied to the physical paddle without measurement",
+    "Paddle/table compliant-contact penetration reached about 2.8 mm during closing",
+    "Live 640x360 camera accuracy not validated by the 1920x1440 rendered test"
+  ],
+  "live_installed_catalog": {
+    "busy": false,
+    "connected": true,
+    "model": "google/gemma-4-e4b",
+    "tool_names": [
+      "robot_list_motors",
+      "robot_set_motor_enable",
+      "robot_move_motor_targets",
+      "robot_get_state",
+      "robot_get_cameras",
+      "robot_get_capabilities",
+      "robot_get_depth",
+      "robot_get_handoff",
+      "robot_get_readiness",
+      "robot_get_keyframes",
+      "robot_get_skills",
+      "robot_get_evidence",
+      "robot_get_execution",
+      "robot_stop",
+      "robot_move_joint_targets",
+      "robot_move_head",
+      "robot_set_gripper",
+      "robot_move_base",
+      "robot_plan_reach",
+      "robot_get_arm_pose",
+      "robot_get_tags",
+      "robot_calibration_status",
+      "robot_get_registered_tags",
+      "robot_calibrate_tags"
+    ]
+  },
+  "live_gemma_read_only_probe": {
+    "model": "google/gemma-4-e4b",
+    "motor_tools_exposed": false,
+    "motor_writes": 0,
+    "calls": [
+      {
+        "name": "robot_get_registered_tags",
+        "result": {
+          "ok": false,
+          "result": {
+            "error": "[Errno 2] No such file or directory: '/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/.private/tag-registration.json'",
+            "automatic_retry": false
+          }
+        }
+      }
+    ],
+    "answer": "The system reported an error (`[Errno 2] No such file or directory`) when trying to access the tag registration file. Therefore, a validated registration is not currently installed or accessible.",
+    "passed": true
+  },
+  "tests": {
+    "repository_passed": 646,
+    "repository_skipped": 8,
+    "pilot_passed": 26
+  },
+  "live_readiness": {
+    "status": "BLOCKED",
+    "blockers": [
+      "Owner is not motion-ready: ['OWNER_STATUS_STALE', 'OWNER_BUSY_OR_STOP_LATCHED: stopped', 'AUTHORIZED_INTERFACE_NOT_AVAILABLE']",
+      "Need table tag 1 and gripper tag 2 in the same view",
+      "Need confirmed matching fixed gripper-tag mounting"
+    ],
+    "detected_tag_ids": [
+      1
+    ],
+    "tag_2_border_clearance_px": null,
+    "tag_2_mount": null,
+    "frame": {
+      "camera_id": "oak-1944301091DA1C2E00",
+      "seq": 179362,
+      "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+      "sha256": "410a9b65986a0b07bd0203d6e1fea26a8e502a72af66d0f18c135ccde992800e",
+      "captured_at": 1791260127.0649698,
+      "received_at": null,
+      "timestamp_basis": "capture",
+      "age_s_on_observer_clock": 0.3163752555847168,
+      "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+      "capture_age_within_limit": true,
+      "clock_synchronization_verified": false,
+      "new_since_last_call": true
+    }
+  },
+  "latest_camera_check": {
+    "local_image": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-e2e/latest-tags/annotated-0.jpg",
+    "frame": {
+      "camera_id": "oak-1944301091DA1C2E00",
+      "seq": 179742,
+      "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+      "sha256": "83f7b6d863cf119b25f5602213bb04bd5d15f177716870c4640b6f8e5d24991e",
+      "captured_at": 1791260152.3955612,
+      "received_at": null,
+      "timestamp_basis": "capture",
+      "age_s_on_observer_clock": 0.7410097122192383,
+      "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+      "capture_age_within_limit": true,
+      "clock_synchronization_verified": false,
+      "new_since_last_call": true
+    },
+    "tag_status": [
+      {
+        "tag_id": 1,
+        "role": "table_anchor",
+        "center_px": [
+          143.16922853644093,
+          188.93754888868992
+        ],
+        "corners_px": [
+          [
+            159.3983917236328,
+            169.99716186523438
+          ],
+          [
+            116.95317077636723,
+            183.14141845703125
+          ],
+          [
+            125.7194290161133,
+            209.30249023437497
+          ],
+          [
+            170.3974456787109,
+            194.95745849609375
+          ]
+        ],
+        "decision_margin": 77.01390075683594,
+        "hamming": 0,
+        "shortest_edge_px": 27.276282661081385,
+        "status": "DETECTED"
+      },
+      {
+        "tag_id": 3,
+        "role": "paddle",
+        "center_px": [
+          330.8600565016128,
+          131.0851791820962
+        ],
+        "corners_px": [
+          [
+            334.9039001464843,
+            120.79852294921875
+          ],
+          [
+            313.0229187011718,
+            128.6552886962891
+          ],
+          [
+            326.7998046875,
+            141.41357421875
+          ],
+          [
+            348.997314453125,
+            133.5559539794922
+          ]
+        ],
+        "decision_margin": 55.688377380371094,
+        "hamming": 0,
+        "shortest_edge_px": 18.777018851588807,
+        "status": "REJECTED",
+        "reason": "Need hamming=0, decision margin>=30 and shortest edge>=24px"
+      }
+    ],
+    "visual_inspection": "Tag 2 on the right gripper has its lower edge outside the current image. Earlier fully visible frame was a different observation."
+  },
+  "pilot_runtime": {
+    "lerobot": "0.6.1",
+    "placo": "0.9.15",
+    "numpy": "2.2.6",
+    "opencv": "4.11.0",
+    "calibrateHandEye_available": true,
+    "fk_shape": [
+      4,
+      4
+    ]
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "frames": [
+    {
+      "status": "DEPTH_TAG_CONSISTENCY_CHECK",
+      "rows": [
+        {
+          "tag_id": 2,
+          "tag_pose_z_mm": 364.8203566932194,
+          "depth_patch_median_mm": 371.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 6.1796433067805765
+        },
+        {
+          "tag_id": 3,
+          "tag_pose_z_mm": 528.9752079840255,
+          "depth_patch_median_mm": 533.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 4.024792015974526
+        }
+      ],
+      "provider_alignment_verified": false,
+      "method": "tag-centre 11x11 depth patch compared with RGB tag pose",
+      "limitations": [
+        "Tag depth estimates depend on user-confirmed printed size",
+        "Single scene consistency does not establish physical depth accuracy",
+        "No contact offsets established"
+      ],
+      "motor_writes": 0
+    },
+    {
+      "status": "DEPTH_TAG_CONSISTENCY_CHECK",
+      "rows": [
+        {
+          "tag_id": 2,
+          "tag_pose_z_mm": 364.9733534258875,
+          "depth_patch_median_mm": 367.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 2.026646574112476
+        },
+        {
+          "tag_id": 3,
+          "tag_pose_z_mm": 528.7379107353553,
+          "depth_patch_median_mm": 533.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 4.262089264644715
+        }
+      ],
+      "provider_alignment_verified": false,
+      "method": "tag-centre 11x11 depth patch compared with RGB tag pose",
+      "limitations": [
+        "Tag depth estimates depend on user-confirmed printed size",
+        "Single scene consistency does not establish physical depth accuracy",
+        "No contact offsets established"
+      ],
+      "motor_writes": 0
+    },
+    {
+      "status": "DEPTH_TAG_CONSISTENCY_CHECK",
+      "rows": [
+        {
+          "tag_id": 2,
+          "tag_pose_z_mm": 364.8747898827256,
+          "depth_patch_median_mm": 367.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 2.125210117274378
+        },
+        {
+          "tag_id": 3,
+          "tag_pose_z_mm": 529.1235978598451,
+          "depth_patch_median_mm": 533.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 3.876402140154937
+        }
+      ],
+      "provider_alignment_verified": false,
+      "method": "tag-centre 11x11 depth patch compared with RGB tag pose",
+      "limitations": [
+        "Tag depth estimates depend on user-confirmed printed size",
+        "Single scene consistency does not establish physical depth accuracy",
+        "No contact offsets established"
+      ],
+      "motor_writes": 0
+    },
+    {
+      "status": "DEPTH_TAG_CONSISTENCY_CHECK",
+      "rows": [
+        {
+          "tag_id": 2,
+          "tag_pose_z_mm": 364.8421119778401,
+          "depth_patch_median_mm": 367.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 2.1578880221599093
+        },
+        {
+          "tag_id": 3,
+          "tag_pose_z_mm": 529.2798713639147,
+          "depth_patch_median_mm": 533.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 3.720128636085292
+        }
+      ],
+      "provider_alignment_verified": false,
+      "method": "tag-centre 11x11 depth patch compared with RGB tag pose",
+      "limitations": [
+        "Tag depth estimates depend on user-confirmed printed size",
+        "Single scene consistency does not establish physical depth accuracy",
+        "No contact offsets established"
+      ],
+      "motor_writes": 0
+    },
+    {
+      "status": "DEPTH_TAG_CONSISTENCY_CHECK",
+      "rows": [
+        {
+          "tag_id": 2,
+          "tag_pose_z_mm": 364.84290139761555,
+          "depth_patch_median_mm": 363.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": -1.8429013976155488
+        },
+        {
+          "tag_id": 3,
+          "tag_pose_z_mm": 529.1485778183746,
+          "depth_patch_median_mm": 533.0,
+          "depth_valid_fraction": 1.0,
+          "disagreement_mm": 3.8514221816253666
+        }
+      ],
+      "provider_alignment_verified": false,
+      "method": "tag-centre 11x11 depth patch compared with RGB tag pose",
+      "limitations": [
+        "Tag depth estimates depend on user-confirmed printed size",
+        "Single scene consistency does not establish physical depth accuracy",
+        "No contact offsets established"
+      ],
+      "motor_writes": 0
+    }
+  ],
+  "motor_writes": 0,
+  "max_abs_disagreement_mm": 6.1796433067805765,
+  "alignment_validated": false,
+  "contact_offset_validated": false
+}

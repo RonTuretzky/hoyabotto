@@ -1,11 +1,15 @@
 {
-  "revision": "R3.2",
+  "revision": "R3.3",
   "source": "physical_robot",
   "collection_method": "robot_driven_visual_teaching",
   "session_id": "FILL_AFTER_DECLARING_SESSION",
   "split": "train",
   "stage": "PLACE_RESERVOIR",
-  "mesh_sha256": "COPY profile.part_hashes; not a string in a real record",
+  "mesh_sha256": {
+    "reservoir.stl": "5745d599e849447134b0bf4429c705dd5ded043a207de2baf854c7c0cbf454a8",
+    "basket.stl": "f1f5ee7ee10b72f97859644417b335ff7ca21d8c73b41cc8d23260229f06df81",
+    "retainer.stl": "b22136d93e1adc97ffde374dfecd30bb7cbe3c0d45f028f75aea5a10e8386b88"
+  },
   "calibration_id": "",
   "robot_id": "",
   "printed_instance": "",

@@ -1,0 +1,151 @@
+{
+  "simulation_only": true,
+  "hardware_commands": false,
+  "complete_folding_demonstrated": false,
+  "diagnostic_initial_condition": "Short flaps upright at 0 degrees; baseline uses 5.73 degrees inward. This experiment does not replace the baseline.",
+  "runs": {
+    "claws": {
+      "success": false,
+      "task_complete": false,
+      "stage_only": "near then short; empty resistant free carton",
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "stages": [
+        {
+          "flap": "long_near",
+          "path_checks": 842,
+          "final_angles": {
+            "short_left": 2.557563520734929,
+            "short_right": 1.773176572998418,
+            "long_far": -1.3966028307038816,
+            "long_near": 89.97701649331957
+          }
+        },
+        {
+          "flap": "short_right",
+          "path_checks": 107
+        }
+      ],
+      "angles": {
+        "short_left": 1.2989523539730374,
+        "short_right": 42.44348105813099,
+        "long_far": -1.3983340425117259,
+        "long_near": 124.33999639204691
+      },
+      "motion": {
+        "max_translation_mm": 27.43889383735501,
+        "max_rotation_degrees": 2.8443767243885048,
+        "minimum_bottom_corner_table_clearance_mm": 10.000000004069504
+      },
+      "time": 30.953999999993723,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 0,
+        "station_dimensions_measured": false,
+        "end_target_degrees": 85.0,
+        "track_hold": true,
+        "tool": "claws"
+      },
+      "source_hashes": {
+        "tools/diagnose_resistant_folding.py": "daecf65df97e655860246518168505f6ef4c9923b4e36b02e403c12ce9119993",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_paths.py": "51d098fe15c2fbb6a11e6ee2456f4f0b70a5adc0a2d847218af713b02705819b",
+        "carton/folding_sim.py": "7aca72df84237ed8ec300db7843d82c8d822b9191b0e707d23f517a7f0f36946",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2"
+      }
+    },
+    "paddle": {
+      "success": false,
+      "task_complete": false,
+      "stage_only": "near then short; empty resistant free carton",
+      "error": "Paddle grip slipped: blade offset 15.0 mm, rotation 7.6 deg",
+      "stages": [
+        {
+          "flap": "long_near",
+          "path_checks": 842
+        }
+      ],
+      "angles": {
+        "short_left": -1.1121282472407739,
+        "short_right": 1.0241403453334468,
+        "long_far": 1.9578642272315478,
+        "long_near": 71.554385438067
+      },
+      "motion": {
+        "max_translation_mm": 11.341712859800111,
+        "max_rotation_degrees": 1.9813872826418044,
+        "minimum_bottom_corner_table_clearance_mm": 9.999971103368004
+      },
+      "time": 15.308000000001782,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 0,
+        "station_dimensions_measured": false,
+        "end_target_degrees": 85.0,
+        "track_hold": true,
+        "tool": "paddle"
+      },
+      "source_hashes": {
+        "tools/diagnose_resistant_folding.py": "daecf65df97e655860246518168505f6ef4c9923b4e36b02e403c12ce9119993",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "807502f16db897297467d7130514b87b5749fc09403949b17bbf9404439309c1",
+        "carton/folding_paths.py": "51d098fe15c2fbb6a11e6ee2456f4f0b70a5adc0a2d847218af713b02705819b",
+        "carton/folding_sim.py": "7aca72df84237ed8ec300db7843d82c8d822b9191b0e707d23f517a7f0f36946",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_vision.py": "8b42ad385824d1b476b2bdc9d762bbe891645af690be90dca86bb386bf141b88",
+        "tools/simulate_bimanual_folding.py": "f35ff30ae5e47e052935892a059cf5c4b90926605b42f955293d5fa945d1ada2"
+      }
+    }
+  },
+  "tests": "50 focused folding tests passed, including six new path guard tests."
+}

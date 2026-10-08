@@ -1,6 +1,8 @@
 """Auto-calibration wrapper: file merging, staging and refusal paths with a fake workflow. The vendored
 limit-seeking code itself needs real servos and is NOT exercised here."""
 import json
+import copy
+import pytest
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -80,12 +82,22 @@ def test_staged_modes_do_not_write_the_file(tmp_path):
 class FakeHeadBus:
     def __init__(self):
         self.log = []
+        self.settings = {n: {"Torque_Enable": 0, "Homing_Offset": 20, "Min_Position_Limit": 1200, "Max_Position_Limit": 2800} for n in ac.HEAD}
+        self.initial = copy.deepcopy(self.settings)
 
     def connect(self): self.log.append("connect")
-    def disable_torque(self): self.log.append("limp")
-    def set_half_turn_homings(self, motors): self.log.append("home"); return {m: 12 for m in motors}
-    def record_ranges_of_motion(self, motors): self.log.append("sweep"); return {m: 1000 for m in motors}, {m: 3000 for m in motors}
-    def disconnect(self): self.log.append("disconnect")
+    def disable_torque(self, **kw): self.log.append("limp")
+    def read(self, reg, motor, **kw): return self.settings[motor][reg]
+    def write(self, reg, motor, value, **kw): self.settings[motor][reg] = value
+    def set_half_turn_homings(self, motors):
+        self.log.append("home")
+        for m in motors:
+            self.settings[m].update(Homing_Offset=12, Min_Position_Limit=0, Max_Position_Limit=4095)
+        return {m: 12 for m in motors}
+    def record_ranges_of_motion(self, motors, **kw):
+        self.log.append("sweep")
+        return {"head_motor_1": 1000, "head_motor_2": 1600}, {"head_motor_1": 3000, "head_motor_2": 2500}
+    def disconnect(self, **kw): self.log.append("disconnect")
 
 
 def test_head_is_merged_and_bus_released(tmp_path):
@@ -94,7 +106,37 @@ def test_head_is_merged_and_bus_released(tmp_path):
     assert ac.calibrate_head(Cfg(), ask=lambda q: "", out=lambda s: None, bus=bus, cal_path=f) == 0
     cal = json.loads(f.read_text())
     assert cal["head_motor_1"] == {"id": 7, "drive_mode": 0, "homing_offset": 12, "range_min": 1000, "range_max": 3000} and cal["head_motor_2"]["id"] == 8
-    assert "left_arm_gripper" in cal and bus.log == ["connect", "limp", "home", "sweep", "disconnect"]
+    assert "left_arm_gripper" in cal and bus.log[0] == "connect" and bus.log[-1] == "disconnect"
+    for n in ac.HEAD:
+        assert bus.settings[n] == {"Torque_Enable": 0, "Homing_Offset": cal[n]["homing_offset"], "Min_Position_Limit": cal[n]["range_min"], "Max_Position_Limit": cal[n]["range_max"]}
+
+
+@pytest.mark.parametrize("failure", ["interrupt", "invalid_range", "readback", "save"])
+def test_head_failures_restore_hardware_and_keep_file(tmp_path, monkeypatch, failure):
+    f = tmp_path / "c.json"
+    original = '{"left_arm_gripper": {"id": 6}}'
+    f.write_text(original)
+    bus = FakeHeadBus()
+    if failure == "interrupt":
+        def interrupt(*args, **kw): raise KeyboardInterrupt()
+        bus.record_ranges_of_motion = interrupt
+    elif failure == "invalid_range":
+        bus.record_ranges_of_motion = lambda *args, **kw: ({n: 0 for n in ac.HEAD}, {n: 4095 for n in ac.HEAD})
+    elif failure == "readback":
+        write = bus.write
+        def ignore_new_min(reg, motor, value, **kw):
+            if reg != "Min_Position_Limit" or value == 1200:
+                write(reg, motor, value, **kw)
+        bus.write = ignore_new_min
+    else:
+        def fail_replace(*args): raise OSError("disk error")
+        monkeypatch.setattr(ac.os, "replace", fail_replace)
+    with pytest.raises((KeyboardInterrupt, ValueError, RuntimeError, OSError)):
+        ac.calibrate_head(Cfg(), ask=lambda q: "", out=lambda s: None, bus=bus, cal_path=f)
+    assert bus.settings == bus.initial
+    assert f.read_text() == original
+    assert bus.log[-1] == "disconnect"
+    assert not list(tmp_path.glob("*.tmp"))
 
 
 def test_merged_file_is_what_the_robot_class_loads(tmp_path):

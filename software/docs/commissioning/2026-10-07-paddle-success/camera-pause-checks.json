@@ -1,0 +1,26 @@
+[
+  {
+    "case": "resume",
+    "passed": true,
+    "motor_health_reads": 52,
+    "elapsed_s": 5.1
+  },
+  {
+    "case": "timeout",
+    "passed": true,
+    "motor_health_reads": 201,
+    "elapsed_s": 20.1
+  },
+  {
+    "case": "preflight",
+    "passed": true,
+    "motor_health_reads": 0,
+    "elapsed_s": 0.0
+  },
+  {
+    "case": "fault",
+    "passed": true,
+    "motor_health_reads": 1,
+    "elapsed_s": 0.0
+  }
+]

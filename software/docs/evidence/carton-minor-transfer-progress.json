@@ -1,0 +1,1698 @@
+{
+  "simulation_only": true,
+  "full_task_complete": false,
+  "cases": {
+    "review/minors-claws": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 92.71419511443678,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 91.18820099779113
+          },
+          "short_right": {
+            "degrees": 91.90807864638039,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 91.01475768934573
+          },
+          "long_far": {
+            "degrees": -6.2728852841970415,
+            "pixel_support": 760,
+            "median_deviation_deg": 0.19116875530590693,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -38.67384894577559,
+            "pixel_support": 599,
+            "median_deviation_deg": 0.364236600568681,
+            "method": "aligned_depth_cardboard_plane"
+          }
+        },
+        "held_only": true,
+        "full_task_complete": false
+      },
+      "released_left_minor": {
+        "angles": {
+          "short_left": 58.39577891527836,
+          "short_right": 91.92211312651085,
+          "long_far": -6.7449975337600785,
+          "long_near": -40.41338998153162
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 58.590418622435756,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 57.94034492198112
+          },
+          "short_right": {
+            "degrees": 91.59449166577029,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 91.00636569826008
+          },
+          "long_far": {
+            "degrees": -6.338548555287262,
+            "pixel_support": 746,
+            "median_deviation_deg": 0.18536642388134883,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -38.86491074361828,
+            "pixel_support": 625,
+            "median_deviation_deg": 0.3295280844438153,
+            "method": "aligned_depth_cardboard_plane"
+          }
+        },
+        "full_task_complete": false
+      },
+      "angles": {
+        "short_left": 58.39577891527836,
+        "short_right": 91.92211312651085,
+        "long_far": -6.7449975337600785,
+        "long_near": -40.41338998153162
+      },
+      "motion": {
+        "max_translation_mm": 12.80694727943375,
+        "max_rotation_degrees": 1.5108311560383072,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 67.59200000002387,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/review/minors-claws",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": true,
+        "tool": "claws",
+        "solver": "friction",
+        "fold_second_short": true,
+        "release_left_minor": true,
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_sha256": {
+        "tools/diagnose_braced_folding.py": "e9459f91bd10fdee27740a7a4cd4cf1b711dfa20a544037c24002f530c60feb8",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_grasp.py": "94e2ca05ae9be92c1e45b550ec942638ad8cdca6f94007e11226c683f7c322fb",
+        "carton/folding_markers.py": "7f529d27ef47a392ded9b3240668889a9d67354e9f4a99335eeb449cc004b26b",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "786c891da84db8e49f59218a72ec181cc62a7e43c3196a3758f0eff4b1d25d9b",
+        "carton/folding_paths.py": "5d0a3e425470ae41659259149852057574711545a9cfbb07ab8da79bd094c234",
+        "carton/folding_sim.py": "e75c2eaa4b0933b9a73f2e683f81393730e89e1e2fb0ad3807bf37deb37a72a9",
+        "carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_tool_tags.py": "7ed8713fd183e48297041ea1dd49d4bf2a459e4e03efa631b66dde5946a15b5e",
+        "carton/folding_transfers.py": "d15e091a814bcd758c7abd8b0d432d28a9920dab54633ed53ff12a24b4a1aa74",
+        "carton/folding_vision.py": "c000797e4b6cf245f9cfcabf514b9e7c223cf2ad52f2a9541a5a159e62e0b073",
+        "tools/simulate_bimanual_folding.py": "7abb11732f5109be4ae51c512b1423e14b9bc4b87cec0d95f32bc61c965bf80c"
+      },
+      "result_sha256": "79c9ff5a716bb516077fb2460a1c18c8d6fe20d9832fc4a9eef3b7f11d47d283",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/review/minors-claws/result.json",
+      "full_gif": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/review/minors-claws-full.gif",
+        "simulation_end_seconds": 67.59200000002387,
+        "playback_seconds": 70.09,
+        "frames": 340,
+        "size": [
+          640,
+          790
+        ],
+        "complete_recorded_timeline": true,
+        "sha256": "07e69c33a7b163cd5fc03f05cfdb50cd2ae3ec5e19372e0cb754470a5b66890f"
+      }
+    },
+    "review/minors-paddle": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.305211621464199,
+          "short_right": 6.144025332084074,
+          "long_far": -7.171399694675738,
+          "long_near": -27.912889467409936
+        },
+        "motion": {
+          "max_translation_mm": 5.0010923384729296,
+          "max_rotation_degrees": 0.16405904801804289,
+          "minimum_bottom_corner_table_clearance_mm": 5.878054381205228
+        }
+      },
+      "error": "Paddle grip slipped: blade offset 15.0 mm, rotation 8.1 deg",
+      "angles": {
+        "short_left": 9.192755669182224,
+        "short_right": -0.08171437477642392,
+        "long_far": -5.386260621581241,
+        "long_near": -22.307271279543123
+      },
+      "motion": {
+        "max_translation_mm": 26.446175891920067,
+        "max_rotation_degrees": 8.405624486816533,
+        "minimum_bottom_corner_table_clearance_mm": -0.5798675257005503
+      },
+      "time": 32.36599999999359,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/review/minors-paddle",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": true,
+        "tool": "paddle",
+        "solver": "friction",
+        "fold_second_short": true,
+        "release_left_minor": true,
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_sha256": {
+        "tools/diagnose_braced_folding.py": "e9459f91bd10fdee27740a7a4cd4cf1b711dfa20a544037c24002f530c60feb8",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_grasp.py": "94e2ca05ae9be92c1e45b550ec942638ad8cdca6f94007e11226c683f7c322fb",
+        "carton/folding_markers.py": "7f529d27ef47a392ded9b3240668889a9d67354e9f4a99335eeb449cc004b26b",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "786c891da84db8e49f59218a72ec181cc62a7e43c3196a3758f0eff4b1d25d9b",
+        "carton/folding_paths.py": "5d0a3e425470ae41659259149852057574711545a9cfbb07ab8da79bd094c234",
+        "carton/folding_sim.py": "e75c2eaa4b0933b9a73f2e683f81393730e89e1e2fb0ad3807bf37deb37a72a9",
+        "carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_tool_tags.py": "7ed8713fd183e48297041ea1dd49d4bf2a459e4e03efa631b66dde5946a15b5e",
+        "carton/folding_transfers.py": "d15e091a814bcd758c7abd8b0d432d28a9920dab54633ed53ff12a24b4a1aa74",
+        "carton/folding_vision.py": "c000797e4b6cf245f9cfcabf514b9e7c223cf2ad52f2a9541a5a159e62e0b073",
+        "tools/simulate_bimanual_folding.py": "7abb11732f5109be4ae51c512b1423e14b9bc4b87cec0d95f32bc61c965bf80c"
+      },
+      "result_sha256": "720bf9f91864d2651126fc84d83231326c20dbc7e3ffd97e4d3ae32f9371ca58",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/review/minors-paddle/result.json",
+      "full_gif": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/review/minors-paddle-full.gif",
+        "simulation_end_seconds": 32.36599999999359,
+        "playback_seconds": 34.87,
+        "frames": 163,
+        "size": [
+          640,
+          790
+        ],
+        "complete_recorded_timeline": true,
+        "sha256": "6e7225f59df4c072c5087271b0bf954cf18d7517855c41d566bb6ad1a0b0e44e"
+      }
+    },
+    "bridge-retain-0": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "bridge_completed": {
+        "angles": {
+          "short_left": 92.45549585391689,
+          "short_right": 92.42361462919672,
+          "long_far": -5.765803857595113,
+          "long_near": -95.31016919167456
+        },
+        "motion": {
+          "max_translation_mm": 13.015489366824422,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "single_hand_retention": {
+        "angles": {
+          "short_left": 62.5125559516632,
+          "short_right": 92.41697112068178,
+          "long_far": -5.505881011360139,
+          "long_near": -95.32060673042871
+        },
+        "motion": {
+          "max_translation_mm": 13.062043314230813,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "angles": {
+        "short_left": 62.5125559516632,
+        "short_right": 92.41697112068178,
+        "long_far": -5.505881011360139,
+        "long_near": -95.32060673042871
+      },
+      "motion": {
+        "max_translation_mm": 13.062043314230813,
+        "max_rotation_degrees": 1.5108311560383072,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 85.79199999998146,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/bridge-retain-0",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "release_left": true,
+        "path_clearance": 0.006,
+        "bridge": true,
+        "bridge_x": 0.06,
+        "bridge_y": -0.05,
+        "bridge_z": 0.115,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/two_short_brace.py",
+      "result_sha256": "93f245b51b3d39c5c4b7e916917d50be184579e64d9ad991e9ad8e60e13bf4bd",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/bridge-retain-0/result.json"
+    },
+    "bridge-retain-1": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "error": "Actual fingertips missed target by over 35 mm",
+      "angles": {
+        "short_left": 92.47279828242412,
+        "short_right": 84.9270568393038,
+        "long_far": -5.660936761004065,
+        "long_near": -93.87427759467776
+      },
+      "motion": {
+        "max_translation_mm": 26.113511988668844,
+        "max_rotation_degrees": 1.6828944647564168,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 80.09199999999474,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/bridge-retain-1",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "release_left": true,
+        "path_clearance": 0.006,
+        "bridge": true,
+        "bridge_x": 0.06,
+        "bridge_y": -0.07,
+        "bridge_z": 0.115,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/two_short_brace.py",
+      "result_sha256": "180673c3a7a379d56f7d68c09ec620e283afdd54b392802e4456d3d5915d6690",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/bridge-retain-1/result.json"
+    },
+    "near-major-upright": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "error": "Fresh carton marker and aligned depth required",
+      "angles": {
+        "short_left": 38.026575383237976,
+        "short_right": 91.01247311372325,
+        "long_far": -2.525623389127993,
+        "long_near": 1.3640105210729212
+      },
+      "motion": {
+        "max_translation_mm": 159.89711522868618,
+        "max_rotation_degrees": 48.36015756203457,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 69.65600000001906,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-upright",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "continue_near": true,
+        "near_step": 0.1,
+        "near_radius": 0.13,
+        "near_along": -0.08,
+        "near_tilt": 0.0,
+        "release_left": false,
+        "path_clearance": 0.006,
+        "bridge": false,
+        "bridge_x": 0.06,
+        "bridge_y": -0.1,
+        "bridge_z": 0.12,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/three_flaps_clear.py",
+      "result_sha256": "8730f307f98932c660ea91924981bda6b8cd0c8f47f3cb8d29c0ef63b2e997fc",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-upright/result.json"
+    },
+    "near-major-inward": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "error": "Fresh carton marker and aligned depth required",
+      "angles": {
+        "short_left": 35.90852339587615,
+        "short_right": 90.07855601010108,
+        "long_far": -7.365881832953623,
+        "long_near": -3.5530697414193613
+      },
+      "motion": {
+        "max_translation_mm": 150.4896535778043,
+        "max_rotation_degrees": 46.37629091076191,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 71.07000000001577,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-inward",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "continue_near": true,
+        "near_step": 0.1,
+        "near_radius": 0.13,
+        "near_along": -0.08,
+        "near_tilt": 1.0,
+        "release_left": false,
+        "path_clearance": 0.006,
+        "bridge": false,
+        "bridge_x": 0.06,
+        "bridge_y": -0.1,
+        "bridge_z": 0.12,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/three_flaps_clear.py",
+      "result_sha256": "23a33e28a77b775bd91cf33c63120916339b723fad44e0255155d165c73738b5",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-inward/result.json"
+    },
+    "near-major-outward": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "error": "Fresh carton marker and aligned depth required",
+      "angles": {
+        "short_left": 37.944432898291076,
+        "short_right": 83.44920238022233,
+        "long_far": -10.358339968454874,
+        "long_near": -30.65456481153919
+      },
+      "motion": {
+        "max_translation_mm": 138.71293570059078,
+        "max_rotation_degrees": 38.28035936771134,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 69.34600000001979,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-outward",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "continue_near": true,
+        "near_step": 0.1,
+        "near_radius": 0.13,
+        "near_along": -0.08,
+        "near_tilt": -1.5,
+        "release_left": false,
+        "path_clearance": 0.006,
+        "bridge": false,
+        "bridge_x": 0.06,
+        "bridge_y": -0.1,
+        "bridge_z": 0.12,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/three_flaps_clear.py",
+      "result_sha256": "1a38aadcb3f0d777f7630ed5dd18517d6a08715e67f5303f257d8389ce087a32",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-outward/result.json"
+    },
+    "near-major-sweep": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "error": "Path start collides: ('short_left_cardboard', 'left_wrist_roll_follower_so101_v1_part_3', -0.001040852302071217)",
+      "angles": {
+        "short_left": 72.0074218407053,
+        "short_right": 91.921998812602,
+        "long_far": -6.747969821468049,
+        "long_near": -40.423088234678346
+      },
+      "motion": {
+        "max_translation_mm": 12.80694727943375,
+        "max_rotation_degrees": 1.5108311560383072,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 65.59200000002853,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-sweep",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "continue_near": true,
+        "near_step": 0.1,
+        "near_radius": 0.13,
+        "near_along": -0.08,
+        "near_tilt": 0.0,
+        "release_left": false,
+        "path_clearance": 0.006,
+        "bridge": false,
+        "bridge_x": 0.06,
+        "bridge_y": -0.1,
+        "bridge_z": 0.12,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/three_flaps_sweep.py",
+      "result_sha256": "8069d580b4a78ba314467e6c5a0002e9a71b8c84bdd6335dbef9a8816da431b6",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/near-major-sweep/result.json"
+    },
+    "far-major-transfer": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.4147708161359045,
+          "short_right": 6.064342386225227,
+          "long_far": -6.9033897744873975,
+          "long_near": -27.915081366760703
+        },
+        "motion": {
+          "max_translation_mm": 5.0092744572863,
+          "max_rotation_degrees": 0.162191361990115,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "short_completed": {
+        "angles": {
+          "short_left": 5.234542228029454,
+          "short_right": 85.8140539932026,
+          "long_far": -6.915009383801041,
+          "long_near": -29.717456063406154
+        },
+        "motion": {
+          "max_translation_mm": 5.099812413559612,
+          "max_rotation_degrees": 0.6306015329455694,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "error": "Path goal collides: ('long_far_cardboard', 'left_wrist_roll_follower_so101_v1_part_6', 0.0030917349025007344)",
+      "angles": {
+        "short_left": 72.2845803236476,
+        "short_right": 91.9220174572022,
+        "long_far": -6.748006397753587,
+        "long_near": -40.42292850904881
+      },
+      "motion": {
+        "max_translation_mm": 12.80694727943375,
+        "max_rotation_degrees": 1.5108311560383072,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 65.59200000002853,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/far-major-transfer",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "continue_near": true,
+        "near_step": 0.1,
+        "near_radius": 0.1,
+        "near_along": -0.08,
+        "near_tilt": -0.65,
+        "release_left": false,
+        "path_clearance": 0.006,
+        "bridge": false,
+        "bridge_x": 0.06,
+        "bridge_y": -0.1,
+        "bridge_z": 0.12,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/three_flaps_far.py",
+      "result_sha256": "bfa8fbc0bdf2ea95592f409c8797cc97592b0ae63f6df6fb2c312aa5458fbe40",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/far-major-transfer/result.json"
+    },
+    "paddle-inline-180": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.489279917376564,
+          "short_right": 5.98644901909494,
+          "long_far": -6.82580912023746,
+          "long_near": -27.92043983868686
+        },
+        "motion": {
+          "max_translation_mm": 5.012476014509626,
+          "max_rotation_degrees": 0.1619966770241353,
+          "minimum_bottom_corner_table_clearance_mm": 5.930849544628303
+        }
+      },
+      "error": "Right short approach IK misses 46.72 mm",
+      "angles": {
+        "short_left": 5.489279917376564,
+        "short_right": 5.98644901909494,
+        "long_far": -6.82580912023746,
+        "long_near": -27.92043983868686
+      },
+      "motion": {
+        "max_translation_mm": 5.012476014509626,
+        "max_rotation_degrees": 0.1619966770241353,
+        "minimum_bottom_corner_table_clearance_mm": 5.930849544628303
+      },
+      "time": 24.33999999999739,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-inline-180",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "paddle",
+        "grip_yaw": -71,
+        "face_only": false,
+        "preclearance": 0.025,
+        "blade_phi": 180.0,
+        "grasp_mm": 30.0,
+        "short_along": -0.11,
+        "short_radius": 0.11,
+        "blade_axis": "radial",
+        "calibrate_tool": true,
+        "strict_tool": true,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": false,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle_inline.py",
+      "result_sha256": "222db31e19ed77b6b00b6d796ed2008312d823cc230ab5ed4400b29e46345535",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-inline-180/result.json"
+    },
+    "paddle-inline-face": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.489279917376564,
+          "short_right": 5.98644901909494,
+          "long_far": -6.82580912023746,
+          "long_near": -27.92043983868686
+        },
+        "motion": {
+          "max_translation_mm": 5.012476014509626,
+          "max_rotation_degrees": 0.1619966770241353,
+          "minimum_bottom_corner_table_clearance_mm": 5.930849544628303
+        }
+      },
+      "error": "Right short approach IK misses 28.23 mm",
+      "angles": {
+        "short_left": 5.489279917376564,
+        "short_right": 5.98644901909494,
+        "long_far": -6.82580912023746,
+        "long_near": -27.92043983868686
+      },
+      "motion": {
+        "max_translation_mm": 5.012476014509626,
+        "max_rotation_degrees": 0.1619966770241353,
+        "minimum_bottom_corner_table_clearance_mm": 5.930849544628303
+      },
+      "time": 24.33999999999739,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-inline-face",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "paddle",
+        "grip_yaw": -71,
+        "face_only": true,
+        "preclearance": 0.025,
+        "blade_phi": 0,
+        "grasp_mm": 30.0,
+        "short_along": -0.11,
+        "short_radius": 0.11,
+        "blade_axis": "radial",
+        "calibrate_tool": true,
+        "strict_tool": true,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": false,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle_inline.py",
+      "result_sha256": "47d5333a306652d396f622840640bd4e0689cf9f7b66b27b4ba881602fe9f392",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-inline-face/result.json"
+    },
+    "paddle-inline-180-60": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.34562885966354,
+          "short_right": 6.110797908807886,
+          "long_far": -7.09182754502234,
+          "long_near": -27.93009306852913
+        },
+        "motion": {
+          "max_translation_mm": 4.955656928793737,
+          "max_rotation_degrees": 0.16405611979924747,
+          "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+        }
+      },
+      "error": "Right short approach IK misses 48.89 mm",
+      "angles": {
+        "short_left": 5.34562885966354,
+        "short_right": 6.110797908807886,
+        "long_far": -7.09182754502234,
+        "long_near": -27.93009306852913
+      },
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "time": 24.33999999999739,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-inline-180-60",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "paddle",
+        "grip_yaw": -71,
+        "face_only": false,
+        "preclearance": 0.025,
+        "blade_phi": 180.0,
+        "grasp_mm": 60.0,
+        "short_along": -0.11,
+        "short_radius": 0.11,
+        "blade_axis": "radial",
+        "calibrate_tool": true,
+        "strict_tool": true,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": false,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle_inline.py",
+      "result_sha256": "6c6275b6ca1aa3a2c1b68ecb675c7f871cca67ce7f50894bd1524e96955c9fdf",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-inline-180-60/result.json"
+    },
+    "paddle-edge-inline-clear": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.489279917376564,
+          "short_right": 5.98644901909494,
+          "long_far": -6.82580912023746,
+          "long_near": -27.92043983868686
+        },
+        "motion": {
+          "max_translation_mm": 5.012476014509626,
+          "max_rotation_degrees": 0.1619966770241353,
+          "minimum_bottom_corner_table_clearance_mm": 5.930849544628303
+        }
+      },
+      "error": "Path goal collides: ('long_near_cardboard', 'right_paddle_contact_4', -0.005208951192474916)",
+      "angles": {
+        "short_left": 5.489279917376564,
+        "short_right": 5.98644901909494,
+        "long_far": -6.82580912023746,
+        "long_near": -27.92043983868686
+      },
+      "motion": {
+        "max_translation_mm": 5.012476014509626,
+        "max_rotation_degrees": 0.1619966770241353,
+        "minimum_bottom_corner_table_clearance_mm": 5.930849544628303
+      },
+      "time": 24.33999999999739,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-edge-inline-clear",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "paddle",
+        "free_tangent": false,
+        "edge_push": true,
+        "tcp_x": 0.208,
+        "grip_yaw": -71.0,
+        "face_only": false,
+        "preclearance": 0.08,
+        "blade_phi": 0,
+        "grasp_mm": 30.0,
+        "short_along": -0.11,
+        "short_radius": 0.11,
+        "blade_axis": "radial",
+        "calibrate_tool": true,
+        "strict_tool": false,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": false,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle_edge2.py",
+      "result_sha256": "7649c9e79a86210e5679ce41d26d52edc36a62317bdba5332089777454d63f50",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-edge-inline-clear/result.json"
+    },
+    "paddle-edge-side-clear": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "opening_completed": {
+        "angles": {
+          "short_left": 5.305211621464199,
+          "short_right": 6.144025332084074,
+          "long_far": -7.171399694675738,
+          "long_near": -27.912889467409936
+        },
+        "motion": {
+          "max_translation_mm": 5.0010923384729296,
+          "max_rotation_degrees": 0.16405904801804289,
+          "minimum_bottom_corner_table_clearance_mm": 5.878054381205228
+        }
+      },
+      "error": "Paddle grip slipped: blade offset 15.2 mm, rotation 8.6 deg",
+      "angles": {
+        "short_left": 5.323877100231774,
+        "short_right": 6.068859044221959,
+        "long_far": -7.573321583683742,
+        "long_near": -27.946247425585188
+      },
+      "motion": {
+        "max_translation_mm": 5.0010923384729296,
+        "max_rotation_degrees": 0.16405904801804289,
+        "minimum_bottom_corner_table_clearance_mm": 5.878054381205228
+      },
+      "time": 28.333999999995175,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-edge-side-clear",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "paddle",
+        "free_tangent": false,
+        "edge_push": true,
+        "tcp_x": 0.208,
+        "grip_yaw": 0.0,
+        "face_only": false,
+        "preclearance": 0.08,
+        "blade_phi": 0,
+        "grasp_mm": 30.0,
+        "short_along": -0.11,
+        "short_radius": 0.11,
+        "blade_axis": "radial",
+        "calibrate_tool": true,
+        "strict_tool": false,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": false,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle_edge2.py",
+      "result_sha256": "a49ac2298d26e23ea76922db97f800e6eb926cdf4ae75781a740663104143bf9",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/paddle-edge-side-clear/result.json"
+    },
+    "far-major-close-approach": {
+      "simulation_only": true,
+      "success": false,
+      "task_complete": false,
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        }
+      },
+      "error": "Path goal collides: ('long_far_cardboard', 'left_wrist_roll_follower_so101_v1_part_22', -0.002768809845045338)",
+      "angles": {
+        "short_left": 72.2845803236476,
+        "short_right": 91.9220174572022,
+        "long_far": -6.748006397753587,
+        "long_near": -40.42292850904881
+      },
+      "motion": {
+        "max_translation_mm": 12.80694727943375,
+        "max_rotation_degrees": 1.5108311560383072,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "time": 65.59200000002853,
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/far-major-close-approach",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": false,
+        "tool": "claws",
+        "continue_near": true,
+        "near_step": 0.1,
+        "near_radius": 0.1,
+        "near_along": -0.08,
+        "near_tilt": -0.65,
+        "release_left": false,
+        "path_clearance": 0.006,
+        "bridge": false,
+        "bridge_x": 0.06,
+        "bridge_y": -0.1,
+        "bridge_z": 0.12,
+        "solver": "friction",
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/three_flaps_far_close.py",
+      "result_sha256": "033149fe0d8c2ee3ea6a555ea3c28ff12cf4ce0a462d7da6c1827b6c5da4ce0b",
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/regrasp-folding/far-major-close-approach/result.json"
+    }
+  }
+}

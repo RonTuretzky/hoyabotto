@@ -1,0 +1,515 @@
+{
+  "simulation_only": true,
+  "hardware_commands": 0,
+  "full_task_complete": false,
+  "tests": {
+    "command": ".venv/bin/python -m pytest -q tests/test_folding_*.py",
+    "passed": 88
+  },
+  "runs": {
+    "claws": {
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-claws",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": true,
+        "tool": "claws",
+        "paddle_contact": "face",
+        "solver": "friction",
+        "fold_second_short": true,
+        "release_left_minor": true,
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_sha256": {
+        "tools/diagnose_braced_folding.py": "df13f778321ef0ecf6db8020e08f51f5baa9bed6c23c8b6990321c8dfd99d031",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_grasp.py": "94e2ca05ae9be92c1e45b550ec942638ad8cdca6f94007e11226c683f7c322fb",
+        "carton/folding_markers.py": "7f529d27ef47a392ded9b3240668889a9d67354e9f4a99335eeb449cc004b26b",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "6c4ffa1d8a9fe9447501492fdaa5577b452399d68e95142b72b6ee2b3fbedc0c",
+        "carton/folding_paths.py": "5d0a3e425470ae41659259149852057574711545a9cfbb07ab8da79bd094c234",
+        "carton/folding_sim.py": "889aec228d427d2fd211a0b88ab037facd9dded9011d0651ddeea29d2f0e998a",
+        "carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_tool_tags.py": "7ed8713fd183e48297041ea1dd49d4bf2a459e4e03efa631b66dde5946a15b5e",
+        "carton/folding_transfers.py": "d15e091a814bcd758c7abd8b0d432d28a9920dab54633ed53ff12a24b4a1aa74",
+        "carton/folding_vision.py": "c000797e4b6cf245f9cfcabf514b9e7c223cf2ad52f2a9541a5a159e62e0b073",
+        "tools/simulate_bimanual_folding.py": "7abb11732f5109be4ae51c512b1423e14b9bc4b87cec0d95f32bc61c965bf80c"
+      },
+      "time": 67.59200000002387,
+      "motion": {
+        "max_translation_mm": 12.80694727943375,
+        "max_rotation_degrees": 1.5108311560383072,
+        "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+      },
+      "angles": {
+        "short_left": 58.39577891527836,
+        "short_right": 91.92211312651085,
+        "long_far": -6.7449975337600785,
+        "long_near": -40.41338998153162
+      },
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "success": false,
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.43689787972916,
+          "short_right": 91.92203090777267,
+          "long_far": -6.748507591383036,
+          "long_near": -40.42375307461718
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 92.71419511443678,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 91.18820099779113
+          },
+          "short_right": {
+            "degrees": 91.90807864638039,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 91.01475768934573
+          },
+          "long_far": {
+            "degrees": -6.2728852841970415,
+            "pixel_support": 760,
+            "median_deviation_deg": 0.19116875530590693,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -38.67384894577559,
+            "pixel_support": 599,
+            "median_deviation_deg": 0.364236600568681,
+            "method": "aligned_depth_cardboard_plane"
+          }
+        },
+        "held_only": true,
+        "full_task_complete": false
+      },
+      "released_left_minor": {
+        "angles": {
+          "short_left": 58.39577891527836,
+          "short_right": 91.92211312651085,
+          "long_far": -6.7449975337600785,
+          "long_near": -40.41338998153162
+        },
+        "motion": {
+          "max_translation_mm": 12.80694727943375,
+          "max_rotation_degrees": 1.5108311560383072,
+          "minimum_bottom_corner_table_clearance_mm": 5.920551378950617
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 58.590418622435756,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 57.94034492198112
+          },
+          "short_right": {
+            "degrees": 91.59449166577029,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 91.00636569826008
+          },
+          "long_far": {
+            "degrees": -6.338548555287262,
+            "pixel_support": 746,
+            "median_deviation_deg": 0.18536642388134883,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -38.86491074361828,
+            "pixel_support": 625,
+            "median_deviation_deg": 0.3295280844438153,
+            "method": "aligned_depth_cardboard_plane"
+          }
+        },
+        "full_task_complete": false
+      },
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-claws/result.json",
+      "result_sha256": "bef7848c19d3ec6614fcf65c9f3bdb657886de69a66fe70dd27320066e81556b",
+      "maximum_actual_tcp_error_mm": 10.301252020317465,
+      "maximum_forbidden_penetration_mm": 0.0,
+      "paddle": null
+    },
+    "paddle": {
+      "configuration": {
+        "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-paddle",
+        "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+        "video": true,
+        "tool": "paddle",
+        "paddle_contact": "tip",
+        "solver": "friction",
+        "fold_second_short": true,
+        "release_left_minor": true,
+        "along": -0.08,
+        "radius": 0.125,
+        "axis_sign": 1,
+        "pre_height": 0.035,
+        "end_angle": -30,
+        "clearance": -0.002,
+        "camera": "station",
+        "continue_short": true,
+        "freeze_hold": true,
+        "close_near": true,
+        "close_mode": "pivot"
+      },
+      "source_sha256": {
+        "tools/diagnose_braced_folding.py": "df13f778321ef0ecf6db8020e08f51f5baa9bed6c23c8b6990321c8dfd99d031",
+        "carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+        "carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+        "carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+        "carton/folding_grasp.py": "94e2ca05ae9be92c1e45b550ec942638ad8cdca6f94007e11226c683f7c322fb",
+        "carton/folding_markers.py": "7f529d27ef47a392ded9b3240668889a9d67354e9f4a99335eeb449cc004b26b",
+        "carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+        "carton/folding_paddle.py": "6c4ffa1d8a9fe9447501492fdaa5577b452399d68e95142b72b6ee2b3fbedc0c",
+        "carton/folding_paths.py": "5d0a3e425470ae41659259149852057574711545a9cfbb07ab8da79bd094c234",
+        "carton/folding_sim.py": "889aec228d427d2fd211a0b88ab037facd9dded9011d0651ddeea29d2f0e998a",
+        "carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+        "carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+        "carton/folding_tool_tags.py": "7ed8713fd183e48297041ea1dd49d4bf2a459e4e03efa631b66dde5946a15b5e",
+        "carton/folding_transfers.py": "d15e091a814bcd758c7abd8b0d432d28a9920dab54633ed53ff12a24b4a1aa74",
+        "carton/folding_vision.py": "c000797e4b6cf245f9cfcabf514b9e7c223cf2ad52f2a9541a5a159e62e0b073",
+        "tools/simulate_bimanual_folding.py": "7abb11732f5109be4ae51c512b1423e14b9bc4b87cec0d95f32bc61c965bf80c"
+      },
+      "time": 67.99400000002294,
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "angles": {
+        "short_left": 58.29755595832882,
+        "short_right": 93.34531049184606,
+        "long_far": -7.701236585016288,
+        "long_near": -37.65460271166871
+      },
+      "assumptions": {
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "success": false,
+      "two_shorts_completed": {
+        "angles": {
+          "short_left": 92.03584653765614,
+          "short_right": 93.34458656785644,
+          "long_far": -7.703834466133846,
+          "long_near": -37.65946869113002
+        },
+        "motion": {
+          "max_translation_mm": 4.955656928793737,
+          "max_rotation_degrees": 0.16405611979924747,
+          "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 92.10334699245183,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 90.54252407820817
+          },
+          "short_right": {
+            "degrees": 93.62080042018317,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 92.01723784479401
+          },
+          "long_far": {
+            "degrees": -6.484138447169501,
+            "pixel_support": 786,
+            "median_deviation_deg": 0.21343266069825662,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -37.290819849805644,
+            "pixel_support": 606,
+            "median_deviation_deg": 0.22056938020222105,
+            "method": "aligned_depth_cardboard_plane"
+          }
+        },
+        "held_only": true,
+        "full_task_complete": false
+      },
+      "released_left_minor": {
+        "angles": {
+          "short_left": 58.29755595832882,
+          "short_right": 93.34531049184606,
+          "long_far": -7.701236585016288,
+          "long_near": -37.65460271166871
+        },
+        "motion": {
+          "max_translation_mm": 4.955656928793737,
+          "max_rotation_degrees": 0.16405611979924747,
+          "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+        },
+        "visual_angles": {
+          "short_left": {
+            "degrees": 58.62437168112833,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 57.40313245157435
+          },
+          "short_right": {
+            "degrees": 93.09243376692403,
+            "method": "apriltag_aligned_depth_plane",
+            "depth_check_degrees": 92.03592995449546
+          },
+          "long_far": {
+            "degrees": -6.440569587059445,
+            "pixel_support": 763,
+            "median_deviation_deg": 0.2423637676669408,
+            "method": "aligned_depth_cardboard_plane"
+          },
+          "long_near": {
+            "degrees": -37.24889379890793,
+            "pixel_support": 641,
+            "median_deviation_deg": 0.2185582269583577,
+            "method": "aligned_depth_cardboard_plane"
+          }
+        },
+        "full_task_complete": false
+      },
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-paddle/result.json",
+      "result_sha256": "9b522ff90163920eda75767991ecbdce46c816b0be0c427afc445856087277a9",
+      "maximum_actual_tcp_error_mm": 7.631069989873734,
+      "maximum_forbidden_penetration_mm": 0.09894321979156115,
+      "paddle": {
+        "assumptions": {
+          "mass_kg": 0.03,
+          "sliding_friction": 0.8,
+          "parameters_measured": false,
+          "dimensions_mm": [
+            210,
+            40,
+            6
+          ],
+          "mesh_sha256": "906f447629c4c335350982505ead31f70fac0523684220b4cefd55364c7940a2",
+          "mounting": "Free body initially placed in right jaws; no weld; pickup not tested",
+          "grip_from_paddle_rotation": [
+            [
+              -0.060758212673854436,
+              -0.061343221300868896,
+              0.9962657520928391
+            ],
+            [
+              -0.00095571018629267,
+              0.9981128643953103,
+              0.06139866893205429
+            ],
+            [
+              -0.99815205565621,
+              0.002778332057335579,
+              -0.060702180028897525
+            ]
+          ],
+          "grasp_from_handle_base_mm": 60.0,
+          "initial_grasp_yaw_degrees": -71,
+          "grip_from_paddle_origin_m": [
+            -0.003792601403096934,
+            -0.0004326811810782148,
+            -0.036292629869403674
+          ]
+        },
+        "max_blade_offset_mm": 1.7958082211610333,
+        "max_rotation_degrees": 4.050640015354319,
+        "final": {
+          "time": 67.99400000002294,
+          "blade_offset_mm": 1.5026060010622977,
+          "rotation_degrees": 3.8042710472874632
+        }
+      }
+    }
+  },
+  "gifs": {
+    "tip-claws-full": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-claws-full.gif",
+      "simulation_end_seconds": 67.59200000002387,
+      "playback_seconds": 70.09,
+      "frames": 339,
+      "size": [
+        640,
+        790
+      ],
+      "complete_recorded_timeline": true,
+      "sha256": "6ae4810e32d47a75c4b48dc96d4bfdb47a02fb71f9c79df15b8e92387f9c3370",
+      "all_frames_decoded": true
+    },
+    "tip-paddle-full": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-paddle-full.gif",
+      "simulation_end_seconds": 67.99400000002294,
+      "playback_seconds": 70.49,
+      "frames": 342,
+      "size": [
+        640,
+        790
+      ],
+      "complete_recorded_timeline": true,
+      "sha256": "130aebaaaae5796ccbb1b988dbcb6be0a7a5d7a1907b94681199ff08267689ac",
+      "all_frames_decoded": true
+    },
+    "tip-full-comparison": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-full-comparison.gif",
+      "simulation_end_seconds": 67.99400000002294,
+      "playback_seconds": 70.49,
+      "frames": 342,
+      "size": [
+        1280,
+        764
+      ],
+      "complete_recorded_timeline": true,
+      "stopped_runs_held_with_labels": true,
+      "source_frames": {
+        "claws": 446,
+        "paddle": 448
+      },
+      "sha256": "13f8011667ad2902249d91489a23fe57b4fa1ea2598f6c03d4539bcac7b93e2a",
+      "all_frames_decoded": true
+    }
+  },
+  "exploratory_diagnostics": {
+    "corner-static.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-static.json",
+      "sha256": "e9991169e990c750bd477f5e84e5096d5610a6016f97bb2625f3e60807a3ddc5",
+      "static_only": true,
+      "full_task_complete": false
+    },
+    "corner-sweep-static.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-sweep-static.json",
+      "sha256": "af552c31fd132c36e4c7d5729716177dd76312fd22757822a38c27744974c52c",
+      "static_only": true,
+      "full_task_complete": false
+    },
+    "corner-sliding-static.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-sliding-static.json",
+      "sha256": "291d188695e29e6846563af4ac31a269e46eda48af3128bbc716dcbf750a871b",
+      "static_only": true,
+      "full_task_complete": false
+    },
+    "corner-paddle": {
+      "error": "Path goal collides: ('long_near_cardboard', 'left_moving_jaw_so101_v1_part_33', 0.000749169451638625)",
+      "time": 67.59400000002387,
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "angles": {
+        "short_left": 55.68350191917882,
+        "short_right": 93.34473575684963,
+        "long_far": -7.702782059898634,
+        "long_near": -37.65958532452841
+      },
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-paddle/result.json",
+      "result_sha256": "20e9565322444b765c7b251926032a35221402bfa989943a3de76777c8a86b28"
+    },
+    "corner-paddle-clear45": {
+      "error": "Path goal collides: ('long_near_cardboard', 'left_moving_jaw_so101_v1_part_31', 0.00384092718154053)",
+      "time": 67.59400000002387,
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "angles": {
+        "short_left": 55.68350191917882,
+        "short_right": 93.34473575684963,
+        "long_far": -7.702782059898634,
+        "long_near": -37.65958532452841
+      },
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-paddle-clear45/result.json",
+      "result_sha256": "c1631f856380998ddff76c7e3a825de17967cce11b15fd37cc541728c9fa0d7a",
+      "full_task_complete": false
+    },
+    "corner-paddle-clear65": {
+      "error": "Corner contact IK misses by 10.6 mm",
+      "time": 67.29400000002457,
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "angles": {
+        "short_left": 56.86671262330786,
+        "short_right": 93.34477475857332,
+        "long_far": -7.702940394227771,
+        "long_near": -37.65964048256013
+      },
+      "result_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-paddle-clear65/result.json",
+      "result_sha256": "e1161c29cd75dc87f0e1bff3ce7f65b5a9b7f30c554ef20978a68fba178d4873",
+      "full_task_complete": false
+    },
+    "corner-approach-static.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-approach-static.json",
+      "sha256": "1844881c91b74ddbcd21ece56d7be6be6c83875bf926126fda8f28af6eccaf70",
+      "static_only": true,
+      "full_task_complete": false
+    },
+    "corner-static-contact-audit.json": {
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/corner-static-contact-audit.json",
+      "sha256": "50bc1ab3190a52ca7c60722ea44888a0786d295c7d9e6de6131e0b71b1fa5190",
+      "static_only": true,
+      "full_task_complete": false
+    },
+    "static_contact_warning": "Fingertip-feasible corner poses interpenetrate jaw/panel geometry by 2.1 to 8.9 mm and are invalid contact plans."
+  }
+}

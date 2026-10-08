@@ -1,0 +1,761 @@
+{
+  "schema": "original-stl-vs-convex-refusal-audit/v1",
+  "numerical_jobs": 1,
+  "simulation_only": true,
+  "hardware_commands": false,
+  "geometry_changes": false,
+  "guard_changes": false,
+  "versions": {
+    "python": "3.12.12 (main, Oct  9 2025, 11:07:00) [Clang 17.0.0 (clang-1700.0.13.3)]",
+    "mujoco": "3.14.0",
+    "numpy": "2.2.6",
+    "trimesh": "4.12.2",
+    "scipy": "1.18.1"
+  },
+  "full_task_validity": false,
+  "contact_force_or_strength_evidence": false,
+  "method": "Exact refused planning step reproduction; empirical compiler-transform checks; all-triangle nearest points and finite-panel lateral triangle clipping.",
+  "caveats": [
+    "Entrance-face depth is signed plane overlap of original triangles, not a global nonconvex minimum translation distance.",
+    "Nearest normals are oriented individual triangle face normals, not unique smooth normals at mesh edges/vertices.",
+    "This audits source CAD fidelity, not measured physical gripper, inserts, compliance, or calibration.",
+    "No MuJoCo contact forces reconstructed; all qpos assignments belong to static diagnostic copies."
+  ],
+  "source_sha256": {
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/cad-hull-audit-20261007/audit.py": "0b63906a33a5b0c0215626a787ce54cea0a9ba6fb8deee68e312f57effe53802",
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/prepare_scene_assets.py": "a9897e6b65c4e29b5be6ddd2c8e000ebe9fd802016196844bcd5a095db63e263",
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/scene-assets/jaw-collision/manifest.json": "c312fb00e751297c29309753fbd2dc9560a4710d5e29295acc12e13924b9afe0",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_far_contact.py": "d36a51b07056f9eac9a5f744ec39c4136470a4879a0f0154474a2fb408045e01",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_paths.py": "a7323dbb02594074dc7eb861d2c8dec7c8e5546e77cc7fc11cfb6dca228bc5f2",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_sim.py": "2ed0f3edfbf2d26a877b2cedb2bc0ba633e1a230bf4416a7cb59dae88ed1beb1"
+  },
+  "trials": [
+    {
+      "trial": "trial-000",
+      "result_error": "Paired left path collides: ('short_left_cardboard', 'left_wrist_roll_follower_so101_v1_part_3', -0.001020512304269262)",
+      "time_s": 119.0679999999039,
+      "static_copy_only": true,
+      "dynamics_executed": false,
+      "first_rejected_interpolation_fraction": 1.0,
+      "interpolation_count": 1,
+      "reproduced_error_exactly": true,
+      "goal_fk_reproduction_error_m": {
+        "left": 0.0,
+        "right": 0.0
+      },
+      "rejected_qpos": [
+        -0.3487023791622347,
+        -1.5307362290364404,
+        0.9516192895285244,
+        0.824913560163516,
+        -1.5704482684338739,
+        -0.16999564451398336,
+        0.4166024896313111,
+        -0.875074189474977,
+        0.2610740954681617,
+        1.3043230403987736,
+        0.8334803227360603,
+        -0.17001737913349477,
+        -0.0010844160049164652,
+        0.0006513679999693578,
+        -1.152534840350843e-06,
+        0.9999991453065568,
+        5.305865964989455e-06,
+        -2.1571923685071056e-06,
+        0.0013074224063762082,
+        -0.2148064616044357,
+        -0.26509013512079327,
+        0.6094079321837628,
+        0.6918566224643995
+      ],
+      "contact": {
+        "geom1": "short_left_cardboard",
+        "geom2": "left_wrist_roll_follower_so101_v1_part_3",
+        "distance_m": -0.001020512304269262,
+        "position_world": [
+          -0.21935909183582628,
+          -0.09782834735779988,
+          0.24443416945450208
+        ],
+        "panel_to_jaw_normal_world": [
+          -0.21315108249240122,
+          -0.0005677208622085847,
+          0.9770190856505008
+        ],
+        "panel_normal_alignment": 0.9999999999396657,
+        "panel_face_axis": 2,
+        "panel_face_sign": 1.0,
+        "panel_local_position": [
+          0.000719555265366179,
+          -0.09790603225683137,
+          0.06948972641939427
+        ]
+      },
+      "transform_validation": {
+        "xml_composed_max_rotation_error": 8.881784197001252e-16,
+        "xml_composed_translation_error_m": 8.777083671441753e-17,
+        "source_vertex_bidirectional_max_error_m": 3.824328593156595e-09,
+        "hull_vertex_bidirectional_max_error_m": 3.926948080483974e-09
+      },
+      "original_stl": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/real-scene/assets/assets/wrist_roll_follower_so101_v1.stl",
+        "sha256": "4b17b410a12d64ec39554abc3e8054d8a97384b2dc4a8d95a5ecb2a93670f5f4",
+        "vertices": 14354,
+        "faces": 28796,
+        "watertight": true,
+        "winding_consistent": true,
+        "positive_oriented_volume_m3": 5.663910130167903e-05
+      },
+      "hull_obj": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/scene-assets/jaw-collision/wrist_roll_follower_so101_v1-3.obj",
+        "sha256": "daf2c0bf93d369a6887b5971cd89a69e4b18fb4fb68d0607b6a48494f19db4a9",
+        "vertices": 2801,
+        "faces": 5598,
+        "convex_surface_faces": 5594
+      },
+      "original_surface_vs_panel": {
+        "lateral_footprint_surface_present": true,
+        "candidate_triangles": 5125,
+        "original_surface_triangles_crossing_box_slab": 520,
+        "outward_plane_min_signed_distance_m": -0.001021364436728761,
+        "entrance_face_depth_m": 0.001021364436728761,
+        "extremum_point_world": [
+          -0.2192403750349996,
+          -0.09782899461477253,
+          0.24393695654817887
+        ],
+        "normal_coordinate_range_m": [
+          0.06897863556327125,
+          0.09565358919701136
+        ]
+      },
+      "convex_part_surface_vs_panel": {
+        "lateral_footprint_surface_present": true,
+        "candidate_triangles": 2178,
+        "original_surface_triangles_crossing_box_slab": 503,
+        "outward_plane_min_signed_distance_m": -0.001020547462094193,
+        "entrance_face_depth_m": 0.001020547462094193,
+        "extremum_point_world": [
+          -0.21924075283771507,
+          -0.09782821916749643,
+          0.24393771076430237
+        ],
+        "normal_coordinate_range_m": [
+          0.06897945253790581,
+          0.0813599424072498
+        ]
+      },
+      "queries": {
+        "returned_contact_position": {
+          "query_world": [
+            -0.21935909183582628,
+            -0.09782834735779988,
+            0.24443416945450208
+          ],
+          "original_stl": {
+            "point": [
+              -0.21938946366933185,
+              -0.09776101156939115,
+              0.2443947186783395
+            ],
+            "distance_m": 8.374318128029804e-05,
+            "triangle_index": 13480,
+            "face_normal": [
+              0.33142031584724524,
+              -0.9115681455851096,
+              0.2433189063723505
+            ],
+            "query_minus_surface_dot_normal_m": 8.104612213595089e-05
+          },
+          "convex_part": {
+            "point": [
+              -0.21938183366319747,
+              -0.0977719388807261,
+              0.24440566351815565
+            ],
+            "distance_m": 6.716915516031605e-05,
+            "triangle_index": 576,
+            "face_normal": [
+              0.3517378506683863,
+              -0.9073101500951671,
+              0.23036661203713826
+            ],
+            "query_minus_surface_dot_normal_m": 6.574596125933633e-05
+          },
+          "original_normal_dot_panel_outward": 0.16760213259615334
+        },
+        "panel_face_projection_at_contact": {
+          "query_world": [
+            -0.2194678626783157,
+            -0.09782863706504075,
+            0.2449327152868564
+          ],
+          "original_stl": {
+            "point": [
+              -0.2195231076455219,
+              -0.0976764388695766,
+              0.2448935952750937
+            ],
+            "distance_m": 0.0001665733244684568,
+            "triangle_index": 13513,
+            "face_normal": [
+              0.33142031584728326,
+              -0.911568145585121,
+              0.2433189063722553
+            ],
+            "query_minus_surface_dot_normal_m": 0.0001665669697604854
+          },
+          "convex_part": {
+            "point": [
+              -0.2195188853827298,
+              -0.09769773803225748,
+              0.24489299498414074
+            ],
+            "distance_m": 0.00014599854655833239,
+            "triangle_index": 75,
+            "face_normal": [
+              0.3512990574665275,
+              -0.9046106258316872,
+              0.24138887268375173
+            ],
+            "query_minus_surface_dot_normal_m": 0.00014592492303208574
+          },
+          "original_normal_dot_panel_outward": 0.16760213259605222
+        },
+        "hull_entrance_extremum": {
+          "query_world": [
+            -0.21924075283771507,
+            -0.09782821916749643,
+            0.24393771076430237
+          ],
+          "original_stl": {
+            "point": [
+              -0.2192406345360518,
+              -0.09782820323613488,
+              0.24393693327872257
+            ],
+            "distance_m": 7.865957784146289e-07,
+            "triangle_index": 2275,
+            "face_normal": [
+              0.22941990921506458,
+              0.04664255943288293,
+              -0.9722093277197569
+            ],
+            "query_minus_surface_dot_normal_m": -7.837625691805067e-07
+          },
+          "convex_part": {
+            "point": [
+              -0.21924075283771496,
+              -0.09782821916749666,
+              0.2439377107643026
+            ],
+            "distance_m": 3.424750116624316e-16,
+            "triangle_index": 2651,
+            "face_normal": [
+              0.35336263554903147,
+              -0.9200424050228374,
+              0.16928325598722307
+            ],
+            "query_minus_surface_dot_normal_m": -2.9387817270765194e-16
+          },
+          "original_normal_dot_panel_outward": -0.9987946503782013
+        }
+      },
+      "source_sha256": {
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-000/run/scene.xml": "e6132a12e3ced1aeb9776a4e4503be48435455d800cc8b06348f109cc3986e09",
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-000/run/result.json": "7d5070ccc3adcf9298cb35165d74afa5bd885490262fddd0b666e4531114dadd",
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-000/run/folding-frames.json": "47cc2dcc20d41e613a61d6118edf40375052c0bee424ddb224e745c22a81581e"
+      }
+    },
+    {
+      "trial": "trial-001",
+      "result_error": "Paired left path collides: ('short_left_cardboard', 'left_wrist_roll_follower_so101_v1_part_81', -0.0010599897753407715)",
+      "time_s": 122.03999999989698,
+      "static_copy_only": true,
+      "dynamics_executed": false,
+      "first_rejected_interpolation_fraction": 1.0,
+      "interpolation_count": 1,
+      "reproduced_error_exactly": true,
+      "goal_fk_reproduction_error_m": {
+        "left": 0.0,
+        "right": 0.0
+      },
+      "rejected_qpos": [
+        -0.21108297594221706,
+        0.05051507071963537,
+        -0.2580319812903012,
+        0.6127234202020267,
+        -0.2658188416096682,
+        -0.17003397173752582,
+        0.22108802967264035,
+        0.053282446662363155,
+        -0.2491030818844986,
+        0.6244754933668405,
+        0.843974312527304,
+        -0.1700234480067353,
+        -0.00019197203031503295,
+        6.492965598140224e-05,
+        -1.1264348276773682e-06,
+        0.9999999745485025,
+        -5.84978464514922e-06,
+        -2.1096530341333446e-06,
+        0.00022553120463923783,
+        -0.2210499969178225,
+        -0.25718363886726703,
+        0.6180972135258805,
+        0.6901400738034053
+      ],
+      "contact": {
+        "geom1": "short_left_cardboard",
+        "geom2": "left_wrist_roll_follower_so101_v1_part_81",
+        "distance_m": -0.0010599897753407715,
+        "position_world": [
+          -0.21887617459984265,
+          0.056638538045982165,
+          0.2443944804537241
+        ],
+        "panel_to_jaw_normal_world": [
+          -0.16367303141275566,
+          -6.219636146670134e-05,
+          0.9865146399926217
+        ],
+        "panel_normal_alignment": 0.9983963019468419,
+        "panel_face_axis": 2,
+        "panel_face_sign": 1.0,
+        "panel_local_position": [
+          0.0014574947164672156,
+          0.05666938329051871,
+          0.06947127720757389
+        ]
+      },
+      "transform_validation": {
+        "xml_composed_max_rotation_error": 2.220446049250313e-16,
+        "xml_composed_translation_error_m": 3.6880726988814706e-17,
+        "source_vertex_bidirectional_max_error_m": 3.824328574540033e-09,
+        "hull_vertex_bidirectional_max_error_m": 3.687291904487423e-09
+      },
+      "original_stl": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/real-scene/assets/assets/wrist_roll_follower_so101_v1.stl",
+        "sha256": "4b17b410a12d64ec39554abc3e8054d8a97384b2dc4a8d95a5ecb2a93670f5f4",
+        "vertices": 14354,
+        "faces": 28796,
+        "watertight": true,
+        "winding_consistent": true,
+        "positive_oriented_volume_m3": 5.663910130167903e-05
+      },
+      "hull_obj": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/scene-assets/jaw-collision/wrist_roll_follower_so101_v1-81.obj",
+        "sha256": "89ffabaaef046dc1bd4ebb35ba799671faa7e2fca947024d110c4b76bff8d021",
+        "vertices": 177,
+        "faces": 350,
+        "convex_surface_faces": 350
+      },
+      "original_surface_vs_panel": {
+        "lateral_footprint_surface_present": true,
+        "candidate_triangles": 7046,
+        "original_surface_triangles_crossing_box_slab": 373,
+        "outward_plane_min_signed_distance_m": -0.0010627541332595136,
+        "entrance_face_depth_m": 0.0010627541332595136,
+        "extremum_point_world": [
+          -0.21871744668671522,
+          0.05627030979008562,
+          0.24388276772523454
+        ],
+        "normal_coordinate_range_m": [
+          0.06893724586674049,
+          0.12100872367534532
+        ]
+      },
+      "convex_part_surface_vs_panel": {
+        "lateral_footprint_surface_present": true,
+        "candidate_triangles": 137,
+        "original_surface_triangles_crossing_box_slab": 121,
+        "outward_plane_min_signed_distance_m": -0.0010622288602077229,
+        "entrance_face_depth_m": 0.0010622288602077229,
+        "extremum_point_world": [
+          -0.21871756144535826,
+          0.05626939672758898,
+          0.24388328022741923
+        ],
+        "normal_coordinate_range_m": [
+          0.06893777113979228,
+          0.07530261895077975
+        ]
+      },
+      "queries": {
+        "returned_contact_position": {
+          "query_world": [
+            -0.21887617459984265,
+            0.056638538045982165,
+            0.2443944804537241
+          ],
+          "original_stl": {
+            "point": [
+              -0.218800806861056,
+              0.056635824669550465,
+              0.24386892624664608
+            ],
+            "distance_m": 0.0005309377393243907,
+            "triangle_index": 7987,
+            "face_normal": [
+              0.19135101772999158,
+              0.006472071347134045,
+              -0.9815003312817443
+            ],
+            "query_minus_surface_dot_normal_m": -0.0005302357607085823
+          },
+          "convex_part": {
+            "point": [
+              -0.218755035312023,
+              0.05664574613677269,
+              0.24387825246862285
+            ],
+            "distance_m": 0.0005302999304431423,
+            "triangle_index": 160,
+            "face_normal": [
+              0.18940843711270194,
+              0.005928280913201204,
+              -0.9818804914224224
+            ],
+            "query_minus_surface_dot_normal_m": -0.0005298617224631504
+          },
+          "original_normal_dot_panel_outward": -0.9995838496421214
+        },
+        "panel_face_projection_at_contact": {
+          "query_world": [
+            -0.21899210145456857,
+            0.05663849179153426,
+            0.24491033775322157
+          ],
+          "original_stl": {
+            "point": [
+              -0.2188485992972947,
+              0.05663131498242301,
+              0.2438621606514428
+            ],
+            "distance_m": 0.0010579790226770114,
+            "triangle_index": 8008,
+            "face_normal": [
+              0.14381535667812625,
+              -0.004550088954409347,
+              -0.9895940783341675
+            ],
+            "query_minus_surface_dot_normal_m": -0.0010579403220180225
+          },
+          "convex_part": {
+            "point": [
+              -0.21880256132525117,
+              0.056642284141185356,
+              0.24386916464125477
+            ],
+            "distance_m": 0.001058291685510272,
+            "triangle_index": 157,
+            "face_normal": [
+              0.1459710643073042,
+              -0.004174838861401491,
+              -0.9892800508983663
+            ],
+            "query_minus_surface_dot_normal_m": -0.001057663331157236
+          },
+          "original_normal_dot_panel_outward": -0.9997874583188998
+        },
+        "hull_entrance_extremum": {
+          "query_world": [
+            -0.21871756144535826,
+            0.05626939672758898,
+            0.24388328022741923
+          ],
+          "original_stl": {
+            "point": [
+              -0.21871725048078544,
+              0.05626944947294569,
+              0.24388280030410317
+            ],
+            "distance_m": 5.742886273448985e-07,
+            "triangle_index": 7987,
+            "face_normal": [
+              0.19135101772999158,
+              0.006472071347134045,
+              -0.9815003312817443
+            ],
+            "query_minus_surface_dot_normal_m": -5.308896529006384e-07
+          },
+          "convex_part": {
+            "point": [
+              -0.21871756144535826,
+              0.056269396727588974,
+              0.24388328022741915
+            ],
+            "distance_m": 8.355534721610419e-17,
+            "triangle_index": 161,
+            "face_normal": [
+              0.18742292287910473,
+              0.005539736895200151,
+              -0.9822636913245776
+            ],
+            "query_minus_surface_dot_normal_m": -8.175144283056692e-17
+          },
+          "original_normal_dot_panel_outward": -0.9995838496421214
+        }
+      },
+      "source_sha256": {
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-001/run/scene.xml": "e6132a12e3ced1aeb9776a4e4503be48435455d800cc8b06348f109cc3986e09",
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-001/run/result.json": "51d0bc88b37b768bc3d1d6fc56977f7a57dd5470b8d71d1c5584bf41e6f0a8e5",
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-001/run/folding-frames.json": "da05f1a5c4002bf777a9b04a9a4bddff4286885dbdffa45197853cf4ea09a59c"
+      }
+    },
+    {
+      "trial": "trial-002",
+      "result_error": "Paired left path collides: ('short_left_cardboard', 'left_wrist_roll_follower_so101_v1_part_3', -0.001020956813350949)",
+      "time_s": 131.5659999999001,
+      "static_copy_only": true,
+      "dynamics_executed": false,
+      "first_rejected_interpolation_fraction": 1.0,
+      "interpolation_count": 1,
+      "reproduced_error_exactly": true,
+      "goal_fk_reproduction_error_m": {
+        "left": 0.0,
+        "right": 0.0
+      },
+      "rejected_qpos": [
+        -0.3498639899741344,
+        -1.5303355019741611,
+        0.955390825798233,
+        0.8196056770539993,
+        -1.5706676957356116,
+        -0.1699956515518966,
+        0.4073571843861545,
+        -0.8898643673677058,
+        0.2609707740367187,
+        1.3160159484833667,
+        0.8325450385348188,
+        -0.17001749847291553,
+        -3.585408346597678e-05,
+        -5.5282389722442015e-06,
+        -1.1966948626512397e-06,
+        0.9999999988849414,
+        1.9171218939374037e-07,
+        -1.6540197349280974e-06,
+        4.719474598222139e-05,
+        -0.22343829741376062,
+        -0.2411211780265621,
+        0.6086133265958767,
+        0.6854741936157224
+      ],
+      "contact": {
+        "geom1": "short_left_cardboard",
+        "geom2": "left_wrist_roll_follower_so101_v1_part_3",
+        "distance_m": -0.001020956813350949,
+        "position_world": [
+          -0.21969332806593023,
+          -0.09754465572312876,
+          0.24418878862395246
+        ],
+        "panel_to_jaw_normal_world": [
+          -0.2215664286120165,
+          -2.128735166071708e-05,
+          0.9751452800782892
+        ],
+        "panel_normal_alignment": 0.9999999997779808,
+        "panel_face_axis": 2,
+        "panel_face_sign": 1.0,
+        "panel_local_position": [
+          0.0007616684147166829,
+          -0.09751830010188142,
+          0.06948949745204008
+        ]
+      },
+      "transform_validation": {
+        "xml_composed_max_rotation_error": 8.881784197001252e-16,
+        "xml_composed_translation_error_m": 7.850462293418876e-17,
+        "source_vertex_bidirectional_max_error_m": 3.824328560243345e-09,
+        "hull_vertex_bidirectional_max_error_m": 3.92694808104358e-09
+      },
+      "original_stl": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/real-scene/assets/assets/wrist_roll_follower_so101_v1.stl",
+        "sha256": "4b17b410a12d64ec39554abc3e8054d8a97384b2dc4a8d95a5ecb2a93670f5f4",
+        "vertices": 14354,
+        "faces": 28796,
+        "watertight": true,
+        "winding_consistent": true,
+        "positive_oriented_volume_m3": 5.663910130167903e-05
+      },
+      "hull_obj": {
+        "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/scene-assets/jaw-collision/wrist_roll_follower_so101_v1-3.obj",
+        "sha256": "daf2c0bf93d369a6887b5971cd89a69e4b18fb4fb68d0607b6a48494f19db4a9",
+        "vertices": 2801,
+        "faces": 5598,
+        "convex_surface_faces": 5594
+      },
+      "original_surface_vs_panel": {
+        "lateral_footprint_surface_present": true,
+        "candidate_triangles": 5140,
+        "original_surface_triangles_crossing_box_slab": 511,
+        "outward_plane_min_signed_distance_m": -0.0010218256194661907,
+        "entrance_face_depth_m": 0.0010218256194661907,
+        "extremum_point_world": [
+          -0.21956591307001974,
+          -0.09754561557601285,
+          0.2436933835687881
+        ],
+        "normal_coordinate_range_m": [
+          0.06897817438053382,
+          0.0957241621618591
+        ]
+      },
+      "convex_part_surface_vs_panel": {
+        "lateral_footprint_surface_present": true,
+        "candidate_triangles": 2112,
+        "original_surface_triangles_crossing_box_slab": 382,
+        "outward_plane_min_signed_distance_m": -0.0010210053929557844,
+        "entrance_face_depth_m": 0.0010210053929557844,
+        "extremum_point_world": [
+          -0.21956629128728075,
+          -0.09754484129803513,
+          0.24369413877779733
+        ],
+        "normal_coordinate_range_m": [
+          0.06897899460704422,
+          0.08142513332799249
+        ]
+      },
+      "queries": {
+        "returned_contact_position": {
+          "query_world": [
+            -0.21969332806593023,
+            -0.09754465572312876,
+            0.24418878862395246
+          ],
+          "original_stl": {
+            "point": [
+              -0.2197218728241927,
+              -0.09748031520631552,
+              0.24415324158571425
+            ],
+            "distance_m": 7.885491269139192e-05,
+            "triangle_index": 13480,
+            "face_normal": [
+              0.3325734770668155,
+              -0.9114415411413628,
+              0.2422172566799198
+            ],
+            "query_minus_surface_dot_normal_m": 7.674595539463088e-05
+          },
+          "convex_part": {
+            "point": [
+              -0.21971461473066486,
+              -0.09749196640681741,
+              0.24416269138111274
+            ],
+            "distance_m": 6.253280925016489e-05,
+            "triangle_index": 167,
+            "face_normal": [
+              0.35287864630306237,
+              -0.9071481528069429,
+              0.2292572569020876
+            ],
+            "query_minus_surface_dot_normal_m": 6.129160770650764e-05
+          },
+          "original_normal_dot_panel_outward": 0.16252929921676504
+        },
+        "panel_face_projection_at_contact": {
+          "query_world": [
+            -0.21980644878228545,
+            -0.09754466659133113,
+            0.24468660039047332
+          ],
+          "original_stl": {
+            "point": [
+              -0.2198596554125838,
+              -0.09739830362678621,
+              0.24465102442988898
+            ],
+            "distance_m": 0.0001597457726188043,
+            "triangle_index": 13513,
+            "face_normal": [
+              0.33257347706673646,
+              -0.9114415411414153,
+              0.24221725667982988
+            ],
+            "query_minus_surface_dot_normal_m": 0.00015971351158865544
+          },
+          "convex_part": {
+            "point": [
+              -0.2198552104088352,
+              -0.09741986627497651,
+              0.2446501603231468
+            ],
+            "distance_m": 0.0001388549375886702,
+            "triangle_index": 71,
+            "face_normal": [
+              0.3524433566097692,
+              -0.9044600727308754,
+              0.2402824529950089
+            ],
+            "query_minus_surface_dot_normal_m": 0.00013881852330640702
+          },
+          "original_normal_dot_panel_outward": 0.16252929921669487
+        },
+        "hull_entrance_extremum": {
+          "query_world": [
+            -0.21956629128728075,
+            -0.09754484129803513,
+            0.24369413877779733
+          ],
+          "original_stl": {
+            "point": [
+              -0.21956617346146054,
+              -0.09754482446281595,
+              0.24369336123900706
+            ],
+            "distance_m": 7.865957785848207e-07,
+            "triangle_index": 2275,
+            "face_normal": [
+              0.22879521732543065,
+              0.04786310280418463,
+              -0.9722972137772303
+            ],
+            "query_minus_surface_dot_normal_m": -7.837625693510902e-07
+          },
+          "convex_part": {
+            "point": [
+              -0.2195662912872807,
+              -0.09754484129803526,
+              0.24369413877779744
+            ],
+            "distance_m": 1.760893866893587e-16,
+            "triangle_index": 2613,
+            "face_normal": [
+              0.35448154727419434,
+              -0.9198178831888723,
+              0.16816032352500793
+            ],
+            "query_minus_surface_dot_normal_m": -1.532325617225701e-16
+          },
+          "original_normal_dot_panel_outward": -0.9988253969131442
+        }
+      },
+      "source_sha256": {
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-002/run/scene.xml": "e6132a12e3ced1aeb9776a4e4503be48435455d800cc8b06348f109cc3986e09",
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-002/run/result.json": "3edb32d739614dbf5de16bd574fb930dc2a542bb855f5ce4e54f3c25ba456f70",
+        "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/major-first/paired-short-setpoint-feedback-05/trial-002/run/folding-frames.json": "f0f76b45b6fd86d0ae905b5f1a8b1cdc8b1c8fd77c26d7a1aaa701d494ebfa01"
+      }
+    }
+  ],
+  "frozen_imported_geometry_module_hash_matches": {
+    "trial-000": {
+      "folding_far_contact.py": true,
+      "folding_paths.py": true
+    },
+    "trial-001": {
+      "folding_far_contact.py": true,
+      "folding_paths.py": true
+    },
+    "trial-002": {
+      "folding_far_contact.py": true,
+      "folding_paths.py": true
+    }
+  },
+  "original_evidence_path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/cad-hull-audit-20261007/evidence.json",
+  "original_evidence_sha256": "37a36be8151d630f467f5124e0c649a6b9ec2d39087deef942bfe1859db8780c"
+}

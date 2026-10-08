@@ -116,7 +116,8 @@ class System:
             self.robot = LeRobotXLeRobot(p.robot)
             self.cameras = {c.name: OpenCVCameraAdapter(c) for c in p.cameras}
             self.light = ESP32Light(p.light) if p.light.enabled else None
-        self.skills = SkillRunner(self.robot, p.limits, p.arms, self.keyframes)
+        self.skills = SkillRunner(self.robot, p.limits, p.arms, self.keyframes,
+                                  simulated_cartesian=(p.robot.kind == "sim" or p.simulated))
         if p.llm.backend == "sim":
             from .adapters.sim import SimVision
             self.backends.vision = SimVision(self.faults)
@@ -210,7 +211,7 @@ class System:
             return False
 
     def idle_rest(self, seconds: float) -> None:
-        """Between cycles: rest the arms, release torque so servos cool, watch temperature, then re-engage."""
+        """Between cycles: rest the arms, release torque, watch servo load, then re-engage."""
         from .safety.rules import check_health
         try:
             self.skills.go_rest()

@@ -7,11 +7,11 @@ For the new manual-control path, start with the
 controller inputs and streams JSON without connecting to motors or calling an AI
 service. Robot motion integration is a separate step.
 
-## R3.2 planter assembly preparation
+## R3.3 planter assembly preparation
 
-See [the connected-Mac handoff](docs/r32-handoff.md) first, then
+See [the connected-Mac handoff](docs/r33-handoff.md) first, then
 [training instructions](docs/r32-training.md). The current open-front planter
-parts and offline training tools are included; no R3.2 policy has been trained
+parts and offline training tools are included; no R3.3 policy has been trained
 and the live robot adapter remains to be integrated.
 
 
@@ -30,12 +30,12 @@ farm/
   evidence/            SQLite + images by hash; INTENT → ATTEMPT → RESULT; crash ⇒ UNKNOWN
   llm/                 backends (Claude CLI on the subscription; OpenRouter for Jev/Astra/vision), Jev, Astra
   viewer/              local web page: state, frames, questions, reconciliation, authority, proposals
-  safety/              joint clamps, step limits, temperature/load, watchdog, pour bounds (code, not config)
+  safety/              joint clamps, step limits, load, watchdog, pour bounds (code, not config)
 firmware/esp32_light/  BH1750 → JSON lines at 5 Hz
 profiles/              paper-tray-v0.yaml (real), sim.yaml (fakes)
 parts/                 printable nest plate, tag tiles, light paddle, bottle rest (AnkerMake M5C)
 assembly/            R2a planter-assembly contract (disabled): frames, stage machine, evidence, dataset schema, split
-  tests/                 109 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test, calibration report, auto-calibration wrapper, remote policy, soak, MCP tools, carton task
+  tests/                 109 tests: cycle paths, UNKNOWN delivery, authority ladder, head servo, e-stop, Telegram, recorder, bus probe, motors-only self-test, calibration report, auto-calibration wrapper, remote policy, MCP tools, carton task
 ```
 
 ## Setup (MacBook)
@@ -87,9 +87,9 @@ macOS asks for camera permission the first time a Terminal process opens a camer
 |---|---|
 | `farm calibration-report` | Reads the saved calibration and flags a wrapped reading, a short sweep, or arms that disagree. No motion. |
 | `farm robot-test [--move --ask]` | Motors only: reads every joint; with `--move` nudges each one and asks whether the named part moved. |
-| `farm soak [--keyframe pour_B] [--minutes 20]` | Holds a pose, logs every servo's temperature and load to `data/soak/`, stops at the temperature ceiling. |
+| `farm servo-protection [--write]` | Reads each servo's own EEPROM temperature protection (limit, unload mask, alarm mask); with `--write` sets the limit (default 200 °C, `--limit N`) and clears the temperature bit in both masks, permanently; a servo that will not keep a limit above the documented 100 gets 100 instead. No motion. |
 | `farm policy-server --checkpoint DIR` | Parked. On a second machine: serves a checkpoint over HTTP; `farm policy-test --server URL` uses it. See `docs/gpu-server.md`. |
-| `farm calibrate --auto --arm left` (then `right`), `farm calibrate --head` | Automatic calibration: each arm finds its own limits (LeRobot PR #3282, vendored in `farm/vendor/autocal`); the head is a two-joint hands-on step. **Never run on this robot.** Staged modes: `--motor gripper`, `--unfold-only`. Procedure in the `farm-bringup` skill. |
+| `farm calibrate --auto --arm left` (then `right`), `farm calibrate --head` | Automatic calibration: each arm finds its own limits (LeRobot PR #3282, vendored in `farm/vendor/autocal`); the head is a two-joint hands-on step. Runs have completed, but communication and clearance failures remain documented in `STATUS.md`. Staged modes: `--motor gripper`, `--unfold-only`. Procedure in the `farm-bringup` skill. |
 | `farm r2a [--checkpoint DIR]` | R2a planter-assembly readiness: parts hashes, station transform, grip thresholds, dataset/checkpoint schema. Files only. Contract in `farm/assembly/`, plan in `docs/r2a-assembly.md`. Execution disabled. |
 | `farm mcp` | Stdio MCP server: state, camera frames and three skill-level actions (stop, go_rest, go_keyframe). No raw joint access. It holds the robot's serial ports while it runs. |
 
@@ -113,3 +113,7 @@ shadow → route → approve. Starts at shadow; promotes itself after `jev_shado
 `farm light-monitor` streams the ESP32 readings once the board is flashed.
 
 `firmware/esp32_light/esp32_light.ino` — Arduino IDE, board "ESP32 Dev Module", 115200 baud. BH1750 on 3V3/GND/SDA=GPIO21/SCL=GPIO22 (verify the delivered ELEGOO board's labels). `farm check` shows the live lux stream.
+
+### Repeating the unchanged calibration PR
+
+Use the tracked [upstream calibration procedure](docs/auto-calibration.md). The new runner defaults to velocity300/20s, retains evidence, verifies release/readback and stages candidates before optional atomic installation. Routine completion is reported separately from full-range validation.

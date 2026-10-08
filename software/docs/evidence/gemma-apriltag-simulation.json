@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "checked_at_utc": "2026-10-06T01:50:33.741200+00:00",
+  "source_base_commit": "bcec85e97e607bab30c25f13258484f2a7c1422e",
+  "source_state": "New simulation runner added to this base; source hashes below identify tested code.",
+  "source_sha256": {
+    "software/tools/simulate_gemma_tags.py": "418a81205d996f8599a7327508b7ae01f38fad243063d674208ad2dc836d42fe",
+    "software/farm/perception/gemma_tags.py": "39931d28616f692af5063c1d01fff01e954a4aebe696ada81bfc16944e9ffc2c",
+    "software/farm/perception/tags.py": "ea95730189d5ee3ea52a84f927ce47b87381c68a2c108c11a38e4a585917cb8f",
+    "software/carton/servo/tag_kit.py": "19481688b6f1b1cc7436bbb9c870ae14e7b3fddf2d8fc3320da613b19c9db32e"
+  },
+  "external_simulation_source_sha256": {
+    "paddle_sim.py": "757e80e079c0a8c628d09a547f159ab7d9788d91afc7a7736e895f196e9f0eef",
+    "gemma_mujoco.py": "81b5473f89840b2207b959741d14207ce705ac79c816842aaaa4f428a0bab552",
+    "real-scene/measurement.json": "68c8f2982781310872c2e00929c922cc795e95e72bcc393d08d7323d3b9974db",
+    "scene-assets/arm-import.xml": "0827dbdfe75891205ad699d5d04d3f978aa7ddfe90bba064caf103f141b21a30",
+    "scene-assets/paddle.xml": "aff96eb5d79f7e92c81ab9f17dd25185a19fbe001df3c0a6740588364ef71d4f"
+  },
+  "python_version": "3.12.12",
+  "environment": "MUJOCO_RENDERED_RGB",
+  "mujoco_version": "3.14.0",
+  "production_adapter": "farm.perception.gemma_tags.TagRobot",
+  "hardware_connected": false,
+  "motor_writes": 0,
+  "physical_grasp_validated": false,
+  "assumptions": "Existing photo-informed model; tag mounts/camera pose are illustrative, not a calibrated real scene.",
+  "nominal_frames": 46,
+  "all_tags_detected_frames": 46,
+  "max_center_error_px": 0.27389046996280697,
+  "max_relative_error_px": 0.454632482963627,
+  "measured_pan_travel_degrees": 24.00001070293593,
+  "negative_controls": {
+    "occlusion_rejected": true,
+    "duplicate_identity_rejected": true,
+    "undersized_tag_rejected": true,
+    "stale_frame_rejected": true,
+    "hash_mismatch_rejected": true,
+    "reacquired": true,
+    "stop_enforced": true
+  },
+  "passed": true,
+  "gemma": {
+    "model": "google/gemma-4-e4b",
+    "hardware_tools_exposed": false,
+    "answer": "The tracking test is complete.\n\n**Before movement (Initial state):**\n*   Gripper-to-Paddle Displacement: $\\Delta x = 181.17$ pixels, $\\Delta y = 70.49$ pixels\n\n**After movement (+12 degrees pan):**\n*   Gripper-to-Paddle Displacement: $\\Delta x = 205.40$ pixels, $\\Delta y = 44.79$ pixels\n\nThe simulation has been stopped successfully.",
+    "passed": true,
+    "before_after_displacement": [
+      {
+        "from_tag": 2,
+        "to_tag": 3,
+        "units": "pixels",
+        "dx": 181.17455052648825,
+        "dy": 70.48597652547343,
+        "axes": "+x=image right, +y=image down",
+        "contact_offset_calibrated": false
+      },
+      {
+        "from_tag": 2,
+        "to_tag": 3,
+        "units": "pixels",
+        "dx": 205.40389661100872,
+        "dy": 44.78624087134878,
+        "axes": "+x=image right, +y=image down",
+        "contact_offset_calibrated": false
+      }
+    ]
+  },
+  "gemma_tool_calls": [
+    {
+      "name": "robot_get_tags",
+      "arguments": {
+        "cameras": [
+          "sim"
+        ]
+      },
+      "ok": true,
+      "inference_latency_s": 4.162
+    },
+    {
+      "name": "sim_move_pan",
+      "arguments": {
+        "delta_degrees": 12
+      },
+      "ok": true,
+      "inference_latency_s": 6.682
+    },
+    {
+      "name": "robot_get_tags",
+      "arguments": {
+        "cameras": [
+          "sim"
+        ]
+      },
+      "ok": true,
+      "inference_latency_s": 3.678
+    },
+    {
+      "name": "sim_stop",
+      "arguments": {},
+      "ok": true,
+      "inference_latency_s": 8.592
+    }
+  ],
+  "focused_tests": {
+    "command": "PYTHONPATH=. python -m pytest tests/test_gemma_tags.py tests/test_carton_tags.py -q",
+    "passed": 54
+  },
+  "artifact_directory_local": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-apriltag-simulation",
+  "artifact_sha256": {
+    "after.png": "3102f3ed7e04f1473cd5a9430866d45a116c80cf9ed7cea36fb18ed34aa814ff",
+    "apriltag-simulation.gif": "910a7089be77cda8fc14d30f2acb5fcb788db6556b7171d5bf1dfd939f27744a",
+    "before.png": "624d1b6a2893a1f3da29efea18e85b1d52b9926373f763da0671465550d74e06",
+    "duplicate.png": "6904fa7f796a56aba37935517806a358a9d0972db25c5e433b1d127bb6fac0f7",
+    "initial.png": "624d1b6a2893a1f3da29efea18e85b1d52b9926373f763da0671465550d74e06",
+    "occluded.png": "b83b30edb50e3e80084ee5ba94d7f39a37650584eddae93d464022dc2a168a00",
+    "result.json": "2a73f7bce400fa7ccad6a8f6b09c590a96392843d5086cf7eff9d57ea19faac4",
+    "tag-scene.xml": "6c7e6b23378e32beac07ad9ecb805a43f123b0ea15e3ae2ec7fe475eb4f208c7",
+    "undersized.png": "7053468725bd56f617aa152a8925a6331778dce82f0b94056920c4b576eb7548"
+  },
+  "animation_verification": {
+    "decoded_frames": 67,
+    "duration_ms": 8700,
+    "size_px": [
+      640,
+      480
+    ]
+  },
+  "limitations": [
+    "Simulated camera/tag mounts are illustrative, not registered to the physical workspace.",
+    "Tag geometry is visual only, with no collision or mass contribution.",
+    "Ideal rendering does not validate glare, motion blur, lens distortion, print quality or network delay.",
+    "Pixel displacement is not a metric contact offset or camera-to-robot calibration.",
+    "Gemma follows a prescribed tracking test; autonomous grasp planning and carton folding were not tested.",
+    "Existing scene scripts and meshes are local dependencies, not bundled into this repository."
+  ]
+}

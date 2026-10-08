@@ -1,0 +1,57 @@
+{
+  "status": "EXPLORATORY_CAMERA_PAIR_FIT",
+  "train_tags": [
+    1,
+    2
+  ],
+  "held_out_tag": 3,
+  "train_rms_px": 1.8446118586742972,
+  "held_out_rms_px": 16.416247591932564,
+  "phone_assumed_intrinsics": [
+    [
+      1072.746814848279,
+      0.0,
+      388.7767015432816
+    ],
+    [
+      0.0,
+      1072.746814848279,
+      655.2557265241569
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "phone_from_oak_rotation_vector": [
+    [
+      -0.2111584612661935
+    ],
+    [
+      -2.22314381469796
+    ],
+    [
+      -1.210505390914232
+    ]
+  ],
+  "phone_from_oak_translation_metres": [
+    [
+      0.12156171326928546
+    ],
+    [
+      -0.4478499161299954
+    ],
+    [
+      0.590184750845385
+    ]
+  ],
+  "limitations": [
+    "Phone focal length and principal point fitted; square pixels and zero distortion assumed",
+    "OAK tag poses used as estimates, not measured ground truth",
+    "Single scene fit does not independently calibrate the phone lens",
+    "No calibrated jaw/contact offsets or arm model binding"
+  ],
+  "motion_ready": false,
+  "motor_writes": 0
+}

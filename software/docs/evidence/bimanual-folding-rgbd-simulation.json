@@ -1,0 +1,498 @@
+{
+  "date": "2026-10-06",
+  "scope": "Historical favorable station only: four simulated top flaps folded by both SO101 grippers. This scene is not registered to the photographed robot/table setup.",
+  "result": "PASS for the documented station, camera and material envelope; no physical or learned-policy validation.",
+  "local_run_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2",
+  "matrix_sha256": "b661caed44e08af7ef188d4b1249df6b72005df7e919c54dde41ea346fd7ab48",
+  "replay": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/nominal/folding.gif",
+  "positive_cases_passed": 5,
+  "negative_controls_rejected": 6,
+  "all_expected_results": true,
+  "cases": [
+    {
+      "case": "nominal",
+      "expected_success": true,
+      "success": true,
+      "matches_expectation": true,
+      "error": null,
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 91.84313318782574,
+          "short_right": 91.8431331878532,
+          "long_far": 90.28997542280082,
+          "long_near": 90.3242806359992
+        },
+        "all_four_closed": true,
+        "continuous_two_second_hold_passed": true,
+        "short_flaps_supported_by_contents": true,
+        "initial_carton_position_error_mm": 2.979855977607009,
+        "carton_translation_during_run_mm": 0.04770966366360976,
+        "both_hands_contacted_flaps": true,
+        "finger_contacts": {
+          "left": [
+            "long_near_cardboard",
+            "short_left_cardboard"
+          ],
+          "right": [
+            "long_far_cardboard",
+            "short_right_cardboard"
+          ]
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 1.8936115389953212,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/nominal/result.json",
+      "result_sha256": "1acf1a587b72870f158b23d4bdbeb8e9c88901486123ad17b647c149f8da800b"
+    },
+    {
+      "case": "shift-a",
+      "expected_success": true,
+      "success": true,
+      "matches_expectation": true,
+      "error": null,
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 91.84383480021152,
+          "short_right": 91.84383480030384,
+          "long_far": 90.35431428217585,
+          "long_near": 90.33847762915374
+        },
+        "all_four_closed": true,
+        "continuous_two_second_hold_passed": true,
+        "short_flaps_supported_by_contents": true,
+        "initial_carton_position_error_mm": 1.4003800101493378,
+        "carton_translation_during_run_mm": 0.29668164940179104,
+        "both_hands_contacted_flaps": true,
+        "finger_contacts": {
+          "left": [
+            "long_near_cardboard",
+            "short_left_cardboard"
+          ],
+          "right": [
+            "long_far_cardboard",
+            "short_right_cardboard"
+          ]
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 2.2900160837128314,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/shift-a/result.json",
+      "result_sha256": "98a4f95e6ee8256f9abc91f436fd7fb8b9ba029f3eb0794a7123163b705169ee"
+    },
+    {
+      "case": "shift-b",
+      "expected_success": true,
+      "success": true,
+      "matches_expectation": true,
+      "error": null,
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 91.84366662192743,
+          "short_right": 91.84366662199439,
+          "long_far": 90.33476191751568,
+          "long_near": 90.34094039135171
+        },
+        "all_four_closed": true,
+        "continuous_two_second_hold_passed": true,
+        "short_flaps_supported_by_contents": true,
+        "initial_carton_position_error_mm": 2.973820951854335,
+        "carton_translation_during_run_mm": 0.09284251025485579,
+        "both_hands_contacted_flaps": true,
+        "finger_contacts": {
+          "left": [
+            "long_near_cardboard",
+            "short_left_cardboard"
+          ],
+          "right": [
+            "long_far_cardboard",
+            "short_right_cardboard"
+          ]
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 3.429034320724401,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/shift-b/result.json",
+      "result_sha256": "cc50d0349348f805434e85b570051cd02f52d54b3fe0398f21dfb06b264085f3"
+    },
+    {
+      "case": "sensor-stress",
+      "expected_success": true,
+      "success": true,
+      "matches_expectation": true,
+      "error": null,
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 91.84384872419712,
+          "short_right": 91.84384872429438,
+          "long_far": 90.35169988581832,
+          "long_near": 90.34275044826424
+        },
+        "all_four_closed": true,
+        "continuous_two_second_hold_passed": true,
+        "short_flaps_supported_by_contents": true,
+        "initial_carton_position_error_mm": 6.982411547944876,
+        "carton_translation_during_run_mm": 0.19228149836926844,
+        "both_hands_contacted_flaps": true,
+        "finger_contacts": {
+          "left": [
+            "long_near_cardboard",
+            "short_left_cardboard"
+          ],
+          "right": [
+            "long_far_cardboard",
+            "short_right_cardboard"
+          ]
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 9.773233801931362,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/sensor-stress/result.json",
+      "result_sha256": "2e9a55ff7ecabd18eaa6b8c9575df388d3409e18c7863368d6714efa731c63e0"
+    },
+    {
+      "case": "stiffness-012",
+      "expected_success": true,
+      "success": true,
+      "matches_expectation": true,
+      "error": null,
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 91.84301703490023,
+          "short_right": 91.84301703492766,
+          "long_far": 90.28983036638888,
+          "long_near": 90.32412311034078
+        },
+        "all_four_closed": true,
+        "continuous_two_second_hold_passed": true,
+        "short_flaps_supported_by_contents": true,
+        "initial_carton_position_error_mm": 2.9798559773965443,
+        "carton_translation_during_run_mm": 0.04642216690457431,
+        "both_hands_contacted_flaps": true,
+        "finger_contacts": {
+          "left": [
+            "long_near_cardboard",
+            "short_left_cardboard"
+          ],
+          "right": [
+            "long_far_cardboard",
+            "short_right_cardboard"
+          ]
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 1.8936115389953212,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/stiffness-012/result.json",
+      "result_sha256": "6edb2c0a8698b16620f0057a7eff416e94d8a264a5c4939443d3844a6bfada6d"
+    },
+    {
+      "case": "missing-tags",
+      "expected_success": false,
+      "success": false,
+      "matches_expectation": true,
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 5.930313407035241,
+          "short_right": 5.930313407035246,
+          "long_far": -4.160932736255397,
+          "long_near": -4.160932738726151
+        },
+        "all_four_closed": false,
+        "continuous_two_second_hold_passed": false,
+        "short_flaps_supported_by_contents": false,
+        "initial_carton_position_error_mm": null,
+        "carton_translation_during_run_mm": 0.0,
+        "both_hands_contacted_flaps": false,
+        "finger_contacts": {
+          "left": [],
+          "right": []
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 0,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/missing-tags/result.json",
+      "result_sha256": "c0fd0c12fa2ce9e6eb9e842727af351d90c23dde4efae37b7f9a9c6c778fc2bb"
+    },
+    {
+      "case": "missing-depth",
+      "expected_success": false,
+      "success": false,
+      "matches_expectation": true,
+      "error": "Fresh table tag and aligned depth registration not observed",
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 5.930313407035241,
+          "short_right": 5.930313407035246,
+          "long_far": -4.160932736255397,
+          "long_near": -4.160932738726151
+        },
+        "all_four_closed": false,
+        "continuous_two_second_hold_passed": false,
+        "short_flaps_supported_by_contents": false,
+        "initial_carton_position_error_mm": null,
+        "carton_translation_during_run_mm": 0.0,
+        "both_hands_contacted_flaps": false,
+        "finger_contacts": {
+          "left": [],
+          "right": []
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 0,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/missing-depth/result.json",
+      "result_sha256": "6719857a9d38d19dae52c03d0a37370dd5f48ab28dc4f18173f71ec1297e1f08"
+    },
+    {
+      "case": "stuck-far",
+      "expected_success": false,
+      "success": false,
+      "matches_expectation": true,
+      "error": "Actual fingertips missed target by over 35 mm",
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 89.74891198603393,
+          "short_right": 91.8423373192319,
+          "long_far": 6.9455689351824805,
+          "long_near": -1.3485100287282021
+        },
+        "all_four_closed": false,
+        "continuous_two_second_hold_passed": false,
+        "short_flaps_supported_by_contents": false,
+        "initial_carton_position_error_mm": 2.978761681821287,
+        "carton_translation_during_run_mm": 40.61566855477621,
+        "both_hands_contacted_flaps": false,
+        "finger_contacts": {
+          "left": [
+            "short_left_cardboard"
+          ],
+          "right": [
+            "long_far_cardboard",
+            "short_right_cardboard"
+          ]
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 1.8936115389953212,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/stuck-far/result.json",
+      "result_sha256": "f9150518fa122b231aabf5f602bd785d869befed96e5118abb665aa77de42f47"
+    },
+    {
+      "case": "disabled-right",
+      "expected_success": false,
+      "success": false,
+      "matches_expectation": true,
+      "error": "short_right has no visual closure confirmation: None",
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 91.84233731620563,
+          "short_right": 8.244239321158968,
+          "long_far": -5.81702880947316,
+          "long_near": -5.816924524510687
+        },
+        "all_four_closed": false,
+        "continuous_two_second_hold_passed": false,
+        "short_flaps_supported_by_contents": false,
+        "initial_carton_position_error_mm": 2.979855977607009,
+        "carton_translation_during_run_mm": 0.0009589466941182043,
+        "both_hands_contacted_flaps": false,
+        "finger_contacts": {
+          "left": [
+            "short_left_cardboard"
+          ],
+          "right": []
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 3.915710941632246,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/disabled-right/result.json",
+      "result_sha256": "eeb2903725e03454dda2f00f1e89bab164ec6c131385761a6bac827afe0627c8"
+    },
+    {
+      "case": "no-actions",
+      "expected_success": false,
+      "success": false,
+      "matches_expectation": true,
+      "error": null,
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 19.93882650621094,
+          "short_right": 19.93882650621142,
+          "long_far": -14.381830282170824,
+          "long_near": -14.381830260436383
+        },
+        "all_four_closed": false,
+        "continuous_two_second_hold_passed": false,
+        "short_flaps_supported_by_contents": false,
+        "initial_carton_position_error_mm": null,
+        "carton_translation_during_run_mm": 2.0374852366264783e-09,
+        "both_hands_contacted_flaps": false,
+        "finger_contacts": {
+          "left": [],
+          "right": []
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 0,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/no-actions/result.json",
+      "result_sha256": "f515d21052cfd5e57507436ff76d45a98b0ca7ad51553f15b0f9ec2bc4943b0b"
+    },
+    {
+      "case": "bad-gripper-calibration",
+      "expected_success": false,
+      "success": false,
+      "matches_expectation": true,
+      "error": "Gripper tag disagrees with calibrated encoder FK by over 12 mm",
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 5.930313407035241,
+          "short_right": 5.930313407035246,
+          "long_far": -4.160932736255397,
+          "long_near": -4.160932738726151
+        },
+        "all_four_closed": false,
+        "continuous_two_second_hold_passed": false,
+        "short_flaps_supported_by_contents": false,
+        "initial_carton_position_error_mm": null,
+        "carton_translation_during_run_mm": 0.0,
+        "both_hands_contacted_flaps": false,
+        "finger_contacts": {
+          "left": [],
+          "right": []
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 24.285694918187733,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/bad-gripper-calibration/result.json",
+      "result_sha256": "870eba6a906e623917da676712053a26cb903195776891783d22e0dd8ad1d1da"
+    },
+    {
+      "case": "strong-springback-known-limit",
+      "expected_success": false,
+      "success": false,
+      "matches_expectation": true,
+      "error": "short_left has no visual closure confirmation: {'degrees': 60.57240010264968, 'pixel_support': 298, 'median_deviation_deg': 0.9679847464033173, 'method': 'aligned_depth_cardboard_plane'}",
+      "evaluation": {
+        "final_flap_degrees": {
+          "short_left": 63.108846052963266,
+          "short_right": 62.71234225066368,
+          "long_far": -3.658658996860361,
+          "long_near": -3.6588019137973893
+        },
+        "all_four_closed": false,
+        "continuous_two_second_hold_passed": false,
+        "short_flaps_supported_by_contents": false,
+        "initial_carton_position_error_mm": 2.9798559774137536,
+        "carton_translation_during_run_mm": 0.0006147572445114126,
+        "both_hands_contacted_flaps": false,
+        "finger_contacts": {
+          "left": [
+            "short_left_cardboard"
+          ],
+          "right": [
+            "short_right_cardboard"
+          ]
+        }
+      },
+      "max_robot_collision_penetration_mm": 0.0,
+      "max_gripper_tag_fk_error_mm": 1.8936115389953212,
+      "result": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/strong-springback-known-limit/result.json",
+      "result_sha256": "2a45cb578e236414ccf7744c537f9b109562489610e62e459ffae5376340ca7e"
+    }
+  ],
+  "nominal_configuration": {
+    "simulation_root": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot",
+    "base_height": 0.26,
+    "setback": 0.04,
+    "stiffness": 0.008,
+    "seed": 1,
+    "noise": 0.0008,
+    "dropout": 0.25,
+    "dx": 0,
+    "dy": 0,
+    "yaw": 0,
+    "fault": null,
+    "no_video": false,
+    "width": 640,
+    "height": 360,
+    "out": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/verified-matrix-v2/nominal"
+  },
+  "assumptions": {
+    "base_height_above_table_m": 0.26,
+    "base_setback_from_near_rim_m": 0.04,
+    "base_spacing_m": 0.3,
+    "contents_top_above_table_m": 0.102,
+    "hinge_range_degrees": [
+      -97.4,
+      174.8
+    ],
+    "closure_tolerance_degrees_from_horizontal": 5.0,
+    "hinge_stiffness_Nm_per_rad": 0.008,
+    "hinge_friction_Nm": 0.004,
+    "flap_mass_kg": 0.023,
+    "depth_noise_std_m": 0.0008,
+    "depth_dropout_fraction": 0.25,
+    "registration": "Surveyed table tag 1; calibrated robot base locations. Carton pose obtained from detected tag 10 and depth.",
+    "additional_markers": "ID 4 left housing; ID 10 carton wall; IDs 11-14 flap outside faces; exact simulated sizes and rigid mounts.",
+    "cart_geometry": "Fixed arm bases; robot cart body not modeled; tabletop and carton collide.",
+    "cardboard_model": "Rigid panels with passive frictional spring hinges. Material properties assumed, not measured."
+  },
+  "source_arm_sha256": "0827dbdfe75891205ad699d5d04d3f978aa7ddfe90bba064caf103f141b21a30",
+  "code_sha256": {
+    "tools/simulate_bimanual_folding.py": "c19417883d6e1435101378507b7685aaac040aa24b5a6a30907e76ae00fcaa24",
+    "carton/folding_sim.py": "f4ff28634cd846e6a719a2a69cfc74010ef1f0ddbf6fdf74d72174dcc4eb2bdd",
+    "carton/folding_vision.py": "7b489fe54b0a59800e090770d14b9ca999e68af9bd2c8d8046c8669372d92687",
+    "carton/folding_controller.py": "8dfed49fe4efca286d4eb85c23df0f9a9194b059f0c802a9abcea0f301a31521"
+  },
+  "actuated_joint_names": [
+    "left_shoulder_pan",
+    "left_shoulder_lift",
+    "left_elbow_flex",
+    "left_wrist_flex",
+    "left_wrist_roll",
+    "left_gripper",
+    "right_shoulder_pan",
+    "right_shoulder_lift",
+    "right_elbow_flex",
+    "right_wrist_flex",
+    "right_wrist_roll",
+    "right_gripper"
+  ],
+  "tests": {
+    "command": ".venv/bin/python -m pytest -q tests/test_folding_vision.py tests/test_carton_bimanual.py tests/test_tag_geometry.py tests/test_gemma_tags.py tests/test_carton_tags.py",
+    "passed": 93
+  },
+  "historical_experiments": [
+    {
+      "directory": "short-push-v1",
+      "result": "Horizontal finger orientation / lower arm bases produced obstruction and poor actual tracking."
+    },
+    {
+      "directory": "full-v1",
+      "result": "Short flaps folded; far flap jammed and near flap was missed."
+    },
+    {
+      "directory": "vision-v1",
+      "result": "Unlabelled cardboard depth patches confused overlapping panels; resolved with tag identity and bounded temporal association."
+    },
+    {
+      "directory": "vision-v2",
+      "result": "A valid near-flap target hit an IK local minimum; multistart solved it."
+    },
+    {
+      "directory": "contact-supported-nominal",
+      "result": "Removing near-horizontal hinge stops exposed missing parent/child content collisions; final model explicitly enables them."
+    },
+    {
+      "directory": "audited-matrix",
+      "result": "Passive retention did not satisfy continuous closure in noisy/stiffer cases; final paired contact press resolved those cases."
+    }
+  ],
+  "station_correction": {
+    "date": "2026-10-06",
+    "arm_bases_over_tabletop_mm": 248.5,
+    "arm_base_height_above_table_mm": 260,
+    "base_setback_from_carton_near_rim_mm": 40,
+    "physical_station_applicability_verified": false,
+    "audit": "bimanual-folding-station-audit.json"
+  }
+}

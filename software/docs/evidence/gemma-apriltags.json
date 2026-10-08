@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "checked_at_utc": "2026-10-06T01:36:46.794575+00:00",
+  "deployment": "Local Gemma pilot with authenticated robot camera tool; robot owner untouched",
+  "catalog": {
+    "connected": true,
+    "busy": false,
+    "tool_count": 19,
+    "tag_tool_visible": true,
+    "motor_tools_preserved": [
+      "robot_move_base",
+      "robot_move_head",
+      "robot_move_joint_targets",
+      "robot_move_motor_targets",
+      "robot_set_motor_enable",
+      "robot_stop"
+    ],
+    "adapter": {
+      "execution": "local_detector_on_authenticated_robot_camera_snapshots",
+      "tool": "robot_get_tags",
+      "motor_access": false
+    }
+  },
+  "physical_tags_observed": true,
+  "observations": {
+    "oak": {
+      "status": "OBSERVED",
+      "frame": {
+        "camera_id": "oak-1944301091DA1C2E00",
+        "seq": 36237,
+        "stream_id": "e9d5ea8526da480c85686bb2a355f598",
+        "sha256": "b123d7c3eb05938373449ab4aa7de5c721eb8614a8d9beab6e54294eac6ece63",
+        "captured_at": 1791250582.2103138,
+        "received_at": null,
+        "timestamp_basis": "capture",
+        "age_s_on_observer_clock": 0.3132140636444092,
+        "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+        "capture_age_within_limit": true,
+        "clock_synchronization_verified": false,
+        "new_since_last_call": true
+      },
+      "image_size_px": [
+        640,
+        360
+      ],
+      "tags": [
+        {
+          "tag_id": 1,
+          "role": "table_anchor",
+          "center_px": [
+            217.33203815990638,
+            298.18474773865336
+          ],
+          "corners_px": [
+            [
+              234.6117095947266,
+              267.8642578125
+            ],
+            [
+              181.92532348632815,
+              287.06973266601557
+            ],
+            [
+              198.1905822753906,
+              331.7720947265625
+            ],
+            [
+              253.92449951171875,
+              309.67199707031256
+            ]
+          ],
+          "decision_margin": 80.42286682128906,
+          "hamming": 0,
+          "shortest_edge_px": 46.052914307643064,
+          "status": "DETECTED"
+        },
+        {
+          "tag_id": 3,
+          "role": "paddle",
+          "center_px": [
+            400.74456336388164,
+            241.1266394983461
+          ],
+          "corners_px": [
+            [
+              403.9400939941407,
+              223.74969482421875
+            ],
+            [
+              376.8466186523438,
+              236.1663360595703
+            ],
+            [
+              397.3800964355469,
+              259.4222412109375
+            ],
+            [
+              425.03677368164057,
+              246.16877746582028
+            ]
+          ],
+          "decision_margin": 72.09595489501953,
+          "hamming": 0,
+          "shortest_edge_px": 29.803177442413553,
+          "status": "DETECTED"
+        }
+      ],
+      "expected_ids": [
+        1,
+        2,
+        3
+      ],
+      "missing_ids": [
+        2
+      ],
+      "gripper_to_paddle_px": null,
+      "pose_3d": null
+    },
+    "phone": {
+      "status": "OBSERVED",
+      "frame": {
+        "camera_id": "phone_overview",
+        "seq": 6568,
+        "stream_id": null,
+        "sha256": "d290de24becd3acfaeb7b2769f97a23d1b6965e5bf4c1da1e0e54bef1e8c8afb",
+        "captured_at": null,
+        "received_at": 1791250582.314639,
+        "timestamp_basis": "receipt_only_capture_delay_unknown",
+        "age_s_on_observer_clock": 0.20888996124267578,
+        "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+        "capture_age_within_limit": false,
+        "clock_synchronization_verified": false,
+        "new_since_last_call": true
+      },
+      "image_size_px": [
+        720,
+        1280
+      ],
+      "tags": [
+        {
+          "tag_id": 2,
+          "role": "gripper",
+          "center_px": [
+            469.66339747066814,
+            457.40773933947634
+          ],
+          "corners_px": [
+            [
+              451.8418884277343,
+              482.0476989746094
+            ],
+            [
+              490.7458190917969,
+              476.21499633789057
+            ],
+            [
+              488.28454589843756,
+              431.6622009277344
+            ],
+            [
+              446.99346923828125,
+              437.1842956542969
+            ]
+          ],
+          "decision_margin": 75.89510345458984,
+          "hamming": 0,
+          "shortest_edge_px": 39.338737157699576,
+          "status": "DETECTED"
+        }
+      ],
+      "expected_ids": [
+        1,
+        2,
+        3
+      ],
+      "missing_ids": [
+        1,
+        3
+      ],
+      "gripper_to_paddle_px": null,
+      "pose_3d": null
+    }
+  },
+  "gemma_inference": {
+    "model": "google/gemma-4-e4b",
+    "duration_s": 17.545870780944824,
+    "tools_called": [
+      "robot_get_tags"
+    ],
+    "answer": [
+      "**Oak Camera:** Detected IDs [1, 3]. Missing ID [2]. Gripper-to-paddle displacement is not available.\n**Phone Camera:** Unknown (image missing)."
+    ],
+    "errors": [],
+    "motor_tools_exposed": false,
+    "note": "Phone image unavailable during this particular model call; subsequent direct adapter call observed ID2 on phone."
+  },
+  "tests": {
+    "full_suite_passed": 538,
+    "full_suite_skipped": 8,
+    "skip_reason": "Initial full run had no model directory in this checkout; all eight were then run with the existing verified model assets.",
+    "pilot_tests_passed": 16,
+    "asset_followup_passed": 8,
+    "repository_unique_passed": 546
+  },
+  "motor_writes": 0,
+  "physical_motion_tested": false,
+  "grasp_verified": false,
+  "relative_gripper_to_paddle_available": false,
+  "limitation": "OAK sees IDs1,3; phone sees ID2. No same-view tool/target pair. No cross-camera or metric calibration."
+}

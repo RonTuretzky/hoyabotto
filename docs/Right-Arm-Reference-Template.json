@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "model": "so101_analytical",
+  "arm": "right",
+  "registration_id": "",
+  "evidence": "",
+  "model_sha256": "91400c48530d093aaa91987294241a21b9aee2cfa10ac3e8e8af3fc8f4595c9c",
+  "calibration_sha256": "eec90b9937cce487c425d0349424c85994cd8bc12685ac0da076b485df077414",
+  "joints": {
+    "shoulder_pan": {
+      "reference_tick": null,
+      "reference_degrees": null,
+      "model_sign": null
+    },
+    "shoulder_lift": {
+      "reference_tick": null,
+      "reference_degrees": null,
+      "model_sign": null
+    },
+    "elbow_flex": {
+      "reference_tick": null,
+      "reference_degrees": null,
+      "model_sign": null
+    },
+    "wrist_flex": {
+      "reference_tick": null,
+      "reference_degrees": null,
+      "model_sign": null
+    },
+    "wrist_roll": {
+      "reference_tick": null,
+      "reference_degrees": null,
+      "model_sign": null
+    }
+  }
+}

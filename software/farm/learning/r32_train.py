@@ -1,4 +1,4 @@
-"""Prepare or run an isolated ACT stage-training job on verified R3.2 recordings."""
+"""Prepare or run an isolated ACT stage-training job on verified R3.3 recordings."""
 from __future__ import annotations
 import argparse
 import json
@@ -25,7 +25,7 @@ def prepare(profile,root,sessions,stage,output,device=None,steps=None):
  cfg=profile['policy'];n=steps if steps is not None else cfg['steps']
  if type(n) is not int or n<1:raise ValueError('positive steps required')
  command=build_command(selection['training_repo_id'],policy='act',root=train_root,output_dir=Path(output).resolve(),device=device or cfg['device'],steps=n,batch_size=cfg['batch_size'],extra=['--dataset.episodes='+json.dumps(list(range(len(selection['episodes']['train'])))), '--policy.input_features='+json.dumps(policy_inputs(profile))])
- return {'revision':'R3.2','status':'PREPARED_NOT_LAUNCHED','hardware_execution':False,'selection':selection,'command':command,
+ return {'revision':'R3.3','status':'PREPARED_NOT_LAUNCHED','hardware_execution':False,'selection':selection,'command':command,
          'evaluation_note':'Validate on val episodes; reserve test until model selection ends. Offline errors are not physical success.'}
 
 def validate_payload(profile,root,selection):
@@ -63,13 +63,13 @@ def materialize_training_dataset(ds,selection):
 def main(argv=None):
  ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--profile',type=Path,default=PROFILE)
  ap.add_argument('--root',type=Path);ap.add_argument('--sessions',type=Path);ap.add_argument('--stage',choices=STAGES[1:],default='PLACE_RESERVOIR')
- ap.add_argument('--output',type=Path,default=SOFTWARE/'data-train/r32-reservoir-v0');ap.add_argument('--steps',type=int);ap.add_argument('--device',choices=['mps','cpu','cuda'])
+ ap.add_argument('--output',type=Path,default=SOFTWARE/'data-train/r33-reservoir-v0');ap.add_argument('--steps',type=int);ap.add_argument('--device',choices=['mps','cpu','cuda'])
  ap.add_argument('--launch',action='store_true',help='Run optimizer after local dataset validation; never moves hardware')
  ap.add_argument('--report',type=Path)
  a=ap.parse_args(argv);profile=load_profile(a.profile);root=a.root or SOFTWARE/profile['dataset_root'];sessions=a.sessions or SOFTWARE/profile['sessions_file']
  try:plan=prepare(profile,root,sessions,a.stage,a.output,a.device,a.steps)
  except (ValueError,FileNotFoundError,KeyError) as e:
-  print(json.dumps({'status':'WAITING_FOR_R3.2_RECORDINGS','training_started':False,'reason':str(e)},indent=2));return 2
+  print(json.dumps({'status':'WAITING_FOR_R3.3_RECORDINGS','training_started':False,'reason':str(e)},indent=2));return 2
  if a.launch:
   ds=validate_payload(profile,root,plan['selection'])
   materialize_training_dataset(ds,plan['selection'])

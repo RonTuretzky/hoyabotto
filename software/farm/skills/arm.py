@@ -1,11 +1,10 @@
 """Per-arm Cartesian model on top of XLeRobot's analytical IK.
 
-Convention (same as the upstream teleop examples): shoulder_lift/elbow_flex come
-from SO101Kinematics.inverse_kinematics(x, y) in degrees and are sent as the
-LeRobot-normalized position values directly; wrist_flex = -lift - elbow + pitch
-keeps the tool pitch constant while the elbow moves. x is forward from the
-shoulder (m), y is up (m). Repeatability is what matters here: the servo loop
-closes over cameras, and every reached pose can be saved as a keyframe.
+The abstract simulator retains its original degree-like positions. An explicitly
+registered AnalyticalReference converts every modeled positioning joint through
+raw encoder ticks into actual normalized adapter units, and reverses that mapping
+before FK. SkillRunner still refuses physical Cartesian execution until frame,
+workspace and collision commissioning exists. x is forward and y is up, metres.
 """
 from __future__ import annotations
 
@@ -13,6 +12,7 @@ from dataclasses import dataclass, field
 
 from ..adapters.base import ARM_JOINTS, arm_joint
 from ..vendor.so101_kinematics import SO101Kinematics
+from ..kinematics.analytical_reference import AnalyticalReference
 
 REST_XY = (0.1629, 0.1131)  # upstream "zero" reach point
 
@@ -37,13 +37,18 @@ class ArmModel:
     pose: ArmPose = field(default_factory=ArmPose)
     x_range: tuple[float, float] = (0.05, 0.25)
     y_range: tuple[float, float] = (-0.05, 0.25)
+    reference: AnalyticalReference | None = None
+
+    def __post_init__(self):
+        if self.reference is not None and self.reference.arm!=self.arm:
+            raise ValueError('Analytical reference belongs to another arm')
 
     def joints_for(self, pose: ArmPose) -> dict[str, float]:
         x = max(self.x_range[0], min(self.x_range[1], pose.x))
         y = max(self.y_range[0], min(self.y_range[1], pose.y))
         lift, elbow = self.kin.inverse_kinematics(x, y)
         wrist = -lift - elbow + pose.pitch
-        return {
+        result = {
             arm_joint(self.arm, "shoulder_pan"): float(pose.pan),
             arm_joint(self.arm, "shoulder_lift"): float(lift),
             arm_joint(self.arm, "elbow_flex"): float(elbow),
@@ -51,6 +56,10 @@ class ArmModel:
             arm_joint(self.arm, "wrist_roll"): float(pose.roll),
             arm_joint(self.arm, "gripper"): float(max(0.0, min(100.0, pose.gripper))),
         }
+        if self.reference is not None:
+            modeled={name:result[arm_joint(self.arm,name)] for name in self.reference.units}
+            result.update(self.reference.normalized_from_degrees(modeled))
+        return result
 
     def joints(self) -> dict[str, float]:
         return self.joints_for(self.pose)
@@ -73,6 +82,9 @@ class ArmModel:
 
     def sync_from_joints(self, joints: dict[str, float]) -> None:
         """Update the Cartesian estimate from measured joints (FK on lift/elbow)."""
+        if self.reference is not None:
+            modeled=self.reference.degrees_from_normalized(joints)
+            joints={**joints,**{arm_joint(self.arm,name):value for name,value in modeled.items()}}
         lift = joints.get(arm_joint(self.arm, "shoulder_lift"))
         elbow = joints.get(arm_joint(self.arm, "elbow_flex"))
         if lift is None or elbow is None:

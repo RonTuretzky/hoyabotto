@@ -1,0 +1,767 @@
+{
+  "simulation_only": true,
+  "full_task_complete": false,
+  "rows": [
+    {
+      "sign": -1,
+      "q": [
+        -0.4224714955732535,
+        0.7132372557677985,
+        -1.0098479775601144,
+        1.1713018935446176,
+        0.06858907502408966
+      ],
+      "grip_yaw_deg": 22.54998861948059,
+      "grasp_mm": 122.76625897181499,
+      "center_xy": [
+        -0.01589943453213826,
+        -0.015071981201920553
+      ],
+      "roll_deg": 126.25337306553074,
+      "position_error_mm": 1.2856679050377086e-05,
+      "orientation_chord": 2.492905250599138e-07,
+      "minimum_separation_mm": 1000.0,
+      "bad": []
+    }
+  ],
+  "prepared_support": {
+    "prepared_support_passed": true,
+    "prepared_pose_only": true,
+    "folding_approach_executed": false,
+    "duration_s": 2.999999999999891,
+    "angles": {
+      "short_left": 74.48245065355876,
+      "short_right": 76.03356889656092,
+      "long_far": -7.72060557969102,
+      "long_near": -37.64422245788557
+    },
+    "motion": {
+      "max_translation_mm": 0.0063942877713041215,
+      "max_rotation_degrees": 0.0006307324681422612,
+      "minimum_bottom_corner_table_clearance_mm": 6.162098830167967
+    }
+  },
+  "prepared_result": {
+    "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/prepared-support-final/result.json",
+    "sha256": "b56a4af721c201adab78dfca680f8266a5a51d6d75be5623ba872538eef639c7"
+  },
+  "prepared_source_sha256": {
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/tools/diagnose_partial_minor_bridge.py": "605e45c5f0c0d71d388bbfc09ced50d96b59bfac8b164a94e7650fbb1b64f1b0",
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/paddle-partial75-static.json": "310020df72c2f4022c6339e9a58667735969e584096c05e8da9ba005515ae0ab",
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/station-transfer/review/tip-paddle/folding-frames.json": "7658c2a89c57a4ab3fbe8bd3891f1e17a2c971384516c302eaad4eafa93c16cf",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_cart.py": "cc793a476586e9bdb5e37595ed7b6c41b5269d1d116041947d9da48f2e06ffbd",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_controller.py": "462b084a4adbb68dfa98fc86f20d533c3a45fffcef320ee3e1b219a21f2ad0b9",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_diagonal.py": "8b89b7b55ec8e5ef72218251631024c54baea0e2d9a39bdb82a07f6cb3fcf4d6",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_grasp.py": "94e2ca05ae9be92c1e45b550ec942638ad8cdca6f94007e11226c683f7c322fb",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_markers.py": "7f529d27ef47a392ded9b3240668889a9d67354e9f4a99335eeb449cc004b26b",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_material.py": "5ca6ad35c330c5a92f4027936f97d5eb9d78b327ddfb44ea66be124c768a7e00",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_paddle.py": "b96a1cbd91b03cf272d40dcbd4df47f16ea1e1f3ac520a97fedf0c3f1a07f5ca",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_paths.py": "5bfcf8a932fd6b9d572ec4c367215b9dc9570f4ea885526ccbd9221964c9fa7a",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_sim.py": "b8d78475b20a657e97e824b477548e4b5da43239013acdaa40c652626c67de18",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_solver.py": "33b1e5a62f41c8b0b292d3227745f2177346e2c9f4b6a3c6705c065ab47c2dea",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_station.py": "c07b7bb6af2a80c0821b1dd6c1eda2a0f37e60c09ff329cbe9e466144b902c8b",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_tool_tags.py": "7ed8713fd183e48297041ea1dd49d4bf2a459e4e03efa631b66dde5946a15b5e",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_transfers.py": "d15e091a814bcd758c7abd8b0d432d28a9920dab54633ed53ff12a24b4a1aa74",
+    "/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/carton/folding_vision.py": "c000797e4b6cf245f9cfcabf514b9e7c223cf2ad52f2a9541a5a159e62e0b073"
+  },
+  "prepared_gif": {
+    "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/prepared-support-final/support.gif",
+    "sha256": "b51d54377927009a3b27d22323b6c6d95e631770ab360211afab229b81fe0417"
+  },
+  "static_searches": {
+    "paddle-partial75": {
+      "pose_qualified": 62,
+      "collision_qualified": 1,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/paddle-partial75-static.json",
+      "sha256": "310020df72c2f4022c6339e9a58667735969e584096c05e8da9ba005515ae0ab",
+      "static_only": true
+    },
+    "claw-partial75": {
+      "pose_qualified": 81,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/claw-partial75-static.json",
+      "sha256": "fdb53781669acea597e82b8122f591b49a08cb28fa88ac91d2e1c1828141f07e",
+      "static_only": true
+    },
+    "claw-partial75-near0": {
+      "pose_qualified": 81,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/claw-partial75-near0-static.json",
+      "sha256": "26833732ba5ab90ada19eaf2de2a2191c99f96298ccc03cab2b7b28f0fdbafca",
+      "static_only": true
+    },
+    "claw-partial65-near0": {
+      "pose_qualified": 40,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/claw-partial65-near0-static.json",
+      "sha256": "c286cd1c594f24f24fc8c3c945f7e49093c4af14dff63ab546b8efbb7e564890",
+      "static_only": true
+    },
+    "left-claw-partial75-near0": {
+      "pose_qualified": 35,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/left-claw-partial75-near0-static.json",
+      "sha256": "009b9a2815c918af041682b14fe307f7818d0a13bb0916a677481d1ec7209a17",
+      "static_only": true
+    },
+    "claw-asymmetric": {
+      "pose_qualified": 118,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/claw-asymmetric-static.json",
+      "sha256": "fd48dc62be3533bfec6925f9403c2a5546a6ba8647adaef914ee144372f8722b",
+      "static_only": true
+    },
+    "paddle-existing-grip-65": {
+      "pose_qualified": 0,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/paddle-existing-grip-65-static.json",
+      "sha256": "71411a6b0223fd5660e91e29cee8f5078a790d46eceb4e5579293b7e52d7e10d",
+      "static_only": true
+    },
+    "paddle-existing-grip-75": {
+      "pose_qualified": 0,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/paddle-existing-grip-75-static.json",
+      "sha256": "71411a6b0223fd5660e91e29cee8f5078a790d46eceb4e5579293b7e52d7e10d",
+      "static_only": true
+    },
+    "yaw45-paddle-existing-grip-75": {
+      "pose_qualified": 0,
+      "collision_qualified": 0,
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-paddle-existing-grip-75-static.json",
+      "sha256": "71411a6b0223fd5660e91e29cee8f5078a790d46eceb4e5579293b7e52d7e10d",
+      "static_only": true
+    }
+  },
+  "dynamic_trials": {
+    "bridge-dynamic-paddle": {
+      "error": "Fresh paddle marker observation required for TCP registration",
+      "time": 24.33999999999739,
+      "angles": {
+        "short_left": 5.34562885966354,
+        "short_right": 6.110797908807886,
+        "long_far": -7.09182754502234,
+        "long_near": -27.93009306852913
+      },
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-dynamic-paddle/result.json",
+      "sha256": "bd2fdc44beb95f8f214dd618ac04b1df3224c843b62900e366eec9a62e40834c",
+      "full_task_complete": false
+    },
+    "bridge-tags-paddle": {
+      "error": "Bridge IK failed: 16.98 mm, axis 16.94 deg",
+      "time": 24.33999999999739,
+      "angles": {
+        "short_left": 5.34562885966354,
+        "short_right": 6.110797908807886,
+        "long_far": -7.09182754502234,
+        "long_near": -27.93009306852913
+      },
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-tags-paddle/result.json",
+      "sha256": "f31f2211f2f5f00a1ec96879d23c2b0389980ab826fd45a05890cb4986835671",
+      "full_task_complete": false
+    },
+    "bridge-front-approach-paddle": {
+      "error": "Bridge IK failed: 18.26 mm, axis 15.66 deg",
+      "time": 24.33999999999739,
+      "angles": {
+        "short_left": 5.34562885966354,
+        "short_right": 6.110797908807886,
+        "long_far": -7.09182754502234,
+        "long_near": -27.93009306852913
+      },
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-front-approach-paddle/result.json",
+      "sha256": "f3ad49315f93b5b09d2784c8d42bde1c5e9946f880b99b01be0c16915af7e59e",
+      "full_task_complete": false
+    },
+    "bridge-rotating-approach-paddle": {
+      "error": "Path goal collides: ('short_right_cardboard', 'right_paddle_contact_0', 0.004780321697487438)",
+      "time": 24.33999999999739,
+      "angles": {
+        "short_left": 5.34562885966354,
+        "short_right": 6.110797908807886,
+        "long_far": -7.09182754502234,
+        "long_near": -27.93009306852913
+      },
+      "motion": {
+        "max_translation_mm": 4.955656928793737,
+        "max_rotation_degrees": 0.16405611979924747,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-rotating-approach-paddle/result.json",
+      "sha256": "e218653df883fd5599c3fb91d397f67fd975169e4fdab15166970099aae323d5",
+      "full_task_complete": false
+    },
+    "bridge-clear-approach-paddle": {
+      "error": "Bridge joint tracking exceeds 0.08 rad",
+      "time": 42.998000000006584,
+      "angles": {
+        "short_left": 6.7343492950599035,
+        "short_right": 57.25345787149085,
+        "long_far": -3.114701424668765,
+        "long_near": -101.47455296910908
+      },
+      "motion": {
+        "max_translation_mm": 78.24371163546459,
+        "max_rotation_degrees": 3.4487298001472944,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-clear-approach-paddle/result.json",
+      "sha256": "bf4eb886567a2131e5117fc62a237587ce5ad5b251c7ff11c33761a8d0e2959e",
+      "full_task_complete": false
+    },
+    "bridge-brace-checked-paddle": {
+      "error": "Lost opposing-face near-flap brace during bridge approach",
+      "time": 37.597999999999985,
+      "angles": {
+        "short_left": 6.415512274026168,
+        "short_right": 34.90223621083138,
+        "long_far": -6.921399036148112,
+        "long_near": -45.00690187451101
+      },
+      "motion": {
+        "max_translation_mm": 43.43836345895749,
+        "max_rotation_degrees": 3.4487298001472944,
+        "minimum_bottom_corner_table_clearance_mm": 5.889474027780034
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-brace-checked-paddle/result.json",
+      "sha256": "9b979838df2244117feacc1ebd025b69b423727ad21c9f0c1eae245e5e6d96ca",
+      "full_task_complete": false
+    },
+    "bridge-left-corner-paddle": {
+      "error": "Paddle grip slipped: blade offset 3.8 mm, rotation 20.1 deg",
+      "time": 36.86399999999909,
+      "angles": {
+        "short_left": 4.785978481137189,
+        "short_right": 19.425523351123854,
+        "long_far": -5.0591582081728195,
+        "long_near": -42.16717748989722
+      },
+      "motion": {
+        "max_translation_mm": 65.90249813516527,
+        "max_rotation_degrees": 8.309128061877708,
+        "minimum_bottom_corner_table_clearance_mm": 6.293466486788385
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-left-corner-paddle/result.json",
+      "sha256": "40a133e2c0c979787e25287940b37b44f541b2092edbc0dc24a25c4483b5c89e",
+      "full_task_complete": false
+    },
+    "bridge-near-low-paddle": {
+      "error": "Lost two-sided near-flap grasp",
+      "time": 16.640000000001656,
+      "angles": {
+        "short_left": 5.663994429406995,
+        "short_right": 5.80727635815225,
+        "long_far": -6.37000805170806,
+        "long_near": -36.21744400073902
+      },
+      "motion": {
+        "max_translation_mm": 4.68765306824146,
+        "max_rotation_degrees": 0.14768178454955005,
+        "minimum_bottom_corner_table_clearance_mm": 6.626542275506214
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-near-low-paddle/result.json",
+      "sha256": "0f116e0cd0c705eec46004dbfffa87977575447b2219c078f2de5140215d5a36",
+      "full_task_complete": false
+    },
+    "bridge-normal-open-paddle": {
+      "error": "Lost two-sided near-flap grasp",
+      "time": 13.340000000001124,
+      "angles": {
+        "short_left": 6.180305496038412,
+        "short_right": 5.55249759401479,
+        "long_far": -6.464845036079115,
+        "long_near": -19.844885317514272
+      },
+      "motion": {
+        "max_translation_mm": 9.342223974236727,
+        "max_rotation_degrees": 0.8690925986663761,
+        "minimum_bottom_corner_table_clearance_mm": 9.999939125335228
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/bridge-normal-open-paddle/result.json",
+      "sha256": "eff871332fef13b00ef33b886d0a53a8c067fdfa15ef64510e82e0ed762d93a7",
+      "full_task_complete": false
+    }
+  },
+  "unchanged_physics": "Empty free carton, original station, resistant hinges, original force and joint limits; no added constraints, contents or tape.",
+  "scope": "A prepared-state passive support test is not a folding approach or retention pass.",
+  "layout_variants": {
+    "yaw45-claws": {
+      "error": "Fresh carton marker and aligned depth required",
+      "time": 0.4000000000000003,
+      "angles": {
+        "short_left": 5.787910805432167,
+        "short_right": 5.788112626504074,
+        "long_far": -5.787849549294649,
+        "long_near": -5.788070834012189
+      },
+      "motion": {
+        "max_translation_mm": 1.098720004227944,
+        "max_rotation_degrees": 1.2074182697257333e-06,
+        "minimum_bottom_corner_table_clearance_mm": 9.99999999665549
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-claws/result.json",
+      "sha256": "e02c034f57c8bf1ce8e8504d52921aad39d5cb0c396db4ed03b760409321521a",
+      "full_task_complete": false
+    },
+    "yaw45-paddle": {
+      "error": "Fresh carton marker and aligned depth required",
+      "time": 0.4000000000000003,
+      "angles": {
+        "short_left": 5.787910805432167,
+        "short_right": 5.788112626504074,
+        "long_far": -5.787849549294649,
+        "long_near": -5.788070834012189
+      },
+      "motion": {
+        "max_translation_mm": 1.098720004227944,
+        "max_rotation_degrees": 1.2074182697257333e-06,
+        "minimum_bottom_corner_table_clearance_mm": 9.99999999665549
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-paddle/result.json",
+      "sha256": "9a5ebb0b28b974c5c05650f15ef1c912448bcefb0446598dd5c61966a239690d",
+      "full_task_complete": false
+    },
+    "yaw45-floor-claws": {
+      "error": "Fresh carton marker and aligned depth required",
+      "time": 0.4000000000000003,
+      "angles": {
+        "short_left": 5.787910805432167,
+        "short_right": 5.788112626504074,
+        "long_far": -5.787849549294649,
+        "long_near": -5.788070834012189
+      },
+      "motion": {
+        "max_translation_mm": 1.098720004227944,
+        "max_rotation_degrees": 1.2074182697257333e-06,
+        "minimum_bottom_corner_table_clearance_mm": 9.99999999665549
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "proposed_empty_carton_floor_tag_24": true,
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-floor-claws/result.json",
+      "sha256": "f6ca1b48abad460ec09285123d74acecb10c767e0e1418e5f96a71c944404b0b",
+      "full_task_complete": false
+    },
+    "yaw45-floor-paddle": {
+      "error": "Fresh carton marker and aligned depth required",
+      "time": 0.4000000000000003,
+      "angles": {
+        "short_left": 5.787910805432167,
+        "short_right": 5.788112626504074,
+        "long_far": -5.787849549294649,
+        "long_near": -5.788070834012189
+      },
+      "motion": {
+        "max_translation_mm": 1.098720004227944,
+        "max_rotation_degrees": 1.2074182697257333e-06,
+        "minimum_bottom_corner_table_clearance_mm": 9.99999999665549
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "proposed_empty_carton_floor_tag_24": true,
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-floor-paddle/result.json",
+      "sha256": "c47f9155cb821eff2198d0d3fc8d788cbd96ca089b83e336ab8c50f379d8541a",
+      "full_task_complete": false
+    },
+    "yaw45-visible-floor-claws": {
+      "error": "Right short approach IK misses 29.73 mm",
+      "time": 24.33999999999739,
+      "angles": {
+        "short_left": 5.661458128762983,
+        "short_right": 5.7007975460687215,
+        "long_far": -7.353428299139049,
+        "long_near": -27.89693425392904
+      },
+      "motion": {
+        "max_translation_mm": 5.154682280132088,
+        "max_rotation_degrees": 0.7883674624212372,
+        "minimum_bottom_corner_table_clearance_mm": 8.944391412511576
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "proposed_empty_carton_floor_tag_24": [
+          0.08,
+          0,
+          0.0038
+        ],
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-visible-floor-claws/result.json",
+      "sha256": "5a467b3959657e1c065a051e7669c228e69ee8016f1a9015b1823e600bc3d03a",
+      "full_task_complete": false
+    },
+    "yaw45-visible-floor-paddle": {
+      "error": "Path start collides: ('left_moving_jaw_so101_v1_part_0', 'right_upper_arm_link_geom_3', 0.0033854381532350732)",
+      "time": 46.664000000011065,
+      "angles": {
+        "short_left": 5.183952843402912,
+        "short_right": 92.3237284164733,
+        "long_far": -7.859576120828455,
+        "long_near": -52.90784288165248
+      },
+      "motion": {
+        "max_translation_mm": 9.173960877335833,
+        "max_rotation_degrees": 1.4666166765234296,
+        "minimum_bottom_corner_table_clearance_mm": 8.943832279225406
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "proposed_empty_carton_floor_tag_24": [
+          0.08,
+          0,
+          0.0038
+        ],
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-visible-floor-paddle/result.json",
+      "sha256": "f6fa392e407c052be278370d4a8089384dacd45ac39d366864ad5dccd8a92d1e",
+      "full_task_complete": false
+    },
+    "yaw45-corner-claws": {
+      "error": "Path goal collides: ('short_right_cardboard', 'right_wrist_roll_follower_so101_v1_part_84', -0.0007690078112977061)",
+      "time": 24.33999999999739,
+      "angles": {
+        "short_left": 5.661458128762983,
+        "short_right": 5.7007975460687215,
+        "long_far": -7.353428299139049,
+        "long_near": -27.89693425392904
+      },
+      "motion": {
+        "max_translation_mm": 5.154682280132088,
+        "max_rotation_degrees": 0.7883674624212372,
+        "minimum_bottom_corner_table_clearance_mm": 8.944391412511576
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "proposed_empty_carton_floor_tag_24": [
+          0.08,
+          0,
+          0.0038
+        ],
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-corner-claws/result.json",
+      "sha256": "dc96753c77badad440032c18664a0ff025b0853814df05819a86032a424edd63",
+      "full_task_complete": false
+    },
+    "yaw45-contact-claws": {
+      "error": "Path goal collides: ('short_right_cardboard', 'right_wrist_roll_follower_so101_v1_part_85', -0.0011846344651979665)",
+      "time": 24.33999999999739,
+      "angles": {
+        "short_left": 5.661458128762983,
+        "short_right": 5.7007975460687215,
+        "long_far": -7.353428299139049,
+        "long_near": -27.89693425392904
+      },
+      "motion": {
+        "max_translation_mm": 5.154682280132088,
+        "max_rotation_degrees": 0.7883674624212372,
+        "minimum_bottom_corner_table_clearance_mm": 8.944391412511576
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "proposed_empty_carton_floor_tag_24": [
+          0.08,
+          0,
+          0.0038
+        ],
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-contact-claws/result.json",
+      "sha256": "36ff1dd7261113ebc1c72a918b08d7c9af69d5ee6cd56f2165c85c5997801480",
+      "full_task_complete": false
+    },
+    "yaw45-retreat-paddle": {
+      "error": null,
+      "time": 63.88200000003211,
+      "angles": {
+        "short_left": 92.77476152150159,
+        "short_right": 93.27403773177632,
+        "long_far": -7.914997137615672,
+        "long_near": -43.266325252619055
+      },
+      "motion": {
+        "max_translation_mm": 5.41866585636762,
+        "max_rotation_degrees": 1.2689513083490995,
+        "minimum_bottom_corner_table_clearance_mm": 8.943832279225406
+      },
+      "assumptions": {
+        "proposed_box_yaw_degrees": 45,
+        "proposed_empty_carton_floor_tag_24": [
+          0.08,
+          0,
+          0.0038
+        ],
+        "material": {
+          "cardboard_mass_kg": 0.272,
+          "contents_mass_kg": 0.0,
+          "contents_top_m": 0.102,
+          "table_friction": 0.35,
+          "hinge_stiffness": 0.018,
+          "hinge_friction": 0.004,
+          "hinge_damping": 0.008,
+          "hinge_rest_degrees": 0.0,
+          "flap_stiffness": null,
+          "parameters_measured": false,
+          "carton_constraint": "six-DOF free joint, no weld, clamp or guide",
+          "total_mass_kg": 0.272,
+          "spring_moments_at_90_degrees_Nm": [
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135,
+            0.028274333882308135
+          ],
+          "model": "Rigid panels; elastic opening torque k*(angle-rest), Coulomb crease friction and viscous damping. No plastic crease training or panel bending.",
+          "contents_model": "Absent"
+        },
+        "short_initial_angle_degrees": 5.729577951308233,
+        "station_dimensions_measured": false,
+        "camera": "Proposed external camera; physical mount unverified",
+        "solver": "friction"
+      },
+      "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-retreat-paddle/result.json",
+      "sha256": "be49d53c0181b99fe00cefd3aba4775be35928e20175dcd96fd7a22cb07c7f8d",
+      "full_task_complete": false
+    }
+  },
+  "layout_variant_local_sources": {
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45_retreat_sequence.py": "8984edb327d3a7797e3b306d27b535bbd983f17cca6bdeb7fe540d728310bdcd",
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45_transfers.py": "7e5c158d66308824b6845b3462fbc4915585d0686a8896fd2008e6e677149045",
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45_corner_claw_sequence.py": "b1d0f0a024f3c2379722d2cec48b94c7921e1ee34effe206f80d756870777ab5",
+    "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45_contact_claw_sequence.py": "bf835ae0d5e8cda81387973dc52b171e6001b979825464fb952c807bf17956ec"
+  },
+  "claw_contact_grid": {
+    "reachable": 39,
+    "collision_qualified": 0,
+    "path": "/Users/wk/Documents/ChatGPT/Hackatuson/output/bimanual-fold-sim/retention-bridge/yaw45-claw-contact-grid.json",
+    "sha256": "5f497ca099dfd3ae0def1441b586796fa9003d655504df86ca1b3827f3c0faec",
+    "static_only": true
+  }
+}

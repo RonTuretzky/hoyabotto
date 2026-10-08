@@ -1,0 +1,102 @@
+import copy
+
+import numpy as np
+import pytest
+
+from farm.perception.tag_sampling import ARM_JOINTS, HEAD_JOINTS, gripper_tag_for_arm, stationary_sample
+
+
+def bracket():
+    names = ['left_arm_'+n for n in ARM_JOINTS] + list(HEAD_JOINTS)
+    def state(stamp):
+        return {'ok': True, 'result': {'cached': False, 'motors': [
+            dict(name=n, Status=0, Moving=0, Present_Velocity=0, Present_Position=2000,
+                 captured_at=stamp) for n in names]}}
+    observation = {'frame': {'captured_at': 101, 'camera_id': 'oak', 'seq': 1,
+                             'stream_id': 'one', 'sha256': '0'*64},
+                   'tags': [dict(tag_id=1, status='DETECTED', corners_px=[[100,100],[150,100],[150,150],[100,150]])],
+                   'pose_3d': {'status': 'CAMERA_RELATIVE_ESTIMATE',
+                       'calibration_sha256': 'K', 'geometry_config_sha256': 'sizes',
+                       'tags': [dict(tag_id=1, center_camera_mm=[0, 0, 600]),
+                                dict(tag_id=4, center_camera_mm=[0, 0, 300],
+                                     mount=dict(arm='left', body='fixed_gripper_housing', source='test fixture'),
+                                     orientation_ambiguous=False, camera_from_tag=np.eye(4).tolist(),
+                                     reprojection_rms_px=.1)]}}
+    return state(100), state(102), observation
+
+
+def test_stationary_bracket_has_provenance_but_no_invented_robot_pose():
+    before, after, observation = bracket()
+    sample = stationary_sample(before, after, observation, 'left')
+    assert sample['stationary_bracket_verified']
+    assert sample['capture_bracket_s'] == [100, 102]
+    assert sample['base_from_gripper'] is None and sample['split'] is None
+    assert sample['motor_writes'] == 0
+    assert sample['gripper_tag_id'] == 4
+
+
+@pytest.mark.parametrize('mutation', [
+    lambda b,a,o: b.update(ok=False),
+    lambda b,a,o: a['result'].update(cached=True),
+    lambda b,a,o: a['result']['motors'][0].update(Status=4),
+    lambda b,a,o: b['result']['motors'][1].update(Moving=1),
+    lambda b,a,o: a['result']['motors'][2].update(Present_Velocity=10),
+    lambda b,a,o: a['result']['motors'][3].update(Present_Position=2004),
+    lambda b,a,o: a['result']['motors'][4].update(captured_at=float('nan')),
+    lambda b,a,o: o['frame'].update(captured_at=99),
+    lambda b,a,o: o['frame'].update(captured_at=103),
+    lambda b,a,o: o['pose_3d']['tags'][1].update(orientation_ambiguous=True),
+    lambda b,a,o: o['pose_3d']['tags'].pop(0),
+    lambda b,a,o: o['pose_3d']['tags'][1].pop('mount'),
+    lambda b,a,o: o['pose_3d']['tags'][1]['mount'].update(arm='right'),
+    lambda b,a,o: o['pose_3d']['tags'][1]['mount'].update(body='moving_jaw'),
+])
+def test_untrustworthy_brackets_cannot_become_registration_samples(mutation):
+    before, after, observation = bracket()
+    mutation(before, after, observation)
+    with pytest.raises(ValueError):
+        stationary_sample(before, after, observation, 'left')
+
+
+def test_long_bracket_rejected_even_if_endpoints_look_stationary():
+    before, after, observation = bracket()
+    for row in after['result']['motors']:
+        row['captured_at'] = 104
+    with pytest.raises(ValueError, match='three seconds'):
+        stationary_sample(before, after, observation, 'left')
+
+
+def test_right_housing_marker_requires_right_encoders_even_when_both_arms_are_stationary():
+    before, after, observation = bracket()
+    mount = dict(arm='right', body='fixed_gripper_housing', source='user confirmed')
+    observation['pose_3d']['tags'][1]['tag_id'] = 2
+    observation['pose_3d']['tags'][1]['mount'] = mount
+    for payload in (before, after):
+        rows = payload['result']['motors']
+        rows.extend([dict(row, name=row['name'].replace('left_arm_', 'right_arm_'),
+                          Present_Position=2100) for row in rows if row['name'].startswith('left_arm_')])
+    with pytest.raises(ValueError, match='selected arm'):
+        stationary_sample(before, after, observation, 'left')
+    sample = stationary_sample(before, after, observation, 'right')
+    assert sample['gripper_tag_mount'] == mount
+    assert sample['joint_ticks']['right_arm_elbow_flex'] == 2100
+    assert not any(n.startswith('left_arm_') for n in sample['joint_ticks'])
+
+
+@pytest.mark.parametrize('arm,tag_id', [('left', 2), ('right', 4), ('left', True), ('right', 2.0), ('left', '4')])
+def test_explicit_crossed_or_noninteger_binding_is_refused(arm, tag_id):
+    with pytest.raises(ValueError, match='requires gripper tag'):
+        gripper_tag_for_arm(arm, tag_id)
+
+
+def test_both_gripper_tags_do_not_cross_associate_left_encoders():
+    before, after, observation = bracket()
+    right_tag = copy.deepcopy(observation['pose_3d']['tags'][1])
+    right_tag.update(tag_id=2, center_camera_mm=[100, 0, 300])
+    right_tag['mount']['arm'] = 'right'
+    right_tag['camera_from_tag'][0][3] = .1
+    observation['pose_3d']['tags'].append(right_tag)
+    sample = stationary_sample(before, after, observation, 'left', gripper_tag_id=4)
+    assert sample['gripper_tag_id'] == 4
+    assert sample['camera_from_tag'][0][3] == 0
+    assert sample['gripper_tag_mount']['arm'] == 'left'
