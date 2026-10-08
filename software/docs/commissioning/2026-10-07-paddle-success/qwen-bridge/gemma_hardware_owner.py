@@ -355,10 +355,10 @@ def main():
      if b.is_connected:b.disconnect(disable_torque=False)
     except Exception:pass
   if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
+  if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)  # before any check that needs it
   buses=live
   owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state)
   owner.state['missing_buses']=missing
-  if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)
   while not stop.is_set():
