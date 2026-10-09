@@ -1,3 +1,24 @@
+## OAK sensor coverage and AprilTag recheck — 9 October 2026, 21:08 JST
+
+- Luxonis's IMX214 mode table explicitly describes 1080p as a 4K crop followed by binning;
+  full resolution is 13MP, 4208x3120. The live selected-1080p 640x360 preview therefore does not
+  preserve the full native field. Proportional 13MP → 1052x780 is a candidate for commissioning,
+  not a verified USB2 configuration. No camera mode or runtime settings were changed.
+- Three fresh tag API reads accepted zero tags across OAK, phone and both wrists. Some phone/wrist
+  frames repeat in this brief burst. Offline decoding of the saved derived phone JPEG found IDs 12/22
+  with margins 18.73/17.00, below both the base detector floor (20) and observer threshold (30).
+  These are diagnostic derived-image scores, not accepted live tags. Thresholds remain unchanged.
+- The carton is back in view. Scene depth sequence 105147 rejects the dominant panel as a table:
+  76% support, normal 88.8° from expected up. Camera pose falls back to model; robot registration and
+  joint mapping remain unvalidated. Tags still supply pixels only, with no metric pose or depth fusion.
+  All 16 motors were released and position/torque readbacks unchanged across this read-only check.
+- Updated [v8b tag-aware pilot prompt](docs/prompts/carton-pilot-v8b-tags-v1.txt) is saved,
+  unbenchmarked and unexecuted. It requires accepted panel identity, actual-pad pinch evidence,
+  current path/clearance evidence and post-release observation, replacing blind historical assumptions.
+- [Investigation and primary sources](docs/oak-fov-and-tags-2026-10-09.md); local receipts and images:
+  `.context/oak-fov-research/`. Requested research-agent delegation failed (wrapper parse error,
+  then direct Codex account usage limit); documentation was checked directly by the primary agent.
+
 ## Clear-table baseline and OAK frontend verification — 9 October 2026, 20:54–21:00 JST
 
 - After the owner cleared the table, six fresh scene frames accepted the tabletop plane (depth sequences
