@@ -106,12 +106,26 @@ def main():
                   collection_workers=collection_workers, started=started,
                   camera_contract=provenance(camera_contract))
 
+    next_status_upload = 0.
+
+    def best_effort_upload(**kwargs):
+        nonlocal next_status_upload
+        if time.time() < next_status_upload:
+            return
+        try:
+            api.upload_file(**kwargs)
+            next_status_upload = time.time() + 300
+        except Exception as exc:
+            from tools.refit_hub_reporting import retry_delay
+            next_status_upload = time.time() + retry_delay(exc, time.time())
+            print(json.dumps(dict(reporting_deferred=str(exc)[:1200], retry_after_epoch=next_status_upload)), flush=True)
+
     def publish(stage):
         status.update(stage=stage, updated=time.time(), seconds_left=max(0,deadline-time.time()))
         path = work/'status.json'
         path.write_text(json.dumps(status, indent=2))
         print(json.dumps(status), flush=True)
-        api.upload_file(path_or_fileobj=path, path_in_repo='refit/status.json', repo_id=args.model_repo)
+        best_effort_upload(path_or_fileobj=path, path_in_repo='refit/status.json', repo_id=args.model_repo)
 
     def processes(commands, stage, timeout, progress=None):
         """Monitor whole subprocess groups; clean up every sibling after failure."""
@@ -152,7 +166,7 @@ def main():
             for log in logs:
                 log.close()
             for i in range(len(logs)):
-                api.upload_file(path_or_fileobj=work/f'{stage}-{i}.log',
+                best_effort_upload(path_or_fileobj=work/f'{stage}-{i}.log',
                                 path_in_repo=f'refit/logs/{stage}-{i}.log', repo_id=args.model_repo)
 
     def one(cmd, stage, timeout, progress=None):
@@ -230,6 +244,13 @@ def main():
             if path.exists():
                 lines = path.read_text(errors='replace').splitlines()
                 status['training_log_tail'] = lines[-5:]
+                import re
+                for line in reversed(lines):
+                    match = re.search(r'(\d+)/25000 \[([^]]+)\]', line)
+                    if match:
+                        status['training_step'] = int(match[1])
+                        status['training_progress_text'] = match[0]
+                        break
                 print('\n'.join(lines[-5:]),flush=True)
             # Expose actual per-GPU utilization and memory while all ranks train.
             proc = subprocess.run(['nvidia-smi','--query-gpu=index,utilization.gpu,memory.used',
@@ -240,7 +261,7 @@ def main():
              '--mixed_precision=bf16','--num_cpu_threads_per_process=1','tools/train_refit_ddp.py',
              f'--dataset.repo_id={args.dataset_repo}',f'--dataset.root={dataset}',
              '--policy.type=act','--policy.device=cuda','--policy.use_amp=true','--policy.chunk_size=100',
-             '--policy.n_action_steps=100','--policy.optimizer_lr=3e-5','--policy.private=true',
+             '--policy.n_action_steps=100','--policy.optimizer_lr=3e-5','--policy.private=true','--policy.push_to_hub=false',
              f'--policy.repo_id={args.model_repo}',f'--batch_size={batch_per_gpu}','--steps=25000',
              '--save_freq=1000','--save_checkpoint_to_hub=true','--log_freq=100',
              '--num_workers=8','--env_eval_freq=0','--wandb.enable=false',f'--job_name=dcm_refit_h200x{gpu_count}',

@@ -1,35 +1,67 @@
 # Final DCM desk station refit — 9 October 2026
 
-The final OAK contract is integrated and cloud job **6ac8ea01fee2c90070178b79** is RUNNING:
-https://huggingface.co/jobs/RonTuretzky/6ac8ea01fee2c90070178b79
+Recovery job **6ac8f71a095c57808930689e (v9)** is RUNNING on eight H200s:
+https://huggingface.co/jobs/RonTuretzky/6ac8f71a095c57808930689e
 
-The camera wait is finished. User requested stopping the four-H200 job and switching to eight H200s.
-Previous v6 job 6ac8e7ae095c57808930634a is confirmed CANCELED after about 7.6 minutes; no demonstration
-archive or checkpoint had been uploaded. Collection restarts. Use live status below for current progress.
-All eight NVIDIA H200 EGL and camera projection checks passed (maximum axis error 0.1268 px).
-Provider and pipeline readback confirm demonstration recording with 64 workers. Optimizer steps are not yet confirmed.
-No physical commands were issued. The server thread retains hardware ownership.
+The 261 training episodes and full step-3,000 optimizer/RNG checkpoint were restored. All eight
+new-node EGL/camera preflights passed (max axis error 0.1268 px). Fresh loss/step logs confirm
+optimizer advancement to at least step 3,340 at 3.3–3.6 steps/sec (~105–110 minutes left). Camera/assets and the 25k-step recipe are unchanged. The camera wait
+is finished. No hardware commands were issued; the server thread retains hardware ownership.
+
+## Failure and recovery
+
+- v7 `6ac8ea01fee2c90070178b79` failed at 14:00:42 UTC after 2,386 compute seconds. Progress
+  commits every 20 seconds exhausted HF's 128 repository commits/hour limit. The unhandled
+  HTTP 429 terminated the supervisor and trainer. Approximately $26.51 compute at $40/hour;
+  actual billing unknown. It reached step 3,554, with full checkpoints saved through step 3,000.
+- v8 `6ac8f626fee2c9007017915f` stopped after 19 seconds because its script import path omitted
+  the software root. No optimizer steps ran. Approximately $0.21 compute; actual billing unknown.
+- v9 explicitly establishes the project import path. The exact embedded runner passed an
+  isolated launch preflight without inherited PYTHONPATH. **44 targeted checks passed** (42 before launch),
+  including nonfatal HTTP 429 handling, Retry-After, checkpoint coalescing and script launch.
+- Frequent progress is stdout-only. Checkpoint uploads are asynchronous, rate-limited and
+  retried without propagating HTTP errors into training. Five-thousand-step milestones are
+  retained; intermediate checkpoints coalesce while delivery is blocked. Final success requires
+  checkpoint delivery before the deadline. Repository writes stay deferred until
+  **2026-10-09 15:02:43 UTC / October 10 00:02:43 JST**, honoring the existing cooldown.
+- No recollection or image rendering repeats: 291/320 teacher demonstrations passed,
+  261 train / 30 held out, 146,905 training frames. Dataset revision
+  `290ef16faaa27e0b667fa8a8c68d441ed756ac8d`; recovery model revision
+  `9f26fbbd76a1aacbe517eb32acd34b29f455eee7`. Full optimizer/RNG/camera metadata validated locally.
+- Prior measured speed was 3.3–3.4 steps/sec: about 110 minutes from 3k to 25k, plus startup,
+  final uploads and evaluation. v9 fresh optimizer rate agrees; evaluation and final delivery are additional.
+- Terminal v7 step-3k evaluation completed: **0/30 full-fold successes**. This is an early,
+  incomplete-training checkpoint and is not a usable physical policy.
 
 ## Current training handoff
 
-Evidence root: outer workspace `.context/station-refit-2026-10-09/training/`.
+Evidence root: `/Users/wk/conductor/workspaces/xlerobot-farm/las-vegas-v1/.context/station-refit-2026-10-09/training/`.
 
-- `cloud-release-v7.tar.gz`: credential-free frozen source/assets, SHA-256 `6241f957793115af901d1ddff21ce9d2f658e613415e3aecd6834fa3a1a418e4`.
-- `eight-h200-verification.json`, `eight-h200-tests.log`: **36 passed**; eight-way merge/holdout checks. Only parallel-runner and DDP docstring differ from frozen v6 source; camera/assets unchanged.
-- `camera-integration-verification.json`, `camera-integration-tests.log`: **70 passed, 2 skipped** and one successful audited frozen-bundle teacher fold (seed 10001). Earlier station qualification: 15/16 nominal and 15/16 varied portable folds.
-- `launch-eight-h200-v7.py`, `launch-v7-receipt.json`, `budget-and-launch.json`: deduplicated submission and source revision. Old launcher versions are historical and must not be reused.
-- `watch-cloud-v7.py`, `watch-cloud-v7.log`, `watch-cloud-v7.pid`: active read-only monitor; no cloud retries. `live-cloud-status.json` is authoritative polling output; `cloud-evaluation-v7/` will hold downloaded checkpoints and local evaluation.
+- `cloud-bootstrap-v9.py`, `recovery-v9-plan.json`: SHA-256-verified patches applied over frozen
+  v7 source without writing to the rate-limited repository. `cloud-release-v7.tar.gz` SHA-256
+  `6241f957793115af901d1ddff21ce9d2f658e613415e3aecd6834fa3a1a418e4`; simulation/camera assets unchanged.
+- `launch-recovery-v9.py`, `launch-v9-receipt.json`, `budget-and-launch.json`: deduplicated launch
+  and spend ledger. Historical launchers must not be reused. No automatic paid retries.
+- `watch-cloud-v9.py`, `.log`, `.pid`: read-only provider/checkpoint watcher, PID 3550.
+  **`live-cloud-status-v9.json`** is the current status; `live-cloud-status.json` belongs to old v7.
+  `cloud-evaluation-v9/` holds forthcoming evaluation. Both old v7 and v8 watchers have exited.
+- `notify-eta-v9.py`, `.log`, `.pid`: ETA notifier PID 3553. Stage changes, first measured ETA,
+  >=10-minute revisions and 15-minute periodic updates. Requires this Mac awake. Initial macOS
+  notification command succeeded. `eta-current-v9.json` and `eta-updates-v9.jsonl` hold the estimates
+  and delivery ledger. Stale snapshots are flagged; it does not submit jobs or control hardware.
+  The cloud v9 runner emits resumed tqdm with total 22k; the watcher maps this to absolute 25k
+  progress. The checked-in parser includes the same correction for subsequent launches. Do not
+  restart the paid job for this local monitoring change; frozen v9 payload/hash remain unchanged.
+- `recovery-v9-tests.log`, `bootstrap-preflight-v9.log`, `resume-verification/`: recovery evidence.
 - Private model `RonTuretzky/act_carton_dcm_refit_20261009_v3`; dataset `RonTuretzky/carton_dcm_refit_20261009_v3`.
 
-User removed the previous spending ceiling and requested speed. Eight H200s cost approximately **$40/hour total**.
-Six-hour provider watchdog (~$240 maximum new compute) and 355-minute internal deadline; not an ETA.
-All prior jobs were terminal before launch; v5 `6ac8daa0fee2c9007017836a` remains canceled. Actual billing unknown.
+User withdrew the previous spending ceiling and requested eight H200s for speed. Current rate
+**$40.00002/hour total**. Six-hour provider watchdog (~$240 maximum new compute) and 355-minute
+internal deadline are operational limits, not ETAs. All prior training jobs were terminal at v9 launch.
 
-Pipeline: 320 trials, seed 10000, 64 recorder workers; independent contact scoring, minimum 80% success
-and 128 valid demos. Every tenth seed is held out before eight-way sharding. Three render workers per GPU,
-eight image writer threads per shard, native dataset aggregation and index/image/holdout validation.
-Eight Accelerate ranks train ACT in bf16, batch 4 each (global 32), lr 3e-5, chunk 100, 25k steps,
-checkpoint upload each 1k. All GPUs must verify actual NVIDIA EGL and correct pixel projection first.
+Recipe unchanged: eight Accelerate ranks, bf16, batch 4 each (global 32), lr 3e-5, chunk 100,
+25k total steps. Full checkpoints every 1k; uploads defer safely through the cooldown. Native
+resume preserves the optimizer, normalization, RNG and sample ordering.
 
 ## Final camera integration
 
@@ -175,24 +207,11 @@ per-view local notes and a copy-all-notes control are included for user review.
 
 ## Next work and ownership
 
-Server acknowledgement is now saved at outer `.context/station-refit-2026-10-09/server-evidence/training-reply.md`,
-with a pointer in `oak-calibration-request-20261009-211938/training-reply.md`. The server status initially
-reported a full-sensor 1040×780 RGB trial at 5 FPS in progress; subsequent readback reports that
-60-second trial passed and 10 FPS is being tested before the final contract. Head ticks are
-2085/2623; the earlier capture pose is stale. Do not freeze the old 640×360 contract. Reconcile the
-selected projection, pose and delivered image cadence with the existing 10 Hz action timeline.
+The final selected OAK contract has been consumed and tested. No further OAK trial is pending.
+Current server acknowledgement: outer `.context/station-refit-2026-10-09/server-evidence/training-reply.md`.
+Monitor v9 optimizer progress and evaluate uploaded milestones on the immutable held-out scenes.
+Do not launch duplicate watchers or automatic paid retries. Completion requires delivered checkpoints
+and a separate simulation result; physical registration and powered transfer remain unverified.
 
-Await the server thread's corrected OAK configuration. Compare its stream identity, resolution,
-rotation, intrinsics/distortion, crop and pose provenance against the hardcoded settings in
-`tools/record_refit_fold_demos.py` and the physical input path in `carton/fold_policy_runner.py`.
-The latest user clarification is that this checkout may have the wrong configuration; do not infer
-the intended replacement from historical captures. Keep cloud training and the watcher stopped.
-
-Present the corrected local scene, accept corrections, then have the server owner establish physical mounting height,
-pan-axis spacing/setback, carton offset/yaw and usable camera registration. Obtain camera-safe approaches
-and full dynamic fold validation with the new collision bodies before generating a replacement dataset.
-Review approval alone is not physical calibration or execution clearance.
-
-The server separately reported a finish-only live Flash readiness review; no fold was dispatched in that
-handoff. That model opinion and the old recipe are not scene registration or collision certification.
-Preserve sole-owner hardware control and the existing resistance/telemetry/STOP gates.
+The server retains sole hardware ownership. Preserve resistance, telemetry and STOP gates. No physical
+motion is authorized by a passing simulated teacher, a learned-policy score or this training recovery.
