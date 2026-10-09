@@ -42,3 +42,7 @@ Rollback the presentation integration by reverting its gh-pages commits. Domain/
 
 The name badge now contains only name + emoji, uses small text on the right side, and drifts upward over 30 seconds.
 The Full wave visitor choice has been retired; the short wave remains, targeting a roughly 30-second turn.
+
+Visitor catalog: Quick wave 👋, Robot wiggle 🤖, Celebration 🎉, Look around 👀.
+Each request accepts exactly one emoji. The floating name badge remains only on the presentation.
+New motions are bounded, restore their initial pose and release, and require first supervised tests.
