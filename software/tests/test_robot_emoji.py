@@ -48,15 +48,36 @@ def test_default_wave_loads_and_fits_live_ranges():
         assert 0 < p['duration_s'] <= G.MAX_PATH_S and len(p['waypoints']) <= G.MAX_PATH_WAYPOINTS
 
 
-def test_only_short_wave_is_offered_at_the_same_controller_pace():
+HEAD_LOOK = {'_speed_profile': 'demo', 'look': {'emoji': '👀', 'label': 'look', 'arm': 'head', 'relative_joints': ['pan'],
+             'raise': [{'pan': 0}], 'motion': [{'pan': -80}, {'pan': 80}] * 5 + [{'pan': 0}]}}
+
+
+def test_six_distinct_arm_gestures_at_demo_speed():
     catalog = G.load()
-    assert list(catalog) == ['wave', 'wiggle', 'celebrate', 'look']
-    assert 'full_wave' not in catalog
-    assert len(catalog['wave'].motion) == 3
-    quick = G.plan([catalog['wave']], START, RANGES)
-    assert sum(p['duration_s'] for p in quick['paths']) < 30
-    assert G.STEP_TICKS == 40 and G.STEP_S == .4
-    assert all('right_arm_gripper' not in w for p in quick['paths'] for w in p['waypoints'])
+    assert list(catalog) == ['wave', 'hand', 'flex', 'party', 'robot', 'bow']
+    assert len({g.emoji for g in catalog.values()}) == 6
+    # right arm only: the head stays at its registered pose
+    assert {g.arm for g in catalog.values()} == {'right'}
+    assert all(g.speed_profile == 'demo' and g.verified_on_hardware is False for g in catalog.values())
+    # each gesture has its own motion signature: which joints move during the motion, and how far
+    signatures = set()
+    for g in catalog.values():
+        pose = {}
+        for w in g.raise_path:
+            pose.update(w)
+        travel = {}
+        for w in g.motion:
+            for j, q in w.items():
+                travel[j] = travel.get(j, 0) + abs(q - pose[j])
+            pose.update(w)
+        assert max(travel.values()) >= 150, g.key            # visibly large, not a jiggle
+        signatures.add(tuple(sorted(j for j, t in travel.items() if t >= 150)))
+    assert len(signatures) >= 5
+    for g in catalog.values():
+        plan = G.plan([g], START, RANGES)
+        assert plan['speed_profile'] == 'demo'
+        assert all('right_arm_gripper' not in w for p in plan['paths'] for w in p['waypoints'])
+        assert sum(p['duration_s'] for p in plan['paths']) < 30
 
 
 def test_motion_legs_must_be_one_owner_piece():
@@ -106,12 +127,13 @@ def test_retired_preset_history_survives_catalog_removal(tmp_path):
     assert not robot.calls
 
 
-@pytest.mark.parametrize('key', ['wiggle','celebrate'])
+@pytest.mark.parametrize('key', ['wave', 'hand', 'flex', 'party', 'robot', 'bow'])
 def test_new_arm_gestures_return_and_release(key):
     robot = fake()
     before = dict(robot.positions)
     result = Performer(robot, G.load(), log=lambda _:None).perform([key])
     assert all(p['completed'] for p in result['paths'])
+    assert robot.speed_profile == 'demo'
     assert not robot.enabled
     assert robot.positions == before
 
@@ -119,7 +141,7 @@ def test_new_arm_gestures_return_and_release(key):
 def test_look_around_uses_only_bounded_head_moves_and_restores_pan():
     robot = fake()
     before = dict(robot.positions)
-    result = Performer(robot, G.load(), log=lambda _:None).perform(['look'])
+    result = Performer(robot, G.parse(HEAD_LOOK), log=lambda _:None).perform(['look'])
     assert result['arm'] == 'head'
     assert 'robot_move_path' not in names(robot)
     moves = [args for name,args in robot.calls if name == 'robot_move_head']
@@ -139,9 +161,9 @@ def test_head_range_or_step_violation_is_rejected_before_enabling():
     robot = fake()
     robot.positions['head_motor_1'] = 3100
     with pytest.raises(PerformError, match='outside commandable'):
-        Performer(robot,G.load(),log=lambda _:None).perform(['look'])
+        Performer(robot,G.parse(HEAD_LOOK),log=lambda _:None).perform(['look'])
     assert all(name.startswith('robot_get_') for name in names(robot))
-    data = json.loads(G.DEFAULT_PATH.read_text())
+    data = json.loads(json.dumps(HEAD_LOOK))
     data['look']['motion'] = [{'pan':-110},{'pan':110}]
     with pytest.raises(G.GestureError, match='exceeds 200'):
         G.parse(data)
@@ -150,14 +172,17 @@ def test_head_range_or_step_violation_is_rejected_before_enabling():
 def test_default_fake_robot_can_run_the_head_preset():
     robot = FakeRobot(time_scale=0)
     before = dict(robot.positions)
-    result = Performer(robot,G.load(),log=lambda _:None).perform(['look'])
+    result = Performer(robot,G.parse(HEAD_LOOK),log=lambda _:None).perform(['look'])
     assert result['arm']=='head' and robot.positions==before and not robot.enabled
+    # the head never takes the arm demo profile
+    assert all('speed_profile' not in args for name, args in robot.calls if name == 'robot_set_motor_enable')
 
 
 def test_path_seconds_follow_owner_pace():
     start = {'a': 0}
     assert G.path_seconds([{'a': 340}], start) == 3.6            # 9 steps of 40 ticks, 0.4 s each
     assert G.path_seconds([{'a': 1400}], start) == 14.0          # split into 5 pieces of 280 = 7 steps each
+    assert G.path_seconds([{'a': 340}], start, G.RATES['demo']) == 1.2   # same 9 steps at 300 ticks/s
 
 
 def test_performance_sequence_and_release():
@@ -167,7 +192,7 @@ def test_performance_sequence_and_release():
     assert names(robot) == ['robot_get_motion', 'robot_get_state', 'robot_set_motor_enable',
                             'robot_move_path', 'robot_move_path', 'robot_move_path', 'robot_set_motor_enable']
     enable, release = robot.calls[2][1], robot.calls[-1][1]
-    assert enable == {'names': RIGHT, 'enabled': True} and release == {'names': RIGHT, 'enabled': False}
+    assert enable == {'names': RIGHT, 'enabled': True, 'speed_profile': 'demo'} and release == {'names': RIGHT, 'enabled': False}
     assert all(c[1]['arm'] == 'right' and c[1]['wait'] is True for c in robot.calls if c[0] == 'robot_move_path')
     assert phases == ['enable', 'raise', 'motion', 'return', 'release']
     assert robot.positions['right_arm_wrist_flex'] == 3000 and not robot.enabled

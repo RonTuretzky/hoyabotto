@@ -1,8 +1,10 @@
 {
-  "_about": "Short single-choice gestures at the existing maximum controller pace (40 ticks every 0.4 seconds). Arm gestures use the short-wave raise pose. Look around uses bounded head pan offsets around its measured starting position. Every gesture returns and releases; no gripper motion or hardware-limit changes. New gestures still need supervised physical tests.",
+  "_about": "Six single-choice gestures, each with its own joint and shape so they read differently from across a room. Right arm only (the head stays still: moving it voids the OAK-to-arm tag registration). Demo arm speed (300 ticks/s, 40-tick owner ramp), legs <= 341 ticks, no gripper, every gesture returns and releases. None has been run on hardware yet: supervise the first run of each.",
+  "_target_show_seconds": 30,
+  "_speed_profile": "demo",
   "wave": {
     "emoji": "👋",
-    "label": "Quick wave",
+    "label": "手を振る",
     "arm": "right",
     "verified_on_hardware": false,
     "raise": [
@@ -15,12 +17,28 @@
     ],
     "motion": [
       {
-        "shoulder_pan": 2070,
-        "wrist_flex": 1913
+        "shoulder_pan": 1965,
+        "wrist_flex": 1838
       },
       {
-        "shoulder_pan": 2180,
-        "wrist_flex": 2083
+        "shoulder_pan": 2285,
+        "wrist_flex": 2158
+      },
+      {
+        "shoulder_pan": 1965,
+        "wrist_flex": 1838
+      },
+      {
+        "shoulder_pan": 2285,
+        "wrist_flex": 2158
+      },
+      {
+        "shoulder_pan": 1965,
+        "wrist_flex": 1838
+      },
+      {
+        "shoulder_pan": 2285,
+        "wrist_flex": 2158
       },
       {
         "shoulder_pan": 2125,
@@ -28,10 +46,146 @@
       }
     ]
   },
-  "_target_show_seconds": 30,
-  "wiggle": {
+  "hand": {
+    "emoji": "🙋",
+    "label": "はーい！",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "raise": [
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865,
+        "elbow_flex": 2092,
+        "wrist_flex": 1998
+      },
+      {
+        "shoulder_lift": 2165,
+        "elbow_flex": 1800
+      }
+    ],
+    "motion": [
+      {
+        "wrist_flex": 1848
+      },
+      {
+        "wrist_flex": 2148
+      },
+      {
+        "wrist_flex": 1848
+      },
+      {
+        "wrist_flex": 1998
+      },
+      {
+        "shoulder_lift": 2165
+      }
+    ]
+  },
+  "flex": {
+    "emoji": "💪",
+    "label": "力こぶ",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "raise": [
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865,
+        "elbow_flex": 2092,
+        "wrist_flex": 1998
+      }
+    ],
+    "motion": [
+      {
+        "elbow_flex": 2392
+      },
+      {
+        "elbow_flex": 2092
+      },
+      {
+        "elbow_flex": 2392
+      },
+      {
+        "elbow_flex": 2092
+      },
+      {
+        "elbow_flex": 2392
+      },
+      {
+        "elbow_flex": 2092
+      }
+    ]
+  },
+  "party": {
+    "emoji": "🎉",
+    "label": "お祝い",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "raise": [
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865,
+        "elbow_flex": 2092,
+        "wrist_flex": 1998
+      },
+      {
+        "shoulder_lift": 2015,
+        "shoulder_pan": 2275
+      }
+    ],
+    "motion": [
+      {
+        "shoulder_pan": 2231,
+        "shoulder_lift": 2121
+      },
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 2165
+      },
+      {
+        "shoulder_pan": 2019,
+        "shoulder_lift": 2121
+      },
+      {
+        "shoulder_pan": 1975,
+        "shoulder_lift": 2015
+      },
+      {
+        "shoulder_pan": 2019,
+        "shoulder_lift": 1909
+      },
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865
+      },
+      {
+        "shoulder_pan": 2231,
+        "shoulder_lift": 1909
+      },
+      {
+        "shoulder_pan": 2275,
+        "shoulder_lift": 2015
+      },
+      {
+        "shoulder_pan": 2231,
+        "shoulder_lift": 2121
+      },
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 2165
+      },
+      {
+        "shoulder_pan": 2019,
+        "shoulder_lift": 2121
+      },
+      {
+        "shoulder_pan": 1975,
+        "shoulder_lift": 2015
+      }
+    ]
+  },
+  "robot": {
     "emoji": "🤖",
-    "label": "Robot wiggle",
+    "label": "ロボットダンス",
     "arm": "right",
     "verified_on_hardware": false,
     "relative_joints": [
@@ -48,22 +202,45 @@
     ],
     "motion": [
       {
-        "shoulder_pan": 2070,
-        "wrist_roll": -70
+        "elbow_flex": 2242,
+        "wrist_flex": 1848,
+        "wrist_roll": 170
       },
       {
-        "shoulder_pan": 2180,
-        "wrist_roll": 70
+        "elbow_flex": 1942,
+        "wrist_flex": 2148,
+        "wrist_roll": -170
       },
       {
-        "shoulder_pan": 2125,
+        "elbow_flex": 2242,
+        "wrist_flex": 1848,
+        "wrist_roll": 170
+      },
+      {
+        "elbow_flex": 1942,
+        "wrist_flex": 2148,
+        "wrist_roll": -170
+      },
+      {
+        "elbow_flex": 2242,
+        "wrist_flex": 1848,
+        "wrist_roll": 170
+      },
+      {
+        "elbow_flex": 1942,
+        "wrist_flex": 2148,
+        "wrist_roll": -170
+      },
+      {
+        "elbow_flex": 2092,
+        "wrist_flex": 1998,
         "wrist_roll": 0
       }
     ]
   },
-  "celebrate": {
-    "emoji": "🎉",
-    "label": "Celebration",
+  "bow": {
+    "emoji": "🙇",
+    "label": "おじぎ",
     "arm": "right",
     "verified_on_hardware": false,
     "raise": [
@@ -76,65 +253,16 @@
     ],
     "motion": [
       {
-        "elbow_flex": 2027,
-        "wrist_flex": 1971
+        "shoulder_lift": 1715,
+        "wrist_flex": 2248
       },
       {
-        "elbow_flex": 2157,
-        "wrist_flex": 2025
+        "shoulder_lift": 1715,
+        "wrist_flex": 2248
       },
       {
-        "elbow_flex": 2092,
+        "shoulder_lift": 1865,
         "wrist_flex": 1998
-      }
-    ]
-  },
-  "look": {
-    "emoji": "👀",
-    "label": "Look around",
-    "arm": "head",
-    "verified_on_hardware": false,
-    "relative_joints": [
-      "pan"
-    ],
-    "raise": [
-      {
-        "pan": 0
-      }
-    ],
-    "motion": [
-      {
-        "pan": -80
-      },
-      {
-        "pan": 80
-      },
-      {
-        "pan": -80
-      },
-      {
-        "pan": 80
-      },
-      {
-        "pan": -80
-      },
-      {
-        "pan": 80
-      },
-      {
-        "pan": -80
-      },
-      {
-        "pan": 80
-      },
-      {
-        "pan": -80
-      },
-      {
-        "pan": 80
-      },
-      {
-        "pan": 0
       }
     ]
   }

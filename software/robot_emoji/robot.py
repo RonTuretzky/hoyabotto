@@ -113,6 +113,7 @@ class FakeRobot:
                     'commandable_ranges': self.ranges}
         if name == 'robot_set_motor_enable':
             if args['enabled']:
+                self.speed_profile = args.get('speed_profile', 'normal')
                 self.stopped.clear()
                 self.enabled |= set(args['names'])
                 self.phase = 'holding'

@@ -1,21 +1,19 @@
 <!-- robot-slide-overlay:start -->
 <style>
-#robot-show-overlay { position:fixed; right:20px; bottom:18vh; z-index:2147483646;
-  display:flex; align-items:center; gap:8px; padding:8px 12px; max-width:220px;
-  border:1px solid rgba(255,255,255,.2); border-radius:18px; background:rgba(18,13,36,.86); color:#fff;
-  box-shadow:0 3px 12px #0003; font-family:system-ui,sans-serif; pointer-events:none;
-  animation:robot-badge-in .25s ease-out, robot-badge-rise 30s linear forwards; }
+#robot-show-overlay { position:fixed; right:22px; top:0; z-index:2147483646;
+  display:flex; align-items:center; gap:10px; padding:10px 16px; max-width:280px;
+  border:1px solid rgba(255,255,255,.22); border-radius:22px; background:rgba(18,13,36,.88); color:#fff;
+  box-shadow:0 4px 18px #0004; font-family:system-ui,sans-serif; pointer-events:none;
+  will-change:transform,opacity; transition:opacity .8s ease; }
 #robot-show-overlay[hidden] { display:none !important; }
-#robot-show-emoji { font-size:26px; line-height:1; flex-shrink:0; }
-#robot-show-name { font-size:18px; font-weight:600; line-height:1.2; overflow-wrap:anywhere; max-width:160px; }
-@keyframes robot-badge-in { from { opacity:0; } to { opacity:1; } }
-@keyframes robot-badge-rise { from { transform:translateY(12px); } to { transform:translateY(-48px); } }
+#robot-show-overlay.leaving { opacity:0; }
+#robot-show-emoji { font-size:34px; line-height:1; flex-shrink:0; }
+#robot-show-name { font-size:21px; font-weight:700; line-height:1.2; overflow-wrap:anywhere; max-width:200px; }
 @media (max-width:600px) {
-  #robot-show-overlay { right:10px; padding:6px 9px; gap:6px; max-width:170px; }
-  #robot-show-name { font-size:15px; max-width:115px; }
-  #robot-show-emoji { font-size:22px; }
+  #robot-show-overlay { right:10px; padding:7px 11px; gap:7px; max-width:180px; }
+  #robot-show-name { font-size:15px; max-width:120px; }
+  #robot-show-emoji { font-size:24px; }
 }
-@media (prefers-reduced-motion:reduce) { #robot-show-overlay { animation:none !important; transform:none; } }
 @media print { #robot-show-overlay, [data-robot-visitor-link] { display:none !important; } }
 </style>
 <aside id="robot-show-overlay" data-api-origin="__ROBOT_API_ORIGIN__" hidden role="status" aria-live="polite" aria-atomic="true">
@@ -23,36 +21,62 @@
 </aside>
 <script>
 (() => {
+  // The visitor's name and emoji rise from the bottom of the slide to the top while the robot performs,
+  // paced by the show's own phases (enable, raise, motion, return, release), and fade away when it is done.
   const overlay = document.getElementById('robot-show-overlay');
   const base = overlay.dataset.apiOrigin;
   const name = document.getElementById('robot-show-name');
   const emoji = document.getElementById('robot-show-emoji');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // progress window per phase: [start, end, seconds to approach end]
+  const PHASE = { enable: [0, .08, 1.5], raise: [.08, .3, 3.5], motion: [.3, .82, 7], return: [.82, .94, 3.5], release: [.94, 1, 1] };
+  let ticket = null, phase = null, phaseStart = 0, progress = 0, shown = 0, leaving = false, hideTimer = 0;
+  function target(now) {
+    const w = PHASE[phase];
+    if (!w) return progress;
+    const k = 1 - Math.exp(-(now - phaseStart) / 1000 / (w[2] / 2.5));     // eases toward the end of the window
+    return Math.max(progress, w[0] + (w[1] - w[0]) * k);
+  }
+  function frame(now) {
+    if (!overlay.hidden) {
+      const goal = leaving ? 1.12 : target(now);
+      shown += (goal - shown) * (reduced ? 1 : 0.08);
+      const h = innerHeight, top = h * 0.84, end = h * 0.06;                 // bottom of the slide to the top
+      overlay.style.transform = `translateY(${(top + (end - top) * shown).toFixed(1)}px)`;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  function begin(current) {
+    clearTimeout(hideTimer);
+    ticket = current.id; phase = null; progress = 0; shown = 0; leaving = false;
+    overlay.classList.remove('leaving'); overlay.hidden = false;
+    name.textContent = current.name; emoji.textContent = current.emojis.join('');
+    overlay.setAttribute('aria-label', current.name + ' ' + current.emojis.join(''));
+  }
+  function finish() {
+    if (leaving || overlay.hidden) return;
+    leaving = true; overlay.classList.add('leaving');
+    hideTimer = setTimeout(() => { overlay.hidden = true; }, 900);
+  }
   async function poll() {
     try {
       const response = await fetch(base + '/api/state', {cache:'no-store', credentials:'omit', signal:AbortSignal.timeout(5000)});
       if (!response.ok) throw new Error('Show unavailable');
-      const state = await response.json();
-      const current = state.current;
-      if (!current || !['performing', 'done'].includes(current.state)) {
-        overlay.hidden = true;
-      } else {
-        if (name.textContent !== current.name) name.textContent = current.name;
-        const icons = current.emojis.join('');
-        if (emoji.textContent !== icons) emoji.textContent = icons;
-        overlay.setAttribute('aria-label', current.name + ' ' + icons);
-        const newTicket = overlay.dataset.ticket !== current.id;
-        overlay.hidden = false;
-        if (newTicket) {
-          overlay.dataset.ticket = current.id;
-          overlay.style.animation = 'none';
-          void overlay.offsetWidth;
-          overlay.style.animation = '';
-        }
+      const current = (await response.json()).current;
+      if (current && current.state === 'performing') {
+        if (current.id !== ticket || leaving) begin(current);
+        const p = (current.phase || 'enable').split(':')[0];
+        if (p !== phase && PHASE[p]) { progress = Math.max(progress, PHASE[p][0], target(performance.now())); phase = p; phaseStart = performance.now(); }
+      } else if (current && current.state === 'done' && current.id === ticket) {
+        finish();
+      } else if (!current || current.id !== ticket) {
+        finish();
       }
-    } catch (_) { overlay.hidden = true; }
-    setTimeout(poll, 700);
+    } catch (_) { finish(); }
+    setTimeout(poll, 600);
   }
-  // Lives outside the slide elements; advancing slides preserves this floating badge.
+  // Lives outside the slide elements; advancing slides keeps the badge where it is.
   poll();
 })();
 </script>

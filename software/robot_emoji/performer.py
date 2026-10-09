@@ -2,7 +2,8 @@
 
   preflight   robot_get_motion + robot_get_state: nobody else may hold a motor or be moving (Busy otherwise;
               nothing was written), and every target must be inside the live commandable range.
-  enable      robot_set_motor_enable for all six joints of the arm (the pickup profile holds them where they are).
+  enable      robot_set_motor_enable for all six joints of the arm (the pickup profile holds them where they are),
+              with the gestures' speed_profile (demo = 300 ticks/s) when it is not normal.
   paths       robot_move_path, wait=true: each gesture's raise, then its motion; finally the return to the
               resting pose (clamped into the commandable range).
   release     robot_set_motor_enable(enabled=false) for those six joints only, at the resting pose.
@@ -87,7 +88,10 @@ class Performer:
             raise PerformError('Stopped by the operator')
         on_phase('enable')
         try:
-            self.robot.call('robot_set_motor_enable', {'names': motors, 'enabled': True})
+            enable = {'names': motors, 'enabled': True}
+            if plan.get('speed_profile', 'normal') != 'normal':
+                enable['speed_profile'] = plan['speed_profile']   # chosen before torque-on, as the owner requires
+            self.robot.call('robot_set_motor_enable', enable)
         except RobotTransportError as e:
             if not self.aborted.is_set():
                 self._recover(plan, e)

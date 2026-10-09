@@ -19,7 +19,10 @@ ARM_JOINTS = ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wris
 GESTURE_JOINTS = ARM_JOINTS[:-1]   # no gripper: a closing gripper cannot run inside a path
 MAX_LEG_TICKS = 341                # the pickup owner's per-leg limit; longer legs are split into 280-tick pieces
 SPLIT_TICKS = 280
-STEP_TICKS, STEP_S = 40, 0.4       # owner ramp: 40-tick steps, no faster than every 0.4 s
+STEP_TICKS, STEP_S = 40, 0.4       # owner ramp: 40-tick steps, no faster than every 0.4 s at normal speed
+# Owner arm speed profiles (robot_set_motor_enable speed_profile): ticks per second on the positioning joints.
+# 'demo' (300 ticks/s) is for free-space demos only; the 40-tick ramp and every other owner check stay in place.
+RATES = {'normal': 100, 'demo': 300}
 MAX_PATH_WAYPOINTS = 12            # robot_move_path input limit
 MAX_PATH_S = 60
 
@@ -38,6 +41,7 @@ class Gesture:
     motion: tuple
     verified_on_hardware: bool
     relative_joints: tuple = ()
+    speed_profile: str = 'normal'
 
     def joints(self):
         return sorted({j for w in self.raise_path + self.motion for j in w})
@@ -64,6 +68,9 @@ def _waypoints(key, part, value, allowed=GESTURE_JOINTS):
 
 def parse(data):
     gestures = {}
+    profile = data.get('_speed_profile', 'normal')
+    if profile not in RATES:
+        raise GestureError(f'_speed_profile must be one of {tuple(RATES)}')
     for key, g in data.items():
         if key.startswith('_'):
             continue
@@ -78,7 +85,8 @@ def parse(data):
         if not isinstance(relative, list) or any(j not in allowed for j in relative) or len(set(relative)) != len(relative):
             raise GestureError(f'{key}: relative_joints must be supported positioning joints')
         gesture = Gesture(key, g['emoji'], g['label'], g['arm'], _waypoints(key, 'raise', g.get('raise'), allowed),
-                          _waypoints(key, 'motion', g.get('motion'), allowed), g.get('verified_on_hardware') is True, tuple(relative))
+                          _waypoints(key, 'motion', g.get('motion'), allowed), g.get('verified_on_hardware') is True, tuple(relative),
+                          profile if g['arm'] != 'head' else 'normal')
         # The motion starts where the raise ends; every leg must be one continuous owner piece, so the
         # gesture keeps its rhythm instead of being split.
         pose = {}
@@ -114,15 +122,16 @@ def arm_motors(arm):
     return [f'{arm}_arm_{j}' for j in ARM_JOINTS]
 
 
-def path_seconds(waypoints, start):
-    """The owner's run time at full pace: legs split like expand_path, 40-tick steps every 0.4 s."""
+def path_seconds(waypoints, start, rate=RATES['normal']):
+    """The owner's run time at full pace: legs split like expand_path, 40-tick steps at `rate` ticks/s."""
     current, steps = dict(start), 0
     for w in waypoints:
         delta = max([abs(q - current[n]) for n, q in w.items()] or [0])
         pieces = 1 if delta <= MAX_LEG_TICKS else math.ceil(delta / SPLIT_TICKS)
         steps += pieces * max(1, math.ceil(delta / pieces / STEP_TICKS))
         current.update(w)
-    return round(max(STEP_S, steps * STEP_S), 1)
+    step_s = STEP_TICKS / rate
+    return round(max(step_s, steps * step_s), 1)
 
 
 def plan(gestures, start, ranges):
@@ -133,6 +142,11 @@ def plan(gestures, start, ranges):
     if len(arms) != 1:
         raise GestureError('One arm per performance')
     arm = arms.pop()
+    profiles = {g.speed_profile for g in gestures}
+    if len(profiles) != 1:
+        raise GestureError('One speed profile per performance')
+    profile = profiles.pop()
+    rate = RATES[profile]
     for n in arm_motors(arm):
         if type(start.get(n)) is not int:
             raise GestureError(f'No current encoder reading for {n}')
@@ -169,8 +183,8 @@ def plan(gestures, start, ranges):
             p['head_durations_s'] = durations
             p['duration_s'] = sum(durations)
             continue
-        p['duration_s'] = min(MAX_PATH_S, path_seconds(p['waypoints'], current))
+        p['duration_s'] = min(MAX_PATH_S, path_seconds(p['waypoints'], current, rate))
         for w in p['waypoints']:
             current.update(w)
     motors = sorted(touched) if arm == 'head' else arm_motors(arm)
-    return {'arm': arm, 'motors': motors, 'paths': paths, 'home': home}
+    return {'arm': arm, 'motors': motors, 'paths': paths, 'home': home, 'speed_profile': profile}
