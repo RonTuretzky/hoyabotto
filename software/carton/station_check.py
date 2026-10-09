@@ -156,6 +156,13 @@ def load_camera(source):
     if 'position_m' not in spec and isinstance(spec.get('cameras'), dict) and 'front' in spec['cameras']:
         measured = not spec.get('model_derived', False) and spec.get('measured', True) is not False
         spec = dict(spec['cameras']['front'], measured=measured)
+    if 'position_m' not in spec and isinstance(spec.get('camera_entry'), dict):
+        # tools/auto_head_pose.py output: the camera sits under camera_entry with its intrinsics nested
+        entry = spec['camera_entry']
+        intr = entry.get('intrinsics') or {}
+        spec = {'position_m': entry.get('position_m'), 'rotation_cv': entry.get('rotation_cv'), 'measured': True,
+                **{k: intr[k] for k in ('fx', 'fy', 'cx', 'cy', 'width', 'height') if k in intr},
+                'dist': intr.get('dist', intr.get('distortion'))}
     if spec.get('schema') not in (None, CAMERA_SCHEMA):
         raise ValueError(f'Camera JSON schema must be {CAMERA_SCHEMA!r}')
     if spec.get('frame', 'arm_base') != 'arm_base':
