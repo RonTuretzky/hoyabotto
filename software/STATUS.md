@@ -1,3 +1,19 @@
+## OAK + Joy-Con main reconciliation — 9 October 2026, 21:53 JST
+
+- Combined the Joy-Con commissioning branch (6523472) and server/pilot/OAK branch
+  (4b7c34b) on main. Kept normal root restart dispatch and explicit Joy-Con modes.
+  Full-sensor capture, exact policy projection, guarded teleop and pilot tag work coexist.
+- `ensure_oak` now persists the tested camera profile when the existing stream is fresh
+  and its configuration hash matches the frozen contract. It writes only the profile;
+  the current camera, API and sole hardware owner are untouched by that adoption.
+  Normal future OAK launches read this profile and reject calibration/config changes.
+- Verified the combined tree: 59 Joy-Con tests, 13 OAK/projection tests and all 28
+  fake-hardware deployment test files passed. The server tests require their official
+  separate-process runner; collecting the whole directory in one pytest process leaks
+  legacy module-global mocks and fails collection. No production fix was inferred from it.
+- Training owner has the final 45-degree contract and explicit user request to restart
+  after renderer/sampling/inference checks. No new training job has been reported here.
+
 ## Selected OAK view and training handoff — 9 October 2026, 21:45 JST
 
 - Live OAK now uses IMX214 13MP (4208×3120), ISP 1/4, centered crop from 1052×780

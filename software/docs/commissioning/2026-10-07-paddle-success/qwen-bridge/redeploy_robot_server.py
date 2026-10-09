@@ -26,7 +26,7 @@ OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api
 # Files only the API process loads: these can be replaced by restarting the API alone, with motors untouched.
 API_ONLY=['gemma_robot_tools.py','gemma_reach_planner.py','right-arm-kinematics.json','wrist_cameras.py','frame_clips.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
 INSTALL=['joycon_native_units.py','joycon_reference.py','joycon_teleop.py','joycon_teleop_api.py','calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','frame_clips.py','paddle-procedure.json','restart_gemma_owner_released.py','gemma_reach_planner.py','right-arm-kinematics.json','stream_joint_executor.py','head_joint_executor.py']
-TESTS=['test_joycon_teleop.py','test_joycon_commissioning.py','test_gripper_chunks.py','test_gripper_enable.py','test_oak_wait.py','test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_frame_clips.py','test_reach_planner_right.py','test_stream_targets.py','test_head_scope.py']
+TESTS=['test_oak_profile.py','test_joycon_teleop.py','test_joycon_commissioning.py','test_gripper_chunks.py','test_gripper_enable.py','test_oak_wait.py','test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_frame_clips.py','test_reach_planner_right.py','test_stream_targets.py','test_head_scope.py']
 OWNER_ARGS=['--both-arms','--paddle-profile','--wheels','--head','--allow-missing-bus'];  # an arm (or the head) whose calibration mismatches stays read-only
 API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
@@ -212,6 +212,20 @@ def stop_oak():
  while time.time()<deadline and oak_processes():time.sleep(.3)
  return not oak_processes()
 
+def persist_commissioned_oak_profile(dry_run):
+ """Remember the already tested live view without touching any process/device."""
+ try:
+  source=json.loads((SOFTWARE/'config/oak-policy-camera-20261009.json').read_text())['source']
+  m=json.loads((Path(OAK_RAW_DIR)/'oak.json').read_text())
+ except (OSError,ValueError,KeyError):return False
+ if m.get('config_sha256')!=source['config_sha256'] or not 0<=time.time()-m.get('captured_at',0)<=1:return False
+ profile={'schema':'xlerobot-oak-stream-profile/1','sensor_mode':'13MP','device_id':m['device_id'],
+          'isp_denominator':4,'fps':10,'config_sha256':source['config_sha256']}
+ path=Path(OAK_RAW_DIR)/'oak-profile.json'
+ if dry_run:say('oak: would persist the verified 1040x780/10fps view');return True
+ tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(profile,indent=2)+'\n');os.replace(tmp,path)
+ say('oak: verified 1040x780/10fps profile persisted; existing stream unchanged');return True
+
 def ensure_oak(dry_run):
  """Keep the OAK RGB/depth stream alive: farm.oak_camera stream exits after --seconds, so restart it when stale."""
  if OAK_OFF.exists():
@@ -219,7 +233,9 @@ def ensure_oak(dry_run):
   say('oak: switched off (work/oak-disabled); tag tools report it stale. Turn it back on with the oak-on mode');return
  streams=oak_processes()
  narrow=[l for l in streams if '--wide' not in l]
- if oak_fresh() and not narrow:say('oak: already streaming');return
+ if oak_fresh() and not narrow:
+  persist_commissioned_oak_profile(dry_run)
+  say('oak: already streaming');return
  if oak_fresh() and narrow:say('oak: streaming without --wide (undistortion crops the field of view); restarting it wide')
  stale=[int(l.split(None,1)[0]) for l in streams]
  software=BRIDGE.parents[3]
