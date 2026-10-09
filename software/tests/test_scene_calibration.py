@@ -41,7 +41,7 @@ def head_ticks(tilt_deg):
 
 @pytest.fixture(scope='module')
 def world():
-    return sim_cameras.StaticWorld(seed=0)
+    return sim_cameras.StaticWorld(seed=0, preset='near7')
 
 
 @pytest.fixture(scope='module')

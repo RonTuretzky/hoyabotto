@@ -112,7 +112,26 @@ FOLDED_DEG = {'shoulder_pan': 0.0, 'shoulder_lift': -78.0, 'elbow_flex': 82.0, '
 # 1378 (a 3 mm flap is about 25 ticks). Below it the jaws press together; the model's jaw range (-21.5..100 deg) then
 # spans ticks 1355..2738 (the saved open end is 2821, 7 deg more). Applied as a twin joint map (grippers only).
 GRIPPER_CLOSED_OFFSET_TICKS = 82
+# Per arm (9 October): the right gripper's empty pads meet at 1344-1349 (saved range_min 1269 + 79) with ~150 load.
+GRIPPER_CLOSED_OFFSET = {'left': 82, 'right': 79}
+# Fidelity options that make the sim at least as hard as the real robot on 9 October (SimRobot(fidelity={...}) overrides):
+# - meet_jitter_ticks: per closing call the reported meeting point moves by U(lo, hi) ticks (real empty closes read
+#   1355-1359 on the left, 1344-1360 on the right);
+# - right_grip_sticks: the right gripper sticks mid-travel (a close from above 1700 stops at 1520-1610 with probability
+#   p_close; an open stops at 1500-1950 with probability p_open; resending an open after an open stall leaves the jaw
+#   stuck with probability p_reopen, which trips the 1 s no-progress guard and releases everything, as twice on 9 Oct);
+# - lift_bias_deg: the physical shoulder_lift sits this many degrees from what its ticks say (the arm model reads a few
+#   cm high near the box: a claw the model put at 73-75 cm met nothing below the 77 cm rim); positive = claw lower;
+# - roll_offset_deg: the physical wrist_roll sits this far from the twin's mapping, so the unrolled jaws open to the
+#   robot's left and right as on the real robot (the twin has them opening up and down).
+FIDELITY = {'meet_jitter_ticks': {'left': (0, 4), 'right': (-4, 10)},
+            'right_grip_sticks': {'p_close': 0.5, 'p_open': 0.4, 'p_reopen': 0.7, 'close_band': (1520, 1610),
+                                  'open_band': (1500, 1950)},
+            'lift_bias_deg': {'left': 5.0, 'right': 5.0},
+            'roll_offset_deg': {'left': 90.0, 'right': 90.0}}
+PAD_Y_M = -0.055               # jaw frame (Fixed_Jaw: the jaw runs along -y, tip at -0.106): contacts beyond this are the pads
 FLAP_FOLDED_DEG = 75.0         # score()['flap_folded'] threshold (farm.sim.box_scene.FLAP_FOLDED_DEG)
+FOLD_PUSH_ALLOWANCE_DEG = 10.0 # score()['fold_by_pinch']: at most this much of the flap's turn may happen under a non-pad contact
 PRESENT_VOLTAGE = 120
 PRESENT_TEMPERATURE = 35
 RANGE_SEMANTICS = ('raw_calibration_ranges and motor range are saved hardware limits, not command targets; use '
@@ -302,13 +321,14 @@ def _scene_with_actuators(xml):
     return ET.tostring(root, encoding='unicode')
 
 
-def build_scene(seed=0):
-    """The box scene from farm.sim.box_scene when present, else the private fallback."""
+def build_scene(seed=0, preset=None):
+    """The box scene from farm.sim.box_scene when present (``preset``: a box_scene.PRESETS key, default the real
+    9 October carton), else the private fallback."""
     try:
         from farm.sim.box_scene import build_scene_xml
     except ImportError:
         return _fallback_scene_xml(seed=seed), 'fallback'
-    return build_scene_xml(seed=seed), 'box_scene'
+    return build_scene_xml(seed=seed, preset=preset), 'box_scene'
 
 
 # ---------------------------------------------------------------- world
@@ -529,6 +549,8 @@ class _ArmMotion:
         return want
 
     def finish(self, current, outcome):
+        if getattr(self, 'stalled', False) and outcome == 'endpoint_settled':
+            outcome = 'settled_short'   # the jaw stuck mid-travel (SimRobot.FIDELITY right_grip_sticks)
         self.active = False
         self.outcome = outcome
         self.robot.last_completed = self.command_id
@@ -685,7 +707,7 @@ class SimRobot:
     time; False fast-forwards them. Idle time and wait=false motions always run at 1x so monitoring works like on the
     real robot. ``calibration``: {motor: (min_ticks, max_ticks)} (default: the saved real sample)."""
 
-    def __init__(self, scene_xml=None, seed=0, real_time=True, calibration=None):
+    def __init__(self, scene_xml=None, seed=0, real_time=True, calibration=None, preset=None, fidelity=None):
         if sys.platform == 'darwin':
             import os
             os.environ.setdefault('MUJOCO_GL', 'cgl')
@@ -696,6 +718,19 @@ class SimRobot:
         self.seed = seed
         self.calibration = load_calibration(calibration)
         self._given_xml = scene_xml
+        try:
+            from farm.sim import box_scene as _bs
+            self.preset = preset or _bs.DEFAULT_PRESET
+            plastic = _bs.PRESETS.get(self.preset, {}).get('plastic')
+            self.plastic = dict(_bs.PLASTIC) if plastic == 'default' else (dict(plastic) if isinstance(plastic, dict) else None)
+        except ImportError:
+            self.preset, self.plastic = preset, None
+        # Fidelity: the real-robot difficulties (FIDELITY); the 'near7' preset keeps the 8 October behaviour.
+        base = {} if self.preset == 'near7' else json.loads(json.dumps(FIDELITY))
+        if fidelity is not None:
+            base.update(fidelity)
+        self.fidelity = base
+        self.rng = random.Random(1000003 * (int(seed) if isinstance(seed, int) else 0) + 17)
         self.world = World()
         self.lock = self.world.lock
         self._command_lock = threading.Lock()
@@ -716,7 +751,7 @@ class SimRobot:
         if self._given_xml is not None:
             xml, self.scene_source = self._given_xml, 'given'
         else:
-            xml, self.scene_source = build_scene(seed)
+            xml, self.scene_source = build_scene(seed, self.preset)
         model = mj.MjModel.from_xml_string(_scene_with_actuators(xml))
         data = mj.MjData(model)
         self.motors = {}
@@ -728,7 +763,7 @@ class SimRobot:
             if offset is None:
                 jaw_deg[joint] = tuple(float(v) for v in np.degrees(model.jnt_range[jid]))
         ranges = {n: self.calibration[n] for n in twin.JOINT_TABLE}
-        self.joint_map = {'validated': False, 'joints': {n: {'zero_tick': ranges[n][0] + GRIPPER_CLOSED_OFFSET_TICKS, 'sign': 1}
+        self.joint_map = {'validated': False, 'joints': {n: {'zero_tick': ranges[n][0] + GRIPPER_CLOSED_OFFSET.get(n.split('_arm_')[0], GRIPPER_CLOSED_OFFSET_TICKS), 'sign': 1}
                                                          for n in twin.JOINT_TABLE if n.endswith('gripper')}}
         # Motors in the owner's bus order (the calibration's order: left arm, head, right arm), as robot_get_state lists them.
         for motor in [n for n in self.calibration if n in twin.JOINT_TABLE]:
@@ -749,8 +784,20 @@ class SimRobot:
                 # drives each joint to both stops), so the model limits follow it. The gripper keeps the model's jaw stops.
                 model.jnt_range[jid] = sorted((q_lo, q_hi))
                 model.jnt_limited[jid] = 1
+            bias = (self.fidelity.get('lift_bias_deg') or {}).get(motor.split('_arm_')[0], 0.0) if motor.endswith('_arm_shoulder_lift') else 0.0
+            roll = (self.fidelity.get('roll_offset_deg') or {}).get(motor.split('_arm_')[0], 0.0) if motor.endswith('_arm_wrist_roll') else 0.0
+            if roll:
+                # the real jaws at the normal wrist_roll (about 2047-2120) open to the robot's left and right (their
+                # pads are vertical planes parallel to a side flap; 8-9 October wrist images and pinches); the twin's
+                # mapping has them opening up and down in the arm's plane, i.e. 90 degrees off
+                a += math.radians(roll)
+            if bias:
+                # the physical joint sits bias degrees from the angle its ticks say, toward a LOWER claw (the lift's
+                # positive direction raises the arm on both sides: checked in the tests)
+                a += math.radians(bias) * (1 if b > 0 else -1)
             self.motors[motor] = _Motor(motor, joint, int(model.jnt_qposadr[jid]), int(model.jnt_dofadr[jid]), aid if aid >= 0 else None,
                                         a, b, lo, hi, KP_GRIP if grip else KP_ARM, KV_GRIP if grip else KV_ARM)
+            self.motors[motor].a0 = a
         self.arm_motors = [n for n in self.motors if '_arm_' in n]
         self.position_names = list(self.motors)
         self.wheel_ticks = {}
@@ -775,6 +822,12 @@ class SimRobot:
         self.box_bodies = self.flap_bodies | ({self.box_body} if self.box_body >= 0 else set())
         flap_joint = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, 'flap_hinge')
         self.flap_qadr = int(model.jnt_qposadr[flap_joint]) if flap_joint >= 0 else None
+        self.flap_spring0 = float(model.qpos_spring[self.flap_qadr]) if self.flap_qadr is not None else None
+        self.flap_panel = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, 'box_flap')
+        self.all_box_bodies = {i for i in range(model.nbody) if model.body(i).name == 'box' or model.body(i).name.startswith('box_')}
+        # other hinged flaps (e.g. the far flap): one folded over the target flap holds its crease down
+        self.other_flap_qadr = {model.joint(j).name: int(model.jnt_qposadr[j]) for j in range(model.njnt)
+                                if model.joint(j).name.endswith('flap_hinge') and model.joint(j).name != 'flap_hinge'}
         self.table_body = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, 'table')
         self.scene_geoms = [g for g in range(model.ngeom) if model.geom_bodyid[g] == 0 and model.geom_type[g] != mj.mjtGeom.mjGEOM_PLANE
                             and 'floor' not in (mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, g) or '')]
@@ -823,6 +876,13 @@ class SimRobot:
         self.last_completed = None
         self.last_rejected = None
         self.flap_pinched_ever = False
+        if self.flap_qadr is not None:
+            model.qpos_spring[self.flap_qadr] = self.flap_spring0
+        self.crease = {'yield_s': 0.0, 'press_s': 0.0, 'last_t': None, 'prev_deg': None, 'deg_by_pinch': 0.0, 'deg_by_push': 0.0,
+                       'deg_free': 0.0, 'illegal_s': 0.0, 'illegal_ever': False, 'pad_press_s': 0.0, 'max_deg': None,
+                       'max_deg_pinched': None, 'pressed_set': False, 'held_over_95_s': 0.0}
+        self.grip_stick_at = {}     # name -> (kind, tick): stick when the jaw passes that tick
+        self.grip_stuck = {}        # name -> (kind, q, tick): frozen jaw
         self.counts = {'faults': 0, 'refusals': 0, 'moves': 0, 'gripper_closes': 0, 'base_pulses': 0, 'calls': 0, 'sim_resets': 0}
         self._bad_seen = sum(int(data.warning[w].number) for w in self._bad_warnings)
         self.wall_started = time.monotonic()
@@ -896,6 +956,8 @@ class SimRobot:
                 self.motors[n].goal = self.motion.goal[n]
         if self.base is not None and self.base.active:
             self.base.step(self, dt, now)
+        if self.grip_stick_at or self.grip_stuck:
+            self._grip_stick_step()
         for n in self.arm_motors:
             motor = self.motors[n]
             if motor.actuator is None:
@@ -924,6 +986,8 @@ class SimRobot:
         rows = self._poll_rows()
         if not self.flap_pinched_ever and self.flap_bodies:
             self.flap_pinched_ever = any(all(self._box_touching_jaw(arm, bodies=self.flap_bodies)) for arm in self.jaw_bodies)
+        if self.flap_qadr is not None:
+            self._crease_poll(now)
         try:
             if self.motion is not None and self.motion.active:
                 self.motion.poll(now, rows)
@@ -950,6 +1014,8 @@ class SimRobot:
 
     def _release_all(self, reason, record=True):
         """Owner fault / STOP: every motor released, the running motion cancelled (never resumed)."""
+        self.grip_stick_at.clear()
+        self.grip_stuck.clear()
         for motor in self.motors.values():
             if motor.enabled:
                 motor.enabled = False
@@ -1033,6 +1099,154 @@ class SimRobot:
         if arm is None:
             return fixed or moving
         return fixed, moving
+
+    # ---------------------------------------------------------------- real-robot fidelity: sticky gripper, crease
+
+    def _grip_call(self, arm, name, current, position):
+        """Start of a robot_set_gripper call (the tool, not its 300-tick parts): per-close meeting-point jitter and the
+        right gripper's mid-travel sticking (FIDELITY). Called under the lock."""
+        closing = position < current
+        sticks = self.fidelity.get('right_grip_sticks') if arm == 'right' else None
+        self.grip_stick_at.pop(name, None)
+        stuck = self.grip_stuck.pop(name, None)
+        if stuck is not None and not closing and stuck[0] in ('open', 'reopen') and sticks and self.rng.random() < sticks['p_reopen']:
+            self.grip_stuck[name] = ('reopen', stuck[1], stuck[2])   # a resent open: the jaw does not move at all
+        elif sticks:
+            if closing and current > 1700 and position < sticks['close_band'][0] and self.rng.random() < sticks['p_close']:
+                self.grip_stick_at[name] = ('close', self.rng.uniform(*sticks['close_band']))
+            elif not closing:
+                lo, hi = max(sticks['open_band'][0], current + 60), min(sticks['open_band'][1], position - 30)
+                if lo < hi and self.rng.random() < sticks['p_open']:
+                    self.grip_stick_at[name] = ('open', self.rng.uniform(lo, hi))
+        jitter = (self.fidelity.get('meet_jitter_ticks') or {}).get(arm)
+        if closing and jitter:
+            motor = self.motors[name]
+            motor.a = motor.a0 - self.rng.uniform(*jitter) * motor.b
+
+    def _grip_stick_step(self):
+        """Every physics step: a jaw passing its stick tick freezes there; a frozen jaw stays put. An opening move whose
+        jaw froze has its goal capped 25 ticks past the jaw, so it ends 'settled_short' (as the real opens did); a resent
+        open on a jaw still stuck is not capped and trips the no-progress guard."""
+        data = self.data
+        motion = self.motion if self.motion is not None and self.motion.active else None
+        for name, (kind, tick) in list(self.grip_stick_at.items()):
+            motor = self.motors[name]
+            t = motor.q_to_tick(float(data.qpos[motor.qadr]))
+            if (kind == 'close' and t <= tick) or (kind == 'open' and t >= tick):
+                del self.grip_stick_at[name]
+                self.grip_stuck[name] = (kind, float(data.qpos[motor.qadr]), int(round(t)))
+        for name, (kind, q, tick) in self.grip_stuck.items():
+            motor = self.motors[name]
+            data.qpos[motor.qadr] = q
+            data.qvel[motor.dadr] = 0.0
+            if kind == 'open' and motion is not None and name in motion.joints and not motion.contact:
+                cap = tick + 25
+                motion.stalled = True
+                for leg in motion.legs:
+                    leg[name] = min(leg[name], cap)
+                motion.targets[name] = min(motion.targets[name], cap)
+                motion.goal[name] = min(motion.goal[name], cap)
+                motor.goal = motion.goal[name]
+
+    def _flap_contacts(self):
+        """Robot contacts on the target flap: {'pinched' (the INNER pad faces of both jaws of one arm touch it: the flap is
+        between the pads), 'pads' (some contact on a jaw's distal pad region), 'illegal' (a contact that is not allowed by
+        the owner's 9 October rule: any robot geom other than the jaw pads, and any pad contact while no arm pinches the
+        flap, i.e. pushing with a closed or open claw; while an arm pinches, every pad contact of either arm is allowed,
+        which covers pressing the crease with the other claw's pads), 'illegal_geoms', 'crease_force' (N, robot contacts
+        on the crease panel within PLASTIC press_zone_m of the hinge)}. Pads = jaw-body contacts beyond PAD_Y_M along the
+        jaw (Fixed_Jaw frame); inner = the contact normal points from the jaw toward the other jaw."""
+        np, mj = self.np, self.mj
+        model, data = self.model, self.data
+        zone = (self.plastic or {}).get('press_zone_m', 0.05)
+        out = {'pinched': False, 'pads': False, 'illegal': False, 'illegal_geoms': set(), 'crease_force': 0.0}
+        inner = {arm: [False, False] for arm in self.jaw_bodies}
+        hits = []
+        f6 = np.zeros(6)
+        for i in range(data.ncon):
+            con = data.contact[i]
+            b1, b2 = int(model.geom_bodyid[con.geom1]), int(model.geom_bodyid[con.geom2])
+            if b1 in self.flap_bodies and b2 not in self.all_box_bodies and b2 != 0:
+                flap_body, other, og, sign = b1, b2, con.geom2, -1.0   # frame normal points geom1 -> geom2 (flap -> robot)
+            elif b2 in self.flap_bodies and b1 not in self.all_box_bodies and b1 != 0:
+                flap_body, other, og, sign = b2, b1, con.geom1, 1.0
+            else:
+                continue
+            pad = False
+            for arm, (fixed, moving) in self.jaw_bodies.items():
+                if other in (fixed, moving):
+                    rot = data.xmat[fixed].reshape(3, 3)
+                    local = rot.T @ (np.asarray(con.pos) - data.xpos[fixed])
+                    pad = bool(local[1] < PAD_Y_M)
+                    if pad:
+                        n = rot.T @ (sign * np.asarray(con.frame[:3]))   # jaw -> flap, fixed jaw frame
+                        # the pads close along x: the fixed pad's inner face looks toward -x, the moving pad's toward +x
+                        if (other == fixed and n[0] < -0.5) or (other == moving and n[0] > 0.5):
+                            inner[arm][0 if other == fixed else 1] = True
+            hits.append((pad, mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, og) or model.body(other).name))
+            if flap_body == self.flap_panel:
+                rot = data.xmat[flap_body].reshape(3, 3)
+                local = rot.T @ (np.asarray(con.pos) - data.xpos[flap_body])
+                if 0.0 <= local[2] < zone:
+                    mj.mj_contactForce(model, data, i, f6)
+                    out['crease_force'] += abs(float(f6[0]))
+        out['pinched'] = any(all(v) for v in inner.values())
+        for pad, name in hits:
+            out['pads'] |= pad
+            if not pad or not out['pinched']:
+                out['illegal'] = True
+                out['illegal_geoms'].add(name)
+        return out
+
+    def _crease_poll(self, now):
+        """10 Hz: fold accounting (how much of the flap's inward turn happened while the pads held it vs while another
+        robot part touched it) and the crease plasticity (box_scene.PLASTIC)."""
+        c = self.crease
+        model, data = self.model, self.data
+        th = math.degrees(float(data.qpos[self.flap_qadr]))
+        dt = 0.0 if c['last_t'] is None else max(0.0, now - c['last_t'])
+        c['last_t'] = now
+        info = self._flap_contacts()
+        prev, c['prev_deg'] = c['prev_deg'], th
+        if prev is not None and th > prev:
+            key = 'deg_by_push' if info['illegal'] else 'deg_by_pinch' if (info['pinched'] or info['pads']) else 'deg_free'
+            c[key] += th - prev
+        if info['illegal']:
+            c['illegal_s'] += dt
+            c['illegal_ever'] = True
+            c.setdefault('illegal_geoms', set()).update(info['illegal_geoms'])
+        c['max_deg'] = th if c['max_deg'] is None else max(c['max_deg'], th)
+        if info['pinched']:
+            c['max_deg_pinched'] = th if c['max_deg_pinched'] is None else max(c['max_deg_pinched'], th)
+        P = self.plastic
+        if not P:
+            return
+        th0 = math.degrees(float(model.qpos_spring[self.flap_qadr]))
+        loaded = abs(th - th0) > P['yield_deg']
+        c['yield_s'] = c['yield_s'] + dt if loaded else 0.0
+        if loaded and th > 95.0:
+            c['held_over_95_s'] += dt
+        new = th0
+        if c['yield_s'] > P['delay_s']:
+            if th > th0:
+                f = min(1.0, max(0.0, (th - P['start_set_deg']) / (P['full_set_deg'] - P['start_set_deg'])))
+                target = th - P['springback_deg'] * (1.0 - f)
+            else:
+                target = th + P['springback_deg']
+            if (target - th0) * (th - th0) > 0:
+                new += (target - th0) * (1.0 - math.exp(-P['rate_per_s'] * dt))
+        covered = th >= P['press_min_deg'] and any(math.degrees(float(data.qpos[q])) >= P['cover_deg'] for q in self.other_flap_qadr.values())
+        if covered:
+            c['covered'] = True
+        pressing = covered or (th >= P['press_min_deg'] and info['crease_force'] >= P['press_force_n'])
+        c['press_s'] = c['press_s'] + dt if pressing else 0.0
+        if c['press_s'] > P['press_s']:
+            target = th - P['press_springback_deg']
+            if target > new:
+                new += (target - new) * (1.0 - math.exp(-P['press_rate_per_s'] * dt))
+                c['pressed_set'] = True
+        if new != th0:
+            model.qpos_spring[self.flap_qadr] = math.radians(new)
 
     # ---------------------------------------------------------------- public: catalog, get, call, score
 
@@ -1159,8 +1373,19 @@ class SimRobot:
         rot = self.data.xmat[self.box_body].reshape(3, 3)
         upright = rot[2, 2] > math.cos(math.radians(10))
         resting = upright and self.box_start is not None and abs(float(self.data.xpos[self.box_body][2] - self.box_start[2])) < 0.01
+        folded = bool(angle >= FLAP_FOLDED_DEG and resting and not touched)
+        c = self.crease
+        rest = math.degrees(float(self.model.qpos_spring[self.flap_qadr]))
+        # fold_by_pinch: folded, and the flap turned at most FOLD_PUSH_ALLOWANCE_DEG while a robot part other than the
+        # jaw pads touched it (the owner's rule of 9 October: no pushing with the claw body, wrist camera or arm)
         return {'flap_angle_deg': round(angle, 1), 'flap_pinched_now': pinched, 'flap_pinched_ever': bool(self.flap_pinched_ever or pinched),
-                'flap_folded': bool(angle >= FLAP_FOLDED_DEG and resting and not touched)}
+                'flap_folded': folded, 'fold_by_pinch': bool(folded and c['deg_by_push'] <= FOLD_PUSH_ALLOWANCE_DEG),
+                'flap_rest_deg': round(rest, 1), 'flap_deg_by_pinch': round(c['deg_by_pinch'], 1), 'flap_deg_by_push': round(c['deg_by_push'], 1),
+                'flap_deg_free': round(c['deg_free'], 1), 'illegal_contact_s': round(c['illegal_s'], 1),
+                'illegal_contact_geoms': sorted(c.get('illegal_geoms', ())), 'flap_max_deg': None if c['max_deg'] is None else round(c['max_deg'], 1),
+                'flap_max_deg_pinched': None if c['max_deg_pinched'] is None else round(c['max_deg_pinched'], 1),
+                'crease_pressed': bool(c['pressed_set']), 'crease_covered': bool(c.get('covered')), 'held_over_95_s': round(c['held_over_95_s'], 1),
+                'other_flaps_deg': {n: round(math.degrees(float(self.data.qpos[q])), 1) for n, q in self.other_flap_qadr.items()}}
 
     def snapshot(self):
         """Positions/ranges for the twin renderer (render_twin(positions, ranges)) plus the box pose in the robot frame."""
@@ -1665,6 +1890,9 @@ class SimRobot:
         with self.lock:
             self._poll_rows()
             current = self.motors[name].present
+            self._grip_call(arm, name, current, position)
+            self._poll_rows()
+            current = self.motors[name].present
         if abs(current - position) <= GRIPPER_CLOSE_CHUNK:
             return self._set_gripper_once(arm, position, duration_s)
         generation = self.cancel_generation
@@ -1816,7 +2044,16 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   is unmeasured. Settle corrections (up to 3 x 40 ticks, 57 max overdrive) are ported from the real executor.
 - Released joints keep 0.4 N m of gear friction: the folded arms rest; an extended released arm sags over a few seconds.
 - MuJoCo noslip_iterations=5 so a pinched box does not creep out of the soft jaw contacts.
-- The box's flap is 7 cm: a 5 cm panel on the crease hinge (box_scene.FLAP_SEGMENTS_M) plus a 2 cm top strip on a nearly free
+- Default scene (box_scene preset 'real', the 9 October carton): an open box, rim 77 cm, a 16 cm right flap (the target,
+  'flap_hinge') and a 16 cm far flap that leans in (flaps never collide with each other). The crease springs back toward a
+  rest angle that only moves while the crease is loaded (box_scene.PLASTIC): a flap held flat and released returns most of
+  the way, one carried past ~100 deg into the opening and held ~5 s stays down; a crease pressed by a robot contact near the
+  hinge, or covered by the far flap folded past 80 deg, also sets. score() splits the flap's inward turn into degrees moved
+  while the pads pinched it vs while another robot part touched it (fold_by_pinch allows 10 deg of the latter). FIDELITY:
+  per-close meeting-point jitter, the right gripper's mid-travel sticking, a 5 deg shoulder_lift bias (the arm model reads
+  ~3 cm high near the box) and a 90 deg wrist_roll offset (unrolled jaws open left/right). None of the crease numbers is
+  measured beyond the attempts quoted in box_scene. The 'near7' preset is the 8 October scene below, without FIDELITY.
+- near7: the box's flap is 7 cm: a 5 cm panel on the crease hinge (box_scene.FLAP_SEGMENTS_M) plus a 2 cm top strip on a nearly free
   joint that stands in for cardboard crushing between the pads, so a pinch on the top 2 cm can carry the flap round its hinge
   while a deeper pinch locks it to the jaws. The crease folds under about 0.9 N at the edge and stays where it is put (its
   friction beats its spring); none of this is measured on the real carton. Jaw-flap contacts use friction 1.2, 5 mm torsion.
