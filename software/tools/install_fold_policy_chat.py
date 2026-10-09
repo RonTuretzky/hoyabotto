@@ -3,7 +3,8 @@
 Patches <pilot>/chat_server.py (backup in .private/fold-policy-backups):
 - loads FoldPolicyRobot from this checkout by path (the pilot's `farm` is an older checkout; nothing is shadowed);
 - wraps the robot chain: chat=Chat(FoldPolicyRobot(CalibrationRobot(...)));
-- adds robot_fold_policy_dry_run / robot_fold_policy_run to MOVE_TOOLS, so supervisor `move` decisions can use them.
+- adds robot_fold_policy_dry_run / robot_fold_policy_run / robot_fold_policy_start_pose to MOVE_TOOLS, so supervisor
+  `move` decisions can use them (an earlier install that lacks the start-pose tool is upgraded in place).
 Writes <pilot>/.private/fold-policy.json if it does not exist, with execution DISABLED; the owner edits it.
 
     python tools/install_fold_policy_chat.py --pilot <pilot> --checkpoint <ckpt>/pretrained_model \\
@@ -27,7 +28,9 @@ MARK = '# fold-policy chat tools (xlerobot-farm carton/fold_policy_chat.py)'
 ANCHOR = 'from farm.perception.gemma_calibration import CalibrationRobot\n'
 CHAT = re.compile(r'chat=Chat\((?!FoldPolicyRobot\()(.*?Robot\(args\.config\)\)*)\);')
 MOVE = "'robot_move_base','robot_stop')"
-MOVE_AFTER = "'robot_move_base','robot_stop','robot_fold_policy_dry_run','robot_fold_policy_run')"
+MOVE_AFTER_V1 = "'robot_move_base','robot_stop','robot_fold_policy_dry_run','robot_fold_policy_run')"
+MOVE_AFTER = ("'robot_move_base','robot_stop','robot_fold_policy_dry_run','robot_fold_policy_run',"
+              "'robot_fold_policy_start_pose')")
 DEFAULT_BLOCKERS = [
     'owner stream mode (jaw closures, no STOP on a refused streamed target) is not deployed and validated: '
     'docs/carton-fold-policy-chat-mac-handoff.md section 4',
@@ -42,6 +45,9 @@ def loader_line(module):
 def patch_source(source, module=MODULE):
     """Return the patched chat_server.py source (idempotent); refuse an unexpected layout."""
     if MARK in source:
+        if MOVE_AFTER not in source and source.count(MOVE_AFTER_V1) == 1:
+            source = source.replace(MOVE_AFTER_V1, MOVE_AFTER)
+            ast.parse(source)
         return source
     if source.count(ANCHOR) != 1 or len(CHAT.findall(source)) != 1 or source.count(MOVE) != 1:
         raise ValueError('Inspect the changed pilot layout before installing the fold-policy tools')
@@ -56,7 +62,7 @@ def unpatch_source(source):
     if MARK not in source:
         return source
     lines = [line for line in source.splitlines(keepends=True) if MARK not in line]
-    updated = ''.join(lines).replace(MOVE_AFTER, MOVE)
+    updated = ''.join(lines).replace(MOVE_AFTER, MOVE).replace(MOVE_AFTER_V1, MOVE)
     updated = re.sub(r'chat=Chat\(FoldPolicyRobot\((.*?Robot\(args\.config\)\)*)\)\);', r'chat=Chat(\1);', updated)
     ast.parse(updated)
     return updated
@@ -102,6 +108,9 @@ def default_config(pilot, checkpoint, joint_maps, python=None, runs_dir=None):
         'execute_max_steps': 10,
         'operators': [],
         'blockers': list(DEFAULT_BLOCKERS),
+        'start_pose_scene': None,              # the MuJoCo fold training scene (a fold-demos trial's run/scene.xml)
+        'start_pose_execute_enabled': False,
+        'start_pose_blockers': [],
     }
 
 

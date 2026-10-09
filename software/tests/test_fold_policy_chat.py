@@ -94,7 +94,7 @@ def argv(result):
 
 def test_catalog_adds_the_tools_only_when_configured(rig, tmp_path):
     names = [t['function']['name'] for t in rig.robot.catalog()['tools']]
-    assert names[-3:] == list(C.TOOLS)
+    assert names[-4:] == list(C.TOOLS)
     bare = C.FoldPolicyRobot(Inner(tmp_path / 'other/robot.json'))
     assert [t['function']['name'] for t in bare.catalog()['tools']] == ['robot_get_state', 'robot_move_joint_targets',
                                                                           'robot_stop']
@@ -190,7 +190,8 @@ def test_installer_patch_is_idempotent_and_reversible(tmp_path):
     patched = I.patch_source(SNIPPET, module=Path('/repo/software/carton/fold_policy_chat.py'))
     assert 'chat=Chat(FoldPolicyRobot(CalibrationRobot(TagRobot(TwinRobot(Robot(args.config))))));lan=' in patched
     assert "run_path('/repo/software/carton/fold_policy_chat.py')['FoldPolicyRobot']" in patched
-    assert "'robot_stop','robot_fold_policy_dry_run','robot_fold_policy_run')" in patched
+    assert ("'robot_stop','robot_fold_policy_dry_run','robot_fold_policy_run','robot_fold_policy_start_pose')"
+            in patched)
     assert I.patch_source(patched) == patched
     assert I.unpatch_source(patched) == SNIPPET
     with pytest.raises(ValueError):
@@ -214,3 +215,68 @@ def test_installer_writes_a_disabled_config_and_backs_up_the_pilot(tmp_path):
     assert cfg['execute_enabled'] is False and cfg['operators'] == [] and cfg['blockers'] and cfg['gripper_mode'] == 'hold'
     assert len(list((pilot / '.private/fold-policy-backups').iterdir())) == 1
     assert I.install(pilot)['changed'] is False        # second run: config kept, source already patched
+
+
+# ------------------------------------------------------------------------------------- start-pose tool
+FAKE_POSE = '''
+import argparse, json, sys
+from pathlib import Path
+ap = argparse.ArgumentParser()
+for flag in ("--pilot-root", "--out", "--parent-pid", "--scene", "--checkpoint", "--operator"):
+    ap.add_argument(flag)
+ap.add_argument("--joint-map", action="append"); ap.add_argument("--execute", action="store_true")
+a = ap.parse_args()
+out = Path(a.out); out.mkdir(parents=True)
+(out / "argv.json").write_text(json.dumps(sys.argv[1:]))
+(out / "summary.json").write_text(json.dumps({"execute": a.execute, "aborted": None, "legs_sent": 9 if a.execute else 0,
+    "at_start_pose": a.execute, "arms_at_start_pose": a.execute, "plan": {"legs": [], "blocked": None},
+    "end": "holding" if a.execute else "dry-run (nothing sent)"}))
+'''
+
+
+def pose_rig(rig):
+    script = rig.tmp / 'fake_pose.py'
+    script.write_text(FAKE_POSE)
+    configure(rig, start_pose_script=str(script))
+    return rig
+
+
+def test_start_pose_tool_dry_run_is_always_plan_only_and_kept_apart_from_policy_dry_runs(rig):
+    pose_rig(rig)
+    names = [t['function']['name'] for t in rig.robot.catalog()['tools']]
+    assert C.START_POSE in names
+    out = rig.robot.call(C.START_POSE, {})
+    assert out['ok'] is True and out['result']['kind'] == 'start pose dry run' and out['result']['legs_sent'] == 0
+    args = argv(out)
+    assert '--execute' not in args and '--operator' not in args and args[args.index('--parent-pid') + 1].isdigit()
+    assert {'left=' + str(rig.tmp / 'left.json'), 'right=' + str(rig.tmp / 'right.json')} <= set(args)
+    status = rig.robot.call(C.STATUS)['result']
+    assert status['last_start_pose_dry_run']['clean'] is True and status['last_dry_run'] is None
+    assert rig.inner.calls == []
+
+
+def test_start_pose_execution_is_gated_by_the_owner_config(rig):
+    pose_rig(rig)
+    out = rig.robot.call(C.START_POSE, {'execute': True, 'operator': 'Ron'})
+    error = out['result']['error']
+    assert out['ok'] is False and 'start_pose_execute_enabled false' in error and "'Ron' is not listed" in error
+    assert 'no collision scene' in error and out['result']['motor_writes'] == 0
+    configure(rig, start_pose_execute_enabled=True, operators=['Ron'], start_pose_scene=str(rig.tmp / 'scene.xml'),
+              start_pose_blockers=['station not measured'])
+    out = rig.robot.call(C.START_POSE, {'execute': True, 'operator': 'Ron'})
+    assert out['ok'] is False and 'open blocker: station not measured' in out['result']['error']
+    configure(rig, start_pose_blockers=[])
+    out = rig.robot.call(C.START_POSE, {'execute': True, 'operator': 'Ron'})
+    assert out['ok'] is True and out['result']['at_start_pose'] is True and 'HOLDING' in out['result']['note']
+    args = argv(out)
+    assert args[args.index('--operator') + 1] == 'Ron' and '--execute' in args
+    assert args[args.index('--scene') + 1] == str(rig.tmp / 'scene.xml')
+    # a start-pose move does not count as the fold policy's dry run
+    assert 'no dry run on record' in rig.robot.call(C.RUN, {'operator': 'Ron', 'max_steps': 5})['result']['error']
+
+
+def test_installer_upgrades_an_earlier_install_to_list_the_start_pose_tool():
+    v1 = I.patch_source(SNIPPET).replace(I.MOVE_AFTER, I.MOVE_AFTER_V1)
+    upgraded = I.patch_source(v1)
+    assert I.MOVE_AFTER in upgraded and I.patch_source(upgraded) == upgraded
+    assert I.unpatch_source(v1) == SNIPPET and I.unpatch_source(upgraded) == SNIPPET

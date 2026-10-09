@@ -74,13 +74,14 @@ The simulation's closed jaw is URDF −10°, its joint limit, where the pads mee
 ### 2.4 Chat tools: `carton/fold_policy_chat.py`
 
 `FoldPolicyRobot` wraps the pilot's robot chain the same way `CalibrationRobot` does. It uses the standard library
-only and is loaded by path, so the chat's older `farm` is not shadowed. It adds three tools:
+only and is loaded by path, so the chat's older `farm` is not shadowed. It adds four tools:
 
 | Tool | Does | Motors |
 |---|---|---|
 | `robot_get_fold_policy_status` | Configuration, blockers, running job, last dry run and run | none |
 | `robot_fold_policy_dry_run {max_steps ≤ cap}` | Runs the runner **without** `--execute`: reads the owner and the three cameras at 10 Hz, runs the policy, logs what it would send | none |
 | `robot_fold_policy_run {operator, max_steps}` | Runs the runner **with** `--execute`, `--operator` | streams targets; ends **holding** |
+| `robot_fold_policy_start_pose {execute?, operator?}` | Runs `tools/move_to_start_pose.py`: plans a collision-checked path to the training start pose; with `execute` moves the enabled arms there leg by leg ([auto-start-pose.md](auto-start-pose.md)). Own gates: `start_pose_execute_enabled`, `operators`, `start_pose_blockers`, `start_pose_scene` | none (dry run) / blocking moves; ends **holding** |
 
 Gates for `robot_fold_policy_run`. They come from the owner's config, never from the tool arguments; all must hold:
 
@@ -106,7 +107,8 @@ The installer is `tools/install_fold_policy_chat.py`. It patches three lines of 
 
 - the loader;
 - `chat=Chat(FoldPolicyRobot(...))`;
-- `MOVE_TOOLS` gains the dry-run and run tools, so supervisor `move` decisions can use them.
+- `MOVE_TOOLS` gains the dry-run, run and start-pose tools, so supervisor `move` decisions can use them (an
+  install from before the start-pose tool is upgraded in place by running the installer again).
 
 It also backs up the original to `.private/fold-policy-backups/` and writes the config with **execution disabled**
 and two default blockers. `--uninstall` reverses the patch. It never restarts the chat. The patch was checked against
