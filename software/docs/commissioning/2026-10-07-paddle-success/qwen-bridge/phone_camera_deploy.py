@@ -70,12 +70,22 @@ class Runtime(Protocol):
 def _script_command(argv: Sequence[str], server: Path) -> bool:
     if not argv or not PYTHON_NAME.fullmatch(Path(argv[0]).name):
         return False
-    # -c/-m do not run a script, even if a later argument names our server.
-    before = list(argv[1:])
-    if str(server) not in before:
-        return False
-    before = before[:before.index(str(server))]
-    return "-c" not in before and "-m" not in before
+    # Locate the script operand, never a substring or an argument of another
+    # script. Unsupported flags still identify a candidate, then fail validation.
+    index = 1
+    while index < len(argv):
+        value = argv[index]
+        if value in ("-c", "-m") or value.startswith(("-c", "-m")):
+            return False
+        if value == "--":
+            return index + 1 < len(argv) and argv[index + 1] == str(server)
+        if value in ("-W", "-X", "--check-hash-based-pycs"):
+            index += 2
+        elif value.startswith("-"):
+            index += 1
+        else:
+            return value == str(server)
+    return False
 
 
 def _validate_process(process: Process, server: Path, work: Path) -> None:

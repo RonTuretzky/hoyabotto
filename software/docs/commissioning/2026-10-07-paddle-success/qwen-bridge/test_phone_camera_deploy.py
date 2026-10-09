@@ -236,6 +236,15 @@ class DeployTests(unittest.TestCase):
         self.runtime.rows = [replace(self.process, pid=300 + i, argv=argv) for i, argv in enumerate(decoys)]
         self.assert_no_stop(self.run_deploy())
 
+    def test_other_python_script_argument_is_not_a_server_candidate(self):
+        decoy = replace(self.process, pid=90,
+                        argv=("/usr/bin/python3", "/fake/other_service.py", self.process.argv[-1]))
+        self.runtime.rows.append(decoy)
+        result = self.run_deploy()
+        self.assertTrue(result["ok"], result)
+        self.assertIn(decoy, self.runtime.rows)
+        self.assertNotIn(("stop", 90), self.runtime.events)
+
     def test_unsafe_or_unknown_launch_flags_rejected(self):
         for flags in (("-X", "importtime"), ("--unknown",), ("-W", "ignore"), ("-I",), ("-S",)):
             self.runtime.rows = [replace(self.process, argv=(self.process.argv[0], *flags, self.process.argv[-1]))]
