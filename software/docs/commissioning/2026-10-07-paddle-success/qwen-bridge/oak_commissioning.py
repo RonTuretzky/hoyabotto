@@ -5,7 +5,7 @@ import argparse, hashlib, json, os, shlex, shutil, signal, subprocess, time
 from pathlib import Path
 import redeploy_robot_server as d
 
-PROFILE = ['--full-sensor', '--isp-denominator', '4', '--fps', '5']
+PROFILE = ['--full-sensor', '--isp-denominator', '4', '--fps', '10']
 
 def owner_snapshot():
     s=d.read_status()
@@ -44,7 +44,11 @@ def main():
     stamp=time.strftime('%Y%m%d-%H%M%S'); backup=d.WORK/'oak-commissioning'/stamp
     backup.mkdir(parents=True)
     # Snapshot the parent's known baseline, without modifying any dirty remote files.
+    restore_flags=[]
     baseline=subprocess.check_output(['git','show','8812ee4c3a9e67573ca92257ea06a3da7f07bcad:software/farm/oak_camera.py'],cwd=checkout)
+    if previous.get('rgb_sensor_mode')=='13MP':
+        baseline=(d.SOFTWARE/'farm/oak_camera.py').read_bytes()
+        restore_flags=['--full-sensor','--isp-denominator',str(previous['isp_scale'][1]),'--fps',str(previous['rgb_fps'])]
     oldsoftware=backup/'baseline';(oldsoftware/'farm').mkdir(parents=True)
     (oldsoftware/'farm/__init__.py').write_text('')
     (oldsoftware/'farm/oak_camera.py').write_bytes(baseline)
@@ -77,11 +81,11 @@ def main():
         (backup/'result.json').write_text(json.dumps(final,indent=2));print(json.dumps(final),flush=True)
     except BaseException as e:
         if not d.stop_oak():raise RuntimeError('Cannot stop failed trial; refusing duplicate camera owner') from e
-        time.sleep(3);start(python,oldsoftware,[],log)
+        time.sleep(3);start(python,oldsoftware,restore_flags,log)
         deadline=time.monotonic()+35
         while time.monotonic()<deadline:
             m=manifest()
-            if m.get('rgb_sensor_mode')!='13MP' and m.get('stream_id')!=previous['stream_id'] and time.time()-m.get('captured_at',0)<1:break
+            if m.get('rgb_sensor_mode')==previous.get('rgb_sensor_mode') and m.get('stream_id')!=previous['stream_id'] and time.time()-m.get('captured_at',0)<1:break
             time.sleep(.5)
         print(json.dumps({'success':False,'error':str(e),'rollback_manifest':manifest(),'backup':str(backup)}),flush=True)
         raise
