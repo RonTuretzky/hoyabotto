@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Joy-Con · XLeRobot Simulator</title>
+<style>
+[hidden]{display:none!important}
+:root{font:15px/1.5 system-ui,sans-serif;color:#edf2f7;background:#10161d;color-scheme:dark}
+*{box-sizing:border-box}
+body{max-width:1320px;margin:0 auto;padding:0 24px 32px}
+h1,h2,p{margin:0}h1{font-size:23px;letter-spacing:-.5px}h2{font-size:16px}
+button,select,input{font:inherit}button,select{border:1px solid #647586;border-radius:8px;padding:9px 12px;background:#253442;color:#f4f7fa}
+button{cursor:pointer;font-weight:650}button:disabled{opacity:.48;cursor:not-allowed}
+button:hover:enabled{filter:brightness(1.15)}button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #f3c861;outline-offset:4px}
+header{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 0;background:#10161df5;backdrop-filter:blur(10px)}
+#connection{font-size:13px;color:#afbdca}.stop{background:#a52d37;border-color:#e4949b;min-width:110px;font-size:16px}
+.workspace{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;align-items:start}
+.card{border:1px solid #394a59;border-radius:14px;background:#18222d;padding:18px}
+.controls{display:flex;flex-direction:column;gap:16px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.status{font-size:18px;font-weight:700}.muted,.hint{color:#b9c6d2}.hint{font-size:13px;margin-top:5px}
+#reason:empty,#error:empty,#ikStatus:empty{display:none}#error,#ikStatus{color:#ffcf8b;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.controller-pair{display:flex;gap:8px;margin-top:10px}.tag{flex:1;border:1px solid #5b6d7d;border-radius:7px;padding:7px 10px;font-size:13px;text-align:center}.tag[data-held=true]{background:#f3c861;color:#15202b;border-color:#f3c861;font-weight:700}
+#gyroPanel{padding:14px 0;border-top:1px solid #394a59;border-bottom:1px solid #394a59}.switch-label{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:700}
+#gyroEnabled{appearance:none;flex:none;position:relative;margin:0;width:42px;height:24px;border:1px solid #8e9dac;border-radius:24px;background:#344453;cursor:pointer}
+#gyroEnabled:before{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#eaf0f6;transition:transform .12s}
+#gyroEnabled:checked{background:#f3c861;border-color:#f3c861}#gyroEnabled:checked:before{transform:translateX(18px);background:#18222d}
+#gyroEnabled:disabled{opacity:.5;cursor:not-allowed}#gyroValue{font-size:12px;font-weight:650;letter-spacing:.05em}
+#arm{width:100%;background:#ecf2f8;color:#15212d;border-color:#ecf2f8;padding:11px}#scope{width:100%;margin-bottom:10px}
+.guide{border-top:1px solid #394a59;padding-top:14px}.guide dl{display:grid;grid-template-columns:48px 1fr;column-gap:12px;row-gap:9px;margin:10px 0 0;font-size:13px}.guide dt{font-weight:700}.guide dd{margin:0;color:#c5d1dc}.guide details{margin-top:12px;font-size:13px}
+kbd{font:600 .92em system-ui;white-space:nowrap}.guide p{font-size:13px;margin-top:9px;color:#c5d1dc}
+summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}#layers button{font-size:12px;padding:7px}button[aria-pressed=true]{outline:2px solid #f3c861;outline-offset:2px}
+#scenePanel{padding:12px;min-width:0}.scene-toolbar{padding:0 2px 10px}#viewChoice{font-size:13px;padding:5px 8px}#sceneImage{display:block;width:100%;aspect-ratio:1.5;object-fit:contain;border-radius:7px;background:#10161d}#sceneStatus{padding:9px 3px 0;font-size:12px;color:#b9c6d2}
+.options{margin-top:18px;padding:13px 18px}.options[open]>summary{margin-bottom:16px}.settings{display:flex;flex-wrap:wrap;gap:16px 24px;margin-bottom:18px}.settings label{display:flex;flex-direction:column;gap:6px;font-size:13px}.settings select{max-width:100%}
+.diagnostics{border-top:1px solid #394a59;padding-top:14px;font-size:13px}.diagnostics p{margin:6px 0}.diagnostics details{margin-top:14px}.pads{display:flex;gap:25px;margin:12px 0}.pad{width:60px;height:60px;border:1px solid #8f9da9;border-radius:50%;position:relative;background:linear-gradient(90deg,transparent 49%,#667887 50%,transparent 51%),linear-gradient(transparent 49%,#667887 50%,transparent 51%)}.dot{position:absolute;width:10px;height:10px;border-radius:50%;background:#fff;left:24px;top:24px}
+#base{width:100%;max-width:360px;border:1px solid #667887;border-radius:8px}#joints{max-width:540px;margin:12px 0}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{text-align:left;padding:7px;border-bottom:1px solid #3b4d5d}.table-scroll{overflow:auto}
+@media(max-width:780px){body{padding:0 14px 24px}.workspace{grid-template-columns:1fr}.controls{gap:14px}.scene-toolbar h2{font-size:14px}.guide dl{grid-template-columns:55px 1fr}header{padding:12px 0}h1{font-size:21px}}
+@media(prefers-reduced-motion:reduce){#gyroEnabled:before{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1 id="title">Joy-Con practice</h1><p id="connection">Local simulation · No robot connected</p></div>
+  <button class="stop" id="stop" title="Stop and release all controls (Escape)">■ Stop</button>
+</header>
+<main>
+<div class="workspace">
+  <section class="card controls" aria-label="Practice controls">
+    <div><div id="state" class="status" role="status">Connecting…</div><p id="reason" class="hint"></p><div id="error" role="alert"></div></div>
+    <div>
+      <h2 id="controllerStatus">Joy-Cons</h2>
+      <div class="controller-pair"><span id="leftTrigger" class="tag">L · released</span><span id="rightTrigger" class="tag">R · released</span></div>
+      <p id="check" class="hint">Press and release L and R to check the controllers.</p>
+    </div>
+    <div id="gyroPanel" hidden>
+      <div class="row"><label class="switch-label" for="gyroEnabled"><input type="checkbox" role="switch" id="gyroEnabled" aria-describedby="gyroStatus" disabled>Gyro mode</label><span id="gyroValue">OFF</span></div>
+      <p id="gyroStatus" class="hint">Waiting for controllers…</p>
+    </div>
+    <div>
+      <select id="scope" aria-label="Components"><option value="left">Left arm + gripper</option><option value="right">Right arm + gripper</option><option value="both">Both arms + grippers</option><option value="head">Head joints</option><option value="drive">Drive base</option></select>
+      <button id="arm" disabled>Start practice</button>
+      <p id="startHelp" class="hint">Release buttons and center the sticks to start.</p>
+    </div>
+    <div class="guide">
+      <h2 id="movementHeading">Hold L / R, then move</h2>
+      <div id="layers"><button data-layer="0">Shoulder</button><button data-layer="1">Elbow / wrist</button><button data-layer="2">Roll / grip</button></div>
+      <div id="instructions"></div>
+      <details><summary>All controls</summary><div id="extraHelp"></div></details>
+      <p id="ikStatus" role="status"></p>
+    </div>
+  </section>
+  <section id="scenePanel" class="card" hidden aria-label="Robot simulation">
+    <div class="row scene-toolbar"><h2>Simulator</h2><select id="viewChoice" aria-label="Camera view"><option value="orbit">Orbit view</option><option value="front">Front view</option><option value="side">Side view</option><option value="top">Top view</option></select></div>
+    <img id="sceneImage" alt="Live local MuJoCo simulation of the XLeRobot beside a workbench">
+    <p id="sceneStatus">Waiting for simulator frames…</p>
+  </section>
+</div>
+<details class="card options">
+  <summary>More options</summary>
+  <div class="settings">
+    <label id="backendPicker" hidden>Controller reader<select id="backendChoice"><option value="apple">Mac buttons + sticks</option><option value="hid">Independent Joy-Cons + gyro</option></select></label>
+    <label id="referencePicker" hidden>Stick directions<select id="referenceFrame"><option value="robot">Robot forward / sideways</option><option value="hand">Relative to each gripper</option></select></label>
+  </div>
+  <p class="hint">Stop before changing settings. Leaving this window stops control.</p>
+  <details class="diagnostics">
+    <summary>Diagnostics</summary>
+    <p id="backendInfo"></p><p id="axesReadback"></p><p id="gyroReadback"></p><p id="health"></p><p id="stopReason"></p>
+    <div class="pads"><div><small>Left stick</small><div class="pad"><div id="leftDot" class="dot"></div></div></div><div><small>Right stick</small><div class="pad"><div id="rightDot" class="dot"></div></div></div></div>
+    <p id="limits">Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.</p>
+    <details id="simulation"><summary>Joint positions + base travel</summary><p>Simulation coordinates; not calibrated to the real robot. The practice box is solid and does not simulate folding.</p><div id="joints"></div><canvas id="base" width="360" height="260" aria-label="Top-down simulated base position"></canvas><p id="baseText"></p></details>
+    <details><summary id="readbackTitle">Virtual motor state</summary><p id="robotHealth"></p><div class="table-scroll"><table><thead><tr><th>Motor</th><th>Position</th><th>Torque</th><th>Load</th></tr></thead><tbody id="motors"></tbody></table></div></details>
+  </details>
+</details>
+</main>
+<script>
+const token=location.hash.slice(1)||sessionStorage.getItem('joycon-session');
+if(location.hash)sessionStorage.setItem('joycon-session',token);
+history.replaceState(null,'',location.pathname);
+const $=id=>document.getElementById(id);
+let latest={},inflight=false,pending=0,frameInflight=false,frameURL=null,connected=false;
+async function call(path,body){
+  const r=await fetch(path,{method:body?'POST':'GET',headers:{'X-Teleop-Token':token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const v=await r.json();if(!r.ok)throw Error(v.error||'Request failed');return v;
+}
+async function action(body){
+  $('error').textContent='';pending++;draw(latest);
+  try{await call('/action',body)}catch(e){$('error').textContent=e.message}
+  finally{pending--;await refresh()}
+}
+$('backendChoice').onchange=()=>action({op:'input_backend',backend:$('backendChoice').value});
+$('referenceFrame').onchange=()=>action({op:'reference_frame',frame:$('referenceFrame').value});
+$('gyroEnabled').onchange=()=>action({op:'gyro',enabled:$('gyroEnabled').checked});
+$('stop').onclick=()=>action({op:'stop'});
+$('arm').onclick=()=>action({op:latest.simulation?'practice':'arm',scope:$('scope').value});
+$('scope').onchange=()=>draw(latest);
+document.querySelectorAll('[data-layer]').forEach(b=>b.onclick=()=>action({op:'layer',layer:+b.dataset.layer}));
+$('viewChoice').onchange=()=>call('/view',{view:$('viewChoice').value}).catch(e=>$('error').textContent=e.message);
+function draw(s){
+  latest=s;
+  const upstream=s.control_mode==='upstream',cart=upstream||s.control_mode==='cartesian',d=s.controller||{},a=d.axes||{},dead=d.deadman||{},r=s.robot||{};
+  const physicalUpstream=upstream&&!s.simulation;
+  const busy=s.busy||pending>0,locked=s.armed||busy,unavailable=!connected||!!s.reader_error||!Object.keys(d).length;
+  const canStart=!unavailable&&!locked&&d.ready&&d.neutral&&!(s.preview&&!s.simulation);
+  $('title').textContent=s.simulation?'Joy-Con practice':'Joy-Con controls';
+  $('connection').textContent=s.simulation?'Local simulation · No robot connected':s.preview?'Input preview · No robot connected':'Physical robot · Manual control';
+  $('state').textContent=!connected?'Connecting…':busy?'Please wait…':s.armed?(s.simulation?'Practice active':'Controls armed'):unavailable?'Connect your Joy-Cons':canStart?'Ready to start':'Stopped';
+  // Keep exceptional stop reasons visible; routine status belongs in diagnostics.
+  const routine=/^(Disarmed|Operator STOP|PRACTICE|Armed|Starting local|Arming at|Reader changed)/i;
+  $('reason').textContent=!s.armed&&s.reason&&!routine.test(s.reason)?s.reason:'';
+  $('stopReason').textContent=s.reason||'';
+  $('controllerStatus').textContent=unavailable?'Joy-Cons unavailable':'Joy-Cons connected';
+  for(const side of ['left','right']){
+    const key=physicalUpstream?(side==='left'?'Left rail':'Right rail'):cart?(side==='left'?'L':'R'):(side==='left'?'ZL':'ZR');
+    $(side+'Trigger').textContent=key+' · '+(unavailable?'offline':dead[side]?'held':'released');
+    $(side+'Trigger').dataset.held=!!dead[side];
+    $(side+'Dot').style.transform=`translate(${(a[side+'x']||0)*20}px,${-(a[side+'y']||0)*20}px)`;
+  }
+  const buttons=cart?'L and R':'ZL and ZR';
+  $('check').textContent=s.reader_error||(unavailable?'Wake both Joy-Cons with a button press.':!d.ready?`Press and release ${buttons} once.`:s.armed?`Hold ${buttons.replace(' and ',' / ')} to move. Release to stop.`:'Both controllers checked.');
+  $('arm').disabled=!canStart;
+  $('arm').textContent=s.armed?(s.simulation?'Practice running':'Controls armed'):s.simulation?'Start practice':'Arm controls';
+  $('startHelp').textContent=!connected?'Waiting for the local controller connection.':busy?'Finishing the current action…':s.armed?'Release shoulders to stop moving. Escape ends control.':unavailable?'Connect both controllers to continue.':!d.ready?`First, press and release ${buttons}.`:!d.neutral?'Release all buttons and center both sticks.':s.preview&&!s.simulation?'Input preview only.':s.simulation?'Moves the simulator. Leaving this window stops control.':'Keep the robot visible. Leaving this window stops control.';
+  $('scope').hidden=cart;$('scope').disabled=locked||cart;$('layers').hidden=cart;
+  if(cart){
+    if(!$('scope').querySelector('[value="wholebody"]'))$('scope').replaceChildren(new Option('Whole robot','wholebody'));
+    $('scope').value='wholebody';
+  }
+  const scope=s.armed?s.scope:$('scope').value,layer=s.layer||0;
+  document.querySelectorAll('[data-layer]').forEach(b=>{b.setAttribute('aria-pressed',+b.dataset.layer===layer);b.disabled=busy||unavailable||!d.neutral||scope==='head'||scope==='drive'});
+  $('gyroPanel').hidden=!cart;$('backendPicker').hidden=!cart||upstream;$('referencePicker').hidden=!cart||upstream;
+  $('backendChoice').value=s.input_backend||'apple';$('backendChoice').disabled=locked||!connected;
+  $('referenceFrame').value=s.reference_frame||'robot';$('referenceFrame').disabled=locked||!connected;
+  const gyro=!!s.control_info?.gyro_enabled;
+  $('gyroEnabled').checked=gyro;
+  $('gyroEnabled').disabled=locked||!connected||(!d.gyro_available&&!gyro);
+  $('gyroValue').textContent=gyro?'ON':'OFF';
+  if(gyro && (!upstream||d.ready)){
+    $('gyroStatus').textContent=s.armed?'Hold L / R and tilt to rotate that wrist. Release to recenter.':'Tilt controls wrist pitch and roll. Start practice, then hold L / R.';
+  }else if(locked){
+    $('gyroStatus').textContent='Stop practice to turn gyro on.';
+  }else if(s.input_backend!=='hid'){
+    $('gyroStatus').textContent='Choose “Independent Joy-Cons + gyro” in More options.';
+  }else if(unavailable){
+    $('gyroStatus').textContent='Connect both Joy-Cons to use gyro.';
+  }else if(d.gyro_available){
+    $('gyroStatus').textContent='Both gyros ready. Turn on to rotate your wrists by tilting the Joy-Cons.';
+  }else{
+    const sides=['left','right'].map(side=>{
+      const m=d.motion?.[side];
+      const c=m?.calibration,labels={no_imu_data:'no motion data',acceleration_out_of_range:'check resting position',rotation_detected:'keep still',movement_detected:'keep still',stream_interrupted:'reconnecting'};
+      const progress=c?.status==='calibrating'?`calibrating ${Math.floor(100*c.samples/c.required)}%`:labels[c?.status]||'waiting';
+      return side[0].toUpperCase()+side.slice(1)+': '+(m?.ready&&m.age_s>=0&&m.age_s<=.12?'ready':progress);
+    }).join(' · ');
+    $('gyroStatus').textContent='Set both Joy-Cons down and keep them still for 2–3 seconds. '+sides+'.';
+  }
+  $('movementHeading').textContent=upstream?'Original Joy-Con controls':cart?'Hold L / R, then move':'Hold trigger, then move';
+  if(upstream){
+    $('instructions').innerHTML='<dl><dt>Move</dt><dd>Each stick moves its hand in the direction the controller points.</dd><dt>Lift</dt><dd>L / R raises its hand. Click the stick to lower it.</dd><dt>Grip</dt><dd>Tap ZL / ZR to open or close.</dd><dt>Wrist</dt><dd>'+(gyro?'Tilt each Joy-Con to bend and roll its wrist.':'Gyro is off. Turn it on to tilt the wrists.')+'</dd></dl>';
+    $('extraHelp').innerHTML='<p><b>Head:</b> left D-pad.</p><p><b>Drive:</b> hold +. Y / A moves forward / back; X / B turns left / right. Release + to brake.</p><p><b>Right hand reach:</b> X / B moves forward / back when + is released.</p><p><b>Return hand:</b> Capture returns the left hand; Home returns the right hand to its starting position.</p><p><b>Stop:</b> −, Escape or Stop ends practice. Leaving this window also stops control.</p>';
+    $('check').textContent=s.reader_error||(unavailable?'Wake both Joy-Cons.':!d.ready?'Set both controllers down for 2–3 seconds to calibrate.':'Both controllers ready.');
+    $('startHelp').textContent=s.armed?'Tilt and use the controls. Escape or Stop ends practice.':!d.ready?'Set the controllers down until both gyros are ready.':!d.neutral?'Release all buttons and center both sticks.':'Hold the Joy-Cons comfortably, then Start to set the wrist center.';
+    if(d.ready)$('gyroStatus').textContent=gyro?(s.armed?'Tilt to bend and roll each wrist.':'On. Start captures your current hand position as the wrist center.'):'Off. Stop practice to change this.';
+  }else if(cart){
+    $('instructions').innerHTML='<dl><dt>Move</dt><dd>Each stick moves its hand forward, back and sideways.</dd><dt>Lift</dt><dd>Hold the stick clicked in, then push up / down.</dd><dt>Grip</dt><dd>Hold ZL / ZR. Each new press reverses open / close.</dd><dt>Wrist</dt><dd>'+(gyro?'Tilt the matching Joy-Con. Release L / R to recenter.':'Hold + and move the matching stick, or enable gyro.')+'</dd></dl>';
+    $('extraHelp').innerHTML='<p><b>Head:</b> hold L + left D-pad.</p><p><b>Drive:</b> hold both L and R. Y / A moves forward / back; X / B turns left / right.</p><p><b>Return to start:</b> center sticks and hold Home + L + R. Release L / R to cancel.</p><p><b>Stop:</b> −, Escape or Stop ends practice. Releasing either shoulder stops driving. Ten idle seconds ends practice.</p>';
+  }else{
+    const desc=['Stick left / right: shoulder pan. Up / down: shoulder lift.','Stick left / right: wrist bend. Up / down: elbow bend.','Stick left / right: wrist roll. Up / down: gripper.'];
+    $('instructions').textContent=scope==='drive'?'Hold both ZL and ZR. Left stick up / down drives; right stick left / right turns.':scope==='head'?'Hold ZL. The left stick turns and tilts the head.':'Hold ZL for the left arm, ZR for the right. '+desc[layer];
+    $('extraHelp').textContent='+ cycles arm layers with neutral controls. −, Escape or Stop ends control. Release a trigger to stop its component; release either to brake. Ten idle seconds ends practice.';
+  }
+  if(physicalUpstream){
+    $('check').textContent=s.reader_error||(!d.ready?'Press and release a rail SL or SR button on each Joy-Con.':'Both hold-to-run controls checked.');
+    $('movementHeading').textContent='Hold rail SL / SR, then move';
+    $('startHelp').textContent=s.armed?'Hold a rail SL / SR button on each hand you want to move. Release to hold position.':!d.ready?'Calibrate gyros and check both rail buttons first.':!d.neutral?'Release buttons and center sticks.':'Arm uses measured positions. There is no automatic homing.';
+    $('extraHelp').innerHTML+='<p><b>Physical hold-to-run:</b> hold either small rail SL / SR button on the matching Joy-Con. Head requires the left rail; driving requires both rails. Release to stop that component. The existing motor speed limits still apply.</p>';
+    $('gyroStatus').textContent=d.gyro_available?(gyro?'Tilt while holding the matching rail button. Release it to recenter.':'Gyro is off.'):$('gyroStatus').textContent;
+  }
+  $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':'Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.';
+  $('ikStatus').textContent=(s.control_info?.warnings||[]).join(' · ');
+  $('scenePanel').hidden=!r.simulator;
+  $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':'Live simulation · Solid practice box')):'';
+  $('health').textContent=`Input age: ${s.input_age_s??'—'} s · ${s.simulation?'Local control loop':'Network round trip'}: ${s.rtt_ms??'—'} ms`;
+  $('backendInfo').textContent='Input: '+(s.input_backend==='hid'?'Independent Nintendo HID':'Apple GameController')+' · Held: '+(Object.entries(d.buttons||{}).filter(([k,v])=>v).map(([k])=>k.replace('Button ','')).join(', ')||'none');
+  $('axesReadback').textContent=['left','right'].map(side=>`${side} stick: X ${(a[side+'x']||0).toFixed(2)} / Y ${(a[side+'y']||0).toFixed(2)}`).join(' · ');
+  $('gyroReadback').textContent=Object.entries(d.motion||{}).map(([side,m])=>{
+    const c=m.calibration;if(!c)return '';
+    return `${side} IMU: ${c.status} (${c.samples}/${c.required}) · gravity ${Math.hypot(...c.acceleration_g).toFixed(3)} g · uncorrected rotation ${c.angular_rate.map(v=>v.toFixed(3)).join(', ')} rad/s`;
+  }).filter(Boolean).join(' · ');
+  $('simulation').hidden=!s.simulation;
+  $('readbackTitle').textContent=s.simulation?'Virtual motor state':'Robot readback';
+  $('robotHealth').textContent=r.error||`Owner: ${r.simulation?'local simulator':r.preview?'not connected (preview)':r.phase||'—'} · Telemetry age: ${r.status_age_s??'—'} s · Manual: ${r.teleop?.active?'active':'inactive'}`;
+  $('motors').replaceChildren(...Object.entries(r.motors||{}).map(([n,v])=>{
+    const tr=document.createElement('tr');for(const value of [n,v.Present_Position,v.Torque_Enable?'holding':'released',v.Present_Load]){const td=document.createElement('td');td.textContent=value??'—';tr.append(td)}return tr;
+  }));
+  if(s.simulation)drawSimulation(r);
+}
+function drawSimulation(r){
+const groups=[['Left arm','left_arm_'],['Right arm','right_arm_'],['Head','head_']];
+$('joints').replaceChildren(...groups.map(([title,prefix])=>{const group=document.createElement('div');const h=document.createElement('b');h.textContent=title;group.append(h);for(const [n,v] of Object.entries(r.motors||{}).filter(([n])=>n.startsWith(prefix))){const row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:110px 1fr 45px;gap:8px;align-items:center;font-size:12px;margin:4px 0';const label=document.createElement('span');label.textContent=n.replace(prefix,'').replaceAll('_',' ');const meter=document.createElement('progress');meter.max=3900;meter.value=Math.max(0,(v.Present_Position||100)-100);meter.style.width='100%';const value=document.createElement('span');value.textContent=v.Present_Position;row.append(label,meter,value);group.append(row)}return group}));
+const p=r.virtual_pose||{x:0,y:0,heading:0},c=$('base'),ctx=c.getContext('2d');ctx.fillStyle='#10161d';ctx.fillRect(0,0,360,260);ctx.strokeStyle='#354656';ctx.lineWidth=1;for(let x=0;x<360;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,260);ctx.stroke()}for(let y=0;y<260;y+=36){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(360,y);ctx.stroke()}const px=180+p.x*360,py=130-p.y*360;ctx.fillStyle='#bdc8d0';ctx.fillRect(178,128,4,4);ctx.save();ctx.translate(Math.max(20,Math.min(340,px)),Math.max(20,Math.min(240,py)));ctx.rotate(-p.heading);ctx.fillStyle='#f3c861';ctx.fillRect(-13,-16,26,32);ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-5,0);ctx.lineTo(23,0);ctx.lineTo(15,-6);ctx.moveTo(23,0);ctx.lineTo(15,6);ctx.stroke();ctx.restore();$('baseText').textContent=`Virtual base: x ${(p.x*100).toFixed(1)} cm · y ${(p.y*100).toFixed(1)} cm · heading ${(p.heading*180/Math.PI).toFixed(1)}° · grid 10 cm`;
+}
+
+
+async function refreshFrame(){
+  if(frameInflight||!latest.robot?.simulator)return;
+  frameInflight=true;
+  try{const r=await fetch('/frame.jpg',{headers:{'X-Teleop-Token':token}});if(!r.ok)throw Error('Waiting for simulator image…');const next=URL.createObjectURL(await r.blob());$('sceneImage').src=next;if(frameURL)URL.revokeObjectURL(frameURL);frameURL=next}
+  catch(e){$('sceneStatus').textContent=e.message}finally{frameInflight=false}
+}
+async function refresh(){
+  if(inflight)return;inflight=true;
+  try{await call('/heartbeat',{focused:document.hasFocus()&&!document.hidden});const s=await call('/state');connected=true;draw(s)}
+  catch(e){connected=false;$('state').textContent='Connection lost';$('error').textContent=e.message;for(const id of ['arm','scope','gyroEnabled','backendChoice','referenceFrame'])$(id).disabled=true;document.querySelectorAll('[data-layer]').forEach(b=>b.disabled=true)}
+  finally{inflight=false}
+}
+window.addEventListener('blur',()=>call('/heartbeat',{focused:false}).catch(()=>{}));
+window.addEventListener('pagehide',()=>fetch('/action',{method:'POST',headers:{'X-Teleop-Token':token,'Content-Type':'application/json'},body:JSON.stringify({op:'stop'}),keepalive:true}).catch(()=>{}));
+document.addEventListener('keydown',e=>{if(e.code==='Escape'){e.preventDefault();action({op:'stop'})}});
+setInterval(refreshFrame,33);setInterval(refresh,150);refresh();
+</script>
+</body>
+</html>
