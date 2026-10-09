@@ -138,6 +138,15 @@ def render(sim,camera,width=1000,height=750):
         return renderer.render().copy()
 
 
+def oak_policy_render(sim, contract=None):
+    """Commissioned 320x240 policy preview, using the training pixel convention."""
+    from carton.refit_camera_contract import load_contract, render_policy_camera
+    contract = load_contract() if contract is None else contract
+    width, height = contract['policy']['size_wh']
+    with mujoco.Renderer(sim.model, height, width) as renderer:
+        return render_policy_camera(renderer, sim.data, 'front', contract=contract)
+
+
 def oak_render(sim,K):
     # Margin preserves rays needed for the slightly offset principal point.
     w,h=768,480

@@ -31,6 +31,8 @@ def merge_shards(roots, destination, repo_id, minimum=128):
     for c in conversions:
         if any(c[k] != conversions[0][k] for k in ('task', 'cameras', 'joints', 'fps')):
             raise RuntimeError('Shard feature schema mismatch')
+        if c.get('camera_contract') != conversions[0].get('camera_contract'):
+            raise RuntimeError('Shard camera contract mismatch')
     aggregate_datasets([f'local/refit_shard_{i}' for i in range(len(roots))], repo_id,
                        roots=roots, aggr_root=destination, concatenate_data=False)
     ds = LeRobotDataset(repo_id, root=destination)
@@ -50,6 +52,15 @@ def merge_shards(roots, destination, repo_id, minimum=128):
     conversion = dict(conversions[0], episodes=episodes, num_shards=len(roots))
     (destination/'conversion.json').write_text(json.dumps(conversion, indent=2))
     (destination/'holdout.json').write_text(json.dumps(holdouts[0], indent=2))
+    if conversion.get('camera_contract'):
+        from carton.refit_camera_contract import CONTRACT_FILE, load_contract, save_contract, provenance
+        contract = load_contract(roots[0] / CONTRACT_FILE)
+        if provenance(contract) != conversion['camera_contract']:
+            raise RuntimeError('Dataset camera implementation differs from rendered shards')
+        for root in roots[1:]:
+            if load_contract(root / CONTRACT_FILE) != contract:
+                raise RuntimeError('Shard camera contract mismatch')
+        save_contract(destination, contract)
     return dict(training_episodes=len(episodes), frames=frames, holdouts=len(held))
 
 
@@ -57,6 +68,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--dataset-repo', required=True)
     ap.add_argument('--model-repo', required=True)
+    ap.add_argument('--max-minutes', type=float, default=355,
+                    help='Operational timeout; leave five minutes before provider timeout')
     args = ap.parse_args()
     software = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(software))
@@ -76,10 +89,16 @@ def main():
     work.mkdir(exist_ok=False)
     demos, dataset = work/'demos', work/'dataset'
     started = float(os.environ.get('REFIT_JOB_STARTED', time.time()))
-    deadline = started + 105*60  # leave five minutes before the provider's hard stop
+    deadline = started + args.max_minutes*60
+    from carton.refit_camera_contract import load_contract, provenance, save_contract, CONTRACT_FILE, METADATA_FILE
+    camera_contract = load_contract()
+    save_contract(work, camera_contract)
+    # Root metadata also accompanies final model uploads; checkpoints copy sidecars before upload.
+    for name in (CONTRACT_FILE, METADATA_FILE):
+        api.upload_file(path_or_fileobj=work/name, path_in_repo=name, repo_id=args.model_repo)
     status = dict(hardware_commands=False, physical_registration_verified=False,
                   dataset_repo=args.dataset_repo, model_repo=args.model_repo,
-                  gpus=4, global_batch_size=32, started=started)
+                  gpus=4, global_batch_size=32, started=started, camera_contract=provenance(camera_contract))
 
     def publish(stage):
         status.update(stage=stage, updated=time.time(), seconds_left=max(0,deadline-time.time()))
@@ -146,7 +165,7 @@ def main():
              '--teacher-position','-.5','-.7','.75','--clearance','.002','--',
              '--simulation-root',str(root),'--out',str(demos),'--episodes','320',
              '--seed0','10000','--workers','32','--offset-x','-.005','.005',
-             '--yaw','-1','1','--stiffness','.015','.022'],'recording',1200)
+             '--yaw','-1','1','--stiffness','.015','.022'],'recording',7200)
         summary = json.loads((demos/'summary.json').read_text())
         status['valid_demos'] = require_collection(summary)
         api.upload_file(path_or_fileobj=demos/'summary.json',path_in_repo='refit/collection.json',repo_id=args.model_repo)
@@ -172,19 +191,19 @@ def main():
                 estimate = elapsed * (total-done)/done
                 status['render_progress']['estimated_seconds_left'] = estimate
                 if elapsed > 300 and estimate > deadline-time.time()-900:
-                    raise RuntimeError('Rendering forecast leaves insufficient time for training within budget')
+                    raise RuntimeError('Rendering forecast leaves insufficient time before operational timeout')
 
         processes([([sys.executable,'tools/fold_demos_to_lerobot.py','--batches',str(demos),
                     '--out',str(p),'--workers','3','--num-shards','4','--shard-index',str(i),
                     '--image-writer-threads','8','--cameras','front=front','left_wrist=left_wrist',
                     'right_wrist=right_wrist'],dict(os.environ,MUJOCO_EGL_DEVICE_ID=str(i)))
-                    for i,p in enumerate(roots)],'rendering',2400,render_progress)
+                    for i,p in enumerate(roots)],'rendering',7200,render_progress)
         publish('merging_dataset')
         status.update(merge_shards(roots,dataset,args.dataset_repo))
         publish('uploading_dataset')
         api.upload_folder(repo_id=args.dataset_repo,repo_type='dataset',folder_path=dataset,ignore_patterns=['images/**'])
         if deadline-time.time() < 900:
-            raise RuntimeError('Dataset preserved; insufficient budgeted time remaining to start training')
+            raise RuntimeError('Dataset preserved; insufficient time before operational timeout to start training')
         publish('training')
 
         def train_progress(elapsed):

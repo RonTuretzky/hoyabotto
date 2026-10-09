@@ -497,11 +497,14 @@ class ApiCameras:
     the model's poses and an assumed lens; the first policy's `top`/`front` match no real camera. The phone feed only
     carries receipt time (timestamp_basis 'receipt').
     """
-    def __init__(self, robot, mapping: dict[str, str]):
+    def __init__(self, robot, mapping: dict[str, str], *, camera_contract=None):
         if not mapping or any(v not in ROBOT_CAMERAS for v in mapping.values()):
             raise Refused(f"Map each policy camera key to one of the robot cameras {ROBOT_CAMERAS}; got {mapping}")
         self.robot, self.mapping = robot, dict(mapping)
         self.keys = tuple(mapping)
+        self.camera_contract = camera_contract
+        if camera_contract is not None and self.mapping.get('front') != 'oak':
+            raise Refused('Commissioned front camera must map to oak')
 
     def frames(self):
         import cv2
@@ -522,10 +525,24 @@ class ApiCameras:
             bgr = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
             if bgr is None:
                 raise Refused(f"{name}: undecodable image")
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            if name == 'oak' and self.camera_contract is not None:
+                from carton.oak_policy_camera import preprocess
+                manifest = (result.get('cameras') or {}).get(name) or {}
+                # Bind calibration to these immutable bytes, not a later camera metadata read.
+                for key in ('camera_id', 'stream_id', 'seq', 'sha256', 'captured_at'):
+                    if image.get(key) is None or image.get(key) != manifest.get(key):
+                        raise Refused(f'OAK frame/manifest identity mismatch: {key}')
+                if image.get('projection') != 'camera_pinhole_with_factory_distortion':
+                    raise Refused('OAK input must be the declared raw distorted capture')
+                try:
+                    rgb = preprocess(bgr, manifest, self.camera_contract, input_color_order='BGR')
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise Refused(f'OAK camera contract rejected frame: {exc}') from exc
             stamp, basis = image.get("captured_at"), "capture"
             if stamp is None:
                 stamp, basis = image.get("received_at"), "receipt"
-            by_name[name] = Frame(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB), float(stamp), image.get("seq"),
+            by_name[name] = Frame(rgb, float(stamp), image.get("seq"),
                                   str(image.get("camera_id") or name), basis)
         return {key: by_name[name] for key, name in self.mapping.items()}
 
@@ -803,6 +820,15 @@ class FoldPolicyRunner:
         report = {"execute": cfg.execute, "transport": getattr(self.transport, "name", type(self.transport).__name__),
                   "warnings": []}
         report["policy_spec"] = check_policy_spec(self.policy, self.camera_keys)
+        camera_contract = getattr(self.cameras, 'camera_contract', None)
+        if camera_contract is not None:
+            from carton.refit_camera_contract import provenance
+            report['camera_contract'] = provenance(camera_contract)
+            if not camera_contract['head']['physical_camera_to_arm_transform_verified']:
+                report['warnings'].append('OAK optical projection is matched; physical camera-to-arm registration is unverified')
+            front_size = (report['policy_spec'] or {}).get('cameras', {}).get('observation.images.front')
+            if front_size and list(reversed(front_size)) != camera_contract['policy']['size_wh']:
+                raise Refused('Checkpoint front image size differs from its camera contract')
         if hasattr(self.transport, "preflight"):
             report["transport_preflight"] = self.transport.preflight()
         snap = self.transport.snapshot()
@@ -1095,7 +1121,9 @@ def main(argv=None):
         else:
             raise SystemExit(f"--camera KEY=CAMERA is required for this checkpoint's cameras {keys} (robot cameras "
                              f"{ROBOT_CAMERAS}); only the robot-model policy has a default mapping")
-        cameras = ApiCameras(robot, mapping)
+        from carton.refit_camera_contract import checkpoint_contract
+        contract = checkpoint_contract(policy.path)
+        cameras = ApiCameras(robot, mapping, camera_contract=contract)
         runner = FoldPolicyRunner(policy, transport, cameras, maps, config, args.out, envelope=envelope,
                                   stop_requested=stopped, metadata=meta)
         summary = runner.run()

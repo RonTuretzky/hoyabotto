@@ -16,6 +16,7 @@ import numpy as np
 
 from carton.folding_contact_audit import sample_applied_contacts, score_applied_contacts
 from carton.folding_sim import FoldingSimulation
+from carton.refit_camera_contract import trial_contract, render_policy_camera
 from tools import eval_fold_policy as base
 
 AUDIT_ROOT = None
@@ -29,6 +30,7 @@ def forbidden(a, b):
 class AuditedEpisode(base.Episode):
     def __init__(self, trial, height, width):
         super().__init__(trial, height, width)
+        self.camera_contract = trial_contract(trial)
         global LATEST
         LATEST = self
         self.option = mujoco.MjvOption()
@@ -42,8 +44,7 @@ class AuditedEpisode(base.Episode):
     def images(self):
         images = {}
         for key, camera in base.CAMERAS.items():
-            self.renderer.update_scene(self.data, camera=camera, scene_option=self.option)
-            images[key] = self.renderer.render().copy()
+            images[key] = render_policy_camera(self.renderer, self.data, camera, self.option, self.camera_contract)
         return images
 
     def step(self, target):

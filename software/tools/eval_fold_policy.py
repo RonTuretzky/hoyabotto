@@ -57,6 +57,8 @@ def make_renderer(model, height, width):
 
 class Episode:
     def __init__(self, trial: Path, height: int, width: int):
+        from carton.refit_camera_contract import trial_contract
+        self.camera_contract = trial_contract(trial)
         self.model = mujoco.MjModel.from_xml_path(str(trial / 'run/scene.xml'))
         self.data = mujoco.MjData(self.model)
         self.demo = np.load(trial / 'demo.npz')
@@ -78,10 +80,10 @@ class Episode:
         self.max_flap_pen = self.max_other_pen = self.max_carton_mm = 0.
 
     def images(self):
+        from carton.refit_camera_contract import render_policy_camera
         out = {}
         for key, cam in CAMERAS.items():
-            self.renderer.update_scene(self.data, camera=cam)
-            out[key] = self.renderer.render().copy()
+            out[key] = render_policy_camera(self.renderer, self.data, cam, contract=self.camera_contract)
         return out
 
     def state(self):

@@ -31,6 +31,8 @@ def main():
             renderer.update_scene(data, camera='front')
             renderer.render()
         report['simple_frames_per_second'] = 120 / (time.perf_counter() - started)
+    from carton.refit_camera_contract import verify_rendered_projection
+    report['camera_projection'] = verify_rendered_projection()
     Path(args.out).write_text(json.dumps(report, indent=2))
     print(json.dumps(report), flush=True)
 

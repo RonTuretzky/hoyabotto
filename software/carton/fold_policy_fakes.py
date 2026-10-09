@@ -210,8 +210,9 @@ class MujocoFoldPlant:
 
     # --- observation and scoring
     def render(self, camera):
-        self.ep.renderer.update_scene(self.d, camera=camera)
-        return self.ep.renderer.render().copy()
+        from carton.refit_camera_contract import render_policy_camera
+        return render_policy_camera(self.ep.renderer, self.d, camera,
+                                    contract=self.ep.camera_contract)
 
     def _score_contacts(self):
         ep, d = self.ep, self.d

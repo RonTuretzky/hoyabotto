@@ -48,6 +48,15 @@ def snapshot_sources(software, target):
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
         hashes[str(relative)] = hashlib.sha256(content).hexdigest()
+    # Explicit policy optics must follow snapshots used by recorder subprocesses.
+    source = software / 'config/oak-policy-camera-20261009.json'
+    if source.is_file():
+        relative = source.relative_to(software)
+        dest = target / relative
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        content = source.read_bytes()
+        dest.write_bytes(content)
+        hashes[str(relative)] = hashlib.sha256(content).hexdigest()
     return hashes
 
 

@@ -1,117 +1,66 @@
 # Final DCM desk station refit — 9 October 2026
 
-Scene review was approved. **The four-H200 job is RUNNING, all four NVIDIA EGL renderers are verified,
-and 32 workers are recording audited demonstrations. Optimizer steps have not yet been observed.**
-The existing server thread owns hardware. This checkout owns simulation geometry and candidate previews.
-The user authorized up to **$50 total** and asked for the fastest training. No further spending approval
-is needed within that cap. Static clearance and IK are not motion validation.
+The final OAK contract is integrated and cloud job **6ac8e7ae095c57808930634a** is RUNNING:
+https://huggingface.co/jobs/RonTuretzky/6ac8e7ae095c57808930634a
 
-## Retraining handoff (latest)
+The camera wait is finished. Provider readback confirms **demonstration recording** with 32 workers. All four NVIDIA H200 EGL
+renderers passed their actual projection checks (maximum axis error 0.1268 px). Use the live status below
+for current progress. Optimizer steps and a learned-policy result are not yet confirmed.
+No physical commands were issued. The server thread retains hardware ownership.
 
-Approved station: 180 mm base-line setback, 220 mm arm spacing, 500 × 480 × 700 mm DCM desk,
-729.1 mm CAD mounting plane, centered carton with 10 mm near-wall inset. Physical camera registration
-remains unverified. The earlier preview observations below remain applicable limitations.
+## Current training handoff
 
-All evidence is under the outer workspace's `.context/station-refit-2026-10-09/training/`:
+Evidence root: outer workspace `.context/station-refit-2026-10-09/training/`.
 
-- `pilot-qualified-03`: **15/16** nominal dynamic folds, fresh seeds 9100–9115.
-- `pilot-portable-varied-v2`: **15/16** dynamic folds using relocated, portable assets,
-  seeds 9200–9215, lateral offset ±5 mm, yaw ±1°, hinge stiffness 0.015–0.022.
-- Each successful demonstration has a complete, independently scored applied-contact stream.
-  Nominal rejection: near-flap clearance not retained. Varied rejection: non-jaw flap contact.
-  Neither rejected episode enters training. Contact/tracking/grasp gates were retained.
-- `dataset-smoke`: one complete three-camera LeRobot episode, 578 frames; two holdouts identified.
-- **120 targeted tests passed** (119 combined plus the added policy-render integration test).
-  The latter confirms synthetic teacher markers and collision hulls are hidden from policy images.
-- `cloud-release-v5.tar.gz` and `cloud-release-v5/manifest.json`: frozen, credential-free source/assets.
-- `launch-four-h200.py`: bounded four-GPU submission with durable deduplication and source checksum.
-- `budget-and-launch.json`: authorization, authentication blocker, qualifications, and spending ledger.
+- `cloud-release-v6.tar.gz`: credential-free frozen source/assets, SHA-256 `e234979911042e02fccc239633b9dde0cd3adae8f81d25491e35b295dd0d1f27`.
+- `camera-integration-verification.json`, `camera-integration-tests.log`: **70 passed, 2 skipped** and one successful audited frozen-bundle teacher fold (seed 10001). Earlier station qualification: 15/16 nominal and 15/16 varied portable folds.
+- `launch-four-h200-v6.py`, `launch-v6-receipt.json`, `budget-and-launch.json`: deduplicated submission and source revision. Old launcher versions are historical and must not be reused.
+- `watch-cloud-v6.py`, `watch-cloud-v6.log`, `watch-cloud-v6.pid`: active read-only monitor; no cloud retries. `live-cloud-status.json` is authoritative polling output; `cloud-evaluation-v6/` will hold downloaded checkpoints and local evaluation.
+- Private model `RonTuretzky/act_carton_dcm_refit_20261009_v2`; dataset `RonTuretzky/carton_dcm_refit_20261009_v2`.
 
-Teacher recipe: along −0.04 m, radius 0.125 m, normal tilt 15°, axis sign −1, preheight 0.035 m,
-clearance +0.002 m. Moving the open pinch outward avoids the fixed jaw snagging the flap's top edge.
-Synthetic teacher camera: [−0.5, −0.7, 0.75], looking at [0, 0, 0.15]. The teacher table marker
-is group 4 and is removed from policy observations. Policy cameras retain the approved scene transforms.
-The head view uses the principal-point-centered 4:3 crop at 320×240. The physical runner does not yet
-implement this matching preprocessing; do not deploy or move hardware from this training handoff.
+User removed the previous spending ceiling and requested speed. Four H200s cost approximately **$20/hour total**.
+Six-hour provider watchdog (~$120 maximum new compute) and 355-minute internal deadline; not an ETA.
+All prior jobs were terminal before launch; v5 `6ac8daa0fee2c9007017836a` remains canceled. Actual billing unknown.
 
-Active job: Hugging Face **four H200s, $20/hour**, 110-minute provider timeout, **$36.67 compute cap**.
-The ledger reserves **$10 for prior attempts plus $36.67 for the active job**, leaving **$3.33**
-within the $50 authorization. Actual billed charges are not yet available. Current rate was verified
-at https://huggingface.co/api/jobs/hardware. The script stops subprocess work at 105 minutes to leave
-upload time before the provider's hard timeout. No automatic paid retries.
+Pipeline: 320 trials, seed 10000, 32 recorder workers; independent contact scoring, minimum 80% success
+and 128 valid demos. Every tenth seed is held out before four-way sharding. Three render workers per GPU,
+eight image writer threads per shard, native dataset aggregation and index/image/holdout validation.
+Four Accelerate ranks train ACT in bf16, batch 8 each (global 32), lr 3e-5, chunk 100, 25k steps,
+checkpoint upload each 1k. All GPUs must verify actual NVIDIA EGL and correct pixel projection first.
 
-320 trials, 32 recorder workers; collection must retain ≥80% audited success and ≥128 valid episodes.
-Every tenth seed is held out before four-way dataset sharding. Each GPU has three render workers
-and a shard writer with eight image threads. Original audited evidence uploads before conversion.
-Native LeRobot merging verifies episode/frame indices, camera images and holdout separation.
-ACT uses four Accelerate processes, bf16, batch 8 per GPU (global 32), chunk/action steps 100,
-lr 3e-5, up to 25,000 updates, checkpoints uploaded every 1,000. The budget may stop the run early;
-completion time is not established until measured optimizer throughput is available. Private destinations:
+## Final camera integration
 
-- `RonTuretzky/carton_dcm_refit_20261009_v1`
-- `RonTuretzky/act_carton_dcm_refit_20261009_v1`
+Contract: `config/oak-policy-camera-20261009.json`, digest
+`8cda81a5a74bca6fd373ac9cfec51ef2665fdf4a9bbf79fea1864953008da869`.
+Shared helper is copied unchanged from server evidence. Capture 1040×780, 10 FPS requested, focus 79,
+full 14-term factory distortion. Virtual policy view 320×240 RGB, fx=fy=289.70562748477136,
+cx=160, cy=120, 45° vertical FOV, identity rectification, zero output distortion.
 
-The repositories are now private and created. The user supplied a write/Jobs-capable credential;
-it is passed through process stdin and the provider's secret field, never stored in source or local files.
+`carton/refit_camera_contract.py` corrects MuJoCo's half-pixel convention with explicit GL frusta;
+actual off-axis raster error is at most 0.128 px. The same renderer serves demos, evaluation,
+fake-robot inference and `folding_refit_preview.oak_policy_render`. Historical raw `oak_render` stays separate.
+The API camera adapter verifies frame/manifest identity and source projection before the exact shared remap.
+No second aspect crop or resize. Source mismatch and stale-frame guards remain in effect.
+Dataset, trial and checkpoint sidecars carry contract/helper/renderer hashes. Checkpoint saving writes
+sidecars before upload; local evaluation checks checkpoint and holdout contracts.
 
-- First job: `6ac8c46ffee2c90070177627`, confirmed ERROR before recording: the image uses uv and has no pip module.
-- Previous single-H200 job `6ac8c522095c57808930534d`: confirmed CANCELED after approximately
-  76 minutes ($6.34 estimated compute, $8 reserved). It collected 313/320 passing demonstrations but
-  never reached optimizer training; its ephemeral demonstrations were not uploaded before cancellation.
-- Four-H200 startup `6ac8d9a4095c578089305d2c`: ERROR after 7 seconds; the stock image sets
-  `CUDA_VISIBLE_DEVICES=0`. The corrected bootstrap selects the four allocated devices.
-- Four-H200 startup `6ac8da0d095c578089305d5a`: ERROR after 32 seconds; CUDA worked, but NVIDIA
-  user-space EGL libraries were absent. The attempted driver-capabilities environment override was
-  rejected before creating a job. `tools/refit_egl_libraries.py` now extracts matching NVIDIA graphics
-  libraries into `/tmp/refit-egl`, without modifying the kernel driver.
-- Active job: [`6ac8daa0fee2c9007017836a`](https://huggingface.co/jobs/RonTuretzky/6ac8daa0fee2c9007017836a),
-  started **12:14:26 UTC**. Four CUDA H200s, LeRobot 0.6.1 and NVIDIA EGL on devices 0–3 confirmed.
-  Simple-scene preflight measured 779–798 FPS per GPU; this is not full-scene training throughput.
-- Corrective launches use `uv pip install --python <container-python>` and preserve attempts in the ledger.
-- Total authorized budget is now $50; do not count that as a request to spend the entire amount.
-- The evidence archive now includes baked OBJ/STL scene meshes for later held-out evaluation.
-- **19 targeted tests passed**, including four-shard partition/merge with image/action/index readback,
-  moving-camera render equivalence, recorder, audit gates and evaluator regressions. Nine additional
-  pixel comparisons on the real approved pilot scene were identical across three cameras/three poses.
+The 180 mm setback, 220 mm base spacing, 500×480×700 mm desk, 729.1 mm CAD mounting plane,
+10 mm inset and model head pose remain explicit simulation assumptions. Physical camera-to-arm,
+wrist and station registration are unverified. OAK delivered 9.700913 pairs/s with approximately 2.99%
+unpublished RGB sequences; wrists reported 5 FPS. Simulation uses ideal 10 Hz observations;
+latency/drop robustness and powered transfer remain unverified. No physical readiness is implied.
 
-Record the returned job ID immediately (launcher does this), inspect live logs, and distinguish
-recording/rendering from actual optimizer steps. Do not blindly resubmit an uncertain launch.
-No automatic paid retries. Training completion still requires held-out closed-loop evaluation before
-choosing a checkpoint; a completed training job is not physical readiness.
+## Evaluation
 
-## Audited checkpoint evaluation
+Use `tools/eval_refit_fold_policy.py`: every physics step gets contact checks and independent audit scoring.
+The watcher restores immutable simulation evidence, verifies its hash and holdout separation, then screens
+5k on four starts and evaluates 10k/15k/20k/25k on all holdouts using temporal ensembling 0.01.
+On terminal status it also evaluates the last available checkpoint. Results land in `scoreboard.json`;
+`best-checkpoint.json` remains provisional while training/evaluation continues and explicitly simulation-only.
+Do not run a second watcher. The watcher downloads/evaluates; it never submits another paid job.
 
-Use `tools/eval_refit_fold_policy.py` for this new scene. It checks loaded forbidden contacts
-at every physics step, including camera-to-flap contacts; the historical evaluator only sampled
-penetration at policy-tick boundaries. Policy images hide collision hulls and teacher-only markers.
-Malformed/nonfinite actions cannot advance physics. Complete contact streams are independently rescored
-and hashed, and an audit failure prevents a success result.
-
-Three evaluator regression tests pass (seven combined with cloud pipeline checks). A full recorded-command smoke replay (`eval-harness-smoke`, seed 9100)
-folded both short flaps at 57.7 s with 28,850 audited steps, complete coverage, no loaded forbidden
-contact, 0.33 mm maximum flap penetration and 1.4 mm carton translation. This verifies the evaluation
-harness, **not a trained-policy score**. The evaluator was added after active cloud bundle v2;
-evaluation runs locally against downloaded checkpoints and restored holdouts.
-
-`training/watch-cloud.py` is a read-only Hub watcher with local evaluation, running separately
-from the paid job. It never submits or retries a cloud job. Its outputs are `live-cloud-status.json`,
-`watch-cloud-v5.log` and `cloud-evaluation-v5/`. It verifies the evidence SHA-256, rewrites cloud asset paths,
-loads every holdout scene, and checks training/holdout seed separation before evaluation. An offline
-cloud-style restore smoke loaded successfully. It screens 5k on four starts and evaluates 10k/15k/20k/25k
-on every held-out start with temporal ensembling 0.01, four concurrent local workers. Results go into
-`scoreboard.json`; `best-checkpoint.json` remains explicitly simulation-only and not physical-ready.
-On terminal cloud status it also evaluates the last available checkpoint if training stopped between
-those milestones. The watcher reads the latest submitted ID from the budget ledger on startup.
-
-To resume monitoring if that local process stops (no paid launch):
-
-```sh
-/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/.venv/bin/python -u \
-  /Users/wk/conductor/workspaces/xlerobot-farm/las-vegas-v1/.context/station-refit-2026-10-09/training/watch-cloud.py
-```
-
-Do not start two watchers simultaneously. Completed evaluation shards are reused; failed/incomplete
-shards are preserved under an `-incomplete-` suffix before a local retry.
+The following scene review details are historical physical-model evidence; old camera capture values below
+are superseded by the final contract above.
 
 ## Locations
 
@@ -223,7 +172,20 @@ per-view local notes and a copy-all-notes control are included for user review.
 
 ## Next work and ownership
 
-Present the local scene, accept corrections, then have the server owner establish physical mounting height,
+Server acknowledgement is now saved at outer `.context/station-refit-2026-10-09/server-evidence/training-reply.md`,
+with a pointer in `oak-calibration-request-20261009-211938/training-reply.md`. The server status initially
+reported a full-sensor 1040×780 RGB trial at 5 FPS in progress; subsequent readback reports that
+60-second trial passed and 10 FPS is being tested before the final contract. Head ticks are
+2085/2623; the earlier capture pose is stale. Do not freeze the old 640×360 contract. Reconcile the
+selected projection, pose and delivered image cadence with the existing 10 Hz action timeline.
+
+Await the server thread's corrected OAK configuration. Compare its stream identity, resolution,
+rotation, intrinsics/distortion, crop and pose provenance against the hardcoded settings in
+`tools/record_refit_fold_demos.py` and the physical input path in `carton/fold_policy_runner.py`.
+The latest user clarification is that this checkout may have the wrong configuration; do not infer
+the intended replacement from historical captures. Keep cloud training and the watcher stopped.
+
+Present the corrected local scene, accept corrections, then have the server owner establish physical mounting height,
 pan-axis spacing/setback, carton offset/yaw and usable camera registration. Obtain camera-safe approaches
 and full dynamic fold validation with the new collision bodies before generating a replacement dataset.
 Review approval alone is not physical calibration or execution clearance.

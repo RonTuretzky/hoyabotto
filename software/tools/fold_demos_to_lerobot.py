@@ -28,6 +28,7 @@ import mujoco
 import numpy as np
 
 from farm.learning.recorder import EpisodeRecorder
+from carton.refit_camera_contract import trial_contract, render_policy_camera, save_contract, provenance
 
 ROBOT = [f'{s}_{j}' for s in ('left', 'right') for j in
          ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper')]
@@ -78,6 +79,7 @@ def render_trial(job):
     trial, end, height, width, cameras = job
     model = mujoco.MjModel.from_xml_path(str(Path(trial) / 'run/scene.xml'))
     data = mujoco.MjData(model)
+    contract = trial_contract(trial)
     renderer = mujoco.Renderer(model, height, width)
     option = mujoco.MjvOption()
     option.geomgroup[3] = 0  # collision hulls have separate CAD visuals
@@ -88,8 +90,7 @@ def render_trial(job):
         for k in range(end + 1):
             set_render_pose(model, data, z['qpos'][k])
             for key, cam in cameras.items():
-                renderer.update_scene(data, camera=cam, scene_option=option)
-                out[key][k] = renderer.render()
+                out[key][k] = render_policy_camera(renderer, data, cam, option, contract)
     finally:
         renderer.close()
     return out
@@ -115,9 +116,6 @@ def main(argv=None):
     if args.out.exists():
         raise SystemExit(f'{args.out} exists; choose a new dataset directory')
     trials = sorted(t for b in args.batches for t in b.glob('trial-*') if (t / 'demo.json').exists())
-    rec = EpisodeRecorder(args.out, f'local/carton_{args.task.replace("-", "_")}_sim', 10, list(cameras),
-                          (args.height, args.width), ROBOT, robot_type='xlerobot_sim',
-                          image_writer_threads=args.image_writer_threads)
     used, holdout, skipped, todo = [], [], [], []
     for t in trials:
         demo = json.loads((t / 'demo.json').read_text())
@@ -137,9 +135,23 @@ def main(argv=None):
                             'hinge_stiffness': demo['hinge_stiffness']})
         elif not args.max_episodes or len(todo) < args.max_episodes:
             todo.append((t, demo, end, [model.jnt_qposadr[model.joint(n).id] for n in ROBOT]))
+    if not todo:
+        raise ValueError('No training episodes')
+    contracts = [trial_contract(t) for t, _, _, _ in todo] + [trial_contract(h['trial']) for h in holdout]
+    if any(c != contracts[0] for c in contracts):
+        raise ValueError('Demonstrations have different camera contracts')
+    contract = contracts[0]
+    if contract is not None:
+        if [args.width, args.height] != contract['policy']['size_wh']:
+            raise ValueError('Dataset dimensions differ from camera contract')
     todo = shard_trials(todo, args.shard_index, args.num_shards)
     if not todo:
         raise ValueError('No training episodes assigned to shard')
+    rec = EpisodeRecorder(args.out, f'local/carton_{args.task.replace("-", "_")}_sim', 10, list(cameras),
+                          (args.height, args.width), ROBOT, robot_type='xlerobot_sim',
+                          image_writer_threads=args.image_writer_threads)
+    if contract is not None:
+        save_contract(args.out, contract)
     try:
         with mp.get_context('spawn').Pool(args.workers) as pool:
             rendered = pool.imap(render_trial, [(str(t), end, args.height, args.width, cameras)
@@ -166,7 +178,8 @@ def main(argv=None):
         rec.close()
     (args.out / 'conversion.json').write_text(json.dumps(
         {'task': args.task, 'cameras': cameras, 'joints': ROBOT, 'fps': 10, 'episodes': used,
-         'skipped': skipped, 'simulation_only': True}, indent=1))
+         'skipped': skipped, 'simulation_only': True,
+         'camera_contract': provenance(contract) if contract is not None else None}, indent=1))
     (args.out / 'holdout.json').write_text(json.dumps(holdout, indent=1))
     print(f'{len(used)} episodes, {sum(u["frames"] for u in used)} frames; {len(holdout)} held out')
 
