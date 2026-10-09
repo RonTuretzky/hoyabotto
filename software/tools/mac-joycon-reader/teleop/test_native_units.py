@@ -83,10 +83,12 @@ class NativeUnitTests(unittest.TestCase):
     def test_captured_neutral_outside_command_span_is_not_pulled_to_limit(self):
         ref=NativeReference(native_test_record());robot=UpstreamHardware(None,ref,clock=lambda:0)
         robot.state=dict(ok=True,status_age_s=0,teleop=dict(upstream_reference_id=ref.reference_id,wheelbase_m=.45,wheel_limit_m_s=.02),
-                         motors={n:dict(Present_Position=2048) for n in POSITION_NAMES})
+                         motors={n:dict(Present_Position=2048) for n in POSITION_NAMES},
+                         goals={n:2048 for n in POSITION_NAMES})
         robot.received=0;robot.dead=dict(left=True,right=True)
         for name,ticks in [('left_arm_gripper',3900),('head_motor_1',110)]:
             robot.state['motors'][name]['Present_Position']=ticks
+            robot.state['goals'][name]=ticks
             value=ref.from_ticks(name,ticks)
             bounded,_=robot.bound_upstream_positions({name:value})
             command=robot.encode_upstream_command(dict(positions=bounded,linear=0,angular=0),None)

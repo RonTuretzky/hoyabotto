@@ -19,7 +19,7 @@ class TeleopAPI:
 
     def status(self):
         s = self.client.status()
-        return {k:s.get(k) for k in ('started','time','status_age_s','phase','ok','teleop','enabled_motors','last_stop','calibration_mismatches','missing_buses')} | {
+        return {k:s.get(k) for k in ('started','time','status_age_s','phase','ok','teleop','goals','enabled_motors','last_stop','calibration_mismatches','missing_buses')} | {
             'motors': {n:{k:r.get(k) for k in ('Present_Position','Present_Load','Present_Temperature','Present_Voltage','Torque_Enable','Status')} for n,r in s.get('rows',{}).items()}}
 
     def renew(self):

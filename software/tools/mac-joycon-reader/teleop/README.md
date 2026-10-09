@@ -1,3 +1,30 @@
+## Live rail toggle and command tracking — 10 October 2026
+
+For attended physical control, launch the existing HID bridge with
+`--rail-mode toggle` in addition to `--connect-robot --control-mode upstream`
+and the commissioned `--upstream-reference`. It starts disarmed. Check one rail
+button on each Joy-Con, release the buttons and center both sticks, then select
+**Arm controls**. Tap SL or SR once to enable that arm (left also gates the head);
+tap again to pause it. Releasing the rail does not pause in this mode. An enable
+tap requires neutral sticks and other buttons, and captures a fresh wrist center.
+Driving still requires both arms enabled and holding +. Stop, minus, Escape,
+focus loss, input/feedback loss and controller identity changes end the session
+and clear both toggles. Resume requires Arm controls and fresh taps. The legacy
+`--rail-mode hold` default remains available.
+
+The robot teleop API must expose the owner's existing `goals` in status and
+input responses. The adapter computes rates against those queued goals, while
+still limiting desired targets to 40 ticks from measured feedback. This avoids
+integrating servo lag repeatedly until the owner's following-error guard trips.
+Owner speed, travel, following-error and watchdog limits are unchanged. Missing
+goal feedback refuses before a motor claim. An owner fault now reports its
+specific stop reason when a fresh read confirms all motors released.
+
+A focused tab renews the 0.8-second screen lease; inactive duplicate tabs cannot
+cancel it. Without any focused tab the lease still expires. Automated tests use
+fake hardware, including servos at 35% speed. Physical handling remains an
+attended operator check.
+
 ## Guided carton folding practice — 10 October 2026
 
 The prepared operator screen at `http://127.0.0.1:64684/` now starts in carton

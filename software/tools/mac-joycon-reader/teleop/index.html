@@ -146,6 +146,8 @@ function draw(s){
   $('controlTarget').value=s.control_target||'robot';$('controlTarget').disabled=s.armed||s.busy||pending>0;
   const upstream=s.control_mode==='upstream',cart=upstream||s.control_mode==='cartesian',d=s.controller||{},a=d.axes||{},dead=d.deadman||{},r=s.robot||{};
   const physicalUpstream=upstream&&!s.simulation;
+  const railToggle=physicalUpstream&&s.control_info?.rail_mode==='toggle';
+  $('controlTarget').querySelector('[value=robot]').textContent=railToggle?'Live robot — tap rail to enable / pause':'Live robot — rail hold-to-run';
   const lesson=r.lesson;
   $('coachPanel').hidden=!s.simulation||!lesson;
   if(s.simulation&&lesson){
@@ -184,7 +186,7 @@ function draw(s){
   $('controllerStatus').textContent=unavailable?'Joy-Cons unavailable':'Joy-Cons connected';
   for(const side of ['left','right']){
     const key=physicalUpstream?(side==='left'?'Left rail':'Right rail'):cart?(side==='left'?'L':'R'):(side==='left'?'ZL':'ZR');
-    $(side+'Trigger').textContent=key+' · '+(unavailable?'offline':dead[side]?'held':'released');
+    $(side+'Trigger').textContent=key+' · '+(unavailable?'offline':railToggle?(dead[side]?'ENABLED':'PAUSED'):dead[side]?'held':'released');
     $(side+'Trigger').dataset.held=!!dead[side];
     $(side+'Dot').style.transform=`translate(${(a[side+'x']||0)*20}px,${-(a[side+'y']||0)*20}px)`;
   }
@@ -243,12 +245,18 @@ function draw(s){
   }
   if(physicalUpstream){
     $('check').textContent=s.reader_error||(!d.ready?'Press and release a rail SL or SR button on each Joy-Con.':'Both hold-to-run controls checked.');
-    $('movementHeading').textContent='Hold rail SL / SR, then move';
+    $('movementHeading').textContent=railToggle?'Tap SL / SR to enable or pause':'Hold rail SL / SR, then move';
     $('extraHelp').innerHTML=$('extraHelp').innerHTML.replaceAll('practice','control');
     $('startHelp').textContent=s.armed?'Hold a rail SL / SR button on each hand you want to move. Release to hold position.':!d.ready?'Calibrate gyros and check both rail buttons first.':!d.neutral?'Release buttons and center sticks.':'Arm uses measured positions. There is no automatic homing.';
     if(!physicalReady&&!s.armed)$('startHelp').textContent=r.error||'Waiting for a healthy, released robot owner with fresh feedback.';
     $('extraHelp').innerHTML+='<p><b>Physical hold-to-run:</b> hold either small rail SL / SR button on the matching Joy-Con. Head requires the left rail; driving requires both rails. Release to stop that component. The existing motor speed limits still apply.</p>';
     $('gyroStatus').textContent=d.gyro_available?(gyro?'Tilt while holding the matching rail button. Release it to recenter.':'Gyro is off.'):$('gyroStatus').textContent;
+    if(railToggle){
+      $('check').textContent=s.reader_error||(!d.ready?'Press and release SL or SR once on each controller.':'Rail buttons checked.');
+      $('startHelp').textContent=s.armed?'Tap SL / SR once to enable that arm; tap again to pause. Release other buttons and center sticks before enabling.':$('startHelp').textContent;
+      $('gyroStatus').textContent=d.gyro_available?(gyro?'Tilt an enabled controller to move its wrist. Pause and re-enable to recenter.':'Gyro is off.'):$('gyroStatus').textContent;
+      $('extraHelp').innerHTML=$('extraHelp').innerHTML.replace(/<p><b>Physical hold-to-run:[\s\S]*?<\/p>/,'<p><b>Rail toggle:</b> after Arm, each arm starts PAUSED. Tap either SL or SR to enable that arm; tap again to pause and hold its position. Head uses the left enable; driving needs both enabled and + held. Stop, loss of focus or connection clears both enables. Re-arm and tap again to resume.</p>');
+    }
   }
   $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':(s.speed_profile==='demo'?'Arm: up to 26°/s':'Arm: about 7°/s')+' · Grip: unchanged · Head: 60 ticks/s · Wheels: 2 cm/s.';
   $('ikStatus').textContent=(s.control_info?.warnings||[]).join(' · ');

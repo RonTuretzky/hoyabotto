@@ -73,6 +73,15 @@ class BridgeTests(unittest.TestCase):
             self.bridge.step();self.assertFalse(self.bridge.armed)
             self.assertFalse(self.robot.call('status')['teleop']['active'])
             self.f['controllers'][0]['connected']=True
+    def test_background_tab_does_not_cancel_focused_tab_but_lease_still_expires(self):
+        self.start('left')
+        self.bridge.heartbeat(True);seen=self.bridge.ui_seen
+        self.bridge.heartbeat(False)
+        self.assertEqual(self.bridge.ui_seen,seen)
+        self.bridge.step();self.assertTrue(self.bridge.armed)
+        self.bridge.ui_seen-=.81
+        self.bridge.step();self.assertFalse(self.bridge.armed)
+        self.assertFalse(self.robot.call('status')['teleop']['active'])
     def test_stop_during_claim_does_not_arm_late(self):
         started=threading.Event();proceed=threading.Event();orig=self.robot.call;errors=[]
         def delayed(path,*args,**kwargs):

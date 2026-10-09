@@ -94,6 +94,10 @@ class Bridge:
         if self.decoded['stop']:raise ValueError('Minus / Options STOP')
         if not getattr(self.robot,'allow_background_input',False) and time.monotonic()-self.ui_seen>.8:raise ValueError('Operator screen lost focus or stopped responding')
         return self.decoded
+    def heartbeat(self,focused):
+        # An inactive duplicate tab must not erase the active tab's lease.
+        # With no focused page renewing it, valid() still stops within 0.8 s.
+        if focused is True:self.ui_seen=time.monotonic()
     def snapshot(self):
         with self.lock:
             d=self.decoded or {}
@@ -109,6 +113,7 @@ class Bridge:
         with self.lock:
             self.generation+=1
             session=self.session;self.session=None;self.armed=False;self.reason=reason
+            if hasattr(self.mapping,'end_session'):self.mapping.end_session()
             self.release_pending+=int(session is not None)
             return session,self.generation
     def finish_release(self, session, generation, reason):
@@ -118,6 +123,18 @@ class Bridge:
             suffix=' — release confirmed' if result.get('released') else ' — release unconfirmed'
         except Exception:
             suffix=' — release unconfirmed; checking owner status'
+            try:
+                state=self.robot.call('status',timeout=2)
+                rows=state.get('motors',{})
+                if (state.get('ok') is True and 0<=state.get('status_age_s',float('inf'))<=.25
+                        and not state.get('teleop',{}).get('active') and not state.get('enabled_motors')
+                        and len(rows)==16 and all(r.get('Torque_Enable')==0 for r in rows.values())):
+                    suffix=' — all motors confirmed released'
+                    fault=(state.get('last_stop') or {}).get('reason')
+                    if fault:reason=fault+'; start again to continue'
+                with self.lock:
+                    if self.generation==generation:self.robot_state=state
+            except Exception:pass
         finally:
             with self.lock:self.release_pending-=1
         with self.lock:
@@ -148,7 +165,9 @@ class Bridge:
                     if target=='practice':self.speed_profile='normal'
                     self.mapping=self.practice_mapping if target=='practice' else self.live_mapping
                     self.mapping.reset();self.decoded=None;self.robot_state={};self.control_target=target
-                    self.reason='Practice stopped — Start practice to animate; no physical robot commands' if target=='practice' else 'Disarmed — live robot requires rail hold-to-run'
+                    self.reason=('Practice stopped — Start practice to animate; no physical robot commands' if target=='practice'
+                                 else 'Disarmed — arm controls, then tap SL or SR to enable each arm' if getattr(self.robot,'rail_mode',None)=='toggle'
+                                 else 'Disarmed — live robot requires rail hold-to-run')
             finally:
                 with self.lock:self.busy=False
             return
@@ -228,7 +247,9 @@ class Bridge:
                 self.valid()
                 self.session=result;self.robot_state=result.get('status',self.robot_state)
                 self.mapping.update_robot_status(self.robot_state);self.armed=True
+                if hasattr(self.mapping,'begin_session'):self.mapping.begin_session()
                 self.reason='PRACTICE — simulated components only' if self.robot.simulation else ('Armed — hold the side-rail SL or SR buttons to move' if getattr(self.mapping,'mode',None)=='upstream' else 'Armed — hold trigger to move')
+                if getattr(self.robot,'rail_mode',None)=='toggle':self.reason='Armed — tap SL or SR to enable each arm; tap again to pause'
         except Exception as e:
             self.release('Start failed: '+str(e));raise
         finally:
@@ -288,6 +309,7 @@ def main():
     ap.add_argument('--control-mode',choices=('joint','cartesian','upstream'),default='joint')
     ap.add_argument('--upstream-reference',type=Path,help='Original native-unit calibration binding (or explicit geometric reference)')
     ap.add_argument('--input-backend',choices=('apple','hid','auto'),default='apple')
+    ap.add_argument('--rail-mode',choices=('hold','toggle'),default='hold',help='Physical rail gating: hold or tap to enable/pause each arm')
     ap.add_argument('--connect-robot',action='store_true',help='Explicitly connect to the robot. Default is a local input preview with no network access.')
     ap.add_argument('--config',default=os.environ.get('XLEROBOT_ADMIN_CONFIG',DEFAULT_CONFIG))
     ap.add_argument('--reader',type=Path,default=Path(__file__).resolve().parents[1]/'.build/release/MacJoyConReader')
@@ -317,7 +339,7 @@ def main():
     if a.connect_robot and a.control_mode=='upstream':
         from upstream_hardware import UpstreamHardware,PhysicalReference
         reference=PhysicalReference.load(a.upstream_reference)
-        robot=UpstreamHardware(Robot(a.config),reference)
+        robot=UpstreamHardware(Robot(a.config),reference,rail_mode=a.rail_mode)
     elif a.connect_robot:robot=Robot(a.config)
     elif a.control_mode=='upstream':
         from upstream_simulator import UpstreamSimulator
@@ -376,8 +398,7 @@ def main():
                 if not 0<n<=2048:raise ValueError('Invalid body size')
                 b=json.loads(self.rfile.read(n))
                 if self.path=='/heartbeat':
-                    if b.get('focused') is True:bridge.ui_seen=time.monotonic()
-                    else:bridge.ui_seen=0
+                    bridge.heartbeat(b.get('focused'))
                 elif self.path=='/view':
                     viewer=bridge.robot if bridge.robot.simulation else preview3d or bridge.robot
                     if not hasattr(viewer,'set_view'):raise ValueError('No 3D view available')

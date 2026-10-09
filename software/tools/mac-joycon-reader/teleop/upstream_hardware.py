@@ -21,8 +21,10 @@ class UpstreamHardware:
     simulation=False
     supports_upstream=True
     teleop_keys={'forward':'w','backward':'s','rotate_left':'a','rotate_right':'d'}
-    def __init__(self,transport,reference,clock=time.monotonic):
+    def __init__(self,transport,reference,clock=time.monotonic,rail_mode='hold'):
         if not isinstance(reference,PhysicalReference):raise ValueError('Exact upstream calibration reference required')
+        if rail_mode not in ('hold','toggle'):raise ValueError('Unknown rail mode')
+        self.rail_mode=rail_mode
         self.transport=transport;self.reference=reference;self.clock=clock
         self.state=None;self.received=None;self.dead={'left':False,'right':False}
 
@@ -43,6 +45,7 @@ class UpstreamHardware:
         if not s or self.received is None or not 0<=self.clock()-self.received+s.get('status_age_s',float('inf'))<=.25:
             raise ValueError('Physical joint feedback stale')
         if s.get('ok') is not True:raise ValueError('Robot owner is not healthy')
+        if not isinstance(s.get('goals'),dict):raise ValueError('Motor owner goal feedback unavailable; update the teleop API')
         if s.get('calibration_mismatches'):raise ValueError('Robot calibration does not match hardware')
         if s.get('teleop',{}).get('upstream_reference_id')!=self.reference.reference_id:
             raise ValueError('Robot owner has no matching upstream calibration reference')
@@ -86,12 +89,18 @@ class UpstreamHardware:
             # Original LeRobot conversion truncates to integer ticks. A
             # round-trip rounding tick must not become a slow idle drift.
             if abs(target-q)<=getattr(self.reference,'quantization_ticks',0):target=q
+            # The owner integrates rates into its existing goal. Using measured
+            # position here integrates servo lag a second time and can run that
+            # goal away from the physical joint, especially at demo speed.
+            goal=s.get('goals',{}).get(n)
+            if type(goal) not in (int,float) or not math.isfinite(goal):
+                raise ValueError('Motor owner goal feedback unavailable; update the teleop API')
             limit=60. if n.startswith('head_') else 80.
             if s['teleop'].get('speed_profile')=='demo' and '_arm_' in n and not n.endswith('gripper'):
                 limit=min(300.,s['teleop'].get('position_rate_limits_ticks_s',{}).get(n,80.))
             # Track the upstream target within the existing physical velocity
             # contract. Do not inherit the simulator's unrestricted positions.
-            rates[n]=max(-limit,min(limit,(target-q)*max(5.,limit/40.)))
+            rates[n]=max(-limit,min(limit,(target-goal)*max(5.,limit/40.)))
         linear,angular=command['linear'],command['angular']
         if not all(self.dead.values()):linear=angular=0.
         # Keep the commissioned 2 cm/s *per wheel* cap and 0.16 rad/s cap.
@@ -113,13 +122,40 @@ class HardwareMapping(WindowsMapping):
         self.rail_checks=set();self.rail_identity=None
         super().__init__(robot)
     def reset(self):
-        super().reset();self.info['physical_hold_to_run']='rail buttons'
+        super().reset()
+        self.session_enabled=False
+        self.latched={'left':False,'right':False}
+        self.rail_previous={'left':False,'right':False}
+        self.recenter=set()
+        self.info['rail_mode']=self.robot.rail_mode
+        self.info['physical_hold_to_run']='rail toggle' if self.robot.rail_mode=='toggle' else 'rail buttons'
+    def begin_session(self):
+        self.session_enabled=True
+    def end_session(self):
+        self.session_enabled=False
+        self.latched={'left':False,'right':False}
+        self.robot.dead={'left':False,'right':False}
+        self.recenter.clear()
     def decode(self,f,now=None):
         d=super().decode(f,now)
-        if d['identity']!=self.rail_identity:self.rail_checks.clear();self.rail_identity=d['identity']
-        d['deadman']={s:any(d['buttons'].get(s.title()+' Rail '+b,False) for b in ('SL','SR')) for s in ('left','right')}
-        for s,held in d['deadman'].items():
+        if d['identity']!=self.rail_identity:
+            self.end_session();self.rail_checks.clear();self.rail_identity=d['identity']
+        rails={s:any(d['buttons'].get(s.title()+' Rail '+b,False) for b in ('SL','SR')) for s in ('left','right')}
+        for s,held in rails.items():
             if held:self.rail_checks.add(s)
+        if self.robot.rail_mode=='toggle':
+            movement_neutral=(not any(v for n,v in d['buttons'].items() if ' Rail ' not in n)
+                              and not any(abs(v)>=.1 for v in d['axes'].values())
+                              and not any(d['dpad'].values()))
+            for side,held in rails.items():
+                if self.session_enabled and held and not self.rail_previous[side]:
+                    if self.latched[side] or movement_neutral:
+                        self.latched[side]=not self.latched[side]
+                        if self.latched[side]:self.recenter.add(side)
+            self.rail_previous=rails
+            d['deadman']=dict(self.latched)
+        else:d['deadman']=rails
+        d['rails']=rails
         d['ready']=d['ready'] and self.rail_checks=={'left','right'}
         return d
     def prepare_start(self,d):
@@ -130,10 +166,11 @@ class HardwareMapping(WindowsMapping):
         if self.controllers:
             obs=self.robot.get_observation()
             for side,held in d['deadman'].items():
-                if held:continue
+                if held and side not in self.recenter:continue
                 home=list(self.controllers[side].init_position)
                 self.initialize_side(d,side,obs)
                 self.controllers[side].init_position=home
+                self.recenter.discard(side)
                 for axis in ('x','y'):gated['axes'][side+axis]=0.
                 for name in (side.title()+' Shoulder',side.title()+' Trigger',side.title()+' Thumbstick Button','Button Home' if side=='right' else 'Button Capture'):
                     gated['buttons'][name]=False

@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import patch
 
 from bridge import Bridge
-from simulator import SimulatedRobot
+from simulator import SimulatedRobot,VirtualBus
 from upstream_hardware import UpstreamHardware,PhysicalReference
 from joycon_reference import template,POSITION_NAMES,SOURCE_BINDING,digest
 from test_upstream import original_frame
@@ -199,5 +199,100 @@ class HardwareAdapterTests(unittest.TestCase):
         self.robot.received-=1;self.feed();self.bridge.step()
         self.assertFalse(self.bridge.armed);self.assertFalse(self.plant.owner.teleop.active)
         self.assertTrue(all(r['Torque_Enable']==0 for r in self.plant.bus.r.values()))
+
+    def test_demo_tracking_with_slow_servos_does_not_integrate_feedback_lag(self):
+        class LaggyBus(VirtualBus):
+            def step(self,dt):
+                before={n:r['Present_Position'] for n,r in self.r.items()}
+                super().step(dt)
+                for n,r in self.r.items():
+                    if n not in self.wheels and r['Torque_Enable']:
+                        delta=r['Goal_Position']-before[n]
+                        travel=r['Goal_Velocity']*.35*dt
+                        r['Present_Position']=before[n]+max(-travel,min(travel,delta))
+        self.bridge.close();self.plant.close()
+        self.plant=SimulatedRobot(bus=LaggyBus(),upstream_reference=self.ref)
+        self.robot=UpstreamHardware(self.plant,self.ref);self.robot.refresh()
+        self.mapping=self.robot.make_mapping()
+        self.bridge=Bridge(self.robot,None,start=False,mapping=self.mapping,input_backend='hid')
+        self.rails(True);self.feed();self.rails(False);self.feed()
+        self.bridge.robot_state=self.robot.state
+        self.bridge.action({'op':'speed_profile','profile':'demo'});self.start()
+        name='left_arm_wrist_roll';before=self.plant.bus.r[name]['Present_Position']
+        self.rails(True);self.c['independent_motion']['left']['windows_attitude']['roll']=1.
+        self.tick(90)
+        self.assertGreater(abs(self.plant.bus.r[name]['Present_Position']-before),80)
+        self.assertLess(abs(self.plant.owner.teleop.targets[name]-self.plant.bus.r[name]['Present_Position']),60)
+
+    def test_missing_goal_feedback_refuses_before_claim(self):
+        original=self.robot.transport.call
+        def legacy(path,*args,**kwargs):
+            result=original(path,*args,**kwargs)
+            if path=='status':result.pop('goals',None)
+            return result
+        with patch.object(self.robot.transport,'call',side_effect=legacy):
+            with self.assertRaisesRegex(ValueError,'goal feedback unavailable'):self.start()
+        self.assertTrue(all(r['Torque_Enable']==0 for r in self.plant.bus.r.values()))
+
+
+class RailToggleTests(unittest.TestCase):
+    make_reference=HardwareAdapterTests.make_reference
+    feed=HardwareAdapterTests.feed
+    rails=HardwareAdapterTests.rails
+    start=HardwareAdapterTests.start
+    tick=HardwareAdapterTests.tick
+    tearDown=HardwareAdapterTests.tearDown
+    def setUp(self):
+        HardwareAdapterTests.setUp(self)
+        self.robot.rail_mode='toggle';self.mapping.reset();self.feed()
+    def tap(self):
+        self.rails(True);self.feed();self.bridge.step()
+        self.rails(False);self.feed();self.bridge.step()
+    def test_tap_enables_without_holding_then_tap_pauses_without_queued_tilt(self):
+        self.start();self.assertFalse(any(self.mapping.latched.values()))
+        self.tap();self.assertTrue(all(self.mapping.latched.values()))
+        before=self.plant.bus.r['right_arm_wrist_roll']['Present_Position']
+        self.c['independent_motion']['right']['windows_attitude']['roll']=.4
+        self.tick(12)
+        self.assertNotEqual(before,self.plant.bus.r['right_arm_wrist_roll']['Present_Position'])
+        self.tap();self.assertFalse(any(self.mapping.latched.values()))
+        self.tick(2)  # Wait for the asynchronous owner's pause acknowledgement.
+        before={n:r['Present_Position'] for n,r in self.plant.bus.r.items()}
+        self.c['independent_motion']['right']['windows_attitude']['roll']=1.
+        self.tick(5)
+        self.assertEqual(before,{n:r['Present_Position'] for n,r in self.plant.bus.r.items()})
+        self.tap()
+        command=self.mapping.command(self.bridge.decoded,'wholebody')
+        self.assertLess(max(map(abs,command['rates'].values())),.01)
+    def test_held_press_only_toggles_once_and_resume_requires_neutral(self):
+        self.start();self.rails(True);self.tick(6)
+        self.assertTrue(all(self.mapping.latched.values()))
+        self.rails(False);self.feed();self.bridge.step()
+        self.tap();self.c['buttons']['Right Shoulder']['pressed']=True
+        self.tap();self.assertFalse(any(self.mapping.latched.values()))
+    def test_stop_focus_disconnect_and_minus_clear_latches_and_require_fresh_tap(self):
+        for fault in ('stop','focus','disconnect','minus'):
+            with self.subTest(fault=fault):
+                self.c['connected']=True;self.c['buttons']['Button Options']['pressed']=False
+                self.rails(True);self.feed();self.rails(False);self.feed()
+                self.start();self.tap()
+                if fault=='stop':self.bridge.release('Operator STOP')
+                elif fault=='focus':self.bridge.ui_seen=0;self.bridge.step()
+                else:
+                    if fault=='disconnect':self.c['connected']=False
+                    else:self.c['buttons']['Button Options']['pressed']=True
+                    self.feed();self.bridge.step()
+                self.assertFalse(self.bridge.armed)
+                self.assertFalse(any(self.mapping.latched.values()))
+                self.assertFalse(self.plant.owner.teleop.active)
+                self.assertTrue(all(r['Torque_Enable']==0 for r in self.plant.bus.r.values()))
+                self.c['connected']=True;self.c['buttons']['Button Options']['pressed']=False
+    def test_owner_fault_reports_actual_reason_and_verified_release(self):
+        self.start();self.tap()
+        self.plant.owner.release_all('left_arm_wrist_roll: manual following error');self.plant.persist()
+        self.feed();self.bridge.step()
+        self.assertFalse(self.bridge.armed)
+        self.assertIn('manual following error',self.bridge.reason)
+        self.assertIn('all motors confirmed released',self.bridge.reason)
 
 if __name__=='__main__':unittest.main()
