@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 774 462" font-family="Helvetica,Arial,sans-serif">
 <rect x="70" y="70" width="593.6" height="224.0" fill="#c99a62" stroke="#5b3b17" stroke-width="2" rx="2"/>
-<text x="366.8" y="36" font-size="17" font-weight="700" text-anchor="middle" fill="#222">Far long flap (outside face, standing up)</text>
+<text x="366.8" y="36" font-size="17" font-weight="700" text-anchor="middle" fill="#222">Far long flap (outside face: you stand BEHIND the box to see it)</text>
 <text x="366.8" y="58" font-size="12" text-anchor="middle" fill="#555">free edge</text>
 <text x="366.8" y="312.0" font-size="12" text-anchor="middle" fill="#555">fold line</text>
 <text x="60" y="182.0" font-size="12" text-anchor="middle" fill="#555" transform="rotate(-90 60 182.0)">robot's RIGHT end</text>
 <text x="677.6" y="182.0" font-size="12" text-anchor="middle" fill="#555" transform="rotate(90 677.6 182.0)">robot's LEFT end</text>
-<text x="366.8" y="386.0" font-size="12" text-anchor="middle" fill="#333">371 × 140 mm · seen from behind the box</text>
+<text x="366.8" y="386.0" font-size="12" text-anchor="middle" fill="#333">371 × 140 mm · mirrored because you look at it from the far side: the robot's LEFT is on YOUR right</text>
 <rect x="459.8" y="115.0" width="70.0" height="70.0" fill="white" stroke="#888" stroke-width="0.6"/>
 <rect x="466.80" y="122.00" width="7.05" height="7.05" fill="black"/>
 <rect x="473.80" y="122.00" width="7.05" height="7.05" fill="black"/>

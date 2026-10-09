@@ -542,16 +542,17 @@
 </section>
 
 <section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 4g · box tags</div><h2>Long flaps: 13 far, 14 near; then check</h2></div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4g · box tags</div><h2>Long flaps: 14 on the near flap, 13 on the far flap</h2></div>
     <div class="meta"><span class="badge both">Owner + agent</span><span class="badge time">5 min</span></div></div>
-  <div class="body"><div class="grid-2">
-    <div><img src="img/fold-policy-setup/box-tags-long-far-flap.svg" alt="Far long flap, outside face: tag 13, black square 88 mm from the robot's-left end, 73 mm above the fold" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
-      <ol><li>Far long flap, outside (seen from behind the box): <b>13</b>, bottom edge <b>73 mm</b> above the fold; its edge nearest the <b>robot's-left</b> end <b>88 mm</b> from that end (248 mm from the other end).</li></ol></div>
-    <div><img src="img/fold-policy-setup/box-tags-long-near-flap.svg" alt="Near long flap, outside face: tag 14, black square 88 mm from the robot's-right end, 73 mm above the fold" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
-      <ol><li>Near long flap, outside: <b>14</b>, bottom edge <b>73 mm</b> above the fold; its edge nearest the <b>robot's-right</b> end <b>88 mm</b> from that end (248 mm from the other end).</li></ol></div>
-  </div>
-  <div class="panel" style="margin-top:10px"><b>Check (read-only, no motors):</b> with the tagged carton in its footprint and the head at 58°, ask the agent for one head-camera still.
-    It reads the tags and reports which IDs it sees and where they sit, compared with the simulation. Fix anything more than about 5 mm off.</div></div>
+  <div class="body"><div class="cols">
+    <img src="img/fold-policy-setup/box-tags-long-flaps-topdown.svg" alt="Both long flaps seen from above with the robot at the bottom: tag 13 near the robot's-left end of the far flap, tag 14 near the robot's-right end of the near flap" style="width:100%;max-height:58vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+    <div class="panel"><p>Seen from above with the robot at the bottom, the two tags sit at <b>opposite ends</b>:</p><ol>
+      <li><b>14</b> on the <b>near</b> long flap (the one facing the robot), toward the <b>robot's right</b>: the black square starts <b>248 mm</b> from the flap's robot's-left end.</li>
+      <li><b>13</b> on the <b>far</b> long flap (away from the robot), toward the <b>robot's left</b>: the black square starts <b>88 mm</b> from the flap's robot's-left end.</li>
+      <li>Both on the <b>outside</b> face of the flap (the side away from the box), bottom edge of the square <b>73 mm</b> above the fold line, arrow toward the free edge.</li></ol>
+      <p class="note">To stick 13 on you walk round to the far side. From there the robot's left is on <b>your right</b>; measure 88 mm from the end that is on your right.</p>
+      <p class="note" style="margin-top:8px"><b>Check (read-only, no motors):</b> with the tagged carton in its spot, ask the agent for one head-camera still. It reports which IDs it sees and where they sit. Fix anything more than about 5 mm off.</p></div>
+  </div></div>
   <div class="footer"><span>Step 4g · long flaps and check</span><span class="pg"></span></div>
 </section>
 

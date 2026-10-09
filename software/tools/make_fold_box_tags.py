@@ -76,8 +76,9 @@ FACES = [
          'fold line', 'free edge', "the left arm folds this flap"),
     Face('short-right-flap', "Right short flap (outside face, standing up)", W - 8, F, 'near end (robot side)',
          'far end', 'fold line', 'free edge', "the right arm folds this flap"),
-    Face('long-far-flap', 'Far long flap (outside face, standing up)', L - 8, F, "robot's RIGHT end", "robot's LEFT end",
-         'fold line', 'free edge', 'seen from behind the box'),
+    Face('long-far-flap', 'Far long flap (outside face: you stand BEHIND the box to see it)', L - 8, F,
+         "robot's RIGHT end", "robot's LEFT end", 'fold line', 'free edge',
+         'mirrored because you look at it from the far side: the robot\'s LEFT is on YOUR right'),
     Face('long-near-flap', 'Near long flap (outside face, standing up)', L - 8, F, "robot's LEFT end",
          "robot's RIGHT end", 'fold line', 'free edge', 'faces the robot'),
 ]
@@ -308,6 +309,39 @@ def render_overview(scene_xml, out, views=((-.42, -.52, .50), (.44, .58, .46), (
     Image.fromarray(np.concatenate(panels, 1)).save(out)
 
 
+def long_flaps_topdown_svg(scale=1.6):
+    """Both long-flap tags from ABOVE, robot at the bottom: left is the robot's left for both, so 13 and 14 compare."""
+    m = 70; w = (L - 8) * scale; gap = 40
+    rows = [('long-near-flap', 14, 'NEAR long flap (faces the robot)'), ('long-far-flap', 13, 'FAR long flap (away from the robot)')]
+    H_ = m + 2 * (F * scale + gap) + 50
+    s = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w + 2 * m + 40:.0f} {H_:.0f}" font-family="Helvetica,Arial,sans-serif">',
+         f'<text x="{m + w / 2:.1f}" y="30" font-size="17" font-weight="700" text-anchor="middle" fill="#222">Both long flaps laid flat, seen from ABOVE, robot at the bottom</text>',
+         f'<text x="{m + w / 2:.1f}" y="50" font-size="12" text-anchor="middle" fill="#555">left = the robot\'s left in both rows; pink = from the flap\'s robot\'s-left end to the black square\'s nearest edge</text>']
+    y = m + 10
+    for key, tid, title in reversed(rows):   # far flap drawn on top (away from the robot), near flap at the bottom
+        tag = next(t for t in TAGS if t.tag_id == tid)
+        h = F * scale
+        s.append(f'<rect x="{m}" y="{y}" width="{w:.1f}" height="{h:.1f}" fill="#c99a62" stroke="#5b3b17" stroke-width="2" rx="2"/>')
+        s.append(f'<text x="{m + 6}" y="{y + 16}" font-size="13" font-weight="700" fill="#222">{title}</text>')
+        # tag position measured from the ROBOT'S LEFT end: the far flap's own diagram measures from the robot's right
+        left_from_robot_left = (L - 8) - (tag.h + tag.size / 2) if key == 'long-far-flap' else tag.h - tag.size / 2
+        cell = tag.size / 8 * scale
+        x0 = m + left_from_robot_left * scale - cell
+        y0 = y + h / 2 - 5 * cell
+        s.append(f'<rect x="{x0:.1f}" y="{y0:.1f}" width="{10 * cell:.1f}" height="{10 * cell:.1f}" fill="white" stroke="#888" stroke-width="0.6"/>')
+        s.append(f'<rect x="{x0 + cell:.1f}" y="{y0 + cell:.1f}" width="{8 * cell:.1f}" height="{8 * cell:.1f}" fill="#222"/>')
+        s.append(f'<text x="{x0 + 5 * cell:.1f}" y="{y0 + 5 * cell + 5:.1f}" font-size="14" font-weight="700" text-anchor="middle" fill="white">{tid}</text>')
+        lane = y + h + 16
+        s.append(f'<line x1="{m}" y1="{lane}" x2="{x0 + cell:.1f}" y2="{lane}" stroke="#d6336c" stroke-width="1.6"/>'
+                 f'<line x1="{m}" y1="{lane - 5}" x2="{m}" y2="{lane + 5}" stroke="#d6336c" stroke-width="1.6"/>'
+                 f'<line x1="{x0 + cell:.1f}" y1="{y0 + 9 * cell:.1f}" x2="{x0 + cell:.1f}" y2="{lane + 5}" stroke="#d6336c" stroke-width="1.2" stroke-dasharray="2 3"/>')
+        s.append(f'<text x="{x0 + cell + 6:.1f}" y="{lane + 4}" font-size="13" font-weight="700" fill="#d6336c">{int(left_from_robot_left + 0.5)} mm from the flap\'s robot\'s-left end → ID {tid}</text>')
+        y += h + gap
+    s.append(f'<text x="{m + w / 2:.1f}" y="{y + 8}" font-size="12" text-anchor="middle" fill="#555">ROBOT is here, below</text>')
+    s.append('</svg>')
+    return '\n'.join(s)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--out', type=Path, required=True)
@@ -317,6 +351,7 @@ def main(argv=None):
     pages = write_pdf(args.out / 'fold-box-tags.pdf')
     for face in FACES:
         (args.out / f'box-tags-{face.key}.svg').write_text(face_svg(face, [t for t in TAGS if t.face == face.key]))
+    (args.out / 'box-tags-long-flaps-topdown.svg').write_text(long_flaps_topdown_svg())
     print(f'fold-box-tags.pdf ({pages} pages), {len(FACES)} face diagrams')
     if args.scene:
         dev = check_against_scene(args.scene)
