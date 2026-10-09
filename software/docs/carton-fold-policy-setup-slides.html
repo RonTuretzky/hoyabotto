@@ -267,8 +267,8 @@
       <div>
         <table>
           <tr><th>Item</th><th>Target</th></tr>
-          <tr><td>Arm base spacing</td><td>220 mm (robot model)</td></tr>
-          <tr><td>Arm bases above carton surface</td><td>120 mm</td></tr>
+          <tr><td>Pan axis to pan axis (centre to centre)</td><td>220 mm (robot model)</td></tr>
+          <tr><td>Bottom of the arm bases above the table top</td><td>120 mm</td></tr>
           <tr><td>Base line → table edge</td><td>150 mm</td></tr>
           <tr><td>Carton near wall → table edge</td><td>10 mm</td></tr>
           <tr><td>Carton sideways</td><td>10 mm left of centre (−25 … +5)</td></tr>
@@ -283,6 +283,31 @@
   <div class="footer"><span>Target layout</span><span class="pg"></span></div>
 </section>
 
+<!-- words -->
+<section class="slide" aria-hidden="true">
+  <div class="eyebrow kicker">Before step 1 · what the words mean</div>
+  <div class="body">
+    <h2>Arm base, pan axis, 220 mm, 120 mm</h2>
+    <div class="cols" style="margin-top:12px">
+      <video src="img/fold-policy-setup/setup-words.mp4" poster="img/fold-policy-setup/setup-words-poster.jpg" autoplay loop muted playsinline controls
+        style="width:100%;max-height:58vh;border-radius:12px;border:1px solid var(--line);background:#000"></video>
+      <div>
+        <img src="img/fold-policy-setup/real-robot-arm-base.jpg" alt="Your robot's right arm from the phone camera: the arm base block, its bottom, and the pan axis labelled"
+          style="width:100%;max-height:46vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
+        <ul style="margin-top:8px;font-size:.92em">
+          <li><b style="color:#f5780f">Arm base</b>: the black block each arm stands on, with the shoulder motor inside. It is bolted to the robot and never moves.</li>
+          <li><b style="color:#e11e6e">Pan axis</b>: the vertical line each arm swings left and right around.</li>
+          <li><b>220 mm</b>: from one pan axis to the other, centre to centre.</li>
+          <li><b style="color:#1e78eb">120 mm</b>: from the <b>bottom</b> of the arm bases straight down to the <b>table top</b> the carton stands on.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">Animation: the XLeRobot model's cart, mast and head with the two SO-101 arms, table and carton exactly as the policy trained.
+      Photo: your robot on 8 October. The pan-axis line in the photo is approximate.</p>
+  </div>
+  <div class="footer"><span>What the words mean</span><span class="pg"></span></div>
+</section>
+
 <!-- 4 -->
 <section class="slide" aria-hidden="true">
   <div class="step-head"><div><div class="eyebrow kicker">Step 1 · do this first</div><h2>Measure the arm spacing</h2></div>
@@ -291,10 +316,12 @@
     <div class="cols">
       <div class="panel">
         <ol>
-          <li>Find the <b>shoulder-pan axis</b> of each arm: the centre of the round plate that turns, above the base servo.</li>
-          <li>Tape-measure between the two centres.</li>
+          <li>Find the <b>pan axis</b> of each arm: swing the released arm gently left and right; the line it turns around is the axis.
+            It runs through the centre of the round shoulder motor in the arm base.</li>
+          <li>Tape-measure between the two centres, across the top of the robot.</li>
           <li>Photograph the tape.</li>
         </ol>
+        <img src="img/fold-policy-setup/setup-220.jpg" alt="Animation frame: the two pink pan axes and the 220 mm arrow between them" style="width:100%;margin-top:10px;border-radius:10px;border:1px solid var(--line)">
       </div>
       <div>
         <div class="panel risk"><b>Go / no-go</b><p>The policy was trained with the arm-base origins <b>220 mm</b> apart, as in the robot model.
@@ -308,28 +335,14 @@
 
 <!-- 5 -->
 <section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 2</div><h2>Set the carton surface 120 mm below the arm bases</h2></div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 2</div><h2>Table top 120 mm below the arm bases</h2></div>
     <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15–30 min</span></div></div>
   <div class="body">
     <div class="cols">
-      <svg class="diagram" viewBox="0 0 560 330" role="img" aria-label="Side view">
-        <text x="10" y="20" fill="#aebbb3" font-size="13">SIDE VIEW · robot on the left</text>
-        <rect x="40" y="120" width="70" height="170" fill="rgba(94,214,222,.12)" stroke="#5ed6de"/>
-        <text x="75" y="210" fill="#5ed6de" font-size="12" text-anchor="middle" transform="rotate(-90 75 210)">cart</text>
-        <rect x="70" y="104" width="60" height="16" fill="rgba(94,214,222,.3)" stroke="#5ed6de"/>
-        <text x="100" y="98" fill="#f4f6ed" font-size="12" text-anchor="middle">arm base</text>
-        <line x1="130" y1="120" x2="520" y2="120" stroke="#5ed6de" stroke-dasharray="4 4"/>
-        <rect x="230" y="240" width="320" height="14" fill="rgba(255,197,110,.25)" stroke="#ffc56e"/>
-        <text x="390" y="272" fill="#ffc56e" font-size="12" text-anchor="middle">platform / table top</text>
-        <rect x="250" y="132" width="283" height="108" fill="rgba(201,246,91,.12)" stroke="#c9f65b" stroke-width="2"/>
-        <text x="391" y="190" fill="#f4f6ed" font-size="14" text-anchor="middle">carton (108 mm tall)</text>
-        <line x1="170" y1="120" x2="170" y2="240" stroke="#c9f65b" stroke-width="2"/>
-        <text x="178" y="185" fill="#c9f65b" font-size="15">120 mm</text>
-        <text x="230" y="314" fill="#aebbb3" font-size="12">bases 120 mm above the surface the carton sits on</text>
-      </svg>
-      <div class="panel">
+      <img src="img/fold-policy-setup/setup-120.jpg" alt="Animation frame from the robot's right side: the blue plane through the bottom of the arm bases and the 120 mm arrow down to the table top" style="width:100%;border-radius:10px;border:1px solid var(--line)">
+      <div><div class="panel">
         <ol>
-          <li>Measure from the platform top up to the <b>underside of each SO101 base</b>.</li>
+          <li>Measure from the table top straight up to the <b>bottom of each arm base</b>: where the black block sits on its mounting plate (blue line in the photo on the "words" slide).</li>
           <li>Raise or lower the platform (boards, books, a box) until both arms read <b>120 mm</b>.</li>
           <li>Left and right must agree within <b>3 mm</b>. If not, the cart or platform is tilted: shim it.</li>
           <li>If the base underside is hidden, measure floor → base and floor → platform, then subtract.</li>
@@ -339,7 +352,7 @@
         You want <b>12 cm</b>, i.e. bases at about <b>82 cm</b> off the floor.</p>
         <ul><li><b>About 82 cm</b> (as <code>docs/carton.md</code> says): the 70 cm table is right as it is.</li>
         <li><b>About 77.5 cm</b> (as the robot model says): the table is about 4.5 cm too high. Use a lower table (about 65.5 cm),
-          or send the number and the demos get re-recorded at your height (untested below 12 cm; a few hours of compute).</li></ul></div>
+          or send the number and the demos get re-recorded at your height (untested below 12 cm; a few hours of compute).</li></ul></div></div>
     </div>
   </div>
   <div class="footer"><span>Step 2 · height</span><span class="pg"></span></div>
