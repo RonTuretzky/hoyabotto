@@ -8,22 +8,21 @@ import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeom
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+window.__step?.('WebGL');
 
 // If anything fails (old GPU, lost context, out of memory), drop the 3D and keep the story readable.
 let failed = false;
 function fail(msg) {
   if (failed) return; failed = true;
-  document.body.classList.add('no3d');
-  document.getElementById('loading')?.classList.add('done');
-  const n = document.createElement('div'); n.className = 'fail-note';
-  n.textContent = '3D表示を読み込めませんでした。文章だけでご覧いただけます。（' + String(msg).slice(0, 120) + '）';
-  document.body.appendChild(n);
+  console.warn('3D unavailable, switching to video:', msg);
+  window.__startVideoMode?.();
 }
 addEventListener('error', e => fail(e.message || 'error'));
 addEventListener('unhandledrejection', e => fail((e.reason && e.reason.message) || e.reason || 'error'));
 setTimeout(() => { if (!document.getElementById('loading')?.classList.contains('done')) fail('読み込みが時間切れになりました'); }, 25000);
 // Phones get a lighter renderer: standard materials, no environment pre-pass, no shadows.
-const LITE = matchMedia('(max-width: 760px)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+const HQ = new URLSearchParams(location.search).has('hq');  // video capture: full quality at any size
+const LITE = !HQ && (matchMedia('(max-width: 760px)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent));
 
 // ---------------------------------------------------------------- helpers
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -129,6 +128,7 @@ MAT.pick = (group, mat, part) => {
 };
 
 // ---------------------------------------------------------------- asset loading
+window.__step?.('モデル');
 const meta = await (await fetch('robot/assets/robot.json')).json();
 const bin = await (await fetch('robot/assets/robot.bin')).arrayBuffer();
 const geoCache = new Map();
@@ -206,6 +206,7 @@ function solveArm(r, side, tipT, wristT, iters) {
   return _e.distanceTo(tipT);
 }
 
+window.__step?.('ロボット');
 const robot = new Robot();
 scene.add(robot.root);
 let WRIST_LEN = 0.16;
@@ -375,6 +376,7 @@ function g4Assembled() {
   return shadowed(g);
 }
 
+window.__step?.('シーン');
 // ---------------------------------------------------------------- station 1: sensors & measuring
 const S1 = new THREE.Group(); scene.add(S1);
 const T1 = makeTable(0.5, 0.48, TABLE_H, MAT.wood, MAT.steel); at(T1, SP(1, 0.22 + 0.24, 0, 0)); S1.add(T1);
@@ -1132,7 +1134,8 @@ function frame() {
 }
 function frameBody() {
   const time = (performance.now() - t0) / 1000;
-  const target = scrollS();
+  const target = window.__hoya?.forceS ?? scrollS();
+  if (window.__hoya?.forceS != null) sSmooth = target;
   sSmooth += (target - sSmooth) * (Math.abs(target - sSmooth) > 1.5 ? 1 : 0.12);
   const s = sSmooth;
   sceneAt(s, time);
@@ -1141,7 +1144,8 @@ function frameBody() {
   const cam = camAt(s);
   if (s < 1) { const a = (REDUCED ? 0 : Math.sin(time * 0.22) * 0.18) * (1 - seg(s, 0.6, 1)); cam.p.sub(cam.t).applyAxisAngle(V3(0, 0, 1), a).add(cam.t); }
   const dbg = window.__hoya.debugCam; if (dbg) { cam.p.set(...dbg.p); cam.t.set(...dbg.t); }
-  if (!!(dbg && dbg.center) !== centered) { centered = !!(dbg && dbg.center); resize(); }
+  const wantCenter = !!((dbg && dbg.center) || window.__hoya.capture);
+  if (wantCenter !== centered) { centered = wantCenter; resize(); }
   camera.position.copy(cam.p); camera.lookAt(cam.t);
   const dist = cam.p.distanceTo(cam.t);
   scene.fog.near = dist * 1.6; scene.fog.far = dist * 6 + 6;
@@ -1156,6 +1160,7 @@ function frameBody() {
     L.el.classList.toggle('on', vis);
   }
 }
+window.__step?.('描画');
 requestAnimationFrame(() => { frame(); document.getElementById('loading').classList.add('done'); });
 // Arriving from the wave page (?tour): glide into the exploded view, then hint to keep scrolling.
 if (new URLSearchParams(location.search).has('tour')) {

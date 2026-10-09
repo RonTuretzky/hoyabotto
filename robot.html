@@ -10,15 +10,35 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="robot/robot.css">
+<script>
+// Watchdog outside the 3D module: catches load/parse errors and shows a readable page if 3D never starts.
+window.__errs = [];
+addEventListener('error', function (e) { __errs.push((e.message || (e.target && e.target.src) || 'error') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : '')); }, true);
+addEventListener('unhandledrejection', function (e) { __errs.push('rej: ' + ((e.reason && e.reason.message) || e.reason)); });
+window.__step = function (t) { var l = document.getElementById('loading-step'); if (l) l.textContent = t; };
+setTimeout(function () {
+  if (window.__hoya || window.__videoMode) return;
+  if (window.__startVideoMode) window.__startVideoMode();
+}, 15000);
+</script>
 <script type="importmap">{"imports":{"three":"./robot/vendor/three.module.js","three/addons/":"./robot/vendor/addons/"}}</script>
-<script type="module" src="robot/robot.js"></script>
+<script>
+// Phones watch the pre-rendered journey; laptops get live 3D (?3d / ?video override).
+(function () {
+  var q = new URLSearchParams(location.search);
+  var phone = matchMedia('(max-width: 760px)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  window.__videoMode = q.has('video') || (phone && !q.has('3d') && !q.has('hq'));
+  if (!window.__videoMode) { var s = document.createElement('script'); s.type = 'module'; s.src = 'robot/robot.js'; document.head.appendChild(s); }
+})();
+</script>
+<script src="robot/video-mode.js" defer></script>
 </head>
 <body>
 <canvas id="stage" aria-hidden="true"></canvas>
 <div id="labels" aria-hidden="true"></div>
 <div id="wall" aria-hidden="true"><video id="trainvid" src="robot/training/training.mp4" poster="robot/training/training-poster.jpg" muted loop playsinline preload="none"></video></div>
 <a id="turn" class="turn" href="wave.html" hidden role="status" aria-live="polite"><span id="turn-emoji"></span><span id="turn-text"></span></a>
-<div id="loading" role="status"><span class="spinner"></span>3Dモデルを読み込み中…</div>
+<div id="loading" role="status"><span class="spinner"></span>3Dモデルを読み込み中…<small id="loading-step">スクリプト</small></div>
 
 <nav class="top">
   <a href="index.html" class="brand">ホヤボット</a>
