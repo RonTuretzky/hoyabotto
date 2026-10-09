@@ -2044,3 +2044,14 @@ chat code against `farm.sim.sim_robot.SimRobot`; supervisors Claude Opus 5.5 and
   before fitting camera-to-arm registration. No motor writes or restart.
 - Evidence: .context/tag-remount-check/clock-geometry/after-sync/, also copied
   to the simulation owner's calibration-preflight-20261009/clock-geometry/after-sync/.
+
+
+### 2026-10-09 JST: camera visibility for joint-direction checks
+
+Read-only OAK/phone/wrist capture saved under
+.context/tag-remount-check/camera-direction-review/. OAK frame 59281 sees table
+tag 1 and hand tag 2; phone frame 472275 crops the robot at the right edge and
+does not show the complete shoulder/base-to-gripper chain. Wrist close-ups do
+not establish whole-arm clearance. Camera-based direction observation is
+possible, but the phone needs a wider arm/reference view for the current
+zero/sign check. All 16 motors remain released; no direction probe executed.
