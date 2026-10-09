@@ -10,7 +10,7 @@ import shutil
 import time
 from pathlib import Path
 import redeploy_robot_server as deploy
-from joycon_commissioning import require_released
+from joycon_commissioning import require_released, require_no_pending_command
 
 
 BASELINE_ADMIN_SHA256 = '0a7230b3be7ee9f3af524ee4921e1ce80c72a355995d7082aaa0a21dbd1a3edf'
@@ -20,6 +20,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     before = require_released(deploy.read_status())
+    require_no_pending_command(before, deploy.SESSION / 'command.json')
     owner_pids = deploy.processes('gemma_hardware_owner.py')
     if len(owner_pids) != 1:
         raise ValueError('Exactly one existing hardware owner required')
@@ -42,7 +43,7 @@ def main():
     backup = deploy.WORK / 'backups' / time.strftime('joycon-admin-%Y%m%d-%H%M%S')
     installed = False
     try:
-        require_released(deploy.read_status())
+        require_no_pending_command(require_released(deploy.read_status()), deploy.SESSION / 'command.json')
         backup.mkdir(parents=True)
         shutil.copy2(target, backup / 'remote_admin.py')
         shutil.copy2(source, target)

@@ -33,6 +33,20 @@ def native_binding(calibration):
     return NativeReference(native_record(calibration, NATIVE_ROBOT_ID, NATIVE_EVIDENCE))
 
 
+def require_no_pending_command(status, command_path):
+    path = Path(command_path)
+    if not path.exists():
+        return
+    command = json.loads(path.read_text())
+    if command.get('session_started') != status['started']:
+        return
+    ident = command.get('id')
+    finished = {status.get('completed'), status.get('failed_command_id'),
+                (status.get('last_rejected') or {}).get('id')}
+    if ident is None or ident not in finished:
+        raise ValueError('Pending owner command blocks commissioning')
+
+
 def prepare_native_reference(calibration_path, status, directory, *, dry_run=False):
     require_released(status)
     calibration = json.loads(Path(calibration_path).read_text())
