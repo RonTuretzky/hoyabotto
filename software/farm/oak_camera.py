@@ -115,7 +115,7 @@ def main(argv=None) -> int:
     parser.add_argument("--isp-denominator", type=int, choices=(4, 8), default=4)
     parser.add_argument("--fps", type=int, choices=(5, 10), default=5)
     args = parser.parse_args(argv)
-    width, height = (4208//args.isp_denominator, 3120//args.isp_denominator) if args.full_sensor else (640, 360)
+    width, height = ((4208//args.isp_denominator)//16*16, 3120//args.isp_denominator) if args.full_sensor else (640, 360)
     rgb_fps = args.fps if args.full_sensor else (10 if args.wide else 15)
     if args.timeout <= 0 or args.seconds <= 0 or args.capture_seconds <= 0:
         parser.error("Timeout and duration must be positive")
@@ -168,6 +168,16 @@ def main(argv=None) -> int:
             rgb_out, rgb_pipeline = rgb.video, "Camera node 640x360 with the factory undistortion mesh"
         # Keep autofocus from changing the calibrated RGB/depth geometry.
         calibration = device.readCalibration2()
+        default_k, default_w, default_h = calibration.getDefaultIntrinsics(dai.CameraBoardSocket.CAM_A)
+        if args.full_sensor:
+            if (default_w, default_h) != (3840,2160):
+                raise RuntimeError("Full-sensor ROI transform requires this unit's reviewed 3840x2160 calibration")
+            native_k = np.asarray(default_k,dtype=float).copy()
+            native_k[0,2] += (4208-3840)/2
+            native_k[1,2] += (3120-2160)/2
+            # Runtime calibration only. Never flash EEPROM. Documented centered 4K sensor ROI to 13MP.
+            calibration.setCameraIntrinsics(dai.CameraBoardSocket.CAM_A,native_k.tolist(),4208,3120)
+            pipeline.setCalibrationData(calibration)
         lens_position = calibration.getLensPosition(dai.CameraBoardSocket.CAM_A)
         if lens_position:
             rgb.initialControl.setManualFocus(lens_position)
@@ -206,14 +216,14 @@ def main(argv=None) -> int:
                         "distortion_model": distortion_model,
                         "projection": "camera_pinhole_with_factory_distortion"} if args.wide or args.full_sensor else {"projection": "rectified_pinhole"}),
                     "coordinate_frame": "CAM_A_optical"}
-        default_k, default_w, default_h = calibration.getDefaultIntrinsics(dai.CameraBoardSocket.CAM_A)
         metadata.update(factory_intrinsics=default_k, factory_calibration_size=[default_w, default_h],
                         rgb_depth_registration_verified=False, full_sensor_fov_verified=False)
         if args.full_sensor:
             metadata.update(rgb_sensor_mode="13MP", rgb_sensor_size=[4208,3120],
                             isp_size=list(rgb.getIspSize()), isp_scale=[1,args.isp_denominator],
                             rgb_undistortion="disabled; direct ISP", output_size=[width,height],
-                            intrinsics_provenance="SDK getCameraIntrinsics; physical ROI/projection validation pending")
+                            rgb_crop_xywh=[(4208//args.isp_denominator-width)//2,0,width,height],
+                            intrinsics_provenance="factory 3840x2160 centered ROI expanded by (+184,+480) to native 4208x3120, SDK scales/crops to output; physical validation pending")
         metadata["config_sha256"] = hashlib.sha256(json.dumps(metadata,sort_keys=True).encode()).hexdigest()
         print(json.dumps(metadata), flush=True)
         device.startPipeline(pipeline)
@@ -247,6 +257,9 @@ def main(argv=None) -> int:
                 frames += 1
                 color = msg["rgb"].getCvFrame()
                 depth = msg["depth"].getFrame()
+                if args.full_sensor:
+                    x=(color.shape[1]-width)//2
+                    color=np.ascontiguousarray(color[:,x:x+width])
                 if color.shape[:2] != depth.shape:
                     raise RuntimeError(f"RGB {color.shape} and aligned depth {depth.shape} shapes differ; refusing pixel measurements")
                 frame_meta = {**metadata, "rgb_device_timestamp_s": msg["rgb"].getTimestampDevice().total_seconds(),
