@@ -117,7 +117,13 @@ def run(args):
 
     def pose(theta):
         point, _ = contact_point(theta, 0, -1, args.along, args.radius, 0, args.clearance)
-        normal = np.array([-math.cos(theta), 0, math.sin(theta)])
+        # Explicit alternative grasp attitude for the lower DCM station.
+        # Loaded opposing-face grasp and all collision gates remain required.
+        tilt = getattr(args, 'pinch_normal_tilt_degrees', 0.)
+        if not math.isfinite(tilt) or abs(tilt) > 30:
+            raise ValueError('Pinch normal tilt must be finite and within 30 degrees')
+        tilted = theta + math.radians(tilt)
+        normal = np.array([-math.cos(tilted), 0, math.sin(tilted)])
         radial = np.array([math.sin(theta), 0, math.cos(theta)])
         if args.normal_only:
             return point, {'direction': (args.axis_sign*normal).tolist(), 'local_axis': [1, 0, 0]}
@@ -425,6 +431,8 @@ if __name__ == '__main__':
     parser.add_argument('--radius', type=float, default=.125)
     parser.add_argument('--clearance', type=float, default=-.002)
     parser.add_argument('--axis-sign', type=int, choices=[-1, 1], default=1)
+    parser.add_argument('--pinch-normal-tilt-degrees', type=float, default=0.,
+                        help='Explicit offline grasp attitude relative to the observed flap (max 30 deg)')
     parser.add_argument('--normal-only', action='store_true')
     parser.add_argument('--paddle-contact', choices=['handle','tip'], default='handle')
     parser.add_argument('--paddle-axis-yaw', type=float, default=0.)

@@ -1,8 +1,61 @@
 # Final DCM desk station refit — 9 October 2026
 
-Scene review is ready. **No new policy training, robot motion or hardware deployment was performed by this refit.**
+Scene review was approved. **Cloud retraining is prepared but blocked by the local read-only Hugging Face token; $0 spent and no job submitted.**
 The existing server thread owns hardware. This checkout owns simulation geometry and candidate previews.
-Do not launch training until the user has reviewed the scene. Static clearance and IK are not motion validation.
+The user authorized up to **$20 total** and asked for the fastest training. No further spending approval
+is needed within that cap. Static clearance and IK are not motion validation.
+
+## Retraining handoff (latest)
+
+Approved station: 180 mm base-line setback, 220 mm arm spacing, 500 × 480 × 700 mm DCM desk,
+729.1 mm CAD mounting plane, centered carton with 10 mm near-wall inset. Physical camera registration
+remains unverified. The earlier preview observations below remain applicable limitations.
+
+All evidence is under the outer workspace's `.context/station-refit-2026-10-09/training/`:
+
+- `pilot-qualified-03`: **15/16** nominal dynamic folds, fresh seeds 9100–9115.
+- `pilot-portable-varied-v2`: **15/16** dynamic folds using relocated, portable assets,
+  seeds 9200–9215, lateral offset ±5 mm, yaw ±1°, hinge stiffness 0.015–0.022.
+- Each successful demonstration has a complete, independently scored applied-contact stream.
+  Nominal rejection: near-flap clearance not retained. Varied rejection: non-jaw flap contact.
+  Neither rejected episode enters training. Contact/tracking/grasp gates were retained.
+- `dataset-smoke`: one complete three-camera LeRobot episode, 578 frames; two holdouts identified.
+- **120 targeted tests passed** (119 combined plus the added policy-render integration test).
+  The latter confirms synthetic teacher markers and collision hulls are hidden from policy images.
+- `cloud-release-v1.tar.gz` and `cloud-release-v1/manifest.json`: frozen, credential-free source/assets.
+- `launch-cloud.py`: one-job submission with durable deduplication and source checksum.
+- `budget-and-launch.json`: authorization, authentication blocker, qualifications, and spending ledger.
+
+Teacher recipe: along −0.04 m, radius 0.125 m, normal tilt 15°, axis sign −1, preheight 0.035 m,
+clearance +0.002 m. Moving the open pinch outward avoids the fixed jaw snagging the flap's top edge.
+Synthetic teacher camera: [−0.5, −0.7, 0.75], looking at [0, 0, 0.15]. The teacher table marker
+is group 4 and is removed from policy observations. Policy cameras retain the approved scene transforms.
+The head view uses the principal-point-centered 4:3 crop at 320×240. The physical runner does not yet
+implement this matching preprocessing; do not deploy or move hardware from this training handoff.
+
+Prepared job: Hugging Face H200 **$5/hour**, three-hour timeout **$15 compute cap**, **$5 reserve**
+within the $20 authorization. Official pricing checked at https://huggingface.co/docs/hub/main/en/jobs-pricing.
+320 trials, 12 recorder workers; collection must retain ≥80% audited success and ≥128 valid episodes.
+Every tenth seed is held out. Six render workers, three cameras, ACT batch 32, chunk/action steps 100,
+lr 3e-5, 25,000 updates, checkpoints every 5,000. Private dataset/model destinations:
+
+- `RonTuretzky/carton_dcm_refit_20261009_v1`
+- `RonTuretzky/act_carton_dcm_refit_20261009_v1`
+
+These repositories were **not created**: the active saved token is named `test`, role `read`, and
+the create-model call returned HTTP 403. No alternate project write credential was found in the
+three relevant configured `.env` locations. User was asked to run `hf auth login` locally with a
+repository-write and Jobs-capable token; never paste credentials into chat. Once authenticated:
+
+```sh
+/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/.venv/bin/python \
+  /Users/wk/conductor/workspaces/xlerobot-farm/las-vegas-v1/.context/station-refit-2026-10-09/training/launch-cloud.py
+```
+
+Record the returned job ID immediately (launcher does this), inspect live logs, and distinguish
+recording/rendering from actual optimizer steps. Do not blindly resubmit an uncertain launch.
+No automatic paid retries. Training completion still requires held-out closed-loop evaluation before
+choosing a checkpoint; a completed training job is not physical readiness.
 
 ## Locations
 

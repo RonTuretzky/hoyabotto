@@ -38,6 +38,16 @@ def snapshot_sources(software, target):
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(content)
             hashes[str(relative)] = hashlib.sha256(content).hexdigest()
+    # Camera collision hulls are runtime dependencies, not optional visuals.
+    for source in sorted((software / 'carton/assets/wrist-camera').glob('*')):
+        if not source.is_file():
+            continue
+        relative = source.relative_to(software)
+        content = source.read_bytes()
+        dest = target / relative
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(content)
+        hashes[str(relative)] = hashlib.sha256(content).hexdigest()
     return hashes
 
 

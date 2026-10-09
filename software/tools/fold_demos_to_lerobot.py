@@ -57,6 +57,9 @@ def render_trial(job):
     model = mujoco.MjModel.from_xml_path(str(Path(trial) / 'run/scene.xml'))
     data = mujoco.MjData(model)
     renderer = mujoco.Renderer(model, height, width)
+    option = mujoco.MjvOption()
+    option.geomgroup[3] = 0  # collision hulls have separate CAD visuals
+    option.geomgroup[4] = 0  # synthetic teacher-only registration anchors
     try:
         z = np.load(Path(trial) / 'demo.npz')
         out = {key: np.empty((end + 1, height, width, 3), np.uint8) for key in cameras}
@@ -64,7 +67,7 @@ def render_trial(job):
             data.qpos[:] = z['qpos'][k]
             mujoco.mj_forward(model, data)
             for key, cam in cameras.items():
-                renderer.update_scene(data, camera=cam)
+                renderer.update_scene(data, camera=cam, scene_option=option)
                 out[key][k] = renderer.render()
     finally:
         renderer.close()
@@ -119,8 +122,11 @@ def main(argv=None):
                 for k in range(end + 1):
                     state = dict(zip(ROBOT, z['qpos'][k][adr]))
                     action = dict(zip(ROBOT, z['ctrl'][min(k + 1, end)]))
-                    rec.tick(state, action, {key: images[key][k] for key in cameras})
+                    if not rec.tick(state, action, {key: images[key][k] for key in cameras}):
+                        raise RuntimeError(f'Failed to write {t} frame {k}')
                 n = rec.end_episode(save=True)
+                if n != end + 1:
+                    raise RuntimeError(f'Incomplete episode {t}: {n}/{end + 1} frames')
                 used.append({'trial': str(t), 'seed': demo['seed'], 'frames': n})
                 print(json.dumps(used[-1]), flush=True)
     finally:

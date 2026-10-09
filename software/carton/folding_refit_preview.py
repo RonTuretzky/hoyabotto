@@ -72,7 +72,7 @@ def replace_cart(root, upstream, station, out, tilt=35.145, pan=-5.132):
     return rows
 
 
-def configure_scene(sim,upstream,out):
+def configure_scene(sim,upstream,out, *, controller_anchor=False):
     root=ET.parse(out/'scene.xml').getroot();world=root.find('worldbody');st=sim.station
     ET.SubElement(root.find('asset'),'texture',name='refit_sky',type='skybox',builtin='gradient',
                   rgb1='.20 .24 .28',rgb2='.72 .76 .79',width='512',height='3072')
@@ -90,7 +90,13 @@ def configure_scene(sim,upstream,out):
                           rgba='.12 .13 .14 1',contype='1',conaffinity='1')
     world.find("geom[@name='table']").set('rgba','.22 .14 .08 1')
     # Synthetic table anchor is not present in the physical capture.
-    world.remove(world.find("body[@name='table_tag']"))
+    anchor=world.find("body[@name='table_tag']")
+    if controller_anchor:
+        # Synthetic teacher-only registration aid. Hide group 4 when rendering
+        # policy observations; it is not part of the physical station.
+        for geom in anchor.iter('geom'):geom.set('group','4')
+    else:
+        world.remove(anchor)
     for side in ('left','right'):
         base=world.find(f"body[@name='{side}_base_link']")
         for geom in base.iter('geom'):
