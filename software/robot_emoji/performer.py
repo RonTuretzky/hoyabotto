@@ -25,7 +25,27 @@ class Busy(Exception):
 
 
 class PerformError(Exception):
-    pass
+    """moved=False: refused before any motor was enabled, so the request can safely run again."""
+
+    def __init__(self, message, moved=True):
+        super().__init__(message)
+        self.moved = moved
+
+
+ARM_ORDER = ('right', 'left')   # gestures are written for the right arm; the left arm is the mirror-image fallback
+AVOID_S = 600                   # after an arm fails, prefer the other one for this long
+
+
+def arm_problem(state, arm):
+    """Why an arm cannot perform now (None when every joint reports a position and no fault)."""
+    rows = {r.get('name'): r for r in state.get('motors', [])}
+    for n in G.arm_motors(arm):
+        r = rows.get(n)
+        if r is None or type(r.get('Present_Position')) is not int:
+            return f'{n} not reporting'
+        if r.get('Status'):
+            return f'{n} fault status {r.get("Status")}'
+    return None
 
 
 def _positions(state):
@@ -40,8 +60,10 @@ class Performer:
         self.catalog = catalog
         self.log = log
         self.aborted = threading.Event()
+        self.avoid = {}           # arm -> time until which it is skipped after a failure
+        self.clock = time.time
 
-    def preflight(self, keys):
+    def preflight(self, keys, arm=None):
         unknown = [k for k in keys if k not in self.catalog]
         if unknown or not keys:
             raise PerformError(f'Unknown gestures: {unknown}')
@@ -73,16 +95,58 @@ class Performer:
             self.log(f'verified idle owner, all motors released and wheel encoders stationary (last base phase: {base_phase})')
         else:
             state = self.robot.call('robot_get_state')
+        gestures = [self.catalog[k] for k in keys]
+        if arm is None and gestures[0].arm != 'head':
+            arm = self.choose_arm(state)
+        self.last_arm = arm
         try:
-            return G.plan([self.catalog[k] for k in keys], _positions(state), state['commandable_ranges'])
+            return G.plan(gestures, _positions(state), state['commandable_ranges'], arm=arm)
         except (G.GestureError, KeyError) as e:
-            raise PerformError(f'Plan refused before any motion: {e}') from None
+            raise PerformError(f'Plan refused before any motion ({arm or gestures[0].arm} arm): {e}', moved=False) from None
 
-    def perform(self, keys, on_phase=lambda phase, detail=None: None):
+    def choose_arm(self, state):
+        """The first arm in ARM_ORDER that reports healthy and has not failed recently; else any healthy arm."""
+        now = self.clock()
+        healthy = [a for a in ARM_ORDER if arm_problem(state, a) is None]
+        for arm in healthy:
+            if self.avoid.get(arm, 0) <= now:
+                return arm
+        if healthy:
+            return healthy[0]
+        raise PerformError('No arm is available: ' + '; '.join(f'{a}: {arm_problem(state, a)}' for a in ARM_ORDER), moved=False)
+
+    def perform_any(self, keys, on_phase=lambda phase, detail=None: None):
+        """perform(), and if the chosen arm is refused before anything moved, the same gestures on the other arm."""
+        try:
+            return self.perform(keys, on_phase)
+        except PerformError as e:
+            failed = getattr(e, 'arm', None)
+            if e.moved or failed is None or self.aborted.is_set():
+                raise
+            self.avoid[failed] = self.clock() + AVOID_S
+            other = next(a for a in ARM_ORDER if a != failed)
+            self.log(f'{failed} arm refused before moving ({e}); trying the {other} arm')
+            return self.perform(keys, on_phase, arm=other)
+
+    def perform(self, keys, on_phase=lambda phase, detail=None: None, arm=None):
         """Runs the whole performance; returns a summary. Raises Busy (nothing sent) or PerformError."""
         if self.aborted.is_set():
             raise PerformError('Stopped by the operator; re-arm the show before another performance')
-        plan = self.preflight(keys)
+        self.last_arm = arm
+        try:
+            plan = self.preflight(keys, arm)
+        except PerformError as e:
+            e.arm = self.last_arm
+            raise
+        try:
+            return self._perform(plan, on_phase)
+        except PerformError as e:
+            e.arm = plan['arm']
+            if not e.moved:
+                self.avoid[plan['arm']] = self.clock() + AVOID_S
+            raise
+
+    def _perform(self, plan, on_phase):
         motors = plan['motors']
         if self.aborted.is_set():
             raise PerformError('Stopped by the operator')
@@ -97,7 +161,7 @@ class Performer:
                 self._recover(plan, e)
             raise PerformError('Motor-enable outcome was unknown; recovery attempted and show paused') from None
         except RobotError as e:
-            raise PerformError(f'Enable refused (nothing moved): {e}') from None
+            raise PerformError(f'Enable refused (nothing moved, {plan["arm"]} arm): {e}', moved=False) from None
         summary = {'arm': plan['arm'], 'paths': [], 'home': plan['home']}
         try:
             for path in plan['paths']:

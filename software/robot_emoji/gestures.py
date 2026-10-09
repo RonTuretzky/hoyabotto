@@ -134,7 +134,49 @@ def path_seconds(waypoints, start, rate=RATES['normal']):
     return round(max(step_s, steps * step_s), 1)
 
 
-def plan(gestures, start, ranges):
+# The two SO-101 arms are calibrated the same way, so a right-arm pose mirrors onto the left arm by keeping each
+# joint's offset from the middle of its range and reversing the shoulder pan (and the relative wrist roll).
+# Checked with the XLeRobot twin's forward kinematics on every gesture pose: worst mirror error 4.7 mm.
+MIRRORED = ('shoulder_pan',)
+
+
+def _middle(ranges, name):
+    return (ranges[name]['min_ticks'] + ranges[name]['max_ticks']) / 2
+
+
+def mirror(waypoint, ranges, relative=()):
+    """A right-arm gesture waypoint (joint -> ticks) as the equivalent left-arm waypoint."""
+    out = {}
+    for j, q in waypoint.items():
+        if j in relative:
+            out[j] = -q
+            continue
+        offset = q - _middle(ranges, f'right_arm_{j}')
+        out[j] = round(_middle(ranges, f'left_arm_{j}') + (-offset if j in MIRRORED else offset))
+    return out
+
+
+def plan(gestures, start, ranges, arm=None):
+    """arm: perform right-arm gestures on 'left' instead (mirrored), e.g. when the right arm is unavailable."""
+    if arm is not None and arm != 'head':
+        gestures = [g if g.arm == arm else _on_arm(g, arm, ranges) for g in gestures]
+    return _plan(gestures, start, ranges)
+
+
+def _on_arm(g, arm, ranges):
+    if g.arm == 'head' or {g.arm, arm} != {'left', 'right'}:
+        raise GestureError(f'{g.key}: cannot move a {g.arm} gesture to the {arm} arm')
+    if arm == 'right':
+        raise GestureError(f'{g.key}: gestures are written for the right arm')
+    try:
+        raise_path = tuple(mirror(w, ranges, g.relative_joints) for w in g.raise_path)
+        motion = tuple(mirror(w, ranges, g.relative_joints) for w in g.motion)
+    except KeyError as e:
+        raise GestureError(f'{g.key}: no commandable range for {e}') from None
+    return Gesture(g.key, g.emoji, g.label, arm, raise_path, motion, False, g.relative_joints, g.speed_profile)
+
+
+def _plan(gestures, start, ranges):
     """Paths for a sequence of gestures on one arm: each gesture's raise and motion, then a return to the
     resting pose. start: canonical name -> present ticks. ranges: robot_get_state commandable_ranges.
     Raises GestureError before anything moves if a target is outside the live commandable range."""

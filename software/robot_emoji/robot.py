@@ -6,6 +6,9 @@ every call, and no automatic retry of a call whose outcome is unknown.
 import json
 import os
 import threading
+import time
+import urllib.error
+import urllib.request
 import uuid
 
 DEFAULT_CONFIG = '/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/.private/robot.json'
@@ -72,6 +75,56 @@ class RobotClient:
         return body['result']
 
 
+    # Robot-Mac administration (the same /admin API as robot_admin.py, same pinned certificates).
+    def admin(self, path, payload=None, timeout=20):
+        base, context = self.client.settings()
+        request = urllib.request.Request(base + path, data=None if payload is None else json.dumps(payload).encode(),
+                                         headers={'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(request, context=context, timeout=timeout) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return json.loads(e.read() or b'{}')
+
+    def restart_owner(self, log=print, wait_s=300):
+        """Restart the robot Mac's hardware owner and API on the version it already runs (motors come up released;
+        the deploy refuses while any motor is held). True once the owner reports motion_ready again."""
+        try:
+            record = self.admin('/admin/deploy')['deploy']
+            head = record.get('head') or record['record']['head']
+            started = self.admin('/admin/deploy', {'ref': head, 'mode': 'restart'})
+        except (OSError, ValueError, KeyError) as e:
+            log(f'robot restart could not start: {type(e).__name__}: {e}')
+            return False
+        if not started.get('ok'):
+            log(f"robot restart refused: {started.get('error') or started}")
+            return False
+        job_id = started['job']['id']
+        log(f'robot restart job {job_id} started on {head[:7]}')
+        deadline = time.time() + wait_s
+        state = 'running'
+        while time.time() < deadline and state == 'running':
+            time.sleep(3)
+            try:
+                state = self.admin(f'/admin/job?id={job_id}')['job'].get('state', 'running')
+            except (OSError, ValueError, KeyError):
+                continue            # the API restarts during the job
+        if state != 'succeeded':
+            log(f'robot restart job ended {state}')
+            return False
+        while time.time() < deadline:
+            try:
+                binding = self.health().get('execution_binding', {})
+                if binding.get('motion_ready') is True and not binding.get('blockers'):
+                    log('robot restarted: owner motion_ready, motors released')
+                    return True
+            except RobotError:
+                pass
+            time.sleep(3)
+        log('robot restarted but the owner did not report motion_ready in time')
+        return False
+
+
 class FakeRobot:
     """Enough of the owner for the show: one arm's state, enable, paths at the owner's pace, halt and STOP.
     time_scale 0 makes moves instant (tests); 1 runs them in real time (demo without the robot)."""
@@ -91,11 +144,23 @@ class FakeRobot:
         self.phase = 'holding' if self.enabled else 'idle'
         self.calls = []
         self.fail = {}            # tool name -> error message for its next call
+        self.fail_always = {}     # tool name -> error message for every call (until restart_owner)
+        self.fail_when = []       # (tool name, predicate(args), message): fail matching calls
+        self.status = {}          # motor name -> fault Status reported by robot_get_state
         self.stopped = threading.Event()
         self.lock = threading.Lock()
 
     def describe(self):
         return {'fake': True}
+
+    def restart_owner(self, log=print, wait_s=0):
+        with self.lock:
+            self.calls.append(('restart_owner', {}))
+            self.fail.clear()
+            if getattr(self, 'restart_result', True):
+                self.fail_always.clear(); self.fail_when.clear()
+            self.enabled.clear(); self.phase = 'idle'
+        return getattr(self, 'restart_result', True)
 
     def health(self):
         return {'ok': True, 'motion_ready': True, 'motor_owner_active': True}
@@ -104,6 +169,11 @@ class FakeRobot:
         args = arguments or {}
         with self.lock:
             self.calls.append((name, args))
+            for tool, matches, message in self.fail_when:
+                if tool == name and matches(args):
+                    raise RobotError(f'{name}: {message}')
+            if name in self.fail_always:
+                raise RobotError(f'{name}: {self.fail_always[name]}')
             if name in self.fail:
                 message = self.fail.pop(name)
                 if name == 'robot_move_path' and message.startswith('Owner stopped'):
@@ -114,7 +184,7 @@ class FakeRobot:
                     'enabled_motors': sorted(self.enabled), 'base_drive_phase': 'released'}
         if name == 'robot_get_state':
             return {'source': 'canonical_hardware_owner', 'enabled_motors': sorted(self.enabled),
-                    'motors': [{'name': n, 'Present_Position': q, 'Torque_Enable': int(n in self.enabled)}
+                    'motors': [{'name': n, 'Present_Position': q, 'Torque_Enable': int(n in self.enabled), 'Status': self.status.get(n, 0)}
                                for n, q in self.positions.items()],
                     'commandable_ranges': self.ranges}
         if name == 'robot_set_motor_enable':

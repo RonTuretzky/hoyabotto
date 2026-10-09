@@ -52,13 +52,14 @@ HEAD_LOOK = {'_speed_profile': 'demo', 'look': {'emoji': '👀', 'label': 'look'
              'raise': [{'pan': 0}], 'motion': [{'pan': -80}, {'pan': 80}] * 5 + [{'pan': 0}]}}
 
 
-def test_six_distinct_arm_gestures_at_demo_speed():
+def test_six_distinct_arm_gestures():
     catalog = G.load()
     assert list(catalog) == ['wave', 'hand', 'flex', 'party', 'robot', 'bow']
     assert len({g.emoji for g in catalog.values()}) == 6
     # right arm only: the head stays at its registered pose
     assert {g.arm for g in catalog.values()} == {'right'}
-    assert all(g.speed_profile == 'demo' and g.verified_on_hardware is False for g in catalog.values())
+    # normal arm speed: the first demo-speed enable on the real robot was followed by an owner fault (10 Oct)
+    assert all(g.speed_profile == 'normal' and g.verified_on_hardware is False for g in catalog.values())
     # each gesture has its own motion signature: which joints move during the motion, and how far
     signatures = set()
     for g in catalog.values():
@@ -75,9 +76,9 @@ def test_six_distinct_arm_gestures_at_demo_speed():
     assert len(signatures) >= 5
     for g in catalog.values():
         plan = G.plan([g], START, RANGES)
-        assert plan['speed_profile'] == 'demo'
+        assert plan['speed_profile'] == 'normal'
         assert all('right_arm_gripper' not in w for p in plan['paths'] for w in p['waypoints'])
-        assert sum(p['duration_s'] for p in plan['paths']) < 30
+        assert sum(p['duration_s'] for p in plan['paths']) < 45
 
 
 def test_motion_legs_must_be_one_owner_piece():
@@ -133,7 +134,7 @@ def test_new_arm_gestures_return_and_release(key):
     before = dict(robot.positions)
     result = Performer(robot, G.load(), log=lambda _:None).perform([key])
     assert all(p['completed'] for p in result['paths'])
-    assert robot.speed_profile == 'demo'
+    assert robot.speed_profile == 'normal'
     assert not robot.enabled
     assert robot.positions == before
 
@@ -192,7 +193,7 @@ def test_performance_sequence_and_release():
     assert names(robot) == ['robot_get_motion', 'robot_get_state', 'robot_set_motor_enable',
                             'robot_move_path', 'robot_move_path', 'robot_move_path', 'robot_set_motor_enable']
     enable, release = robot.calls[2][1], robot.calls[-1][1]
-    assert enable == {'names': RIGHT, 'enabled': True, 'speed_profile': 'demo'} and release == {'names': RIGHT, 'enabled': False}
+    assert enable == {'names': RIGHT, 'enabled': True} and release == {'names': RIGHT, 'enabled': False}
     assert all(c[1]['arm'] == 'right' and c[1]['wait'] is True for c in robot.calls if c[0] == 'robot_move_path')
     assert phases == ['enable', 'raise', 'motion', 'return', 'release']
     assert robot.positions['right_arm_wrist_flex'] == 3000 and not robot.enabled
@@ -368,15 +369,94 @@ def test_visitors_can_submit_only_one_emoji(web):
     assert not show.queue and not robot.calls
 
 
-def test_web_failure_pauses_the_show(web):
+LEFT = G.arm_motors('left')
+
+
+def wait_state(base, ticket, states, seconds=5):
+    deadline = time.time() + seconds
+    while get(base + f"/api/requests/{ticket['id']}")['state'] not in states and time.time() < deadline:
+        time.sleep(.05)
+    return get(base + f"/api/requests/{ticket['id']}")['state']
+
+
+def test_left_arm_mirrors_the_right_arm_gestures():
+    robot = fake()
+    for g in G.load().values():
+        plan = G.plan([g], robot.positions, robot.ranges, arm='left')
+        assert plan['arm'] == 'left' and plan['motors'] == LEFT
+        right = G.plan([g], robot.positions, robot.ranges)
+        for pl, pr in zip(plan['paths'][:-1], right['paths'][:-1]):
+            for wl, wr in zip(pl['waypoints'], pr['waypoints']):
+                for jr, q in wr.items():
+                    j = jr[len('right_arm_'):]
+                    if j in g.relative_joints:
+                        continue
+                    mid_r = sum(robot.ranges[jr][k] for k in ('min_ticks', 'max_ticks')) / 2
+                    mid_l = sum(robot.ranges[f'left_arm_{j}'][k] for k in ('min_ticks', 'max_ticks')) / 2
+                    sign = -1 if j == 'shoulder_pan' else 1
+                    assert abs(wl[f'left_arm_{j}'] - (mid_l + sign * (q - mid_r))) <= 0.5
+
+
+def test_right_arm_fault_reported_by_the_robot_uses_the_left_arm(web):
     show, robot, base = web
-    robot.fail['robot_set_motor_enable'] = 'Pickup phone feed paused'
+    robot.status['right_arm_elbow_flex'] = 32
     show.set_armed(True)
     _, ticket = post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']})
-    deadline = time.time() + 5
-    while get(base + f"/api/requests/{ticket['id']}")['state'] != 'failed' and time.time() < deadline:
-        time.sleep(.05)
-    assert get(base + f"/api/requests/{ticket['id']}")['state'] == 'failed'
+    assert wait_state(base, ticket, ('done', 'failed')) == 'done'
+    enables = [a for n, a in robot.calls if n == 'robot_set_motor_enable' and a['enabled']]
+    assert enables and all(a['names'] == LEFT for a in enables)
+    assert get(base + '/api/state')['armed'] is True
+
+
+def test_right_arm_refused_before_moving_falls_back_to_left(web):
+    show, robot, base = web
+    robot.fail['robot_set_motor_enable'] = 'right_arm_shoulder_pan: fault or health limit'
+    show.set_armed(True)
+    _, ticket = post(base + '/api/requests', {'name': 'Ada', 'gestures': ['flex']})
+    assert wait_state(base, ticket, ('done', 'failed')) == 'done'
+    enables = [a['names'] for n, a in robot.calls if n == 'robot_set_motor_enable' and a['enabled']]
+    assert enables == [RIGHT, LEFT]
+    assert get(base + '/api/state')['armed'] is True and not robot.enabled
+
+
+def test_three_refusals_restart_the_robot_then_the_request_runs(web, monkeypatch):
+    monkeypatch.setattr(S, 'RETRY_S', .01)
+    show, robot, base = web
+    robot.fail_always['robot_set_motor_enable'] = 'HARDWARE_OWNER_UNAVAILABLE'
+    show.set_armed(True)
+    _, ticket = post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']})
+    assert wait_state(base, ticket, ('done', 'failed')) == 'done'
+    assert [n for n, _ in robot.calls].count('restart_owner') == 1
+    assert get(base + '/api/state')['armed'] is True
+
+
+def test_restart_that_does_not_help_pauses_the_show(web, monkeypatch):
+    monkeypatch.setattr(S, 'RETRY_S', .01)
+    show, robot, base = web
+    robot.restart_result = False
+    robot.fail_always['robot_set_motor_enable'] = 'HARDWARE_OWNER_UNAVAILABLE'
+    show.set_armed(True)
+    _, ticket = post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']})
+    assert wait_state(base, ticket, ('done', 'failed')) == 'failed'
+    assert get(base + '/api/state')['armed'] is False
+    assert [n for n, _ in robot.calls].count('restart_owner') == 1
+
+
+def test_mid_motion_failure_is_reported_but_the_show_keeps_going(web, monkeypatch):
+    monkeypatch.setattr(S, 'RETRY_S', .01)
+    show, robot, base = web
+    robot.fail['robot_move_path'] = 'Owner stopped: contact guard'
+    show.set_armed(True)
+    _, first = post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']})
+    assert wait_state(base, first, ('done', 'failed')) == 'failed'
+    _, second = post(base + '/api/requests', {'name': 'Bo', 'gestures': ['bow']})
+    assert wait_state(base, second, ('done', 'failed')) == 'done'
+    assert get(base + '/api/state')['armed'] is True
+
+
+def test_operator_stop_still_pauses(web):
+    show, robot, base = web
+    show.stop()
     assert get(base + '/api/state')['armed'] is False
 
 

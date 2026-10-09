@@ -33,6 +33,9 @@ MAX_GESTURES = 1
 QUEUE_MAX = 30
 BUSY_RETRY_S = 3
 THANKS_S = 4
+RETRY_S = 5                # wait before retrying a request the robot refused before moving
+MAX_FAILURES = 2           # the next consecutive failure restarts the robot's hardware owner
+RESTART_GAP_S = 600        # at most one automatic restart in this time
 SITE_ORIGINS = ('https://hoyabotto.com', 'https://www.hoyabotto.com', 'https://ronturetzky.github.io')
 
 
@@ -65,6 +68,8 @@ class Show:
         self.robot_note = 'idle'
         self.log_lines = collections.deque(maxlen=200)
         self.performer = Performer(robot, catalog, log=self.log)
+        self.failures = 0
+        self.last_restart = -RESTART_GAP_S
         self.closed = False
         self.state_path = Path(state_path) if state_path else None
         if self.state_path and self.state_path.exists():
@@ -221,8 +226,7 @@ class Show:
                     self.lock.wait(BUSY_RETRY_S)
                 continue
             except (PerformError, RobotError) as e:
-                self._finish(req, 'failed', str(e), dequeue=True)
-                self._cooldown()
+                self._failed(req, e, queued=True)
                 continue
             with self.lock:
                 if not self.armed or not self.queue or self.queue[0] is not req:
@@ -232,8 +236,9 @@ class Show:
                 self._persist()
             self.log(f"performing {req['id']} for {req['name']!r}")
             try:
-                summary = self.performer.perform(req['gestures'], lambda p, g=None: self._phase(req, p, g))
-                self.log(f"done {req['id']}: {json.dumps(summary['paths'])}")
+                summary = self.performer.perform_any(req['gestures'], lambda p, g=None: self._phase(req, p, g))
+                self.failures = 0
+                self.log(f"done {req['id']} on the {summary['arm']} arm: {json.dumps(summary['paths'])}")
                 self._finish(req, 'done', None)
             except Busy as e:  # someone took the robot between the check and the start; back to the front
                 with self.lock:
@@ -252,11 +257,59 @@ class Show:
                         self._persist()
                         self.lock.wait(BUSY_RETRY_S)
                 else:
-                    self._finish(req, 'failed', str(e))
-                    self._cooldown()
+                    self._failed(req, e, queued=False)
             except (PerformError, RobotError) as e:
-                self._finish(req, 'failed', str(e))
-                self._cooldown()
+                self._failed(req, e, queued=False)
+
+    def _failed(self, req, error, queued):
+        """Keep the show going: a request refused before anything moved goes back to the front of the queue; one that
+        failed mid-motion is reported to its visitor (the performer already took the arm home). A third failure in a
+        row restarts the robot's hardware owner (at most once per RESTART_GAP_S). An operator STOP, or failures that
+        a restart does not clear, pause the show for a person to check the robot."""
+        moved = getattr(error, 'moved', True) and not queued
+        self.failures += 1
+        self.log(f"{req['id']} failure {self.failures} ({'arm moved' if moved else 'nothing moved'}): {error}")
+        if moved:
+            self._finish(req, 'failed', str(error))
+        else:
+            with self.lock:
+                if req not in self.queue:
+                    req['state'], req['phase'], self.current = 'queued', None, None
+                    self.queue.appendleft(req)
+                self._persist()
+        if self.performer.aborted.is_set():
+            return self._give_up(req)
+        if self.failures > MAX_FAILURES:
+            if not self._restart_robot():
+                return self._give_up(req)
+            self.failures = 0
+            return
+        with self.lock:
+            self.robot_note = f'retrying after a robot refusal ({self.failures}/{MAX_FAILURES + 1})'
+            self.lock.wait(RETRY_S)
+
+    def _restart_robot(self):
+        now = self.clock()
+        if not hasattr(self.robot, 'restart_owner'):
+            return False
+        if now - self.last_restart < RESTART_GAP_S:
+            self.log(f'robot restart skipped: the last one was {int(now - self.last_restart)} s ago')
+            return False
+        self.last_restart = now
+        with self.lock:
+            self.robot_note = 'restarting the robot (motors released)'
+        self.log(f'{self.failures} failures in a row: restarting the robot hardware owner')
+        ok = self.robot.restart_owner(log=self.log)
+        self.performer.avoid.clear()
+        return ok
+
+    def _give_up(self, req):
+        with self.lock:
+            queued = req in self.queue
+        if queued:
+            self._finish(req, 'failed', req.get('error') or 'The robot could not perform this request', dequeue=True)
+        self.failures = 0
+        self._cooldown()
 
     def _finish(self, req, state, error, dequeue=False):
         with self.lock:
