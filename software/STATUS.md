@@ -1,4 +1,36 @@
-## Arm demo speed and illuminated carton tags — 9 October 2026, 22:2x JST
+## Camera-to-arm preflight and demo deployment readback — 9 October 2026
+
+- Read-only preflight still blocks right-arm registration: table tag1 and fixed right-gripper
+  tag2 are not accepted together. The current frame accepts carton14/26/27. The absent
+  detected mount alone was not proof of removal; the user subsequently confirmed BOTH
+  table1 and right-gripper2 are gone. Replace them for the existing routine. Right-arm geometry reports
+  unvalidated feetech_degrees_v1 mapping, missing gripper_from_tool and workspace bounds.
+- Fresh uncached paired-API state returned all16 motors torque-off. Its row timestamps were
+  68–88ms ahead of the observer at response receipt; the calibration sampler rejects future
+  stamps. This supports a host-clock offset, not stale hardware. Synchronize/verify clocks
+  or sample on the robot host before registration; do not relax freshness gates.
+- Start with fixed-head OAK and one arm: measured black-square widths, confirmed rigid tag2
+  mount, table1 co-visible, independently checked joint mapping, then the existing eight-fit/
+  three-heldout-pose registration. Grid clearance and excitation must be verified. Fit alone
+  is not jaw targeting: measure pad/hinge offsets and connect validated registration to the
+  currently pixel-only carton observer. Box-only pose and table-plane fit do not supply this.
+- Independent post-deployment readback confirms server9725a6b, new owner generation
+  1791551739.406972, idle/unclaimed, all16 motors released, normal100/demo300tick/s profiles,
+  and pilot enable schema exposes the profile. OAK remains1040x780, focus79, selected hash
+  a0f85c4e3814322178f172ceb1408066fd6904d6999685e27138222e1d2acfed.
+- Latest carton observation: OAK14/26/27 accepted; phone28 accepted. Prior five-frame
+  phone angle check accepted28 in5/5,11 in4/5,21 in3/5; these are intermittent visibility,
+  not always-visible guarantees. Target right-flap12 remains missing. depth_used:false and
+  metric_pose_available:false. Phone timing is receipt-only. No motor writes in these reads.
+- Requested delegated Codex worker failed before work with an account usage-limit error.
+  Primary verified the server deployment and prepared a fresh three-way UI integration
+  preserving the Joy-Con agent's current practice/preview changes. All65 combined UI tests
+  pass after supplying the existing model asset path (63 initial passes plus2 reruns), and
+  JS syntax passes. No speed patch applied to the other agent's checkout yet: its practice
+  session became active, so no restart was made. Prepared integration and receipts are in
+  seville-v2 .context/demo-speed/. No fast physical wave or calibration motion was run.
+
+## Arm demo speed and illuminated carton tags — 9 October 2026, 22:15 JST
 
 - Explicit normal/demo profiles added for Joy-Con and pilot/chat owner commands.
   Demo uses 300 ticks/s (26.37 degrees/s) on the five positioning joints per arm;
