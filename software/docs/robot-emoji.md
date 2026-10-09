@@ -193,3 +193,21 @@ This is controller completion evidence; the gesture's hardware-verification flag
 operator's visual confirmation. Durations depend on the starting pose: this run took about 37 seconds.
 First Celebration and Look around runs still need supervision. STOP remains set until the operator
 explicitly re-arms.
+
+## Six distinct gestures at demo speed and the robot relay keeper (10 October 2026)
+
+- Six presets, each with its own joint and shape: 👋 手を振る (side-to-side sweep), 🙋 はーい！ (arm straight up,
+  hand flick), 💪 力こぶ (elbow curls), 🎉 お祝い (hand draws circles), 🤖 ロボットダンス (stiff elbow/wrist zig-zag
+  with wrist twists), 🙇 おじぎ (arm lowers forward). Right arm only: moving the head voids the OAK tag registration.
+  The arm is enabled with `speed_profile: demo` (300 ticks/s); performances take 8–14 s. None has run on hardware
+  yet: supervise the first run of each with STOP in reach. Installed in the runtime on 10 October; the show
+  restarts paused, so arm it from http://127.0.0.1:8790/operator.
+- Slide badge: rises from the bottom of the slide to the top through the show's phases and fades when done.
+- Robot link: `robot_emoji.relay` runs as launch agent `com.hoyabotto.robot-relay`. It keeps
+  `cloudflared access tcp` running for robot.json's `relay_hostname` on 127.0.0.1:1242, restarts it if it exits or
+  the name changes, and logs to `~/Library/Application Support/HoyaBotto/logs/relay.log` when the name stops
+  resolving. The robot client prefers the LAN address when both Macs share a network and falls back to the relay.
+- When the robot Mac's quick tunnel restarts (reboot, sleep, crash), it gets a new *.trycloudflare.com name. Read
+  it from the robot Mac's relay log, then on this Mac run `hoyabotto-reconnect <name>` (accepts a hostname, URL or
+  log line; backs up robot.json, updates the name, waits for the forwarder and checks the relay read-only).
+  `hoyabotto-reconnect check` tests the relay and LAN routes. No show restart is needed.
