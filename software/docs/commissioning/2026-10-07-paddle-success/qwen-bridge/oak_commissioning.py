@@ -7,6 +7,11 @@ import redeploy_robot_server as d
 
 PROFILE = ['--full-sensor', '--isp-denominator', '4', '--fps', '5']
 
+def owner_snapshot():
+    s=d.read_status()
+    keys=('phase','started','age_s','motor_writes','stop_latched','error','enabled_motors','stream_phase')
+    return {**{k:s.get(k) for k in keys}, 'rows':{n:{k:r.get(k) for k in ('Present_Position','Torque_Enable','Moving')} for n,r in s.get('rows',{}).items()}}
+
 def manifest():
     try: return json.loads((Path(d.OAK_RAW_DIR)/'oak.json').read_text())
     except (OSError,ValueError): return {}
@@ -25,7 +30,7 @@ def main():
     a=ap.parse_args()
     if a.oak: raise ValueError('This commissioning ref only accepts dry-run or cameras-only')
     owners=d.processes('gemma_hardware_owner.py'); apis=d.processes('gemma_robot_tools.py')
-    before=d.read_status(); previous=manifest()
+    before=owner_snapshot(); previous=manifest()
     if len(owners)!=1 or not previous or time.time()-previous['captured_at']>2:
         raise RuntimeError('Need one existing owner and a fresh baseline camera; changed nothing')
     checkout=d.SOFTWARE.parent
@@ -68,7 +73,7 @@ def main():
         if d.processes('gemma_hardware_owner.py')!=owners or d.processes('gemma_robot_tools.py')!=apis:
             raise RuntimeError('Owner/API process changed concurrently; trial invalid')
         final={'success':True,'profile':PROFILE,'samples':samples,'manifest':manifest(),
-               'owner_pids_unchanged':True,'api_pids_unchanged':True,'after':d.read_status(),'backup':str(backup)}
+               'owner_pids_unchanged':True,'api_pids_unchanged':True,'after':owner_snapshot(),'backup':str(backup)}
         (backup/'result.json').write_text(json.dumps(final,indent=2));print(json.dumps(final),flush=True)
     except BaseException as e:
         if not d.stop_oak():raise RuntimeError('Cannot stop failed trial; refusing duplicate camera owner') from e
