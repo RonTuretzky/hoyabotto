@@ -2055,3 +2055,8 @@ does not show the complete shoulder/base-to-gripper chain. Wrist close-ups do
 not establish whole-arm clearance. Camera-based direction observation is
 possible, but the phone needs a wider arm/reference view for the current
 zero/sign check. All 16 motors remain released; no direction probe executed.
+
+Follow-up phone frame 473339 (camera-direction-review-4) now gives a usable side
+view of the right-arm mount and arm/gripper profile after the owner repositioned
+the phone. Suitable for qualitative direction observation alongside OAK; no
+direction probe, path-clearance validation or absolute-zero calibration yet.
