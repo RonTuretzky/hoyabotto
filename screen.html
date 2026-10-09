@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hoya Botto · Live screen</title>
+<title>ホヤボット · ライブ画面</title>
 <style>
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -22,7 +22,7 @@
   @keyframes bob { 50% { transform: translateY(-2vh); } }
   .idle .name { font-size: 8vh; }
   footer { display: flex; align-items: center; gap: 2vw; padding: 2.5vh 4vw; background: rgba(255,255,255,.06); font-size: 3vh; min-height: 9vh; }
-  footer .label { opacity: .55; text-transform: uppercase; letter-spacing: .1em; font-size: 2.2vh; white-space: nowrap; }
+  footer .label { opacity: .55; letter-spacing: .1em; font-size: 2.2vh; white-space: nowrap; }
   footer .next { display: flex; gap: 1.6vw; overflow: hidden; white-space: nowrap; }
   footer .pill { background: rgba(255,255,255,.1); border-radius: 99px; padding: .6vh 1.6vw; }
   footer .url { margin-left: auto; opacity: .55; font-size: 2.4vh; white-space: nowrap; }
@@ -33,11 +33,11 @@
 <div class="stage idle" id="stage">
   <div class="emojis" id="emojis"><span>👋</span></div>
   <div class="hello" id="hello"></div>
-  <div class="name" id="name">Pick an emoji and type your name</div>
+  <div class="name" id="name">絵文字を選んで、名前を入れてね</div>
   <div class="phase" id="phase"></div>
 </div>
 <footer>
-  <span class="label">Up next</span>
+  <span class="label">次の人</span>
   <div class="next" id="next"></div>
   <span class="url" id="url"></span>
 </footer>
@@ -46,7 +46,7 @@
 <script>
 const $ = id => document.getElementById(id);
 $('url').textContent = window.ROBOT_EMOJI_API ? 'hoyabotto.com/wave.html' : location.host;
-const PHASES = { enable: 'Getting ready…', raise: 'Raising the arm…', motion: 'Here we go!', return: 'Going back to rest…', release: 'All done' };
+const PHASES = { enable: '準備中…', raise: '腕を上げています…', motion: 'いくよ！', return: '元の姿勢に戻ります…', release: 'おしまい' };
 
 function setEmojis(list) {
   const want = list.join('|');
@@ -61,15 +61,15 @@ function render(s) {
     const done = c.state === 'done';
     stage.className = 'stage ' + (done ? 'done' : 'performing');
     setEmojis(c.emojis);
-    $('hello').textContent = done ? 'Thank you' : 'This one is for';
+    $('hello').textContent = done ? 'ありがとう' : 'この動きは';
     $('name').textContent = c.name;
     const p = (c.phase || '').split(':')[0];
     $('phase').textContent = done ? '🎉' : (PHASES[p] || '');
   } else {
     stage.className = 'stage idle';
     setEmojis(s.catalog.map(g => g.emoji));
-    $('hello').textContent = s.armed ? '' : 'The robot is taking a short break';
-    $('name').textContent = 'Pick an emoji and type your name';
+    $('hello').textContent = s.armed ? '' : 'ロボットはひと休み中です';
+    $('name').textContent = '絵文字を選んで、名前を入れてね';
     $('phase').textContent = '';
   }
   $('next').replaceChildren(...(s.queue.length ? s.queue.slice(0, 8) : [{ name: '—', emojis: [] }]).map(r => {
@@ -80,9 +80,9 @@ function render(s) {
 async function tick() {
   try { render(await emojiFetch('/api/state')); } catch (e) {
     $('stage').className = 'stage idle';
-    $('hello').textContent = 'Show offline';
-    $('name').textContent = 'We’ll be back soon';
-    $('phase').textContent = 'Reconnecting…';
+    $('hello').textContent = 'ショーはオフラインです';
+    $('name').textContent = 'まもなく再開します';
+    $('phase').textContent = '再接続中…';
     $('next').replaceChildren();
   }
   setTimeout(tick, 700);

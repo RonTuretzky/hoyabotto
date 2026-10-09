@@ -7,13 +7,13 @@ window.emojiFetch = async (path, options = {}) => {
       ...options, cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(8000)
     });
     const body = await response.json();
-    if (!response.ok) throw new Error(body.error || 'The show is unavailable. Please try again later.');
+    if (!response.ok) throw new Error(body.error || 'ショーは現在ご利用いただけません。少ししてからもう一度どうぞ。');
     return body;
   } catch (error) {
     if (error instanceof TypeError || error.name === 'TimeoutError' || error.name === 'SyntaxError') {
       throw new Error(options.method === 'POST'
-        ? 'Connection interrupted. Your request may already be queued; check the screen before sending again.'
-        : 'The robot show is offline. Please try again in a moment.');
+        ? '接続が切れました。すでに並んでいるかもしれません。もう一度送る前に画面を確認してください。'
+        : 'ロボットのショーは現在オフラインです。少ししてからもう一度どうぞ。');
     }
     throw error;
   }

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ホヤボットの中身とできること · Hoya Botto</title>
+<meta name="description" content="ホヤボット（XLeRobot）を3Dで分解し、農場づくりから海藻の箱詰めまで、目指す作業を状況つきで紹介します。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🤖%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="robot/robot.css">
+<script type="importmap">{"imports":{"three":"./robot/vendor/three.module.js","three/addons/":"./robot/vendor/addons/"}}</script>
+<script type="module" src="robot/robot.js"></script>
+</head>
+<body>
+<canvas id="stage" aria-hidden="true"></canvas>
+<div id="labels" aria-hidden="true"></div>
+<a id="turn" class="turn" href="wave.html" hidden role="status" aria-live="polite"><span id="turn-emoji"></span><span id="turn-text"></span></a>
+<div id="loading" role="status"><span class="spinner"></span>3Dモデルを読み込み中…</div>
+
+<nav class="top">
+  <a href="index.html" class="brand">ホヤボット</a>
+  <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+  <a href="wave.html" target="_blank" rel="noopener" class="wave">👋 手を振る</a>
+</nav>
+
+<main id="story">
+
+<section class="chapter" data-chapter="hero" style="--len:150vh">
+  <div class="card hero">
+    <p class="eyebrow">ホヤボット · XLeRobot</p>
+    <h1><span>一台のロボットで、</span><span>気仙沼のものづくりへ。</span></h1>
+    <p class="lead-ja">分解して中身を見せ、できること・目指すことを順に紹介します。</p>
+    <p class="hint">スクロールで分解 <span aria-hidden="true">↓</span></p>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="explode" style="--len:320vh">
+  <div class="card">
+    <p class="eyebrow">01 · 分解</p>
+    <h2>部品をすべて見せます</h2>
+    <p>IKEAのRÅSKOGカートに、SO-101アームを2本、首を振るヘッド、カメラを3台。関節はすべてSTS3215サーボで、12 Vで動きます。</p>
+    <ul class="stats">
+      <li><b>16</b><span>サーボ STS3215<br><small>アーム12・首2・車輪2</small></span></li>
+      <li><b>2</b><span>SO-101アーム<br><small>各5関節＋グリッパー</small></span></li>
+      <li><b>3</b><span>カメラ<br><small>OAK-D Lite＋手首×2</small></span></li>
+      <li><b>12 V</b><span>モーター基板2枚<br><small>実測11.8〜12.2 V</small></span></li>
+    </ul>
+    <p class="chips"><span class="chip ok">実機で確認</span> 16個のサーボすべてが応答</p>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="sensors" style="--len:560vh">
+  <div class="card">
+    <p class="eyebrow">02 · センサー</p>
+    <h2>見る・測る・感じる</h2>
+    <ol class="sensors" id="sensor-list">
+      <li><b>OAK-D Lite 深度カメラ（頭）</b><em class="chip ok">実機で確認</em><span>カラー13MP（使用は1040×780・約9.7コマ/秒）とステレオ深度640×400。視野69°×54°。制御モデルの入力、AprilTagの検出、深度から3Dの点。</span></li>
+      <li><b>手首カメラ ×2</b><em class="chip ok">実機で確認</em><span>キット付属のUSBカメラ、640×480。つかむ瞬間を手元から撮り、制御モデルの入力に。左は時々止まる（ケーブルの可能性）。</span></li>
+      <li><b>スマホの俯瞰カメラ</b><em class="chip ok">実機で確認</em><span>720×1280・約4コマ/秒。ロボットの右から全体を見る。映像が止まるとモーターを有効にできない安全条件つき。</span></li>
+      <li><b>AprilTag マーカー</b><em class="chip ok">実機で確認</em><span>36h11。台に60 mm、グリッパーとパドルに40 mm。頭部カメラで箱のタグを4/4フレーム検出。カメラとアームの位置合わせはまだ。</span></li>
+      <li><b>サーボのフィードバック ×16</b><em class="chip ok">実機で確認</em><span>STS3215から位置・負荷・電圧・電流を読む。負荷の上限、1回の移動量、可動域、0.5秒の見張りで動きを止める。</span></li>
+      <li><b>車輪のエンコーダー</b><em class="chip ok">実機で確認</em><span>車輪サーボ2個の回転から走行距離を測る。50 cm走行で差は約0.4 mm（床での実測はまだ）。</span></li>
+      <li><b>Joy-Con（左右）</b><em class="chip plan">入力のみ確認</em><span>ボタン・スティック・姿勢センサー（IMU）をMacで受信。手動操作用で、実際の操作はまだ調整中。</span></li>
+      <li><b>BH1750 照度センサー＋ESP32</b><em class="chip plan">未配線</em><span>1 lx単位、最大54,612 lx、約5回/秒。アームが持つパドルに上向きに載せる。ファームウェアは作成済み。</span></li>
+      <li><b>D500 LiDAR</b><em class="chip design">取付具を設計</em><span>360°・毎秒10回転・0.03〜12 m。カートの縁に付け、走行距離の確認と周囲の安全柵に。読み取りプログラムはまだ。</span></li>
+      <li><b>SHT31・土壌水分センサー</b><em class="chip vision">カートのみ</em><span>空気の温湿度と水分の実験用。紙のトレーでは不要として保留中。</span></li>
+    </ol>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="measure" style="--len:260vh">
+  <div class="card">
+    <p class="eyebrow">03 · 測る</p>
+    <h2>台と苗を、数字にする</h2>
+    <p>頭部の深度カメラで台とプランターを3Dの点に。照度センサー付きのパドルを持ち上げ、プランターの上で光を測ります。</p>
+    <ul class="status">
+      <li><span class="chip ok">実機で確認</span>パドルをつかみ、持ち上げ、置く（1回、2026年10月7日）</li>
+      <li><span class="chip ok">実機で確認</span>深度から3Dの点を取得（台の平面推定はまだ）</li>
+      <li><span class="chip plan">準備中</span>照度の読み取り（センサー未配線）</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="print" style="--len:460vh">
+  <div class="card">
+    <p class="eyebrow">04 · 印刷して組む</p>
+    <h2>台を印刷し、<br>ロボットが組み立てる</h2>
+    <p>部品まで全部3Dプリントのモジュール式テーブル（CC0）。ベルト式の3Dプリンターなら、刷り上がった部品がベルトに乗って流れてきます。ロボットがそれを取り、接続具・棒・天板の順に組みます。</p>
+    <ul class="status">
+      <li><span class="chip design">データ準備済み</span>13種類の部品はAnkerMake M5Cに収まる。まだ印刷していません</li>
+      <li><span class="chip vision">構想</span>ベルト式プリンターと、ロボットによる組み立て</li>
+    </ul>
+    <p class="note">脚は早送りで表示しています。</p>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="assemble" style="--len:600vh">
+  <div class="card">
+    <p class="eyebrow">05 · 農場をつくる</p>
+    <h2>プランターを組み立てる</h2>
+    <p>紙とキャリアを同じ口から送り込む「共用ガイド」と、折り目をつけるローラー（G4）。13の手順で、かいわれの苗床をつくります。</p>
+    <div class="step"><b id="g4-step-num">手順 0 / 12</b><span id="g4-step-name">準備（人が部品を並べる）</span></div>
+    <ol class="steps" id="g4-steps"><li data-name="準備（人が部品を並べる）"></li><li data-name="トレーを置く"></li><li data-name="ホルダーを載せる"></li><li data-name="共用ガイドを載せる"></li><li data-name="キャリアを差し込む"></li><li data-name="キャリア4つが収まる"></li><li data-name="紙を差し込む"></li><li data-name="やさしく押し込む"></li><li data-name="ガイドを外す"></li><li data-name="ローラーを取る"></li><li data-name="折り目を転がす"></li><li data-name="発芽シートを敷く"></li><li data-name="水と湿り気を確認"></li></ol>
+    <ul class="status">
+      <li><span class="chip design">試作</span>G4の部品6点を印刷（仕上がりは未確認）</li>
+      <li><span class="chip sim">シミュレーション</span>持ち上げて置く動作1回まで</li>
+      <li><span class="chip plan">未承認</span>ロボットでの実行はまだ許可していません</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="garden" style="--len:300vh">
+  <div class="card">
+    <p class="eyebrow">06 · 広げる</p>
+    <h2>プランターを増やし、<br>どこまでも続く庭へ</h2>
+    <p>台を印刷し、プランターを組み、また台を印刷する。ロボットが自分の農場を広げていく。</p>
+    <ul class="status">
+      <li><span class="chip vision">構想</span>台とプランターを自分で増やす</li>
+      <li><span class="chip ok">実機で確認</span>カートの走行（短い前進・後退を2回）</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="pack" style="--len:300vh">
+  <div class="card">
+    <p class="eyebrow">07 · 箱詰め</p>
+    <h2>海藻の箱を閉じる</h2>
+    <p>八葉水産の子持めかぶの箱（37.9×28.3×10.8 cm、約0.96 kg）。短いふた2枚、長いふた2枚を折り、テープで閉じます。</p>
+    <ul class="status">
+      <li><span class="chip sim">シミュレーション</span>短いふた2枚：未経験の初期条件63件中63件成功</li>
+      <li><span class="chip plan">実機は未達成</span>2026年10月9日の試行では折れず</li>
+      <li><span class="chip vision">構想</span>長いふたとテープ</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="lift" style="--len:300vh">
+  <div class="card">
+    <p class="eyebrow">08 · 運ぶ</p>
+    <h2>大きな箱を持ち上げ、<br>コンベアへ空ける</h2>
+    <p>海藻の入った箱を両腕で持ち上げ、向きを変えてコンベアの上に空ける。人が重い箱を運ぶ時間を減らします。</p>
+    <ul class="status">
+      <li><span class="chip vision">構想</span>いまのアームの持ち上げ能力では未検証</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="outro" style="--len:200vh">
+  <div class="card outro">
+    <p class="eyebrow">いま と これから</p>
+    <h2>今日できること、<br>これから目指すこと</h2>
+    <ul class="legend">
+      <li><span class="chip ok">実機で確認</span>本物のロボットで動いた</li>
+      <li><span class="chip sim">シミュレーション</span>仮想環境で成功</li>
+      <li><span class="chip design">設計済み</span>部品・データがある</li>
+      <li><span class="chip vision">構想</span>これから取り組む</li>
+    </ul>
+    <p class="cta"><a href="wave.html" target="_blank" rel="noopener" class="button">👋 ロボットに手を振る</a><a href="index.html" class="button ghost">← スライドに戻る</a></p>
+    <p class="credits">3Dモデル：XLeRobot（Apache-2.0）、SO-ARM100（TheRobotStudio、Apache-2.0）、MuJoCo-GS-Web（MIT）。テーブル：Modular Table 100% printed（CC0）。プランター（G4 共用ガイドとローラー）・パドル・タグ・LiDAR取付具は本プロジェクトの設計。シーンの動きは説明用の再現で、ロボットの実績ではありません。</p>
+  </div>
+</section>
+
+</main>
+<script src="emoji-config.js"></script>
+<script src="emoji-api.js"></script>
+<script>
+// A visitor who sent a wave keeps their place in line visible while exploring.
+(() => {
+  const id = new URLSearchParams(location.search).get('ticket') || sessionStorage.getItem('hoyaTicket');
+  if (!id || !window.emojiFetch) return;
+  const pill = document.getElementById('turn'), em = document.getElementById('turn-emoji'), tx = document.getElementById('turn-text');
+  let buzzed = false;
+  async function tick() {
+    let t; try { t = await emojiFetch('/api/requests/' + encodeURIComponent(id)); } catch (_) { setTimeout(tick, 4000); return; }
+    pill.hidden = false; em.textContent = t.emojis.join('');
+    pill.className = 'turn ' + t.state;
+    if (t.state === 'queued') tx.textContent = t.position <= 1 ? `${t.name}さん、次があなたの番です` : `${t.name}さん · あと${t.position - 1}人で順番です`;
+    else if (t.state === 'performing') { tx.textContent = 'あなたの番です！ロボットを見て 👀'; if (!buzzed && navigator.vibrate) navigator.vibrate([120, 60, 120]); buzzed = true; }
+    else if (t.state === 'done') { tx.textContent = `ありがとう、${t.name}さん 🎉`; sessionStorage.removeItem('hoyaTicket'); setTimeout(() => { pill.hidden = true; }, 9000); return; }
+    else { tx.textContent = 'ロボットがこの動きをできませんでした'; sessionStorage.removeItem('hoyaTicket'); return; }
+    setTimeout(tick, 2500);
+  }
+  tick();
+})();
+</script>
+</body>
+</html>

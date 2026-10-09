@@ -58,3 +58,14 @@ The Full wave visitor choice has been retired; the short wave remains, targeting
 Visitor catalog: Quick wave 👋, Robot wiggle 🤖, Celebration 🎉, Look around 👀.
 Each request accepts exactly one emoji. The floating name badge remains only on the presentation.
 New motions are bounded, restore their initial pose and release, and require first supervised tests.
+
+## 3D robot page and Japanese visitor flow · 10 October 2026
+
+- `robot.html` + `robot/`: scroll-driven three.js page. The XLeRobot MuJoCo model (vendored in xlerobot-farm)
+  is exploded into its printed/bought pieces, then acts out the planned work with honest status labels
+  (verified / simulation / designed / idea). Assets are rebuilt by `export_assets.py` in the robot-page
+  workspace; three.js 0.186 is vendored under `robot/vendor` (MIT).
+- `wave.html` is Japanese and mobile-first. After sending, a card invites the visitor to `robot.html?ticket=<id>`
+  and auto-opens it after 7 s; `robot.html` then shows the visitor's place in line from `/api/requests/<id>`.
+- `screen.html` and `emoji-api.js` messages are Japanese. The homepage Wave button reads 「👋 ロボットに手を振る」.
+- `emoji-config.js` is unchanged and must keep pointing at the workers.dev API (local previews use a mock).
