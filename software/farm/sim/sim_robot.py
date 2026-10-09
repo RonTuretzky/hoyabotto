@@ -1208,9 +1208,12 @@ class SimRobot:
                     out['crease_force'] += abs(float(f6[0]))
         out['pinched'] = any(all(v) for v in inner.values())
         facing = {jaw for pad, face, jaw, _ in hits if face}   # a jaw closing on the flap with its face: its pad edges too
+        # an arm whose gripper is moving (closing on the flap, or opening to let it go) grips or releases with its pads
+        motion = self.motion if self.motion is not None and self.motion.active else None
+        gripping = {arm for arm in self.jaw_bodies if motion is not None and f"{arm.split('_')[0]}_arm_gripper" in motion.joints}
         for pad, face, jaw, name in hits:
             out['pads'] |= pad
-            if not (face or (pad and (out['pinched'] or jaw in facing))):
+            if not (face or (pad and (out['pinched'] or jaw in facing or (jaw is not None and jaw[0] in gripping)))):
                 out['illegal'] = True
                 out['illegal_geoms'].add(name)
         return out
