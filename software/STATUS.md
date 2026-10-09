@@ -1,3 +1,40 @@
+## AprilTag live integration: timing passes; recorder gaps block motion — 10 October 2026, 00:35 JST
+
+- Deployed API-only at2df18b4 and phone-only at09da8a6. API PID17264→25266;
+  phone PID4276→25520. Owner17246, OAK13659/13660, wrists97386/97393 and
+  relays167/4995 remained unchanged. The macOS phone launcher now preserves its
+  validated venv launcher path; direct Python.app relaunch had failed dependency
+  preflight before stopping the service. No packages or camera settings changed.
+- User refreshed the phone page. Three genuine live runner overview checks pass:
+  phone sequences654/655/656 advance within one stream with one-use challenges,
+  matching JPEG hashes and conservative browser-frame freshness. captured_at and
+  physical sensor exposure remain null. Phone supports visual overview only;
+  synchronized metric calibration still uses OAK capture timestamps.
+- Fresh stationary OAK98558 accepts table1 and hand2, zero encoder movement in
+  its capture bracket, unambiguous hand pose and1.34px reprojection RMS. Table1
+  is now fully supported and flat. The moved anchor has a new baseline. A fresh
+  20-pair link check passes with median robot-minus-chat offset−1.69ms. This is a
+  snapshot; minimum RTT/2 is not an uncertainty bound around the median offset.
+- Two explicit microprobe attempts stopped before a positioning command. First
+  refused the recorder POST's missing local Origin/session header. After fixing
+  that adapter, the second started recording but refused before the enable RPC
+  when the phone frame's conservative age reached1.137s during dispatch checks.
+  Its cleanup sent one STOP; fresh independent readback confirms all16 torque0,
+  idle, motor_writes1114 unchanged and stop_count1. No wrist movement occurred.
+- Reordered scratch pre-dispatch views after the slower tag/encoder checks,
+  retaining the1s freshness gate, phase limits and original target. All79 offline
+  runner tests pass, including session authentication/refusal coverage.
+- The second attempt's120s recording exposes an additional blocker: OAK326 source
+  samples and64 gaps over1s, phone319 samples and1 gap, right wrist613 samples
+  and0 gaps. These are genuine recording gaps, despite fresh still images.
+  Recorder repair and a new camera-only recording are required before retrying.
+- Physical joint mapping/camera-to-arm registration remain unvalidated. Right
+  shoulder_lift3216ticks still exceeds the candidate model's+100deg range.
+  No full calibration, pilot grasp/fold, training or task readiness is claimed.
+- Evidence: seville-v2 `.context/tag-direction-probe/post-phone-refresh-preflight/`,
+  `parallel-fixes/pre-probe-clock.json`, `live-wrist-20261010-0030/` and
+  `live-wrist-20261010-0032/`. Deployed-service receipts remain under parallel-fixes.
+
 ## AprilTag blocker fixes: phone timing and isolated deployment — 10 October 2026
 
 - After the user moved table tag1 fully onto the tabletop, OAK frame89288 accepts
