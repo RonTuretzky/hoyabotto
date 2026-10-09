@@ -1,6 +1,60 @@
 # Carton pilot: tags, benchmark selection and final station evidence
 
-Updated 9 October 2026, 18:37 JST. No physical folding run or training occurred during this work.
+Updated 9 October 2026, after the 18:46–18:56 JST live attempt. No training occurred.
+
+## Subsequent authorized live attempt
+
+The user repeated the live request and asked to accelerate toward a run. The existing Flash pilot executed
+the v8b approach/pinch scan with additional current-camera checks and right-arm-only scope. It used the
+normal sole-owner tools, speeds, telemetry/contact/STOP guards and calibration limits. The refit remained
+uncalibrated and had no validated full path; no such validation is claimed by this experiment.
+
+Three nominal scan positions were tried at 34 cm forward / 95 cm model height, pitch −30°:
+
+| Tip left coordinate | Closing result | Outcome |
+|---|---|---|
+| −15 cm | 1349 ticks | Closed on air |
+| −12 cm | 1345 ticks | Closed on air |
+| −18.5 cm | Stalled 1609, one retry reached 1348 | Closed on air |
+
+The first segment was interrupted after the user said a camera had changed sides. The direct halt request
+returned `Hardware action sequence active`; normal chat STOP subsequently confirmed release. The user
+clarified this was the phone overview only, and the ongoing authorized request continued after fresh
+views. The phone moved again during the continuation and the pilot refreshed its perspective. A phone
+viewpoint change does not change the wrist-to-gripper geometry. Old image-left/right descriptions cannot
+be carried across it.
+
+After the third missed pinch, an open-to-2000 request triggered `Pickup gripper no-progress guard`. The
+pilot finished, with no further retries or guard changes. **No verified pad pinch and no fold arc occurred.**
+The fourth scan position was not attempted. Fresh owner state confirmed all 16 motors released afterward;
+right gripper read 1374. There were no base/head/left-arm commands, calibration changes or training runs.
+
+The images show cardboard outside the closed pad gap. They do not establish camera-body clearance for
+a fold path. The vision worker's repeated 5–8 cm edge-gap estimates use an uncalibrated overlay/perspective;
+do not promote those figures into station measurements. The failure occurred before testing the 110° arc.
+
+Evidence roots in seville-v2:
+
+- `.context/flash-v8b-live-20261009-184616/`: request, events, 0.5 s state sampling, camera-change STOP,
+  confirmed-release readback, live-monitor images and visual review.
+- `.context/flash-v8b-live-resume-20261009-185234/`: continuation request/events/states, phone steering,
+  recording-watch log, final confirmed-release readback and visual review.
+- Four-view MP4/JSON sets under the pilot's `recordings/`: `20261009-184616-manual-*`,
+  `20261009-185234-manual-*`, and the resumed run's rollover set.
+
+The first recorder hit its 180-second file/session cap before the camera-change STOP; approximately
+17 seconds of the tail, including release, are not in that video set. State/event logs and post-stop frames
+are preserved, but cannot fill missing video. A read-only task-local watcher rolled the resumed capture
+when its cap expired, requesting pre-roll on the next set. Readback nevertheless shows a 4.1–5.3 second
+interfile gap, depending on camera. The saved recording sets are not gapless coverage of the whole attempt.
+No recorder safety/disk cap was changed. Video files
+were decoded completely; recorded timelines were visually inspected using two-second contact-sheet
+samples and the live full-size wrist/phone checks. **This is not a claim of frame-by-frame full-video watching.**
+
+The earlier `.context/v8b-live-clearance/result.json` screen is explicitly invalid for motion: the selected
+upstream camera-body name did not track the commanded right arm, yielding constant distances, and the
+station was hypothetical. Do not use its 309 mm result as clearance evidence. The authoritative corrected
+refit is commit `4e80779` on `RonTuretzky/fold-box-tags`, with its own conditional geometry and no full-path pass.
 
 ## Best completed LLM pilot benchmark
 
@@ -21,7 +75,7 @@ All of those folding benchmarks predate the corrected wrist-camera collision geo
 
 Raw benchmark sources live under `/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/bench/results/`; a compact result extract with source hashes is in [evidence/carton-pilot-tags-2026-10-09.json](evidence/carton-pilot-tags-2026-10-09.json). Historical experiment notes are `/tmp/sim_loop_log.md`.
 
-## Live status and the user's live-run request
+## Earlier live status and initial readiness review (18:37)
 
 At the user's subsequent request to use the best model live, the existing chat API selected **DeepSeek Flash** and verified the selection with a model call and status readback. Qwen remains the eyes model. No restart was performed for this switch or the final-table capture.
 

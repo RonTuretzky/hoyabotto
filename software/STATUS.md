@@ -1,3 +1,35 @@
+## Flash/v8b live attempt: three missed pinches, controller stop — 9 October 2026, 18:46–18:56 JST
+
+The user explicitly requested the best recipe live and to accelerate toward the attempt. Flash/v8b was
+submitted to the existing pilot/sole hardware owner with current-camera checks, right-arm-only scope,
+normal speeds/limits, no camera/body pushing and no arc without a verified pad pinch. The final station
+remains unregistered; this live attempt does not validate the simulation refit or its full fold path.
+
+- The right claw opened and reached the high approach, then tried nominal pinch position −15 cm left
+  at 34 cm forward / 95 cm model height. Close stopped at 1349: closed on air. It reopened, settled
+  short at 1528, and reached the second high approach. No arc occurred.
+- User reported moving a camera. A task-local halt request was refused with `Hardware action sequence
+  active`; the normal chat STOP then confirmed release of all 16 motors. After the user clarified that
+  only the phone overview moved, the authorized attempt continued using fresh phone/wrist observations.
+  The phone was moved again; its viewpoint was refreshed. Wrist and OAK mounts did not change by that report.
+- Position −12 cm closed on air at 1345. Position −18.5 cm first stalled at 1609; one recipe-permitted
+  retry closed on air at 1348. The following open-to-2000 stopped on `Pickup gripper no-progress guard`.
+  No further attempt or guard override. Fourth position was not tried. **No verified pinch and no fold arc.**
+- Fresh owner readback confirmed **all 16 motors released** after the controller stop. Final right
+  gripper read 1374. Only right-arm motor commands were sent; no base/head/left-arm commands, training,
+  calibration, limit edits or hardware-owner restart occurred.
+- Four-camera recordings: pilot `recordings/20261009-184616-manual-*`,
+  `20261009-185234-manual-*` and the resumed run's rollover segment. The first manual recorder hit
+  its 180 s cap before the phone-change STOP, leaving an approximately 17 s tail uncovered by video.
+  State/event logs and post-stop frames cover that interval; it is not a full-video-coverage claim.
+  A task-local recording watcher rolled the resumed run's four cameras after the cap; sidecars show a
+  4.1–5.3 s interfile gap despite requested pre-roll. Review uses
+  full file decoding and two-second visual samples over the recorded timelines, not frame-by-frame watching.
+- Logs, requests, frames, release readbacks and review artifacts:
+  seville-v2 `.context/flash-v8b-live-20261009-184616/` and
+  `.context/flash-v8b-live-resume-20261009-185234/`. Details in
+  [carton-pilot-tags-2026-10-09.md](docs/carton-pilot-tags-2026-10-09.md).
+
 ## Carton tags live; final table captured; live fold not started — 9 October 2026, 18:37 JST
 
 - The pilot now has read-only `sense tags` / `robot_get_carton_tags` and GET `/api/carton-tags`, using the
