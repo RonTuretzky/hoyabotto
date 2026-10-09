@@ -421,3 +421,12 @@ model's position: the module **never enters** the carton or a flap; its **neares
 than the model's, the box would meet the flap first. The 9 Oct real run never reached the carton, so this has not
 been observed on hardware. The wrist-lens tool (`tools/capture_wrist_calibration.py`) plans its poses with 3 cm
 clearance for the same reason.
+
+**CORRECTION, 9 Oct evening (owner's observation + phone recording `pilot/recordings/20261009-173405-manual-phone.mp4`,
+run 5):** on the real robot the RIGHT wrist camera module **did contact and push the carton**. The claw descended onto
+the box's right rim at ~31 s and from ~54 s the module/jaw bore on the rim and right flap; the carton shifted over the
+following minute; the right_wrist stream shows the lens against the rim edge. The converged "claw at the rim" pose
+was the module resting on the carton, not a hover. The replay above (0 intrusion) checked the TRAINED motion; the
+robot was running an off-distribution pose the demos never produce, and that pose reaches the rim with the module.
+**The module must be in the collision model and the policy's approach from now on.** The policy is not to be run
+again until it is.

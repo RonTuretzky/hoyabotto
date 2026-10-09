@@ -22,8 +22,11 @@ Pilot session seville-v2-34 drove it, owner at STOP. Branch `RonTuretzky/fold-bo
   rim beside the right flap, nothing touched. Data `/tmp/fold-run3`, recordings `pilot/recordings/20261009-170329-*`.
   Not evidence of a fold; the informative run is after cart + wedge (or re-film) + head re-measure.
 - **Wrist camera body is not in the simulation** (bare SO-101 claws). Real module 36 × 43 × 67 mm, 65 mm along the
-  jaw. Replay of 6 demos: never enters the carton, nearest approach 15.4 mm; the real run's converged wrist still
-  shows clearance. Recorded in `docs/carton-fold-policy-station-gap.md`.
+  jaw. Replay of 6 demos said it never enters the carton (nearest 15.4 mm) **for the trained motion**, but on the
+  real robot, running an off-distribution pose, **the right module contacted and pushed the carton** (owner saw it;
+  phone recording run 5, ~31 s onto the rim, bearing from ~54 s; carton shifted). My earlier "clears" reading of the
+  converged still was wrong. **Hard requirement now: the module goes into the collision model and the policy's
+  approach before any further run.** Recorded in `docs/carton-fold-policy-station-gap.md`.
 - Owner decisions open: print the wedge vs re-film for 35°; merge the branch.
 
 ## Fold policy from the chat Mac: software and simulation only — 9 October 2026
