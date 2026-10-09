@@ -53,11 +53,11 @@
 <rect x="501.80" y="171.00" width="7.05" height="7.05" fill="black"/>
 <rect x="508.80" y="171.00" width="7.05" height="7.05" fill="black"/>
 <rect x="515.80" y="171.00" width="7.05" height="7.05" fill="black"/>
-<line x1="494.8" y1="294.0" x2="494.8" y2="185.0" stroke="#1971c2" stroke-width="1.6" stroke-dasharray="5 3"/>
-<text x="500.8" y="243.5" font-size="13" font-weight="700" fill="#1971c2">90</text>
-<line x1="70" y1="328.0" x2="494.8" y2="328.0" stroke="#d6336c" stroke-width="1.6"/><line x1="70" y1="323.0" x2="70" y2="333.0" stroke="#d6336c" stroke-width="1.6"/><line x1="494.8" y1="294.0" x2="494.8" y2="333.0" stroke="#d6336c" stroke-width="1" stroke-dasharray="2 3"/>
-<text x="500.8" y="332.0" font-size="13" font-weight="700" fill="#d6336c">266 mm → ID 13</text>
+<line x1="477.3" y1="294.0" x2="477.3" y2="178.0" stroke="#1971c2" stroke-width="1.8"/><line x1="470.3" y1="178.0" x2="484.3" y2="178.0" stroke="#1971c2" stroke-width="1.8"/>
+<text x="483.3" y="241.0" font-size="13" font-weight="700" fill="#1971c2">73</text>
+<line x1="70" y1="328.0" x2="466.8" y2="328.0" stroke="#d6336c" stroke-width="1.6"/><line x1="70" y1="323.0" x2="70" y2="333.0" stroke="#d6336c" stroke-width="1.6"/><line x1="466.8" y1="178.0" x2="466.8" y2="333.0" stroke="#d6336c" stroke-width="1.2" stroke-dasharray="2 3"/>
+<text x="472.8" y="332.0" font-size="13" font-weight="700" fill="#d6336c">248 mm → ID 13</text>
 <text x="494.8" y="109.0" font-size="14" font-weight="700" text-anchor="middle" fill="#111">ID 13</text>
-<text x="70" y="440" font-size="12" fill="#555"><tspan fill="#d6336c" font-weight="700">pink</tspan>: mm along the face from the robot's RIGHT end to the tag centre</text>
-<text x="70" y="456" font-size="12" fill="#555"><tspan fill="#1971c2" font-weight="700">blue</tspan>: mm from the fold line to the tag centre</text>
+<text x="70" y="440" font-size="12" fill="#555"><tspan fill="#d6336c" font-weight="700">pink</tspan>: mm from the robot's RIGHT end to the LEFT EDGE of the black square</text>
+<text x="70" y="456" font-size="12" fill="#555"><tspan fill="#1971c2" font-weight="700">blue</tspan>: mm from the fold line to the NEAREST EDGE of the black square</text>
 </svg>

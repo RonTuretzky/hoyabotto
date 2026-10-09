@@ -5,7 +5,7 @@ tools/diagnose_short_flap_brace.py extra wall markers): twelve tag36h11 tags on 
 four flaps. This writes, from the same numbers:
 
 - fold-box-tags.pdf: the twelve tags at exact size (600 dpi raster, print at 100%), each with its ID, place and "up";
-- box-tags-<face>.svg: each face to scale, with each tag's centre measured from the face's edges;
+- box-tags-<face>.svg: each face to scale, with each tag's black square measured from the face's edges (edge to edge);
 - box-tags-overview.png (with --scene): the training carton rendered with every tag labelled.
 
     python tools/make_fold_box_tags.py --out docs/img/fold-policy-setup \
@@ -41,6 +41,12 @@ class Tag:
     h: float          # centre, mm from the face diagram's left edge
     v: float          # centre, mm from the face diagram's bottom edge
     where: str        # plain words
+
+
+def edges(tag):
+    """Black-square edges (mm, rounded half up): from the face diagram's left edge to the square's left edge, and
+    from its bottom edge to the square's bottom edge. The square is printed exactly; the white border depends on the cut."""
+    return int(tag.h - tag.size / 2 + 0.5), int(tag.v - tag.size / 2 + 0.5)
 
 
 @dataclass(frozen=True)
@@ -149,7 +155,7 @@ def write_pdf(out, dpi=600):
     for tag in TAGS:
         img = tag_image(tag.tag_id, tag.size, dpi)
         cell_w = max(img.width, 62 * mm)
-        need_h = img.height + 22 * mm
+        need_h = img.height + 26 * mm
         if x + cell_w > page_w - 10 * mm:
             x, y, row_h = 12 * mm, y + row_h, 0
         if y + need_h > page_h - 10 * mm:
@@ -171,7 +177,11 @@ def write_pdf(out, dpi=600):
         cx = ox + img.width / 2
         draw.polygon([(cx, y0 - 4.2 * mm), (cx - 1.8 * mm, y0 - 1.0 * mm), (cx + 1.8 * mm, y0 - 1.0 * mm)], fill=0)
         draw.text((cx + 2.5 * mm, y0 - 4.6 * mm), 'up', font=small, fill=0)
-        draw.text((ox, oy + img.height + 4.5 * mm), tag.where, font=small, fill=0)
+        face = next(f for f in FACES if f.key == tag.face)
+        left_mm, bottom_mm = edges(tag)
+        draw.text((ox, oy + img.height + 4.5 * mm), tag.where.split(',')[0], font=small, fill=0)
+        draw.text((ox, oy + img.height + 8.5 * mm), f'black square edges: {left_mm} mm from the {face.left}, {bottom_mm} mm from the {face.bottom.split(" (")[0]}',
+                  font=small, fill=0)
         x += cell_w + 8 * mm
         row_h = max(row_h, need_h + 6 * mm)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -204,21 +214,25 @@ def face_svg(face: Face, tags: list[Tag], scale=1.6):
             for c in range(8):
                 if grid[r, c] == 0:
                     s.append(f'<rect x="{x0 + (c + 1) * cell:.2f}" y="{y0 + (r + 1) * cell:.2f}" width="{cell + .05:.2f}" height="{cell + .05:.2f}" fill="black"/>')
-        # blue: bottom edge up to the tag centre; pink ruler under the face: left edge across to the tag centre
-        cx, cy = X(tag.h), Y(tag.v)
+        # edge to edge: blue from the bottom edge up to the black square's bottom edge; pink ruler under the face from
+        # the left edge across to the black square's left edge
+        left_mm, bottom_mm = edges(tag)
+        cx = X(tag.h)
+        sx, sb = x0 + cell, y0 + 9 * cell          # black square: left edge x, bottom edge y (screen)
         k = sorted(tags, key=lambda t: t.h).index(tag)
         lane = m + h + 34 + 22 * k
-        s.append(f'<line x1="{cx:.1f}" y1="{m + h}" x2="{cx:.1f}" y2="{y0 + 10 * cell:.1f}" stroke="#1971c2" stroke-width="1.6" stroke-dasharray="5 3"/>')
-        s.append(f'<text x="{cx + 6:.1f}" y="{(m + h + y0 + 10 * cell) / 2 + 4:.1f}" font-size="13" font-weight="700" fill="#1971c2">{tag.v:.0f}</text>')
-        s.append(f'<line x1="{m}" y1="{lane:.1f}" x2="{cx:.1f}" y2="{lane:.1f}" stroke="#d6336c" stroke-width="1.6"/>'
+        s.append(f'<line x1="{sx + 1.5 * cell:.1f}" y1="{m + h}" x2="{sx + 1.5 * cell:.1f}" y2="{sb:.1f}" stroke="#1971c2" stroke-width="1.8"/>'
+                 f'<line x1="{sx + 0.5 * cell:.1f}" y1="{sb:.1f}" x2="{sx + 2.5 * cell:.1f}" y2="{sb:.1f}" stroke="#1971c2" stroke-width="1.8"/>')
+        s.append(f'<text x="{sx + 1.5 * cell + 6:.1f}" y="{(m + h + sb) / 2 + 5:.1f}" font-size="13" font-weight="700" fill="#1971c2">{bottom_mm}</text>')
+        s.append(f'<line x1="{m}" y1="{lane:.1f}" x2="{sx:.1f}" y2="{lane:.1f}" stroke="#d6336c" stroke-width="1.6"/>'
                  f'<line x1="{m}" y1="{lane - 5:.1f}" x2="{m}" y2="{lane + 5:.1f}" stroke="#d6336c" stroke-width="1.6"/>'
-                 f'<line x1="{cx:.1f}" y1="{m + h:.1f}" x2="{cx:.1f}" y2="{lane + 5:.1f}" stroke="#d6336c" stroke-width="1" stroke-dasharray="2 3"/>')
-        s.append(f'<text x="{cx + 6:.1f}" y="{lane + 4:.1f}" font-size="13" font-weight="700" fill="#d6336c">{tag.h:.0f} mm → ID {tag.tag_id}</text>')
+                 f'<line x1="{sx:.1f}" y1="{sb:.1f}" x2="{sx:.1f}" y2="{lane + 5:.1f}" stroke="#d6336c" stroke-width="1.2" stroke-dasharray="2 3"/>')
+        s.append(f'<text x="{sx + 6:.1f}" y="{lane + 4:.1f}" font-size="13" font-weight="700" fill="#d6336c">{left_mm} mm → ID {tag.tag_id}</text>')
         s.append(f'<text x="{cx:.1f}" y="{y0 - 6:.1f}" font-size="14" font-weight="700" text-anchor="middle" fill="#111">ID {tag.tag_id}</text>')
     s.append(f'<text x="{m}" y="{H_ - 22:.0f}" font-size="12" fill="#555"><tspan fill="#d6336c" font-weight="700">pink</tspan>: '
-             f'mm along the face from the {face.left} to the tag centre</text>')
+             f'mm from the {face.left} to the LEFT EDGE of the black square</text>')
     s.append(f'<text x="{m}" y="{H_ - 6:.0f}" font-size="12" fill="#555"><tspan fill="#1971c2" font-weight="700">blue</tspan>: '
-             f'mm from the {face.bottom} to the tag centre</text>')
+             f'mm from the {face.bottom} to the NEAREST EDGE of the black square</text>')
     s.append('</svg>')
     return '\n'.join(s)
 
