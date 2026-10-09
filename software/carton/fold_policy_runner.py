@@ -924,7 +924,7 @@ class FoldPolicyRunner:
         record = {"k": k, "t": t0, "owner": snap.summary(), "state_ticks": [snap.ticks[n] for n in OWNER_JOINTS],
                   "state_rad": state, "degenerate_state": notes, "frames": frame_info, "action_rad": action,
                   "joints": detail, "send": send, "mode": "execute" if cfg.execute else "dry-run",
-                  "acks": acks, "latency_s": {"snapshot": t_snap - t0, "frames": t_frames - t_snap,
+                  "acks": acks, "latency_s": {"limit": cfg.safety.max_tick_s, "snapshot": t_snap - t0, "frames": t_frames - t_snap,
                                               "policy": t_policy - t_frames, "send": t_end - t_policy,
                                               "tick": t_end - t0}}
         self.log.tick(record)
@@ -1019,6 +1019,10 @@ def main(argv=None):
     ap.add_argument("--gripper-mode", choices=["hold", "follow", "stream"], default="hold")
     ap.add_argument("--holding-arm", action="append", default=[], choices=list(ARMS))
     ap.add_argument("--hz", type=float, default=10.0)
+    ap.add_argument("--max-tick-s", type=float, default=SafetyConfig.max_tick_s,
+                    help="abort if one tick (read + frames + policy + send) takes longer than this; default 0.3 s. "
+                         "Over a LAN two round trips alone can take 0.2-0.3 s, so a slower rate (--hz 5) may need up "
+                         "to 1.0 s, the hard cap. The value is recorded in the run's metadata and ticks.jsonl.")
     ap.add_argument("--max-steps", type=int, default=750)
     ap.add_argument("--temporal-ensemble", type=float, default=0.01)
     ap.add_argument("--device", default="cpu")
@@ -1038,10 +1042,12 @@ def main(argv=None):
     else:
         stopped = stop.is_set
     config = RunnerConfig(execute=args.execute, hz=args.hz, max_steps=args.max_steps, gripper_mode=args.gripper_mode,
-                          holding_arms=tuple(args.holding_arm), save_frames_every=args.save_frames_every)
+                          holding_arms=tuple(args.holding_arm), save_frames_every=args.save_frames_every,
+                          safety=SafetyConfig(max_tick_s=args.max_tick_s))
     policy = build_policy(args.checkpoint, args.device, args.temporal_ensemble)
     envelope = TrainingEnvelope.from_pretrained_dir(policy.path)
     meta = {"checkpoint": policy.path, "transport": args.transport, "argv": sys.argv[1:] if argv is None else argv,
+            "max_tick_s": args.max_tick_s, "hz": args.hz,
             "model_sha256": _sha256_file(Path(policy.path) / "model.safetensors")}
     if args.transport.startswith("sim"):
         from carton import fold_policy_fakes as fakes

@@ -520,3 +520,30 @@ def test_checkpoint_closed_loop_in_simulation(tmp_path, transport):
     print(json.dumps({"transport": transport, "aborted": summary["aborted"], "steps": summary["steps"],
                       "effective_hz": summary["effective_hz"], "clamps": summary.get("clamp_counts"), **score}))
     assert summary["steps"] > 0
+
+
+def test_tick_limit_flag_is_honoured_logged_and_capped(tmp_path, monkeypatch):
+    """--max-tick-s is an explicit, recorded setting (the LAN makes 10 Hz unreachable: two round trips alone take
+    0.2-0.3 s); it feeds SafetyConfig, whose validate() caps it at 1.0 s and refuses more. The default stays 0.3."""
+    assert R.SafetyConfig().max_tick_s == 0.3
+    R.SafetyConfig(max_tick_s=0.9).validate()                      # within the cap
+    with pytest.raises(Refused):
+        R.SafetyConfig(max_tick_s=1.5).validate()                  # over the cap: refused, not clamped
+    with pytest.raises(Refused):
+        R.SafetyConfig(max_tick_s=0).validate()
+    # the limit is written into every tick record, so a log reader sees what was in force
+    rig = F.build_kinematic_rig(tmp_path / "rig")
+    summary = runner(rig, Toward(GOAL), tmp_path, max_steps=3, safety=R.SafetyConfig(max_tick_s=0.9)).run()
+    assert summary["aborted"] is None
+    assert all(t["latency_s"]["limit"] == 0.9 for t in ticks_log(tmp_path))
+    # and the CLI parses it into the config and the run metadata (argparse only; no policy, no robot)
+    ap_ns = None
+    real_build = R.build_policy
+
+    def capture(*a, **k):
+        raise SystemExit("stop-before-policy")
+    monkeypatch.setattr(R, "build_policy", capture)
+    with pytest.raises(SystemExit, match="stop-before-policy"):
+        R.main(["--checkpoint", "x", "--transport", "sim-direct", "--sim-trial", "x", "--out", str(tmp_path / "o"),
+                "--max-tick-s", "0.8"])
+    monkeypatch.setattr(R, "build_policy", real_build)
