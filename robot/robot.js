@@ -9,6 +9,22 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
+// If anything fails (old GPU, lost context, out of memory), drop the 3D and keep the story readable.
+let failed = false;
+function fail(msg) {
+  if (failed) return; failed = true;
+  document.body.classList.add('no3d');
+  document.getElementById('loading')?.classList.add('done');
+  const n = document.createElement('div'); n.className = 'fail-note';
+  n.textContent = '3D表示を読み込めませんでした。文章だけでご覧いただけます。（' + String(msg).slice(0, 120) + '）';
+  document.body.appendChild(n);
+}
+addEventListener('error', e => fail(e.message || 'error'));
+addEventListener('unhandledrejection', e => fail((e.reason && e.reason.message) || e.reason || 'error'));
+setTimeout(() => { if (!document.getElementById('loading')?.classList.contains('done')) fail('読み込みが時間切れになりました'); }, 25000);
+// Phones get a lighter renderer: standard materials, no environment pre-pass, no shadows.
+const LITE = matchMedia('(max-width: 760px)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+
 // ---------------------------------------------------------------- helpers
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const seg = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
@@ -29,28 +45,33 @@ const RP = (f, l, u) => V3(-f, -l, u); // robot frame -> robot root local
 
 // ---------------------------------------------------------------- renderer, scene
 const canvas = document.getElementById('stage');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !LITE, powerPreference: LITE ? 'default' : 'high-performance' }); }
+catch (e) { fail('WebGL: ' + e.message); throw e; }
+canvas.addEventListener('webglcontextlost', ev => { ev.preventDefault(); fail('GPUの接続が切れました'); });
 const SMALL = matchMedia('(max-width: 760px)').matches;
-renderer.setPixelRatio(Math.min(devicePixelRatio, SMALL ? 1.5 : 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, LITE ? 1.25 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.02;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !LITE;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.localClippingEnabled = true;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(BG);
 scene.fog = new THREE.Fog(BG, 9, 30);
-const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.55;
+if (!LITE) {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.55;
+}
 scene.environmentRotation.x = Math.PI / 2;
 
 const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 220);
 camera.up.set(0, 0, 1);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfc2, 1.25));
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cfc2, LITE ? 2.0 : 1.25));
 const key = new THREE.DirectionalLight(0xffffff, 2.3);
 key.castShadow = true;
 key.shadow.mapSize.set(SMALL ? 1024 : 2048, SMALL ? 1024 : 2048);
@@ -63,7 +84,11 @@ ground.receiveShadow = true;
 scene.add(ground);
 
 // ---------------------------------------------------------------- materials
-const M = (color, o = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.5, metalness: 0, ...o });
+const M = (color, o = {}) => {
+  if (!LITE) return new THREE.MeshPhysicalMaterial({ color, roughness: 0.5, metalness: 0, ...o });
+  const { clearcoat, clearcoatRoughness, transmission, envMapIntensity, ...rest } = o;
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0, ...rest, metalness: Math.min(rest.metalness || 0, 0.2) });
+};
 const MAT = {
   orange: M(0xf88335, { roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.4 }),
   blue: M(0x2c86c7, { roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.4 }),
@@ -578,6 +603,7 @@ const garden = (() => {
   const cressIM = new THREE.InstancedMesh(CRESS_LO, MAT.leaf, n * 2);
   for (const im of [tablesIM, troughIM, holderIM, cressIM]) { im.castShadow = im === tablesIM; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); }
   const clones = [V3(1.01, ST[2].y + 2.2, 0), V3(-1.01, ST[2].y + 4.6, 0), V3(2.11, ST[2].y - 1.6, 0), V3(-2.11, ST[2].y + 7.2, 0)].map((p, i) => {
+    if (LITE) return new THREE.Group();
     const c = robot.root.clone(); c.position.copy(p); c.rotation.z = i % 2 ? Math.PI / 2 : -Math.PI / 2; scene.add(c); c.visible = false; return c;
   });
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = V3(), p = V3(), zr = new THREE.Quaternion().setFromAxisAngle(V3(0, 0, 1), Math.PI / 2);
@@ -1100,6 +1126,11 @@ function fadeCards(s) {
   cards.forEach((el, i) => { const k = i === c ? (i === 0 ? 1 : E(t, 0, 0.03)) * (i === cards.length - 1 ? 1 : 1 - E(t, 0.9, 0.985)) : 0; el.style.opacity = k.toFixed(3); el.style.visibility = k < 0.01 ? 'hidden' : 'visible'; });
 }
 function frame() {
+  if (failed) return;
+  try { frameBody(); } catch (e) { console.error(e); fail(e.message); return; }
+  requestAnimationFrame(frame);
+}
+function frameBody() {
   const time = (performance.now() - t0) / 1000;
   const target = scrollS();
   sSmooth += (target - sSmooth) * (Math.abs(target - sSmooth) > 1.5 ? 1 : 0.12);
@@ -1124,7 +1155,22 @@ function frame() {
       if (vis) L.el.style.transform = `translate(${((_v.x + 1) / 2 * W).toFixed(1)}px, ${((1 - _v.y) / 2 * H).toFixed(1)}px) translate(-9px, -50%)`; }
     L.el.classList.toggle('on', vis);
   }
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(() => { frame(); document.getElementById('loading').classList.add('done'); });
+// Arriving from the wave page (?tour): glide into the exploded view, then hint to keep scrolling.
+if (new URLSearchParams(location.search).has('tour')) {
+  let cancelled = false;
+  const stop = () => { cancelled = true; };
+  addEventListener('touchstart', stop, { passive: true, once: true }); addEventListener('wheel', stop, { passive: true, once: true });
+  const hint = () => {
+    const h = document.createElement('div'); h.className = 'scroll-hint'; h.innerHTML = '<span>↓</span>スクロールで続きを見る'; document.body.appendChild(h);
+    const y0 = scrollY, off = () => { if (Math.abs(scrollY - y0) > 120) { h.classList.add('gone'); removeEventListener('scroll', off); } };
+    addEventListener('scroll', off, { passive: true });
+  };
+  setTimeout(() => {
+    const ch = chapters[1], to = ch.offsetTop + ch.offsetHeight * 0.32, from = scrollY, t0 = performance.now(), ms = 2800;
+    const step = now => { if (cancelled) return hint(); const u = Math.min(1, (now - t0) / ms); scrollTo(0, from + (to - from) * ease(u)); if (u < 1) requestAnimationFrame(step); else hint(); };
+    requestAnimationFrame(step);
+  }, 900);
+}
 window.__hoya = { robot, sceneAt, camAt, scrollS, HOME_Q, debugCam: null, poseArm, JOBS, W2 };

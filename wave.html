@@ -164,8 +164,9 @@ $('go').onclick = async () => {
     const body = await emojiFetch('/api/requests', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: $('name').value, gestures: picked }) });
     ticket = body; sessionStorage.setItem('hoyaTicket', body.id);
-    $('name').blur(); showTicket(body); invite(body, true);
-    pollTicket();
+    $('name').blur(); showTicket(body);
+    $('t-text').textContent = 'ロボットの中身を見ながら、順番を待ちましょう…';
+    setTimeout(() => { location.href = robotLink(body) + '&tour=1'; }, 1500);
   } catch (e) { $('msg').textContent = e.message; }
   finally { submitting = false; render(); }
 };
