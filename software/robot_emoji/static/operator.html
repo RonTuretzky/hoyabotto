@@ -33,7 +33,7 @@
       <button id="arm" class="primary">Arm</button>
       <span class="muted" id="robot"></span>
     </div>
-    <p class="muted">Arm only when the arm has room to rise above the robot, nothing is held, and you can see it. Pausing lets the current performance finish; STOP releases every motor now.</p>
+    <p class="muted">Arm only when the robot has clear space, the gripper is empty, and you can watch it. Look around moves the head and its mounted camera. Pausing lets the current performance finish; STOP releases every motor now.</p>
     <div class="warn" id="unverified" hidden></div>
   </div>
   <div class="card">
@@ -96,7 +96,7 @@ async function refresh() {
   if (s.robot_api) $('api').textContent = s.robot_api.fake ? '(fake robot)' : '(paired robot API · ' + (s.robot_api.link || 'connecting') + ')';
   const u = s.unverified || [];
   $('unverified').hidden = !u.length;
-  $('unverified').textContent = u.length ? `Not yet verified on the robot: ${u.join(', ')}. Its poses come from the digital twin. On the first run, watch the whole arm with STOP and the 12 V switch in reach.` : '';
+  $('unverified').textContent = u.length ? `Not yet verified on the robot: ${u.join(', ')}. New gesture paths need supervised first runs. Watch the whole robot with STOP and the 12 V switch in reach.` : '';
 }
 setInterval(refresh, 1000); refresh();
 </script>
