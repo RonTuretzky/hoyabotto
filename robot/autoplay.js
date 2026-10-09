@@ -6,7 +6,8 @@
   var playing = false, last = 0, pill, badge;
   function chapters() { return [].slice.call(document.querySelectorAll('.chapter')); }
   function setPill() {
-    pill.innerHTML = playing ? '<span class="dot"></span>⏸ 自動スクロール中' : '▶ 自動で続きを見る';
+    pill.textContent = playing ? '❚❚' : '▶';
+    pill.setAttribute('aria-label', playing ? '自動スクロールを一時停止' : '自動スクロールを再開');
     pill.classList.toggle('paused', !playing);
   }
   function pause() { if (!playing) return; playing = false; setPill(); }
