@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 633 433" font-family="Helvetica,Arial,sans-serif">
+<rect x="70" y="70" width="452.8" height="172.8" fill="#c99a62" stroke="#5b3b17" stroke-width="2" rx="2"/>
+<text x="296.4" y="36" font-size="17" font-weight="700" text-anchor="middle" fill="#222">Left wall (outside, robot's left end)</text>
+<text x="296.4" y="58" font-size="12" text-anchor="middle" fill="#555">top edge (fold line)</text>
+<text x="296.4" y="260.8" font-size="12" text-anchor="middle" fill="#555">bottom edge (table)</text>
+<text x="60" y="156.4" font-size="12" text-anchor="middle" fill="#555" transform="rotate(-90 60 156.4)">far edge</text>
+<text x="536.8" y="156.4" font-size="12" text-anchor="middle" fill="#555" transform="rotate(90 536.8 156.4)">near edge (robot side)</text>
+<text x="296.4" y="356.8" font-size="12" text-anchor="middle" fill="#333">283 × 108 mm · 2 tags, mid-height</text>
+<rect x="187.4" y="111.4" width="90.0" height="90.0" fill="white" stroke="#888" stroke-width="0.6"/>
+<rect x="196.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="205.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="223.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="232.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="241.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="250.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="196.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="205.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="232.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="196.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="223.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="241.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="196.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="223.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="196.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="205.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="241.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="250.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="196.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="205.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="223.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="250.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="196.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="223.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="232.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="241.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="196.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="205.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="214.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="223.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="232.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="241.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="250.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="259.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<line x1="232.4" y1="242.8" x2="232.4" y2="201.4" stroke="#1971c2" stroke-width="1.6" stroke-dasharray="5 3"/>
+<text x="238.4" y="226.1" font-size="13" font-weight="700" fill="#1971c2">54</text>
+<line x1="70" y1="276.8" x2="232.4" y2="276.8" stroke="#d6336c" stroke-width="1.6"/><line x1="70" y1="271.8" x2="70" y2="281.8" stroke="#d6336c" stroke-width="1.6"/><line x1="232.4" y1="242.8" x2="232.4" y2="281.8" stroke="#d6336c" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="238.4" y="280.8" font-size="13" font-weight="700" fill="#d6336c">102 mm → ID 21</text>
+<text x="232.4" y="105.4" font-size="14" font-weight="700" text-anchor="middle" fill="#111">ID 21</text>
+<rect x="379.4" y="111.4" width="90.0" height="90.0" fill="white" stroke="#888" stroke-width="0.6"/>
+<rect x="388.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="397.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="406.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="415.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="424.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="433.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="442.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="120.40" width="9.05" height="9.05" fill="black"/>
+<rect x="388.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="406.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="442.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="129.40" width="9.05" height="9.05" fill="black"/>
+<rect x="388.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="397.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="433.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="442.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="138.40" width="9.05" height="9.05" fill="black"/>
+<rect x="388.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="406.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="415.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="424.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="147.40" width="9.05" height="9.05" fill="black"/>
+<rect x="388.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="415.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="156.40" width="9.05" height="9.05" fill="black"/>
+<rect x="388.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="406.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="424.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="433.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="165.40" width="9.05" height="9.05" fill="black"/>
+<rect x="388.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="397.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="406.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="424.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="174.40" width="9.05" height="9.05" fill="black"/>
+<rect x="388.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="397.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="406.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="415.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="424.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="433.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="442.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<rect x="451.40" y="183.40" width="9.05" height="9.05" fill="black"/>
+<line x1="424.4" y1="242.8" x2="424.4" y2="201.4" stroke="#1971c2" stroke-width="1.6" stroke-dasharray="5 3"/>
+<text x="430.4" y="226.1" font-size="13" font-weight="700" fill="#1971c2">54</text>
+<line x1="70" y1="298.8" x2="424.4" y2="298.8" stroke="#d6336c" stroke-width="1.6"/><line x1="70" y1="293.8" x2="70" y2="303.8" stroke="#d6336c" stroke-width="1.6"/><line x1="424.4" y1="242.8" x2="424.4" y2="303.8" stroke="#d6336c" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="430.4" y="302.8" font-size="13" font-weight="700" fill="#d6336c">222 mm → ID 28</text>
+<text x="424.4" y="105.4" font-size="14" font-weight="700" text-anchor="middle" fill="#111">ID 28</text>
+<text x="70" y="411" font-size="12" fill="#555"><tspan fill="#d6336c" font-weight="700">pink</tspan>: mm along the face from the far edge to the tag centre</text>
+<text x="70" y="427" font-size="12" fill="#555"><tspan fill="#1971c2" font-weight="700">blue</tspan>: mm from the bottom edge (table) to the tag centre</text>
+</svg>

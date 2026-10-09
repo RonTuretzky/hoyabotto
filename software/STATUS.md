@@ -18,6 +18,8 @@ moved and no robot call was made.
   - today's owner semantics: holding-drift fault, all motors released, fold failed;
   - stream mode at a 50 ms owner loop: 1/4;
   - stream mode at a 33 ms loop: 4/4.
+- **AprilTags:** the policy depends on the box tags from training. It folded 2/4 with them hidden in simulation, against
+  4/4 with them. Setup slides steps 4b–4g give each tag's place; print sheet `docs/img/fold-policy-setup/fold-box-tags.pdf`.
 - **Measure next, read-only:** the real owner loop period, with `tools/measure_robot_link.py`
   (`owner_loop_period_estimate_s`).
 

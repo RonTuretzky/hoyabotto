@@ -175,6 +175,8 @@ guard, and the ±5° training envelope. The policy ran at 10 Hz with 30 ms of vi
 | `sim-owner-stream`: the real owner code in stream mode, **50 ms owner loop** | the same four | **1/4.** No owner fault in any run, but three pushed the carton 64–73 mm and left a short flap open or pushed out |
 | `sim-owner-stream`, **33 ms owner loop** | the same four | **4/4 held**, carton ≤ 3.9 mm, no owner fault |
 | `sim-owner-stream`, **20 ms owner loop** | b02-010, b01-040 | **Both held**, carton ≤ 3.6 mm |
+| `sim-direct` stream, **AprilTags removed from the box** (all 12 box/flap tags and the table tags invisible) | the same four | **2/4.** b01-060 pushed the left flap outward (−101°) and slid the carton 107 mm; b02-010 never folded the right flap |
+| same, only the gripper tags kept | the same four | **2/4**: the right flap was not folded in b01-060 and b02-010 |
 
 Reading:
 
@@ -186,6 +188,9 @@ Reading:
 - The real owner polls every motor, then sleeps 20 ms. Its period has never been measured; the contract tests assume
   50 ms. It must be measured before any motion (step G). If it is above 33 ms, shorten the owner's sleep or the poll
   while streaming; that is an owner change.
+- **The policy depends on the AprilTags it saw in training.** Without them it folds 2/4, against 4/4 with them. Put the 12 box
+  tags on the real carton exactly as the setup slides show (steps 4b–4g; `tools/make_fold_box_tags.py` makes the
+  print sheet and diagrams), or retrain on tag-free or randomised renders to drop the dependence.
 - The simulated actuator loads in the `sim-owner` run reached the model's ceiling on the left shoulder lift and
   elbow. On the robot, `Present_Load` above 800 is a fault that releases everything. Real loads during the pushes are
   unknown.

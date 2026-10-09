@@ -214,7 +214,8 @@
           <li>Phone with an inclinometer app</li>
           <li>An empty carton, <b>379 × 283 × 108 mm</b>, 140 mm flaps</li>
           <li>A flat platform or table you can set to the right height</li>
-          <li>Four printed AprilTags (tag36h11, 60–100 mm): <code>tools/carton_tags_pdf.py</code></li>
+          <li>Four printed floor AprilTags for the camera pose: <code>img/fold-policy-setup/fold-pose-tags-40-43.pdf</code></li>
+          <li>The 12 box tags: <code>img/fold-policy-setup/fold-box-tags.pdf</code>, plus scissors, a ruler and glue stick</li>
           <li>The robot: both SO101 arms, head OAK-D Lite, both wrist cameras</li>
         </ul>
       </div>
@@ -383,7 +384,7 @@
           <li>Use an <b>empty</b> carton. Check it is 379 × 283 × 108 mm with 140 mm flaps.</li>
           <li>Stand all four flaps <b>straight up</b>, open.</li>
           <li>Turn it so the <b>short flaps face the arms</b>: one on the robot's left, one on its right. The long flaps are far and near.</li>
-          <li>Place it in the taped footprint.</li>
+          <li><b>Tag it</b> (next six slides: 12 printed tags), then place it in the taped footprint.</li>
         </ol>
       </div>
       <div class="panel risk"><b>Material is a guess</b><p>The simulation assumed a crease stiffness and friction, and trained across a range of them.
@@ -391,6 +392,99 @@
     </div>
   </div>
   <div class="footer"><span>Step 4 · carton</span><span class="pg"></span></div>
+</section>
+
+<!-- box tags -->
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4b · box tags</div><h2>Print the 12 box tags: the policy uses them</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">10 min</span></div></div>
+  <div class="body">
+    <img src="img/fold-policy-setup/box-tags-overview.png" alt="The training carton rendered from the robot's side, the far right corner and above, with each tag's ID labelled" style="width:100%;max-height:30vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
+    <div class="cols" style="margin-top:12px">
+      <div class="panel"><ol>
+        <li>Print <code>img/fold-policy-setup/fold-box-tags.pdf</code> (2 pages) at <b>100% / actual size</b>, never "fit to page".</li>
+        <li>Measure a black square with a ruler. The wall and floor tags must be <b>45 mm</b> and the flap tags <b>35 mm</b>. If not, fix the print scale and print again.</li>
+        <li>Cut on the dashed lines, keeping the white border. Every tag has its ID and an arrow: <b>"up" points up</b> on the box.</li>
+        <li>Stick them flat with glue stick or clear tape over the white border only. Keep tape off the black squares and avoid shiny tape.</li>
+      </ol></div>
+      <div class="panel risk"><b>Why the tags matter</b><p>The simulated carton the policy learned on carries these 12 tags. On 4 unseen starts, the same policy folded
+        <b>4/4 with the tags and 2/4 without them</b>. Without tags, one run pushed the left flap outward and slid the carton 107 mm. Put them exactly where the next slides show.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>Step 4b · print the box tags</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4c · box tags</div><h2>Near wall: tags 26, 10, 27</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">5 min</span></div></div>
+  <div class="body"><div class="cols">
+    <img src="img/fold-policy-setup/box-tags-near-wall.svg" alt="Near wall drawn to scale with tags 26, 10 and 27 at mid-height" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+    <div class="panel"><ol>
+      <li>The near wall is the long side that will <b>face the robot</b>. Work on its outside.</li>
+      <li>With a pencil, mark a line along the wall <b>54 mm up</b> from the bottom edge (mid-height).</li>
+      <li>On that line, mark <b>70</b>, <b>190</b> and <b>310 mm</b> from the end that will be on the <b>robot's left</b>.</li>
+      <li>Centre <b>26</b> on the 70 mark, <b>10</b> on 190 (the middle) and <b>27</b> on 310. The arrows point up.</li>
+    </ol><p class="note">Tag centres are 120 mm apart. Measure to the centre of the black square, not to the paper edge.</p></div>
+  </div></div>
+  <div class="footer"><span>Step 4c · near wall</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4d · box tags</div><h2>The two end walls: 21 and 28 on the left, 22 on the right</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">5 min</span></div></div>
+  <div class="body"><div class="grid-2">
+    <div><img src="img/fold-policy-setup/box-tags-left-wall.svg" alt="Left wall drawn to scale: tag 21 101 mm from the far edge, tag 28 222 mm from the far edge" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+      <ol><li>Left end wall, outside: mark the 54 mm mid-height line.</li>
+        <li>From the <b>far</b> edge: <b>21</b> at <b>102 mm</b>, <b>28</b> at <b>222 mm</b>. Tag 28 is the one nearer the robot.</li></ol></div>
+    <div><img src="img/fold-policy-setup/box-tags-right-wall.svg" alt="Right wall drawn to scale: tag 22 182 mm from the near edge" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+      <ol><li>Right end wall, outside: same 54 mm line.</li>
+        <li>From the <b>near</b> edge (robot side): <b>22</b> at <b>182 mm</b>, i.e. 102 mm from the far edge.</li></ol></div>
+  </div></div>
+  <div class="footer"><span>Step 4d · end walls</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4e · box tags</div><h2>Inside floor: tags 25 and 24</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">3 min</span></div></div>
+  <div class="body"><div class="cols">
+    <img src="img/fold-policy-setup/box-tags-floor.svg" alt="Inside floor from above: tag 25 at the centre, tag 24 80 mm to the right of it" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+    <div class="panel"><ol>
+      <li>Look into the box from the robot's side.</li>
+      <li>Find the floor's centre: <b>190 mm</b> from the left wall and <b>142 mm</b> from the near wall. Centre <b>25</b> there.</li>
+      <li>Centre <b>24</b> on the same line, <b>80 mm to the robot's right</b> (270 mm from the left wall).</li>
+      <li>Both arrows point <b>away from the robot</b>, toward the far wall.</li>
+    </ol><p class="note">The head camera looks into the box, and these are what it sees between the flaps.</p></div>
+  </div></div>
+  <div class="footer"><span>Step 4e · floor</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4f · box tags</div><h2>Short flaps: 11 on the left, 12 on the right</h2></div>
+    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">3 min</span></div></div>
+  <div class="body"><div class="grid-2">
+    <div><img src="img/fold-policy-setup/box-tags-short-left-flap.svg" alt="Left short flap, outside face: tag 11, 68 mm from the far end, 90 mm above the fold line" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+      <ol><li>Stand the left short flap up. Work on its <b>outside</b>, the face away from the box.</li>
+        <li><b>11</b>: <b>90 mm</b> above the fold line, <b>68 mm</b> from the flap's <b>far</b> end. Arrow toward the free edge.</li></ol></div>
+    <div><img src="img/fold-policy-setup/box-tags-short-right-flap.svg" alt="Right short flap, outside face: tag 12, 68 mm from the far end, 90 mm above the fold line" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+      <ol><li>Same on the right short flap.</li>
+        <li><b>12</b>: <b>90 mm</b> above the fold, <b>68 mm</b> from the <b>far</b> end (208 mm from the near end).</li></ol></div>
+  </div>
+  <p class="note">After the fold these tags face up, so they show the camera how far each flap has turned.</p></div>
+  <div class="footer"><span>Step 4f · short flaps</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" aria-hidden="true">
+  <div class="step-head"><div><div class="eyebrow kicker">Step 4g · box tags</div><h2>Long flaps: 13 far, 14 near; then check</h2></div>
+    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge time">5 min</span></div></div>
+  <div class="body"><div class="grid-2">
+    <div><img src="img/fold-policy-setup/box-tags-long-far-flap.svg" alt="Far long flap, outside face: tag 13, 266 mm from the robot's right end, 90 mm above the fold" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+      <ol><li>Far long flap, outside (seen from behind the box): <b>13</b> at <b>90 mm</b> above the fold, <b>80 mm toward the robot's left</b> of the flap's middle. That is 106 mm from the robot's-left end.</li></ol></div>
+    <div><img src="img/fold-policy-setup/box-tags-long-near-flap.svg" alt="Near long flap, outside face: tag 14, 266 mm from the robot's left end, 90 mm above the fold" style="width:100%;max-height:52vh;object-fit:contain;background:#fff;border-radius:12px;border:1px solid var(--line)">
+      <ol><li>Near long flap, outside: <b>14</b> at <b>90 mm</b> above the fold, <b>80 mm toward the robot's right</b>. That is 106 mm from the robot's-right end.</li></ol></div>
+  </div>
+  <div class="panel" style="margin-top:10px"><b>Check (read-only, no motors):</b> with the tagged carton in its footprint and the head at 58°, ask the agent for one head-camera still.
+    It reads the tags and reports which IDs it sees and where they sit, compared with the simulation. Fix anything more than about 5 mm off.</div></div>
+  <div class="footer"><span>Step 4g · long flaps and check</span><span class="pg"></span></div>
 </section>
 
 <!-- 8 -->
@@ -671,6 +765,7 @@ python tools/bind_fold_joint_maps.py \
       <li>Cart squared: 111 mm from each pan axis to the table edge</li>
       <li>Carton footprint taped: near wall 10 mm in, 10 mm left of centre</li>
       <li>Empty carton, flaps up, short flaps facing the arms</li>
+      <li>Box tagged: 12 tags at the marked spots (45 / 35 mm checked), confirmed in a head-camera still</li>
       <li>Head at pan 0°, tilt 58°, 4:3 stream; ticks noted</li>
       <li>Wrist cameras see their claw tips</li>
       <li>Tags printed, measured and laid out; head set to 58°; OAK lens read</li><li>Head pose solved; wrist lenses calibrated</li>

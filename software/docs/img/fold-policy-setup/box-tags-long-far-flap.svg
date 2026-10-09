@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 774 462" font-family="Helvetica,Arial,sans-serif">
+<rect x="70" y="70" width="593.6" height="224.0" fill="#c99a62" stroke="#5b3b17" stroke-width="2" rx="2"/>
+<text x="366.8" y="36" font-size="17" font-weight="700" text-anchor="middle" fill="#222">Far long flap (outside face, standing up)</text>
+<text x="366.8" y="58" font-size="12" text-anchor="middle" fill="#555">free edge</text>
+<text x="366.8" y="312.0" font-size="12" text-anchor="middle" fill="#555">fold line</text>
+<text x="60" y="182.0" font-size="12" text-anchor="middle" fill="#555" transform="rotate(-90 60 182.0)">robot's RIGHT end</text>
+<text x="677.6" y="182.0" font-size="12" text-anchor="middle" fill="#555" transform="rotate(90 677.6 182.0)">robot's LEFT end</text>
+<text x="366.8" y="386.0" font-size="12" text-anchor="middle" fill="#333">371 × 140 mm · seen from behind the box</text>
+<rect x="459.8" y="115.0" width="70.0" height="70.0" fill="white" stroke="#888" stroke-width="0.6"/>
+<rect x="466.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="473.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="480.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="487.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="494.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="501.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="508.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="122.00" width="7.05" height="7.05" fill="black"/>
+<rect x="466.80" y="129.00" width="7.05" height="7.05" fill="black"/>
+<rect x="508.80" y="129.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="129.00" width="7.05" height="7.05" fill="black"/>
+<rect x="466.80" y="136.00" width="7.05" height="7.05" fill="black"/>
+<rect x="480.80" y="136.00" width="7.05" height="7.05" fill="black"/>
+<rect x="487.80" y="136.00" width="7.05" height="7.05" fill="black"/>
+<rect x="494.80" y="136.00" width="7.05" height="7.05" fill="black"/>
+<rect x="501.80" y="136.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="136.00" width="7.05" height="7.05" fill="black"/>
+<rect x="466.80" y="143.00" width="7.05" height="7.05" fill="black"/>
+<rect x="487.80" y="143.00" width="7.05" height="7.05" fill="black"/>
+<rect x="494.80" y="143.00" width="7.05" height="7.05" fill="black"/>
+<rect x="501.80" y="143.00" width="7.05" height="7.05" fill="black"/>
+<rect x="508.80" y="143.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="143.00" width="7.05" height="7.05" fill="black"/>
+<rect x="466.80" y="150.00" width="7.05" height="7.05" fill="black"/>
+<rect x="480.80" y="150.00" width="7.05" height="7.05" fill="black"/>
+<rect x="501.80" y="150.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="150.00" width="7.05" height="7.05" fill="black"/>
+<rect x="466.80" y="157.00" width="7.05" height="7.05" fill="black"/>
+<rect x="473.80" y="157.00" width="7.05" height="7.05" fill="black"/>
+<rect x="480.80" y="157.00" width="7.05" height="7.05" fill="black"/>
+<rect x="494.80" y="157.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="157.00" width="7.05" height="7.05" fill="black"/>
+<rect x="466.80" y="164.00" width="7.05" height="7.05" fill="black"/>
+<rect x="480.80" y="164.00" width="7.05" height="7.05" fill="black"/>
+<rect x="487.80" y="164.00" width="7.05" height="7.05" fill="black"/>
+<rect x="494.80" y="164.00" width="7.05" height="7.05" fill="black"/>
+<rect x="508.80" y="164.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="164.00" width="7.05" height="7.05" fill="black"/>
+<rect x="466.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<rect x="473.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<rect x="480.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<rect x="487.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<rect x="494.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<rect x="501.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<rect x="508.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<rect x="515.80" y="171.00" width="7.05" height="7.05" fill="black"/>
+<line x1="494.8" y1="294.0" x2="494.8" y2="185.0" stroke="#1971c2" stroke-width="1.6" stroke-dasharray="5 3"/>
+<text x="500.8" y="243.5" font-size="13" font-weight="700" fill="#1971c2">90</text>
+<line x1="70" y1="328.0" x2="494.8" y2="328.0" stroke="#d6336c" stroke-width="1.6"/><line x1="70" y1="323.0" x2="70" y2="333.0" stroke="#d6336c" stroke-width="1.6"/><line x1="494.8" y1="294.0" x2="494.8" y2="333.0" stroke="#d6336c" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="500.8" y="332.0" font-size="13" font-weight="700" fill="#d6336c">266 mm → ID 13</text>
+<text x="494.8" y="109.0" font-size="14" font-weight="700" text-anchor="middle" fill="#111">ID 13</text>
+<text x="70" y="440" font-size="12" fill="#555"><tspan fill="#d6336c" font-weight="700">pink</tspan>: mm along the face from the robot's RIGHT end to the tag centre</text>
+<text x="70" y="456" font-size="12" fill="#555"><tspan fill="#1971c2" font-weight="700">blue</tspan>: mm from the fold line to the tag centre</text>
+</svg>
