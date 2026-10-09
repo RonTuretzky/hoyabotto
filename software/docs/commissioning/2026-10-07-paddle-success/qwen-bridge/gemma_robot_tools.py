@@ -169,6 +169,27 @@ def execute_path(waypoints, duration_s, wait=True, replace=False):
             raise ValueError('A path cannot close the gripper; close it with its own move once the arm has stopped')
     return dict(DIRECT_CLIENT.execute_path(path, duration_s, wait=wait, replace=replace), path_waypoints=path)
 
+def move_head(positions, duration_s=None):
+    """Head move through the owner's head_move op. Joints already within 2 ticks are dropped (the executor needs every
+    named joint to travel >= 3 ticks); the default duration is the head minimum (1 s per 100 ticks, at least 1 s)."""
+    rows = DIRECT_CLIENT.status().get('rows', {})
+    moving = {}
+    for n, t in positions.items():
+        q = (rows.get(n) or {}).get('Present_Position')
+        if type(q) is not int:
+            raise ValueError('Current encoder unavailable for ' + n + '; refresh robot_get_state')
+        if abs(t - q) > 2:
+            moving[n] = t
+    if not moving:
+        return {'accepted': True, 'completed': True, 'no_op': True, 'endpoint_reached': True, 'motor_writes': 0,
+                'reason': 'Every requested head joint is already within 2 ticks of its target'}
+    travel = max(abs(t - rows[n]['Present_Position']) for n, t in moving.items())
+    if duration_s is None:
+        duration_s = max(1.0, round(travel / 100, 2))
+    result = DIRECT_CLIENT.move_head(moving, duration_s)
+    return dict(result, head_targets=moving, duration_s=duration_s)
+
+
 def normalize_targets(targets, arm=None, head=False):
     result = {}
     for key, q in targets.items():
@@ -191,7 +212,7 @@ def normalize_targets(targets, arm=None, head=False):
 MOTOR_NAMES = {'type': 'array', 'items': {'type': 'string', 'enum': list(CAL)}, 'minItems': 1, 'maxItems': 16, 'uniqueItems': True}
 TOOLS = [
     tool('robot_list_motors', 'List all16 configured motors and saved ranges. Live owner telemetry when available; explicitly aged historical rows in passive recovery, never asserted as current torque state. No serial owner duplication.'),
-    tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Enabling HOLDS EACH MOTOR WHERE IT IS: the goal is set to the freshly read encoder before and after torque-on, so no motion happens and goals from earlier sessions are never used. A released joint may rest a little outside commandable_ranges (gravity); enabling is allowed anywhere inside the saved range and the next move must target inside commandable_ranges. Pickup profile: enable all six joints of an arm in one call. Head and wheels are read-only. Never automatically activates at server startup.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}}, ['names', 'enabled']),
+    tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Enabling HOLDS EACH MOTOR WHERE IT IS: the goal is set to the freshly read encoder before and after torque-on, so no motion happens and goals from earlier sessions are never used. A released joint may rest a little outside commandable_ranges (gravity); enabling is allowed anywhere inside the saved range and the next move must target inside commandable_ranges. Pickup profile: enable all six joints of an arm in one call. Head motors (head_motor_1 pan, head_motor_2 tilt; the OAK camera rides on the head) can be enabled when robot_get_capabilities.head_supported is true; they are not part of any arm six-joint rule and move only through robot_move_head. Wheels are read-only (robot_move_base needs no enable). Never automatically activates at server startup.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}}, ['names', 'enabled']),
     tool('robot_move_motor_targets', 'Raw integer encoder targets for the14 arm/head/gripper position motors already enabled. Sole owner enforces ranges, rates, following, watchdog and measured completion. No wheel movement or automatic activation.', {'positions': TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions', 'duration_s']),
     tool('robot_get_state', 'Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.', {'fresh': {'type': 'boolean'}}),
     tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}, 'revive': {'type': 'boolean', 'description': 'Restart a stalled wrist stream to get a frame (default true; previews pass false)'}}),
@@ -213,7 +234,7 @@ TOOLS = [
     tool('robot_get_calibration_job', 'Progress and result of an automatic calibration job: phase, log tail, whether the result was validated/installed or the previous calibration restored, and evidence location. Without job_id, the latest job.', {'job_id': {'type': 'string'}}),
     tool('robot_get_motion', 'Live progress of the running or last motion: phase (moving/holding/idle), current waypoint, per-joint current/goal/target ticks and following error, elapsed time, outcome. Cheap; call it repeatedly while a wait=false motion runs.'),
     tool('robot_halt_motion', 'Stop the running motion now and HOLD where the arm is (the base brakes and releases). Nothing is released, unlike robot_stop. Use it when monitoring shows the motion should not continue; then send a new move.'),
-    tool('robot_move_head', 'Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
+    tool('robot_move_head', 'Aim the head (and the OAK camera on it): absolute encoder targets for head_motor_1 (pan) and/or head_motor_2 (tilt), already enabled with robot_set_motor_enable. Needs capabilities.head_supported (owner started with --head). Each joint moves at most 200 ticks per call (about 18 degrees; 4096 ticks per turn), targets stay 40 ticks inside the saved range, and duration_s must be at least 1 s per 100 ticks of the longest travel (default: that minimum, at least 1 s). The owner applies the arm guards (ramp, 96-tick following error, contact halt, watchdog, phone-feed gate, idle lease) and waits for measured completion. Joints already within 2 ticks of their target are dropped. Not allowed while another motion runs.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
     tool('robot_set_gripper', 'Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'position_ticks': {'type': 'integer'}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'position_ticks']),
     tool('robot_stream_joint_targets', 'Stream mode only (the owner advertises stream with the pickup profile; refused otherwise). One set of absolute arm targets for a 10 Hz policy client: no wait, one owner command, returns once the owner acknowledges it. Both arms and grippers allowed; every named arm needs all six joints enabled. The owner moves each goal at most 40 ticks per loop toward its target; a target outside the commandable range or more than 96 ticks from the present position rejects the whole set; a joint within 2 ticks of its present position or held goal is skipped; jaws change at most 10 ticks per command and a closing jaw that meets resistance (load >= 250 or 40 ticks behind) stops where it is until it is opened (jaw_contact). With no new targets for 0.5 s the stream ends holding. Arm contact (load >= 350, stalled, 50 ticks behind) holds everything where it is and ends the stream (contact_halt); send robot_hold_here before streaming again. A refusal returns accepted=false and never releases motors.', {'positions': STREAM_TARGET}, ['positions']),
     tool('robot_hold_here', 'Stream mode only (the owner advertises stream with the pickup profile; refused otherwise). Hold every enabled joint at its present position, with no torque ramp-down and no release; ends any running motion or stream. A refusal returns accepted=false and never releases motors.'),
@@ -240,9 +261,9 @@ for entry in TOOLS:
         fn['description'] += ' Validates first, then enables what is released (in the pickup profile all six joints of that arm, which hold where they are; otherwise only this gripper) and moves through the sole owner; failure triggers STOP cleanup. Right-gripper execution uses fixed measured-progress waypoints up to48ticks, a1s no-progress guard, and20tick final endpoint tolerance with directed-travel and three fresh stable samples; reports raw endpoint error, not verified jaw state. Other position tools do not auto-enable. Commandable gripper ranges: '+message+'. Raw calibration endpoints are invalid command targets; no clamping.'
         params['properties']['position_ticks']['description']='Commandable integer encoder ticks: '+message
         params['allOf']=[{'if':{'properties':{'arm':{'const':a}},'required':['arm']},'then':{'properties':{'position_ticks':{'minimum':b['min_ticks'],'maximum':b['max_ticks']}}}} for a,b in ranges.items()]
-# Retired 2026-10-08: the head is read-only in every owner scope, and the rest were historical context (old evidence,
-# simulated keyframes, an empty skills list) that only cost the pilot context. Their calls are now rejected.
-RETIRED = {'robot_move_head', 'robot_get_readiness', 'robot_get_keyframes', 'robot_get_skills', 'robot_get_evidence'}
+# Retired 2026-10-08: historical context (old evidence, simulated keyframes, an empty skills list) that only cost the
+# pilot context. Their calls are now rejected. robot_move_head is back (2026-10-09): the owner's --head scope.
+RETIRED = {'robot_get_readiness', 'robot_get_keyframes', 'robot_get_skills', 'robot_get_evidence'}
 TOOLS = [t for t in TOOLS if t['function']['name'] not in RETIRED]
 # Callable, but not offered to the pilot: the tag-calibration mover's raw one-joint steps (the pilot uses robot_move_joint_targets).
 # The stream tools are for the policy client (gemma_direct_client stream/hold_here), never for the chat model.
@@ -542,6 +563,10 @@ def capabilities():
             'wheel_policy': 'robot_move_base guarded velocity pulses (<=0.02 m/s per wheel, <=3 s, released between pulses) when the owner runs with --wheels; robot_set_motor_enable cannot power the wheels in the right-arm scope', 'base_drive_supported': ready.get('base_drive_supported') is True, 'automatic_motor_activation': False, 'remote_owner_start_supported': False,
             'stop_latch': False, 'owner_restart_required_after_stop': False,
             'stream_mode': stream_mode(),
+            'head_supported': ready.get('head_supported') is True, 'head_motors': ready.get('head_motors') or [],
+            'head_move_limits': ready.get('head_move_limits'),
+            'head_policy': ('robot_set_motor_enable accepts head_motor_1 (pan) / head_motor_2 (tilt); robot_move_head moves them (<=200 ticks per joint per call, duration_s >= 1 s per 100 ticks, 40-tick range margin); the OAK camera is on the head, so its view direction follows the head pose'
+                            if ready.get('head_supported') is True else 'head read-only: the running owner was started without --head'),
             'stop_behavior': 'robot_stop and any owner fault release all motors and cancel the move in progress (never resumed). No STOP latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable, which repeats all health, range, camera and voltage checks. A failed release keeps the owner not healthy (OWNER_NOT_HEALTHY).',
             'blockers': ready['blockers']}
 
@@ -741,7 +766,7 @@ def dispatch(name, args):
     if name == 'robot_halt_motion':
         return DIRECT_CLIENT.halt(), None
     if name == 'robot_move_head':
-        return DIRECT_CLIENT.execute(args['positions'], args.get('duration_s', 3)), None
+        return move_head(args['positions'], args.get('duration_s')), None
     if name in ('robot_stream_joint_targets', 'robot_hold_here'):
         if not stream_mode():
             return {'accepted': False, 'motor_writes': 0, 'reason': 'STREAM_MODE_DISABLED: the running hardware owner predates stream mode (redeploy to install it); nothing was sent',

@@ -4,6 +4,7 @@ from pathlib import Path
 from direct_joint_executor import DirectJointExecutor
 from gemma_control_limits import SOFTWARE_TEMPERATURE_LIMIT_C
 from wheel_pulse_executor import WheelPulseExecutor,WHEELS
+from head_joint_executor import HEAD_MOTORS,HEAD_LIMITS,HEAD_TORQUE_LIMIT
 PHONE_CAMERA=Path('/Users/teachera/Documents/Codex/2026-10-05/m/work/phone_camera/latest.json')
 
 DIAGNOSTIC_REGISTERS=['Torque_Enable','Operating_Mode','Goal_Position','Goal_Time','Goal_Velocity','Acceleration','Torque_Limit','Max_Torque_Limit','Max_Temperature_Limit','P_Coefficient','I_Coefficient','D_Coefficient','CW_Dead_Zone','CCW_Dead_Zone','Minimum_Startup_Force','Protection_Current','Protective_Torque','Protection_Time','Overload_Torque','Over_Current_Protection_Time','Unloading_Condition','Lock']
@@ -28,7 +29,7 @@ def recover_ports(buses,reason,state,now):
  return recovered
 
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,stream=None):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,stream=None,head=False):
   self.read_only=read_only
   # Stream mode: stream_targets/hold_here for a 10 Hz policy client (stream_joint_executor.py, STREAM-MODE.md). On with
   # the pickup profile; it does nothing until a client sends one of its two ops. stream=False is the pre-stream owner.
@@ -43,8 +44,14 @@ class HardwareOwner:
    from paddle_camera_gate import PaddleCameraGate
    self.camera_gate=PaddleCameraGate(camera_metadata,clock=clock,wall=wall)
   if paddle_profile and (read_only or not position_scope or any(not n.startswith(("right_arm_","left_arm_")) for n in position_scope)):raise ValueError("Pickup profile requires an explicit arm scope")
+  if head and (read_only or not paddle_profile):raise ValueError('Head scope (--head) requires the pickup profile')
   self.buses=buses;self.cal=calibration;self.telemetry=read_telemetry;self.clock=clock;self.wall=wall
   self.names=[n for b in buses for n in b.motors];self.by_name={n:b for b in buses for n in b.motors}
+  # --head (2026-10-09, OAK on the head): the head motors join the scope with their own rules (head_joint_executor):
+  # enable/release like any joint, moves only through op head_move, never part of an arm's six-joint rule.
+  # A head motor missing from the buses (its bus left out) just leaves the head read-only.
+  self.head_names=[n for n in HEAD_MOTORS if n in self.names] if head else []
+  if self.head_names:position_scope=list(position_scope)+self.head_names
   all_position_names=[n for n in self.names if not n.startswith('base_')]
   if position_scope is not None and (not position_scope or not set(position_scope)<=set(all_position_names)):raise ValueError('Invalid explicit position scope')
   self.position_names=all_position_names if position_scope is None else list(position_scope)
@@ -55,10 +62,13 @@ class HardwareOwner:
   if wheels and not read_only and len(self.wheel_names)!=2:raise ValueError('Base drive requires both wheel motors on the owner buses')
   self.enabled=set();self.old={};self.goals={};self.rows={};self.limits={};self.last_tick=clock();self.lease=clock()+30
   self.started=wall();self.engine=None;self.current_command=None
-  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','base_drive_supported':bool(self.wheel_names),'base_drive_limits':{'max_wheel_m_s':.02,'max_duration_s':3.0} if self.wheel_names else None,'motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
+  self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.arm_scope() if paddle_profile else [],'head_supported':bool(self.head_names),'head_motors':list(self.head_names),'head_move_limits':dict(HEAD_LIMITS) if self.head_names else None,'pickup_motion_segment_budget':None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','base_drive_supported':bool(self.wheel_names),'base_drive_limits':{'max_wheel_m_s':.02,'max_duration_s':3.0} if self.wheel_names else None,'motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
+  if self.head_names:self.state['capabilities'].append('head_move')
   if self.stream:
    from stream_joint_executor import LIMITS
    self.state['capabilities'].append('stream');self.state['stream_limits']=dict(LIMITS)
+ def arm_scope(self):return [n for n in self.position_names if '_arm_' in n]
+ def load_limit(self,n):return 500 if n.endswith('gripper') or not self.paddle_profile else HEAD_TORQUE_LIMIT if n in self.head_names else 800
  def read(self,n,f):return int(self.by_name[n].read(f,n,normalize=False,num_retry=2))
  def write(self,n,f,v):
   self.by_name[n].write(f,n,v,normalize=False,num_retry=2);self.state['motor_writes']+=1
@@ -81,6 +91,14 @@ class HardwareOwner:
   # fatal (as before); with both arms the other arm keeps working and the reduction is reported.
   bad=sorted({n.split('_arm_')[0] for n in mismatched if n in self.commandable_names and '_arm_' in n})
   arms_in_scope={n.split('_arm_')[0] for n in self.position_names if '_arm_' in n}
+  # A head motor whose calibration mismatches only makes the head read-only again (the arms keep working).
+  bad_head=sorted(mismatched&set(self.head_names))
+  if bad_head:
+   self.position_names=[n for n in self.position_names if n not in self.head_names];self.commandable_names-=set(self.head_names)
+   for n in self.head_names:self.ranges.pop(n,None)
+   self.state.setdefault('scope_reduced',{})['head']={'reason':'saved calibration differs from hardware','motors':bad_head}
+   self.head_names=[];self.state.update(head_supported=False,head_motors=[],head_move_limits=None,capabilities=[c for c in self.state['capabilities'] if c!='head_move'])
+   self.state.update(supportsselectedjoints=self.position_names,commandable_motors=sorted(self.commandable_names),read_only_motors=[n for n in self.names if n not in self.commandable_names],ranges=self.ranges)
   if mismatched&self.commandable_names and (len(arms_in_scope)<2 or not self.paddle_profile or set(bad)>=arms_in_scope or any('_arm_' not in n for n in mismatched&self.commandable_names)):
    raise RuntimeError(sorted(mismatched&self.commandable_names)[0]+': saved calibration differs from hardware')
   for arm in bad:
@@ -88,7 +106,7 @@ class HardwareOwner:
    self.position_names=[n for n in self.position_names if n not in dropped];self.commandable_names-=set(dropped)
    for n in dropped:self.ranges.pop(n,None)
    self.state.setdefault('scope_reduced',{})[arm]={'reason':'saved calibration differs from hardware','motors':sorted(n for n in mismatched if n.startswith(arm+'_arm_'))}
-  if bad:self.state.update(supportsselectedjoints=self.position_names,commandable_motors=sorted(self.commandable_names),read_only_motors=[n for n in self.names if n not in self.commandable_names],ranges=self.ranges,pickup_required_enabled_motors=self.position_names)
+  if bad:self.state.update(supportsselectedjoints=self.position_names,commandable_motors=sorted(self.commandable_names),read_only_motors=[n for n in self.names if n not in self.commandable_names],ranges=self.ranges,pickup_required_enabled_motors=self.arm_scope())
   self.state['released_register_diagnostics']={n:self.register_diagnostics(n) for n in self.names if n.endswith('gripper')}
   self.poll()
   n='right_arm_gripper'
@@ -134,7 +152,7 @@ class HardwareOwner:
   for n in self.names:
    row=self.read_telemetry(n);row['Torque_Enable']=self.read(n,'Torque_Enable');row['Operating_Mode']=self.read(n,'Operating_Mode');row['captured_at']=self.wall();row['firmware_position_limits']=self.limits.get(n);self.rows[n]=row
    if n in self.enabled:
-    failures=[('Torque_Enable',row['Torque_Enable'],'must equal',1),('Status',row['Status'],'must equal',0),*([('Present_Temperature',row['Present_Temperature'],'must be <=',SOFTWARE_TEMPERATURE_LIMIT_C)] if not self.paddle_profile else []),('Present_Load',row['Present_Load'],'absolute must be <=',500 if n.endswith('gripper') or not self.paddle_profile else 800)]
+    failures=[('Torque_Enable',row['Torque_Enable'],'must equal',1),('Status',row['Status'],'must equal',0),*([('Present_Temperature',row['Present_Temperature'],'must be <=',SOFTWARE_TEMPERATURE_LIMIT_C)] if not self.paddle_profile else []),('Present_Load',row['Present_Load'],'absolute must be <=',self.load_limit(n))]
     for field,value,rule,limit in failures:
      failed=(value!=limit if field in ('Torque_Enable','Status') else value>limit if field=='Present_Temperature' else abs(value)>limit)
      if failed:
@@ -188,7 +206,7 @@ class HardwareOwner:
   # Validate the entire request before enabling any motor.
   for n in names:
    row=self.rows[n];q=row['Present_Position'];lo,hi=self.limits[n]
-   if row['Status'] or (not self.paddle_profile and row['Present_Temperature']>SOFTWARE_TEMPERATURE_LIMIT_C) or abs(row['Present_Load'])>(500 if n.endswith('gripper') or not self.paddle_profile else 800):raise ValueError(n+': fault or health limit')
+   if row['Status'] or (not self.paddle_profile and row['Present_Temperature']>SOFTWARE_TEMPERATURE_LIMIT_C) or abs(row['Present_Load'])>self.load_limit(n):raise ValueError(n+': fault or health limit')
    if self.paddle_profile and not 100<=row['Present_Voltage']<=140:raise ValueError(n+': pickup supply voltage outside 10..14V')
    if row['Operating_Mode']!=0:raise ValueError(n+': current mode is not supported position-hold mode')
    # Enable anywhere inside the saved range so a joint resting near a limit can drive itself back; pickup targets stay 40 ticks inside.
@@ -199,7 +217,7 @@ class HardwareOwner:
    self.state.setdefault('enable_register_diagnostics',{})[n]={'pre_enable':self.register_diagnostics(n)}
    self.old[n]={f:self.read(n,f) for f in ['Lock','Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient']}
    self.write(n,'Lock',0)
-   torque=(500 if n.endswith('gripper') else 400 if n.endswith('elbow_flex') else 800) if self.paddle_profile else (250 if n.endswith('gripper') else 400)
+   torque=(500 if n.endswith('gripper') else 400 if n.endswith('elbow_flex') else HEAD_TORQUE_LIMIT if n in self.head_names else 800) if self.paddle_profile else (250 if n.endswith('gripper') else 400)
    self.write(n,'Torque_Limit',min(self.old[n]['Torque_Limit'],torque));self.write(n,'Goal_Velocity',200 if self.paddle_profile and n.endswith('gripper') else 100);self.write(n,'Goal_Time',0);self.write(n,'Acceleration',5 if self.paddle_profile else 10)
    if self.paddle_profile and n.endswith(('shoulder_lift','elbow_flex')):self.write(n,'P_Coefficient',32)
    q=self.read(n,'Present_Position');lo,hi=self.limits[n]
@@ -298,6 +316,7 @@ class HardwareOwner:
    candidate=WheelPulseExecutor(self.read,self.write,self.camera_fresh,clock=self.clock,wall=self.wall)
    update=candidate.start(c,self.rows,session_started=self.started)
    self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.last_tick=self.clock();self.publish();return
+  if op=='head_move':return self.head_command(c)
   if self.stream and op=='stream_targets':return self.stream_command(c)
   if self.stream and op=='hold_here':self.hold_here();self.state['completed']=c['id'];self.publish();return
   if op not in ('direct_joint','gripper_target'):raise ValueError('Unsupported hardware command')
@@ -305,6 +324,7 @@ class HardwareOwner:
   if c.get('waypoints') is not None:
    if not self.paddle_profile or op!='direct_joint':raise ValueError('Waypoint paths require the pickup profile')
    positions=c['waypoints'][0] if isinstance(c['waypoints'],list) and c['waypoints'] else None
+  if isinstance(positions,dict) and set(positions)&set(self.head_names):raise ValueError('Head motors move only through robot_move_head (owner op head_move), never with arm targets')
   if not isinstance(positions,dict) or not positions or not set(positions)<=self.enabled or not set(positions)<=set(self.position_names):raise ValueError('Targets require already-enabled arm/head motors; wheels do not accept position-motion requests')
   if self.stream_executor and self.engine is self.stream_executor and self.engine.active:
    # Stream mode: a normal motion ends a running stream first (holding its goals), as replace=true does.
@@ -332,6 +352,25 @@ class HardwareOwner:
   self.state['local_gripper_probe']=False
   self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.lease=self.clock()+(candidate.deadline+5 if op=='gripper_target' or self.paddle_profile else 30);self.last_tick=self.clock()
   if self.stream_executor:self.stream_executor.contact_latched=None;self.stream_executor.forget_jaws(positions)  # a started normal motion acknowledges a stream contact_halt; jaws it moves lose their stream block
+  self.publish()
+
+ def head_command(self,c):
+  # Head move: its own rules (head_joint_executor), the arm guards (ramp, following error, contact, watchdog), the
+  # arms' camera gate and idle lease. Never replaces or runs alongside another motion.
+  if not self.head_names:raise ValueError('UNSUPPORTED_OWNER_SCOPE: owner started without --head; the head is read-only')
+  positions=c.get('positions')
+  if not isinstance(positions,dict) or not positions or not set(positions)<=set(self.head_names):raise ValueError('Head move targets head motors only: '+', '.join(self.head_names))
+  missing=sorted(set(positions)-self.enabled)
+  if missing:raise ValueError('Head move requires the named head motors explicitly enabled: '+', '.join(missing))
+  if self.engine and self.engine.active:raise ValueError('Previous motion has not completed; halt it (robot_halt_motion) or wait before moving the head')
+  if not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
+  from head_joint_executor import HeadJointExecutor
+  candidate=HeadJointExecutor(list(positions),{n:self.ranges[n] for n in positions},self.setpoints,clock=self.clock,wall=self.wall)
+  current={n:self.rows[n]['Present_Position'] for n in positions}
+  update=candidate.start(c,current,session_started=self.started,held_goals=self.goals)
+  self.motion_count+=1;self.state['pickup_motion_segments_used']=self.motion_count;self.state['local_gripper_probe']=False
+  self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.lease=self.clock()+candidate.deadline+5;self.last_tick=self.clock()
+  if self.stream_executor:self.stream_executor.contact_latched=None
   self.publish()
 
  def stream_command(self,c):
@@ -419,7 +458,7 @@ def main():
   if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
   if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)  # before any check that needs it
   buses=live
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,head='--head' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
   owner.state['missing_buses']=missing
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)
