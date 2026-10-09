@@ -16,7 +16,7 @@ from farm.sim.sim_robot import SimRobot
 
 RIGHT = [f'right_arm_{j}' for j in ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper')]
 NO_STICKS = {'right_grip_sticks': None, 'meet_jitter_ticks': None}
-HINGE_LEFT, HINGE_UP, RADIUS = -18.0, 80.0, 14.0   # model cm: the right wall top reads ~3 cm high, like the claw
+HINGE_LEFT, HINGE_UP, RADIUS = -17.5, 84.0, 12.0   # model cm: the right wall top (rim 81) reads ~3 cm high, like the claw
 
 
 def ok(res):
@@ -47,8 +47,8 @@ def grip(r, ticks):
 def pinch(r):
     """Open, come down over the flap edge (tip 1 cm left of the flap, ~2 cm below its edge in truth), close."""
     grip(r, 2000)
-    reach(r, 34, -20, 97, -35)
-    reach(r, 34, -20, 94, -35)
+    reach(r, 34, -20, 99, -30)
+    reach(r, 34, -20, 96, -30)
     return grip(r, 1309)
 
 
@@ -69,10 +69,11 @@ def test_real_scene_is_the_9_october_carton():
     try:
         with r.lock:
             box = box_scene.robot_frame_of_box(r.model, r.data)
-        assert box['top_m'] == pytest.approx(0.77, abs=0.002)
-        assert box['near_face_forward_m'] == pytest.approx(0.27, abs=0.005)
+        assert box['top_m'] == pytest.approx(0.808, abs=0.002)                  # HACHIYO 108 mm on the 70 cm table
+        assert box['size_m'] == pytest.approx([0.283, 0.379, 0.108], abs=1e-6)
+        assert box['near_face_forward_m'] == pytest.approx(0.213, abs=0.005)
         assert box['flap_angle_deg'] == pytest.approx(-11.0, abs=0.5)
-        assert box['flap_top_m'] == pytest.approx(0.77 + 0.16 * math.cos(math.radians(11)), abs=0.004)   # ~93 cm
+        assert box['flap_top_m'] == pytest.approx(0.808 + 0.14 * math.cos(math.radians(11)), abs=0.004)   # ~95 cm
         for kind, name in ((mujoco.mjtObj.mjOBJ_GEOM, 'box_floor'), (mujoco.mjtObj.mjOBJ_JOINT, 'farflap_hinge'),
                            (mujoco.mjtObj.mjOBJ_SITE, 'box_flap_top')):
             assert mujoco.mj_name2id(r.model, kind, name) >= 0, name
@@ -133,8 +134,8 @@ def test_pushing_the_flap_with_the_claw_body_is_not_a_fold_by_pinch():
         grip(r, 1309)                       # closed claw, no pinch
         reach(r, 22, -14, 100, -30)         # in front of the box
         reach(r, 22, -28, 92, -35)          # still in front, right of the flap
-        reach(r, 34, -27, 88, -40)          # forward along its outside, below its edge
-        for left, up in ((-16, 88), (-10, 86), (-6, 83), (-4, 80)):
+        reach(r, 34, -27, 90, -40)          # forward along its outside, below its edge (rim 81, edge ~95 true)
+        for left, up in ((-16, 90), (-10, 89), (-6, 87), (-4, 85)):
             reach(r, 34, left, up, -40)      # sweep it over with the closed claw
         score = r.score()
         assert score['flap_deg_by_push'] > 20 and score['illegal_contact_s'] > 0

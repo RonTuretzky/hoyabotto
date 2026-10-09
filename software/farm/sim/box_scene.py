@@ -7,8 +7,8 @@ sites, the OAK optical site ``HEAD_SITE`` on ``HEAD_CAMERA_BODY``, floor, lights
   of the robot origin; four visual legs;
 - a free cardboard box (body ``box``, freejoint ``box_free``, 0.25 kg, friction 1.0, a brown corrugation-striped
   material) resting on the table's near edge. ``preset`` picks the box (``PRESETS``): 'real' (the default) is the
-  carton measured on the robot on 9 October, an OPEN box (floor and four walls, rim 77 cm) with a 16 cm right flap
-  (the target: ``flap_hinge``, bodies ``box_flap*``) whose starting lean is drawn per seed, and a 16 cm far flap
+  carton on the robot on 9 October (379 x 283 x 108 mm), an OPEN box (floor and four walls, rim 81 cm) with a 14 cm right flap
+  (the target: ``flap_hinge``, bodies ``box_flap*``) whose starting lean is drawn per seed, and a 14 cm far flap
   leaning in; its crease plasticity lives in SimRobot (``PLASTIC``). 'near7' is the 8 October scene described next,
   a closed box with one open carton flap: body ``box_flap`` (geom ``flap``, 7 cm tall,
   3.5 mm thick, the box's full width, 10 g) on hinge joint ``flap_hinge`` along the near top edge (axis along the box
@@ -72,29 +72,32 @@ FLAP_BEND_RANGE_DEG = (-120.0, 120.0)
 FLAP_FOLDED_DEG = 75.0        # robot_frame_of_box / SimRobot.score: folded at or past this angle
 
 # Scene presets. 'near7' is the 8 October bench scene (box top 81 cm, one 7 cm near flap that stays where it is put).
-# 'real' (the default) is the carton measured on the robot on 9 October with the head depth camera (model frame):
-# floor 70, rim 77 (box 7 cm over the table), near face at about 27 cm forward, far rim at 42-44, right wall at
-# -18 left, left wall at +21; the right flap stands 16 cm (free edge about 93 cm at 34 fwd / -21 left), leaning about
-# 3 cm outward; the far flap stands 16 cm leaning 4-6 cm inward; the near flap is folded down and the left flap hangs
-# outward (neither is modelled). The target flap (joint 'flap_hinge', bodies 'box_flap*') is the RIGHT flap.
+# 'real' (the default) is the carton on the robot's table on 9 October: the owner's HACHIYO box, 379 x 283 x 108 mm
+# (left-right x forward x height) with 140 mm flaps, so on the 70 cm table the rim is ~81 cm and a standing flap's free
+# edge ~95 cm (the morning's depth-camera fit that gave 77 cm was off: its tilt correction swung 27-52 deg). Placement
+# (model frame): right wall at about -18 left, left wall at +20, near face at about 21 cm forward (the far rim then at
+# ~50); the right flap leaned ~11 deg outward in the morning; the far flap stands leaning in; the near flap is folded
+# down and the left flap hangs outward (neither is modelled). The target flap ('flap_hinge', 'box_flap*') is the RIGHT one.
 # Its crease springs back: a flap carried to 100 deg and released returned to 5-15 deg from vertical on the robot, and
 # 3-6 s holds pressed flat did not set it. SimRobot models that with a moving spring rest angle (PLASTIC below).
 # Flap entries: side ('near', 'far', 'left', 'right' face of the box), segments (bottom panel on the crease, top strip
 # the pads hold), thickness per segment (the top 2 cm is the crushed edge: 2 mm, so a tip pinch reads about 14 ticks
 # above the meeting pads like the real right gripper's 1358-1364), open_deg (rest lean, + = inward), crease spring,
 # friction, damping, range, mass; 'target' marks the scored flap.
-# The real flaps folded from pinches 2-4 cm deep (9 October): the board bends where it leaves the pads. Segments: an
-# 11 cm crease panel, a 3 cm band that bends moderately (the pinch line of a deeper pinch), the 2 cm crushed edge.
-REAL_FLAP = {'segments': (0.11, 0.03, 0.02), 'thickness': (0.0035, 0.0035, 0.002), 'bend_stiffness': (0.03, 0.005),
+# The real flaps folded from pinches 2-4 cm deep (9 October): the board bends where it leaves the pads. Segments: a
+# 9 cm crease panel, a 3 cm band that bends moderately (the pinch line of a deeper pinch), the 2 cm crushed edge
+# (140 mm in all). Range: past flat the free edge dips into the open box (the floor is 10.4 cm below the rim).
+REAL_FLAP = {'segments': (0.09, 0.03, 0.02), 'thickness': (0.0035, 0.0035, 0.002), 'bend_stiffness': (0.03, 0.005),
              'bend_frictionloss': (0.004, 0.005), 'stiffness': 0.08, 'frictionloss': 0.008,
-             'damping': 0.004, 'range': (-60.0, 114.0), 'mass': 0.015}
+             'damping': 0.004, 'range': (-60.0, 125.0), 'mass': 0.012}
 PRESETS = {
     'near7': {'box_forward_m': 0.42, 'box_left_m': 0.21, 'box_size_m': (0.20, 0.15, 0.11),
               'phone': (-0.45, 0.55, 1.20), 'plastic': None,
               'flaps': {'near': {'segments': FLAP_SEGMENTS_M, 'thickness': (FLAP_THICKNESS_M, FLAP_THICKNESS_M),
                                  'open_deg': FLAP_OPEN_DEG, 'stiffness': FLAP_STIFFNESS, 'frictionloss': FLAP_FRICTIONLOSS,
                                  'damping': FLAP_DAMPING, 'range': FLAP_RANGE_DEG, 'mass': FLAP_MASS_KG, 'target': True}}},
-    'real': {'box_forward_m': 0.355, 'box_left_m': 0.015, 'box_size_m': (0.17, 0.39, 0.07), 'hollow': True,
+    'real': {'box_forward_m': 0.355, 'box_left_m': 0.0145, 'box_size_m': (0.283, 0.379, 0.108), 'hollow': True,
+             'table_near_m': 0.20,   # the table must reach under the box's near face (~21 cm)
              'lean_jitter_deg': (-12.0, 15.0),
              'phone': (0.05, -0.62, 1.05),   # the real phone stands on the robot's right, looking at the right wall
              'plastic': 'default',
@@ -254,14 +257,15 @@ def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_s
     ET.SubElement(asset, 'material', name='scene_lamp_stand', rgba='0.3 0.3 0.32 1')
 
     # Table: near edge TABLE_NEAR_M forward of the origin, centred on the robot's midline.
-    table_centre = robot_to_model(TABLE_NEAR_M + TABLE_SIZE_M[0] / 2.0, 0.0, table_top_m - TABLE_THICKNESS_M / 2.0)
+    table_near = float(spec.get('table_near_m', TABLE_NEAR_M))
+    table_centre = robot_to_model(table_near + TABLE_SIZE_M[0] / 2.0, 0.0, table_top_m - TABLE_THICKNESS_M / 2.0)
     ET.SubElement(world, 'geom', name='table', type='box', pos=_fmt(table_centre),
                   size=_fmt((TABLE_SIZE_M[0] / 2.0, TABLE_SIZE_M[1] / 2.0, TABLE_THICKNESS_M / 2.0)),
                   material='scene_table', contype='1', conaffinity='1', condim='4', friction='1 0.005 0.0001',
                   group='0')
     leg_half = (table_top_m - TABLE_THICKNESS_M) / 2.0
     for i, (df, dl) in enumerate(((0.05, 0.05), (0.05, -0.05), (-0.05, 0.05), (-0.05, -0.05))):
-        leg = robot_to_model(TABLE_NEAR_M + TABLE_SIZE_M[0] / 2.0 + np.sign(df) * (TABLE_SIZE_M[0] / 2.0 - abs(df)),
+        leg = robot_to_model(table_near + TABLE_SIZE_M[0] / 2.0 + np.sign(df) * (TABLE_SIZE_M[0] / 2.0 - abs(df)),
                              np.sign(dl) * (TABLE_SIZE_M[1] / 2.0 - abs(dl)), leg_half)
         ET.SubElement(world, 'geom', name=f'table_leg_{i}', type='cylinder', pos=_fmt(leg),
                       size=_fmt((0.02, leg_half)), material='scene_leg', contype='0', conaffinity='0', group='0')

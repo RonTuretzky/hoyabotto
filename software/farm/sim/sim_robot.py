@@ -121,7 +121,7 @@ GRIPPER_CLOSED_OFFSET = {'left': 82, 'right': 79}
 #   p_close; an open stops at 1500-1950 with probability p_open; resending an open after an open stall leaves the jaw
 #   stuck with probability p_reopen, which trips the 1 s no-progress guard and releases everything, as twice on 9 Oct);
 # - lift_bias_deg: the physical shoulder_lift sits this many degrees from what its ticks say (the arm model reads a few
-#   cm high near the box: a claw the model put at 73-75 cm met nothing below the 77 cm rim); positive = claw lower;
+#   cm high near the box: the phone saw the right claw lower than its model height; not measured); positive = claw lower;
 # - roll_offset_deg: the physical wrist_roll sits this far from the twin's mapping, so the unrolled jaws open to the
 #   robot's left and right as on the real robot (the twin has them opening up and down);
 # - plastic (optional): overrides for box_scene.PLASTIC, e.g. a crease that is harder to set than the default;
@@ -2248,7 +2248,7 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   is unmeasured. Settle corrections (up to 3 x 40 ticks, 57 max overdrive) are ported from the real executor.
 - Released joints keep 0.4 N m of gear friction: the folded arms rest; an extended released arm sags over a few seconds.
 - MuJoCo noslip_iterations=5 so a pinched box does not creep out of the soft jaw contacts.
-- Default scene (box_scene preset 'real', the 9 October carton): an open box, rim 77 cm, a 16 cm right flap (the target,
+- Default scene (box_scene preset 'real', the 9 October carton): an open box, rim 81 cm, a 14 cm right flap (the target,
   'flap_hinge') and a 16 cm far flap that leans in (flaps never collide with each other). The crease springs back toward a
   rest angle that only moves while the crease is loaded (box_scene.PLASTIC): a flap held flat and released returns most of
   the way, one carried past ~100 deg into the opening and held ~5 s stays down; a crease pressed by a robot contact near the
