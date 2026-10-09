@@ -1,3 +1,12 @@
+> **Live update, 9 October:** the corrected server is deployed with matching native
+> calibration and released startup. This Mac's operator screen now has an optional
+> `--readback-preview` MuJoCo panel. It illustrates existing encoder feedback,
+> creates no second HID reader and sends no robot commands. Its geometric zeroes,
+> environment, base travel and collision model are unvalidated. Disarmed stick
+> motion does not animate it; it shows the latest measured joint positions.
+> The claim API returns fresh post-enable telemetry to prevent a slow activation
+> from using stale pre-claim feedback. The normal motor-owner limits are unchanged.
+
 # Joy-Con practice and prepared teleoperation
 
 > **9 October commissioning update:** the user is now commissioning these controls.

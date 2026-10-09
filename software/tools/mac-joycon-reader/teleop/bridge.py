@@ -44,9 +44,9 @@ class Robot:
         return out['result']
 
 class Bridge:
-    def __init__(self,robot,reader,*,start=True,mapping=None,input_backend='apple'):
+    def __init__(self,robot,reader,*,start=True,mapping=None,input_backend='apple',preview3d=None):
         self.robot=robot;self.reader=reader;self.mapping=mapping or Mapping();self.lock=threading.RLock()
-        self.input_backend=input_backend
+        self.input_backend=input_backend;self.preview3d=preview3d
         self.frame=None;self.decoded=None;self.reader_error='Waiting for controller input'
         self.generation=0;self.armed=False;self.busy=False;self.scope='left';self.session=None;self.identity=None
         self.reason='Disarmed — test both triggers, then release them and center the sticks'
@@ -94,9 +94,11 @@ class Bridge:
     def snapshot(self):
         with self.lock:
             d=self.decoded or {}
+            state=dict(self.robot_state)
+            if self.preview3d:state['simulator']=self.preview3d.info()
             return dict(preview=self.robot.preview,simulation=self.robot.simulation,armed=self.armed,busy=self.busy or bool(self.release_pending),scope=self.scope,layer=self.mapping.layer,reason=self.reason,
                         control_mode=getattr(self.mapping,'mode','joint'),input_backend=self.input_backend,control_info=getattr(self.mapping,'info',{})|{'gyro_enabled':getattr(self.mapping,'gyro_enabled',False)},reference_frame=getattr(self.mapping,'reference_frame','robot'),
-                        controller=d,reader_error=self.reader_error,robot=self.robot_state,rtt_ms=self.rtt,
+                        controller=d,reader_error=self.reader_error,robot=state,rtt_ms=self.rtt,
                         checked_triggers=sorted(self.mapping.checked),input_age_s=round(time.time()-self.frame['timestamp'],3) if self.frame else None)
     def detach(self, reason):
         # Cancel synchronously before scheduling I/O. An old response must never
@@ -213,6 +215,7 @@ class Bridge:
             with self.lock:
                 if self.armed and self.generation==generation:
                     self.session=result;self.robot_state=result.get('status',self.robot_state)
+                    if self.preview3d:self.preview3d.update(self.robot_state)
                     self.rtt=round((time.monotonic()-started)*1000,1)
         except Exception as e:
             with self.lock:
@@ -227,6 +230,7 @@ class Bridge:
                 try:
                     state=self.robot.call('status',timeout=2)
                     with self.lock:self.robot_state=state
+                    if self.preview3d:self.preview3d.update(state)
                 except Exception as e:
                     with self.lock:self.robot_state={'error':str(e)}
                 last_status=time.monotonic()
@@ -235,6 +239,7 @@ class Bridge:
         self.closing=True;self.release('Teleop closed')
         self.stop_reader()
         if self.worker:self.worker.join(timeout=3)
+        if self.preview3d:self.preview3d.close()
         if hasattr(self.robot,'close'):self.robot.close()
 
 
@@ -248,8 +253,11 @@ def main():
     ap.add_argument('--connect-robot',action='store_true',help='Explicitly connect to the robot. Default is a local input preview with no network access.')
     ap.add_argument('--config',default=os.environ.get('XLEROBOT_ADMIN_CONFIG',DEFAULT_CONFIG))
     ap.add_argument('--reader',type=Path,default=Path(__file__).resolve().parents[1]/'.build/release/MacJoyConReader')
+    ap.add_argument('--readback-preview',action='store_true',help='Read-only MuJoCo model view of physical encoder feedback')
+    ap.add_argument('--ui-session-file',type=Path,help='Private local UI token file for a stable operator-screen restart')
     ap.add_argument('--no-browser',action='store_true');ap.add_argument('--port',type=int,default=0)
     a=ap.parse_args()
+    if a.readback_preview and not (a.connect_robot and a.control_mode=='upstream'):ap.error('Readback preview requires the physical upstream adapter')
     if a.connect_robot and MOTOR_CONTROL_LOCK.exists():ap.error('Motor control disabled for this installation (MOTOR_CONTROL_DISABLED)')
     if a.connect_robot and a.simulator=='mujoco':ap.error('MuJoCo practice cannot be combined with a robot connection')
     if a.control_mode=='cartesian' and (a.simulator!='mujoco' or a.connect_robot):ap.error('Cartesian control requires local MuJoCo simulation')
@@ -257,6 +265,15 @@ def main():
     if a.control_mode=='upstream' and a.connect_robot and not a.upstream_reference:ap.error('Exact --upstream-reference calibration binding is required before connecting')
     if a.control_mode=='upstream' and a.input_backend=='apple':ap.error('Original controls require --input-backend hid (or auto)')
     if a.connect_robot and a.input_backend!='apple' and a.control_mode!='upstream':ap.error('Physical HID input requires original controls and a measured reference')
+    token=secrets.token_urlsafe(32)
+    if a.ui_session_file:
+        if a.ui_session_file.exists():
+            token=a.ui_session_file.read_text().strip()
+            if len(token)<32 or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-' for c in token):ap.error('Invalid local UI session file')
+        else:
+            a.ui_session_file.parent.mkdir(parents=True,exist_ok=True)
+            fd=os.open(a.ui_session_file,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+            with os.fdopen(fd,'w') as stream:stream.write(token)
     if a.connect_robot and a.control_mode=='upstream':
         from upstream_hardware import UpstreamHardware,PhysicalReference
         reference=PhysicalReference.load(a.upstream_reference)
@@ -281,11 +298,15 @@ def main():
             ids={r['product_id'] for r in hid.enumerate(0x057e,0)}
             backend='hid' if {0x2006,0x2007}<=ids else 'apple'
         except ImportError:backend='apple'
-    try:bridge=Bridge(robot,a.reader,mapping=mapping,input_backend=backend)
+    preview3d=None
+    if a.readback_preview:
+        from readback_preview import ReadbackPreview
+        preview3d=ReadbackPreview(reference,a.model)
+    try:bridge=Bridge(robot,a.reader,mapping=mapping,input_backend=backend,preview3d=preview3d)
     except Exception:
+        if preview3d:preview3d.close()
         if hasattr(robot,'close'):robot.close()
         raise
-    token=secrets.token_urlsafe(32)
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def send(self,code,value,kind='application/json'):
@@ -297,8 +318,9 @@ def main():
             if self.path=='/':return self.send(200,Path(__file__).with_name('index.html').read_bytes(),'text/html; charset=utf-8')
             if not self.authorized():return self.send(403,{'error':'Local session required'})
             if self.path=='/state':return self.send(200,bridge.snapshot())
-            if self.path=='/frame.jpg' and hasattr(robot,'frame'):
-                frame=robot.frame()
+            viewer=preview3d or robot
+            if self.path=='/frame.jpg' and hasattr(viewer,'frame'):
+                frame=viewer.frame()
                 if frame is None:return self.send(503,{'error':'Waiting for simulator renderer'})
                 return self.send(200,frame,'image/jpeg')
             return self.send(404,{'error':'Not found'})
@@ -311,7 +333,7 @@ def main():
                 if self.path=='/heartbeat':
                     if b.get('focused') is True:bridge.ui_seen=time.monotonic()
                     else:bridge.ui_seen=0
-                elif self.path=='/view' and hasattr(robot,'set_view'):robot.set_view(b.get('view'))
+                elif self.path=='/view' and hasattr(preview3d or robot,'set_view'):(preview3d or robot).set_view(b.get('view'))
                 elif self.path=='/action':bridge.action(b)
                 else:raise ValueError('Unknown route')
                 self.send(200,{'ok':True})

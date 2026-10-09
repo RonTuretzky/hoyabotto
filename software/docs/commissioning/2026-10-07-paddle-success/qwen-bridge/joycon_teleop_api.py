@@ -64,7 +64,7 @@ class TeleopAPI:
                 token = secrets.token_urlsafe(32)
                 s = self.command('teleop_claim', token=token, **body)
                 self.token, self.scope, self.started, self.sequence = token, body['scope'], s['started'], 0
-                return self.renew()
+                return self.renew() | {'status': self.status()}
             if action == 'release':
                 if set(body) != {'token'}: raise ValueError('Session token required')
                 s = self.command('teleop_end', token=body['token'])

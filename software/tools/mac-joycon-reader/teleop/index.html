@@ -120,7 +120,8 @@ function draw(s){
   const upstream=s.control_mode==='upstream',cart=upstream||s.control_mode==='cartesian',d=s.controller||{},a=d.axes||{},dead=d.deadman||{},r=s.robot||{};
   const physicalUpstream=upstream&&!s.simulation;
   const busy=s.busy||pending>0,locked=s.armed||busy,unavailable=!connected||!!s.reader_error||!Object.keys(d).length;
-  const canStart=!unavailable&&!locked&&d.ready&&d.neutral&&!(s.preview&&!s.simulation);
+  const physicalReady=!physicalUpstream||(r.ok===true&&r.teleop?.available===true&&!r.teleop?.active&&r.phase==='idle'&&!(r.enabled_motors||[]).length&&r.status_age_s>=0&&r.status_age_s<=.25);
+  const canStart=physicalReady&&!unavailable&&!locked&&d.ready&&d.neutral&&!(s.preview&&!s.simulation);
   $('title').textContent=s.simulation?'Joy-Con practice':'Joy-Con controls';
   $('connection').textContent=s.simulation?'Local simulation · No robot connected':s.preview?'Input preview · No robot connected':'Physical robot · Manual control';
   $('state').textContent=!connected?'Connecting…':busy?'Please wait…':s.armed?(s.simulation?'Practice active':'Controls armed'):unavailable?'Connect your Joy-Cons':canStart?'Ready to start':'Stopped';
@@ -191,14 +192,16 @@ function draw(s){
   if(physicalUpstream){
     $('check').textContent=s.reader_error||(!d.ready?'Press and release a rail SL or SR button on each Joy-Con.':'Both hold-to-run controls checked.');
     $('movementHeading').textContent='Hold rail SL / SR, then move';
+    $('extraHelp').innerHTML=$('extraHelp').innerHTML.replaceAll('practice','control');
     $('startHelp').textContent=s.armed?'Hold a rail SL / SR button on each hand you want to move. Release to hold position.':!d.ready?'Calibrate gyros and check both rail buttons first.':!d.neutral?'Release buttons and center sticks.':'Arm uses measured positions. There is no automatic homing.';
+    if(!physicalReady&&!s.armed)$('startHelp').textContent=r.error||'Waiting for a healthy, released robot owner with fresh feedback.';
     $('extraHelp').innerHTML+='<p><b>Physical hold-to-run:</b> hold either small rail SL / SR button on the matching Joy-Con. Head requires the left rail; driving requires both rails. Release to stop that component. The existing motor speed limits still apply.</p>';
     $('gyroStatus').textContent=d.gyro_available?(gyro?'Tilt while holding the matching rail button. Release it to recenter.':'Gyro is off.'):$('gyroStatus').textContent;
   }
   $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':'Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.';
   $('ikStatus').textContent=(s.control_info?.warnings||[]).join(' · ');
   $('scenePanel').hidden=!r.simulator;
-  $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':'Live simulation · Solid practice box')):'';
+  $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':r.simulator.read_only?'Read-only MuJoCo preview · Model geometry unvalidated · Base remains stationary':'Live simulation · Solid practice box')):'';
   $('health').textContent=`Input age: ${s.input_age_s??'—'} s · ${s.simulation?'Local control loop':'Network round trip'}: ${s.rtt_ms??'—'} ms`;
   $('backendInfo').textContent='Input: '+(s.input_backend==='hid'?'Independent Nintendo HID':'Apple GameController')+' · Held: '+(Object.entries(d.buttons||{}).filter(([k,v])=>v).map(([k])=>k.replace('Button ','')).join(', ')||'none');
   $('axesReadback').textContent=['left','right'].map(side=>`${side} stick: X ${(a[side+'x']||0).toFixed(2)} / Y ${(a[side+'y']||0).toFixed(2)}`).join(' · ');
