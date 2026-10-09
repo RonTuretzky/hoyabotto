@@ -11,6 +11,11 @@
   fake-hardware deployment test files passed. The server tests require their official
   separate-process runner; collecting the whole directory in one pytest process leaks
   legacy module-global mocks and fails collection. No production fix was inferred from it.
+- Main code revision fbf0e01 was pushed and reconciled on the robot through camera-only
+  job 20261009-215214-bdbc1f. It persisted the selected profile. Direct before/after
+  readback: owner 14244, API 14262, OAK watchdog/stream 13659/13660 and wrist publishers
+  97386/97393 all unchanged; all four cameras fresh, selected OAK hash unchanged.
+  Existing Joy-Con runtime remained in place; no owner/API restart or motor command.
 - Training owner has the final 45-degree contract and explicit user request to restart
   after renderer/sampling/inference checks. No new training job has been reported here.
 
