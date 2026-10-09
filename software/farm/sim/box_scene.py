@@ -125,6 +125,7 @@ BOX_JITTER_DEG = 5.0
 OAK_SIZE = (640, 360)
 OAK_FOCAL_PX = 505.0
 OAK_FOVY_DEG = math.degrees(2.0 * math.atan(OAK_SIZE[1] / 2.0 / OAK_FOCAL_PX))
+STOCK_HEAD_CAMERA_MESH = 'tophead6'   # the kit's USB head camera on the tilt link (removed from the robot 2026-10-09)
 OAK_CAMERA_XYAXES = '0 -1 0 0 0 1'   # HEAD_SITE_XYAXES '0 -1 0 0 0 -1' with the y axis flipped (image up, not down)
 WRIST_SIZE = (640, 480)
 WRIST_FOVY_DEG = 70.0
@@ -186,23 +187,25 @@ def box_pose(box_forward_m, box_left_m, table_top_m, box_size_m, seed):
 
 
 def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_size_m=None,
-                    lamp=True, seed=0, path=None, preset=None):
+                    lamp=True, seed=0, path=None, preset=None, lean_jitter_deg=None):
     """MJCF string: the twin's scene plus table, box, lamp, floor and the four cameras. See the module docstring.
 
     ``preset``: a ``PRESETS`` key (default ``DEFAULT_PRESET``, the real 9 October carton); it supplies the box pose,
-    size, flaps and phone position, and the explicit arguments override it. ``box_size_m`` is (forward depth,
+    size, flaps and phone position, and the explicit arguments override it (``lean_jitter_deg``: the range the target
+    flap's starting lean is drawn from per seed). ``box_size_m`` is (forward depth,
     left-right width, height); the box's near face is at ``box_forward_m - depth/2``. ``seed`` jitters the box
     (None: exactly where asked).
     """
     spec = PRESETS[preset or DEFAULT_PRESET]
     flaps = {side: dict(flap) for side, flap in spec['flaps'].items()}
-    if spec.get('lean_jitter_deg') and seed is not None:
+    lean_jitter_deg = lean_jitter_deg or spec.get('lean_jitter_deg')
+    if lean_jitter_deg and seed is not None:
         # the real right flap's lean changed from attempt to attempt (11 deg out in the morning, 5-15 and 25-40 deg in
         # after folds): each seed draws the target flap's starting lean (its crease rest angle) from this range
         rng = np.random.RandomState(int(seed) + 7919)
         for flap in flaps.values():
             if flap.get('target'):
-                flap['open_deg'] = float(rng.uniform(*spec['lean_jitter_deg']))
+                flap['open_deg'] = float(rng.uniform(*lean_jitter_deg))
     box_forward_m = spec['box_forward_m'] if box_forward_m is None else box_forward_m
     box_left_m = spec['box_left_m'] if box_left_m is None else box_left_m
     box_size_m = spec['box_size_m'] if box_size_m is None else box_size_m
@@ -334,7 +337,14 @@ def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_s
     head = bodies.get(twin.HEAD_CAMERA_BODY)
     if head is None:
         raise ValueError(f'model has no {twin.HEAD_CAMERA_BODY} body for the oak camera')
-    ET.SubElement(head, 'camera', name='oak', pos='0 0 0', xyaxes=OAK_CAMERA_XYAXES, fovy=f'{OAK_FOVY_DEG:.4f}')
+    # at the OAK's optical centre: the slot cradle's offset from the camera link origin (link frame: x out of the lens,
+    # y left, z up), as the twin's camera_pose uses it. The stock USB head camera (mesh tophead6 on the tilt link) was
+    # removed on 9 October for the OAK; its mesh would sit right under the lens and block the view, so it goes too.
+    for body in world.iter('body'):
+        for geom in [g for g in body.findall('geom') if g.get('mesh') == STOCK_HEAD_CAMERA_MESH]:
+            body.remove(geom)
+    lens = ' '.join(f'{v:.4f}' for v in twin.HEAD_OPTICAL_OFFSET_M)
+    ET.SubElement(head, 'camera', name='oak', pos=lens, xyaxes=OAK_CAMERA_XYAXES, fovy=f'{OAK_FOVY_DEG:.4f}')
     tilt = math.radians(WRIST_TILT_DEG)
     wrist_xyaxes = _fmt((-1.0, 0.0, 0.0, 0.0, -math.sin(tilt), math.cos(tilt)))
     for name, body_name in WRIST_BODIES.items():

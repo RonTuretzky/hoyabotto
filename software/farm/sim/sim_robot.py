@@ -124,7 +124,8 @@ GRIPPER_CLOSED_OFFSET = {'left': 82, 'right': 79}
 #   cm high near the box: a claw the model put at 73-75 cm met nothing below the 77 cm rim); positive = claw lower;
 # - roll_offset_deg: the physical wrist_roll sits this far from the twin's mapping, so the unrolled jaws open to the
 #   robot's left and right as on the real robot (the twin has them opening up and down);
-# - plastic (optional): overrides for box_scene.PLASTIC, e.g. a crease that is harder to set than the default.
+# - plastic (optional): overrides for box_scene.PLASTIC, e.g. a crease that is harder to set than the default;
+# - lean_jitter_deg (optional): [lo, hi] range of the target flap's starting lean (default: the preset's).
 FIDELITY = {'meet_jitter_ticks': {'left': (0, 4), 'right': (-4, 10)},
             'right_grip_sticks': {'p_close': 0.5, 'p_open': 0.4, 'p_reopen': 0.7, 'close_band': (1520, 1610),
                                   'open_band': (1500, 1950)},
@@ -325,14 +326,14 @@ def _scene_with_actuators(xml):
     return ET.tostring(root, encoding='unicode')
 
 
-def build_scene(seed=0, preset=None):
+def build_scene(seed=0, preset=None, lean_jitter_deg=None):
     """The box scene from farm.sim.box_scene when present (``preset``: a box_scene.PRESETS key, default the real
     9 October carton), else the private fallback."""
     try:
         from farm.sim.box_scene import build_scene_xml
     except ImportError:
         return _fallback_scene_xml(seed=seed), 'fallback'
-    return build_scene_xml(seed=seed, preset=preset), 'box_scene'
+    return build_scene_xml(seed=seed, preset=preset, lean_jitter_deg=lean_jitter_deg), 'box_scene'
 
 
 # ---------------------------------------------------------------- world
@@ -757,7 +758,7 @@ class SimRobot:
         if self._given_xml is not None:
             xml, self.scene_source = self._given_xml, 'given'
         else:
-            xml, self.scene_source = build_scene(seed, self.preset)
+            xml, self.scene_source = build_scene(seed, self.preset, self.fidelity.get('lean_jitter_deg'))
         model = mj.MjModel.from_xml_string(_scene_with_actuators(xml))
         data = mj.MjData(model)
         self.motors = {}
