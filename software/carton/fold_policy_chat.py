@@ -9,6 +9,10 @@ Tools it adds to the catalog:
 - robot_get_fold_policy_status (read-only): configuration, blockers, the running job and the last runs.
 - robot_fold_policy_dry_run: runs carton.fold_policy_runner WITHOUT --execute: it reads the owner and the cameras
   (robot_get_execution, robot_get_cameras), runs the policy and logs what it would send. No motor command.
+- robot_fold_policy_start_pose: tools/move_to_start_pose.py, which moves both (enabled, holding) arms to the policy's
+  training start pose along a collision-checked joint path (docs/auto-start-pose.md). Dry-run (plan only) unless
+  execute=true; execution is refused unless the owner's config enables it (start_pose_execute_enabled), the named
+  operator is listed, no start_pose_blockers are open and the collision scene (start_pose_scene) is configured.
 - robot_fold_policy_run: the same runner WITH --execute. Refused unless the owner's config file (not a tool argument)
   enables execution, the named operator is listed there, the step count is within its cap, and a clean dry run with
   the same checkpoint, joint maps and cameras finished recently.
@@ -27,7 +31,8 @@ Configuration: <pilot>/.private/fold-policy.json, written by the installer and e
      "cameras": {"front": "oak", "left_wrist": "left_wrist", "right_wrist": "right_wrist"},
      "runs_dir": ".../fold-policy-runs", "device": "cpu", "gripper_mode": "hold",
      "dry_run_max_steps": 300, "dry_run_valid_s": 900,
-     "execute_enabled": false, "execute_max_steps": 10, "operators": [], "blockers": ["..."]}
+     "execute_enabled": false, "execute_max_steps": 10, "operators": [], "blockers": ["..."],
+     "start_pose_scene": ".../trial-020/run/scene.xml", "start_pose_execute_enabled": false, "start_pose_blockers": []}
 """
 from __future__ import annotations
 
@@ -45,11 +50,13 @@ from pathlib import Path
 STATUS = 'robot_get_fold_policy_status'
 DRY_RUN = 'robot_fold_policy_dry_run'
 RUN = 'robot_fold_policy_run'
-TOOLS = (STATUS, DRY_RUN, RUN)
+START_POSE = 'robot_fold_policy_start_pose'
+TOOLS = (STATUS, DRY_RUN, RUN, START_POSE)
 READ_PREFIXES = ('robot_get_', 'robot_list_')
 CONFIG_NAME = 'fold-policy.json'
 LOCK_NAME = 'tag-calibration.lock'          # shared with the tag calibration wrapper (carton.servo.tag_calibration)
 STARTUP_S = 180.0                           # policy load + warm-up before the first tick (CPU, cold)
+START_POSE_TIMEOUT_S = 600.0               # start-pose mover: plan + about a minute of arm legs + slow jaw closes
 HALT_GRACE_S = 15.0                         # after SIGINT: the runner halts and writes its summary
 INFORMATIONAL = ('Dry-run with motors enabled',)   # preflight warnings that do not make a dry run unclean
 
@@ -71,6 +78,19 @@ RUN_DESCRIPTION = (
     'owner\'s config decides whether execution is enabled, who may operate and the step cap; tool arguments cannot '
     'change them. Stops on any abort and ends HOLDING (releases nothing); STOP releases. Never retry a refused or '
     'aborted run on your own.')
+START_POSE_DESCRIPTION = (
+    'Move both arms to the fold policy\'s training start pose (shoulders folded low, wrists bent up, jaws closed) '
+    'instead of posing them by hand. Without execute it only reads the joints and returns the planned, '
+    'collision-checked sequence (no motor command). With execute=true it moves the arms one leg at a time at '
+    'modest speed: both arms must already be enabled and holding, the named operator at STOP, nobody in the arms\' '
+    'sweep. Before calling with execute=true, tell the user which arms will move and the plan from a dry run. The '
+    'owner\'s config decides whether execution is enabled and who may operate. Ends HOLDING (releases nothing); a jaw '
+    'that stops short is reported, never resent. Never retry a refused or aborted move on your own.')
+START_POSE_PARAMS = {'type': 'object', 'properties': {
+    'execute': {'type': 'boolean', 'description': 'false (default): plan only, nothing sent'},
+    'operator': {'type': 'string', 'minLength': 1, 'maxLength': 60,
+                 'description': 'with execute: the person holding STOP, as listed in the owner config'}},
+    'additionalProperties': False}
 NO_ARGS = {'type': 'object', 'properties': {}, 'additionalProperties': False}
 DRY_RUN_PARAMS = {'type': 'object', 'properties': {
     'max_steps': {'type': 'integer', 'minimum': 1, 'maximum': 3000,
@@ -82,6 +102,10 @@ RUN_PARAMS = {'type': 'object', 'properties': {
     'max_steps': {'type': 'integer', 'minimum': 1, 'maximum': 3000,
                   'description': 'ticks at 10 Hz; must not exceed the owner config cap'}},
     'required': ['operator', 'max_steps'], 'additionalProperties': False}
+
+
+STATE_KEYS = {'dry run': 'last_dry_run', 'run': 'last_run', 'start pose': 'last_start_pose',
+              'start pose dry run': 'last_start_pose_dry_run'}
 
 
 class Refused(Exception):
@@ -137,7 +161,8 @@ class FoldPolicyRobot:
             raise Refused('Fold-policy tool name is already supplied by the server')
         for name, description, parameters in ((STATUS, STATUS_DESCRIPTION, NO_ARGS),
                                               (DRY_RUN, DRY_RUN_DESCRIPTION, DRY_RUN_PARAMS),
-                                              (RUN, RUN_DESCRIPTION, RUN_PARAMS)):
+                                              (RUN, RUN_DESCRIPTION, RUN_PARAMS),
+                                              (START_POSE, START_POSE_DESCRIPTION, START_POSE_PARAMS)):
             catalog['tools'].append({'type': 'function', 'function': {
                 'name': name, 'description': description, 'parameters': parameters}})
         return catalog
@@ -151,6 +176,8 @@ class FoldPolicyRobot:
                 cfg = self.settings_file()
                 if name == DRY_RUN:
                     return self.start_and_wait(cfg, execute=False, max_steps=self._dry_steps(cfg, args))
+                if name == START_POSE:
+                    return self.start_pose(cfg, args)
                 return self.start_and_wait(cfg, execute=True, **self._run_gate(cfg, args))
             except Refused as exc:
                 return {'ok': False, 'result': {'error': str(exc), 'motor_writes': 0, 'automatic_retry': False}}
@@ -223,6 +250,44 @@ class FoldPolicyRobot:
             raise Refused('Fold policy run refused: ' + '; '.join(problems))
         return {'max_steps': steps, 'operator': operator}
 
+    def _start_pose_gate(self, cfg, args):
+        problems = []
+        if cfg.get('start_pose_execute_enabled') is not True:
+            problems.append('start-pose execution is disabled in the owner config (start_pose_execute_enabled false)')
+        for blocker in cfg.get('start_pose_blockers') or []:
+            problems.append(f'open blocker: {blocker}')
+        operator = str(args.get('operator') or '').strip()
+        if operator not in (cfg.get('operators') or []):
+            problems.append(f'operator {operator!r} is not listed in the owner config')
+        if not cfg.get('start_pose_scene'):
+            problems.append('no collision scene configured (start_pose_scene)')
+        if problems:
+            raise Refused('Start-pose move refused: ' + '; '.join(problems))
+        return operator
+
+    def start_pose_command(self, cfg, run_dir, *, execute, operator=None):
+        script = cfg.get('start_pose_script') or str(Path(cfg['software_root']) / 'tools/move_to_start_pose.py')
+        cmd = [cfg['python'], script, '--pilot-root', str(cfg['pilot_root']), '--out', str(run_dir),
+               '--parent-pid', str(os.getpid())]
+        for arm, path in sorted(cfg['joint_maps'].items()):
+            cmd += ['--joint-map', f'{arm}={path}']
+        if cfg.get('start_pose_scene'):
+            cmd += ['--scene', str(cfg['start_pose_scene'])]
+        if cfg.get('start_pose_check_checkpoint', True):
+            cmd += ['--checkpoint', str(cfg['checkpoint'])]
+        if execute:
+            cmd += ['--execute', '--operator', operator]
+        return cmd
+
+    def start_pose(self, cfg, args):
+        execute = args.get('execute') is True
+        operator = self._start_pose_gate(cfg, args) if execute else None
+        return self.start_and_wait(cfg, execute=execute, max_steps=None, operator=operator,
+                                   kind='start pose' if execute else 'start pose dry run',
+                                   command=lambda run_dir: self.start_pose_command(cfg, run_dir, execute=execute,
+                                                                                    operator=operator),
+                                   timeout=START_POSE_TIMEOUT_S)
+
     # ------------------------------------------------------------------ jobs
     def running(self):
         return self.job is not None and self.job['process'].poll() is None
@@ -241,14 +306,16 @@ class FoldPolicyRobot:
             cmd += ['--execute', '--operator', operator]
         return cmd
 
-    def start_and_wait(self, cfg, *, execute, max_steps, operator=None):
-        kind = 'run' if execute else 'dry run'
+    def start_and_wait(self, cfg, *, execute, max_steps, operator=None, kind=None, command=None, timeout=None):
+        kind = kind or ('run' if execute else 'dry run')
         identity = self.identity(cfg)
         stamp = time.time()
+        suffix = {'run': 'run', 'dry run': 'dry', 'start pose': 'pose', 'start pose dry run': 'pose-dry'}[kind]
         run_dir = Path(cfg['runs_dir']) / (time.strftime('%Y%m%d-%H%M%S', time.localtime(stamp))
-                                           + f'.{int(stamp * 1000) % 1000:03d}-{"run" if execute else "dry"}')
+                                           + f'.{int(stamp * 1000) % 1000:03d}-{suffix}')
         run_dir.parent.mkdir(parents=True, exist_ok=True)
-        cmd = self.command(cfg, run_dir, execute=execute, max_steps=max_steps, operator=operator)
+        cmd = command(run_dir) if command else self.command(cfg, run_dir, execute=execute, max_steps=max_steps,
+                                                              operator=operator)
         env = dict(os.environ, PYTHONPATH=os.pathsep.join(
             [str(cfg['software_root'])] + [p for p in os.environ.get('PYTHONPATH', '').split(os.pathsep) if p]))
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -267,7 +334,7 @@ class FoldPolicyRobot:
                     log.close()
                     self.job = {'process': process, 'kind': kind, 'run_dir': str(run_dir), 'started': self.clock(),
                                 'operator': operator, 'max_steps': max_steps}
-                timeout = STARTUP_S + max_steps / 10.0 * 1.5
+                timeout = timeout or STARTUP_S + max_steps / 10.0 * 1.5
                 try:
                     code = process.wait(timeout=timeout)
                 except subprocess.TimeoutExpired:
@@ -310,13 +377,18 @@ class FoldPolicyRobot:
                  'start_outside_training': preflight.get('start_outside_training'),
                  'clean': code == 0 and not aborted and not [w for w in warnings if not w.startswith(INFORMATIONAL)],
                  'identity': identity}
+        if kind.startswith('start pose'):
+            entry.update({k: summary.get(k) for k in ('at_start_pose', 'arms_at_start_pose', 'legs_sent', 'jaws',
+                                                      'residual_ticks', 'target_ticks', 'robot_stop_called')})
+            entry['plan'] = summary.get('plan')
+            entry['clean'] = code == 0 and not aborted
         state = _read_json(self.state_path) or {}
-        state['last_dry_run' if kind == 'dry run' else 'last_run'] = entry
+        state[STATE_KEYS[kind]] = entry
         tmp = self.state_path.with_suffix('.tmp')
         tmp.write_text(json.dumps(state, indent=1))
         tmp.replace(self.state_path)
         self.job = None
-        if kind == 'run':
+        if kind in ('run', 'start pose'):
             entry['note'] = ('The arms are HOLDING where the run ended (nothing was released). Support them before '
                              'robot_stop releases them.')
         return {k: v for k, v in entry.items() if k != 'identity'}
@@ -328,12 +400,13 @@ class FoldPolicyRobot:
         if isinstance(cfg, dict):
             out.update({k: cfg.get(k) for k in ('checkpoint', 'joint_maps', 'cameras', 'device', 'gripper_mode',
                                                 'execute_enabled', 'execute_max_steps', 'dry_run_max_steps',
-                                                'operators', 'blockers')})
+                                                'operators', 'blockers', 'start_pose_scene',
+                                                'start_pose_execute_enabled', 'start_pose_blockers')})
         job = self.job
         out['running'] = None if not self.running() else {
             'kind': job['kind'], 'run_dir': job['run_dir'], 'elapsed_s': round(self.clock() - job['started'], 1),
             'operator': job.get('operator'), 'max_steps': job.get('max_steps')}
-        for key in ('last_dry_run', 'last_run'):
+        for key in STATE_KEYS.values():
             entry = state.get(key)
             out[key] = None if entry is None else {k: v for k, v in entry.items() if k != 'identity'}
         return out
