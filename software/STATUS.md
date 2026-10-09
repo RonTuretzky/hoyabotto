@@ -1,5 +1,14 @@
 ## Current depth and carton-tag verification — 9 October 2026, 20:36 JST
 
+- Follow-up table-plane diagnosis at 20:49: fresh OAK RGB sequence 93988 shows carton panels and
+  both claws occupying the foreground, with room floor above and almost no exposed tabletop.
+  Saved depth sequence 93987 rejects the dominant vertical plane both with current projection
+  handling and with factory distortion coefficients supplied explicitly offline (about 53% support,
+  normal 94–95° from expected up; largest table-like candidate about 22%). Correcting the enum
+  parsing alone will not recover the table in this view. Next commissioning needs an exposed-table
+  view and a stable multi-frame fit at the known 700 mm height, before putting the carton back.
+  Evidence: `.context/table-plane-diagnostic/`, including RGB, depth, metadata and
+  `offline-comparison.json`. Projection comparison is diagnostic, not RGB/depth alignment validation.
 - Read-only check of the existing pilot returned fresh real OAK stereo depth, sequence 86123,
   RGB/depth 640×360, source `raw_fallback`. `powered_depth_observer_ready:false` and
   `robot_frame_calibrated:false`: RGB/depth registration and the robot transform remain unverified.
