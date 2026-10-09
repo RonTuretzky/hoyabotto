@@ -1,3 +1,31 @@
+## Carton tags live; final table captured; live fold not started — 9 October 2026, 18:37 JST
+
+- The pilot now has read-only `sense tags` / `robot_get_carton_tags` and GET `/api/carton-tags`, using the
+  HACHIYO 12-tag print plan with identity, hash, freshness and quality checks. Latest live phone evidence
+  accepts 11 (left short flap) and 28 (left wall near); physical placement is not independently verified.
+  OAK/wrists have no accepted tags. No tag-derived robot pose or fold/grasp success is claimed.
+- Best latest LLM folding recipe: DeepSeek Flash v8b, 7/8 metric passes versus Opus 5.5's 3/4; same seeds
+  both 3/4, median 1.03 versus 2.205 min. These tests predate the corrected wrist-camera collider and
+  final table. Flash's hardest stress batch was 0/4. New 54-frame / four-model-trial checks tested tag
+  sensing only, not folding reliability. The ACT policy's results are a separate evaluation.
+- User requested the best model live: selected and verified Flash through the running chat API. Its
+  live read-only readiness review found final-station registration and camera-body clearance unresolved.
+  Legacy recipe coordinates/3 cm height correction and depth-height check are not verified for this setup.
+  **No folding motion was launched; all 16 motors remain released with zero tick changes.**
+- Final table: user-confirmed DCM-F5040H, rectangular 500 × 480 mm, 700 mm top height, label rating 5 kg.
+  New capture 18:34:23 JST is in the las-vegas-v1 workspace under
+  `.context/station-refit-2026-10-09/server-evidence/final-table/`; read its `reply.md` and `manifest.json`.
+  It supersedes the 18:15 round-table pictures. Four fresh cameras, owner-state brackets and matching
+  OAK RGB/depth sequence 13598 are saved; exposure synchronization and pixel registration remain unverified.
+- Historical head solve was box-only (IDs 10/26/27, no gripper tags). Head ticks 2078/2580 are observed;
+  translation to bases is untrusted. Physical mount height, pan spacing and setback are unknown.
+  Model references: 729.1 mm mounting plane, 220 mm pan spacing, 111.2 mm nominal setback. Do not apply
+  the old 45 cm cart correction. Camera CAD's long axis is Y, not Z. Simulation thread owns the refit
+  and candidate preview before training; this thread made no `folding_sim.py` edits or training runs.
+- Verification: 60 tag tests and 109 focused pilot tests passed. Seven broader-suite failures reproduced
+  on the untouched baseline. Code, installation/rollback, benchmark and evidence details:
+  [carton-pilot-tags-2026-10-09.md](docs/carton-pilot-tags-2026-10-09.md).
+
 ## OAK on the head: head made commandable; live calibration pending — 9 October 2026, 14:30–16:00 JST
 
 The owner mounted the OAK-D Lite on the two-servo head (slot cradle on the stock tilt link) and removed the USB head camera.
