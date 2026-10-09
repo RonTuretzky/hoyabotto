@@ -136,9 +136,15 @@ def main(argv=None) -> int:
             rgb = pipeline.create(dai.node.ColorCamera)
             rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
             rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-            rgb.setIspScale(1, 3)
-            rgb.setFps(15)
-            rgb_out, rgb_pipeline = rgb.isp, "ColorCamera 1080p, isp scaled 1/3 (full field, no crop)"
+            # preview = the whole 1080p field scaled to 640x360 (keepAspectRatio with a 16:9 preview crops nothing);
+            # the isp-scaled variant crashed the device repeatedly on USB2 on 2026-10-08/09 (X_LINK_ERROR after a
+            # few frames), the preview path is the stock, light one.
+            rgb.setPreviewSize(640, 360)
+            rgb.setPreviewKeepAspectRatio(True)
+            rgb.setInterleaved(False)
+            rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+            rgb.setFps(10)
+            rgb_out, rgb_pipeline = rgb.preview, "ColorCamera 1080p, preview 640x360 (full field, no crop)"
         else:
             rgb = pipeline.create(dai.node.Camera)
             rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
