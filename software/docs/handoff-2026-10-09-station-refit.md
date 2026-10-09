@@ -1,6 +1,7 @@
 # Final DCM desk station refit — 9 October 2026
 
-Scene review was approved. **Cloud retraining is authorized and submitted. The corrected H200 job is RUNNING and recording audited demonstrations; optimizer training has not yet been observed.**
+Scene review was approved. **The four-H200 job is RUNNING, all four NVIDIA EGL renderers are verified,
+and 32 workers are recording audited demonstrations. Optimizer steps have not yet been observed.**
 The existing server thread owns hardware. This checkout owns simulation geometry and candidate previews.
 The user authorized up to **$50 total** and asked for the fastest training. No further spending approval
 is needed within that cap. Static clearance and IK are not motion validation.
@@ -22,8 +23,8 @@ All evidence is under the outer workspace's `.context/station-refit-2026-10-09/t
 - `dataset-smoke`: one complete three-camera LeRobot episode, 578 frames; two holdouts identified.
 - **120 targeted tests passed** (119 combined plus the added policy-render integration test).
   The latter confirms synthetic teacher markers and collision hulls are hidden from policy images.
-- `cloud-release-v2.tar.gz` and `cloud-release-v2/manifest.json`: frozen, credential-free source/assets.
-- `launch-cloud.py`: one-job submission with durable deduplication and source checksum.
+- `cloud-release-v5.tar.gz` and `cloud-release-v5/manifest.json`: frozen, credential-free source/assets.
+- `launch-four-h200.py`: bounded four-GPU submission with durable deduplication and source checksum.
 - `budget-and-launch.json`: authorization, authentication blocker, qualifications, and spending ledger.
 
 Teacher recipe: along −0.04 m, radius 0.125 m, normal tilt 15°, axis sign −1, preheight 0.035 m,
@@ -33,12 +34,19 @@ is group 4 and is removed from policy observations. Policy cameras retain the ap
 The head view uses the principal-point-centered 4:3 crop at 320×240. The physical runner does not yet
 implement this matching preprocessing; do not deploy or move hardware from this training handoff.
 
-Active job: Hugging Face H200 **$5/hour**, three-hour timeout **$15 compute cap**.
-The ledger conservatively reserves **$30 across both attempts**, leaving **$20 unallocated**
-within the $50 authorization. Actual billed charges are not yet available; the first failed attempt ran for four seconds. Official pricing checked at https://huggingface.co/docs/hub/main/en/jobs-pricing.
-320 trials, 12 recorder workers; collection must retain ≥80% audited success and ≥128 valid episodes.
-Every tenth seed is held out. Six render workers, three cameras, ACT batch 32, chunk/action steps 100,
-lr 3e-5, 25,000 updates, checkpoints every 5,000. Private dataset/model destinations:
+Active job: Hugging Face **four H200s, $20/hour**, 110-minute provider timeout, **$36.67 compute cap**.
+The ledger reserves **$10 for prior attempts plus $36.67 for the active job**, leaving **$3.33**
+within the $50 authorization. Actual billed charges are not yet available. Current rate was verified
+at https://huggingface.co/api/jobs/hardware. The script stops subprocess work at 105 minutes to leave
+upload time before the provider's hard timeout. No automatic paid retries.
+
+320 trials, 32 recorder workers; collection must retain ≥80% audited success and ≥128 valid episodes.
+Every tenth seed is held out before four-way dataset sharding. Each GPU has three render workers
+and a shard writer with eight image threads. Original audited evidence uploads before conversion.
+Native LeRobot merging verifies episode/frame indices, camera images and holdout separation.
+ACT uses four Accelerate processes, bf16, batch 8 per GPU (global 32), chunk/action steps 100,
+lr 3e-5, up to 25,000 updates, checkpoints uploaded every 1,000. The budget may stop the run early;
+completion time is not established until measured optimizer throughput is available. Private destinations:
 
 - `RonTuretzky/carton_dcm_refit_20261009_v1`
 - `RonTuretzky/act_carton_dcm_refit_20261009_v1`
@@ -47,12 +55,24 @@ The repositories are now private and created. The user supplied a write/Jobs-cap
 it is passed through process stdin and the provider's secret field, never stored in source or local files.
 
 - First job: `6ac8c46ffee2c90070177627`, confirmed ERROR before recording: the image uses uv and has no pip module.
-- Active job: [`6ac8c522095c57808930534d`](https://huggingface.co/jobs/RonTuretzky/6ac8c522095c57808930534d),
-  started 10:43:38 UTC. H200 and LeRobot 0.6.1 confirmed in provider logs.
-- Corrective launch uses `uv pip install --python <container-python>` and preserves the first attempt in the budget ledger.
-- Each attempt has a three-hour/$15 cap. The ledger conservatively reserves the full first cap until billed usage is known.
+- Previous single-H200 job `6ac8c522095c57808930534d`: confirmed CANCELED after approximately
+  76 minutes ($6.34 estimated compute, $8 reserved). It collected 313/320 passing demonstrations but
+  never reached optimizer training; its ephemeral demonstrations were not uploaded before cancellation.
+- Four-H200 startup `6ac8d9a4095c578089305d2c`: ERROR after 7 seconds; the stock image sets
+  `CUDA_VISIBLE_DEVICES=0`. The corrected bootstrap selects the four allocated devices.
+- Four-H200 startup `6ac8da0d095c578089305d5a`: ERROR after 32 seconds; CUDA worked, but NVIDIA
+  user-space EGL libraries were absent. The attempted driver-capabilities environment override was
+  rejected before creating a job. `tools/refit_egl_libraries.py` now extracts matching NVIDIA graphics
+  libraries into `/tmp/refit-egl`, without modifying the kernel driver.
+- Active job: [`6ac8daa0fee2c9007017836a`](https://huggingface.co/jobs/RonTuretzky/6ac8daa0fee2c9007017836a),
+  started **12:14:26 UTC**. Four CUDA H200s, LeRobot 0.6.1 and NVIDIA EGL on devices 0–3 confirmed.
+  Simple-scene preflight measured 779–798 FPS per GPU; this is not full-scene training throughput.
+- Corrective launches use `uv pip install --python <container-python>` and preserve attempts in the ledger.
 - Total authorized budget is now $50; do not count that as a request to spend the entire amount.
 - The evidence archive now includes baked OBJ/STL scene meshes for later held-out evaluation.
+- **19 targeted tests passed**, including four-shard partition/merge with image/action/index readback,
+  moving-camera render equivalence, recorder, audit gates and evaluator regressions. Nine additional
+  pixel comparisons on the real approved pilot scene were identical across three cameras/three poses.
 
 Record the returned job ID immediately (launcher does this), inspect live logs, and distinguish
 recording/rendering from actual optimizer steps. Do not blindly resubmit an uncertain launch.
@@ -75,11 +95,13 @@ evaluation runs locally against downloaded checkpoints and restored holdouts.
 
 `training/watch-cloud.py` is a read-only Hub watcher with local evaluation, running separately
 from the paid job. It never submits or retries a cloud job. Its outputs are `live-cloud-status.json`,
-`watch-cloud.log` and `cloud-evaluation/`. It verifies the evidence SHA-256, rewrites cloud asset paths,
+`watch-cloud-v5.log` and `cloud-evaluation-v5/`. It verifies the evidence SHA-256, rewrites cloud asset paths,
 loads every holdout scene, and checks training/holdout seed separation before evaluation. An offline
-cloud-style restore smoke loaded successfully. It screens 5k on four starts and evaluates 15k/20k/25k
+cloud-style restore smoke loaded successfully. It screens 5k on four starts and evaluates 10k/15k/20k/25k
 on every held-out start with temporal ensembling 0.01, four concurrent local workers. Results go into
 `scoreboard.json`; `best-checkpoint.json` remains explicitly simulation-only and not physical-ready.
+On terminal cloud status it also evaluates the last available checkpoint if training stopped between
+those milestones. The watcher reads the latest submitted ID from the budget ledger on startup.
 
 To resume monitoring if that local process stops (no paid launch):
 

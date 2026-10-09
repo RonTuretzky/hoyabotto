@@ -157,9 +157,14 @@ def run_trial(python, snapshot, root, trial_dir, seed, offset_x, yaw, stiffness,
            'task_hinges': list(TASKS[task]), 'dt': SAMPLE_DT, 'folded': FOLDED_DEGREES, 'hold_after': hold_after,
            'max_time': max_time, 'npz': str(trial_dir / 'demo.npz'), 'status': str(trial_dir / 'status.json')}
     started = time.time()
+    env = {**os.environ, 'PYTHONPATH': str(snapshot)}
+    # Each trial is a fresh process: select its EGL device before importing MuJoCo.
+    gpu_count = int(env.get('FOLD_EGL_DEVICE_COUNT', '0'))
+    if gpu_count:
+        env['MUJOCO_EGL_DEVICE_ID'] = str(seed % gpu_count)
     with open(trial_dir / 'stdout.log', 'w') as log:
         proc = subprocess.run([python, '-B', '-c', TRIAL, json.dumps(cfg)], cwd=snapshot, stdout=log,
-                              stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONPATH': str(snapshot)})
+                              stderr=subprocess.STDOUT, env=env)
     status = json.loads((trial_dir / 'status.json').read_text()) if (trial_dir / 'status.json').exists() else {}
     result_path = trial_dir / 'run/result.json'
     if result_path.exists():

@@ -21,6 +21,7 @@ import argparse
 import json
 import math
 import multiprocessing as mp
+import time
 from pathlib import Path
 
 import mujoco
@@ -34,6 +35,27 @@ CAMERAS = {'top': 'overhead', 'front': 'front'}  # default; --cameras KEY=SCENE_
 TASK_TEXT = {'both-shorts': 'fold both short carton flaps and hold them',
              'right-short': 'fold the right short carton flap and hold it'}
 FOLDED, HOLD = 80., 3.
+
+
+def shard_trials(todo, shard_index, num_shards):
+    if num_shards < 1 or not 0 <= shard_index < num_shards:
+        raise ValueError('Invalid shard index/count')
+    return todo[shard_index::num_shards]
+
+
+def set_render_pose(model, data, qpos):
+    """Update rigid geometry and cameras without recomputing contacts/dynamics.
+
+    Falls back for deformable geometry. This path only renders recorded qpos;
+    simulation collection and contact audits still execute full physics.
+    """
+    data.qpos[:] = qpos
+    if model.nflex or model.nskin:
+        mujoco.mj_forward(model, data)
+    else:
+        mujoco.mj_kinematics(model, data)
+        mujoco.mj_comPos(model, data)
+        mujoco.mj_camlight(model, data)
 
 
 def task_end(qpos, time, model, task):
@@ -64,8 +86,7 @@ def render_trial(job):
         z = np.load(Path(trial) / 'demo.npz')
         out = {key: np.empty((end + 1, height, width, 3), np.uint8) for key in cameras}
         for k in range(end + 1):
-            data.qpos[:] = z['qpos'][k]
-            mujoco.mj_forward(model, data)
+            set_render_pose(model, data, z['qpos'][k])
             for key, cam in cameras.items():
                 renderer.update_scene(data, camera=cam, scene_option=option)
                 out[key][k] = renderer.render()
@@ -86,13 +107,17 @@ def main(argv=None):
     ap.add_argument('--holdout-every', type=int, default=10)
     ap.add_argument('--max-episodes', type=int)
     ap.add_argument('--workers', type=int, default=8)
+    ap.add_argument('--shard-index', type=int, default=0)
+    ap.add_argument('--num-shards', type=int, default=1)
+    ap.add_argument('--image-writer-threads', type=int, default=0)
     args = ap.parse_args(argv)
     cameras = dict(item.split('=', 1) for item in args.cameras)
     if args.out.exists():
         raise SystemExit(f'{args.out} exists; choose a new dataset directory')
     trials = sorted(t for b in args.batches for t in b.glob('trial-*') if (t / 'demo.json').exists())
     rec = EpisodeRecorder(args.out, f'local/carton_{args.task.replace("-", "_")}_sim', 10, list(cameras),
-                          (args.height, args.width), ROBOT, robot_type='xlerobot_sim')
+                          (args.height, args.width), ROBOT, robot_type='xlerobot_sim',
+                          image_writer_threads=args.image_writer_threads)
     used, holdout, skipped, todo = [], [], [], []
     for t in trials:
         demo = json.loads((t / 'demo.json').read_text())
@@ -112,6 +137,9 @@ def main(argv=None):
                             'hinge_stiffness': demo['hinge_stiffness']})
         elif not args.max_episodes or len(todo) < args.max_episodes:
             todo.append((t, demo, end, [model.jnt_qposadr[model.joint(n).id] for n in ROBOT]))
+    todo = shard_trials(todo, args.shard_index, args.num_shards)
+    if not todo:
+        raise ValueError('No training episodes assigned to shard')
     try:
         with mp.get_context('spawn').Pool(args.workers) as pool:
             rendered = pool.imap(render_trial, [(str(t), end, args.height, args.width, cameras)
@@ -129,6 +157,11 @@ def main(argv=None):
                     raise RuntimeError(f'Incomplete episode {t}: {n}/{end + 1} frames')
                 used.append({'trial': str(t), 'seed': demo['seed'], 'frames': n})
                 print(json.dumps(used[-1]), flush=True)
+                progress = args.out/'conversion-progress.json'
+                temporary = progress.with_suffix('.tmp')
+                temporary.write_text(json.dumps(dict(completed=len(used), total=len(todo),
+                    frames=sum(e['frames'] for e in used), shard_index=args.shard_index, updated=time.time())))
+                temporary.replace(progress)
     finally:
         rec.close()
     (args.out / 'conversion.json').write_text(json.dumps(

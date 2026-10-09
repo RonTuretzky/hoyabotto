@@ -56,7 +56,8 @@ def dataset_features(joint_names: list[str], camera_names: list[str], frame_hw: 
 class EpisodeRecorder:
     def __init__(self, root: Path, repo_id: str, fps: int, camera_names: list[str], frame_hw: tuple[int, int] = (480, 640),
                  joint_names: list[str] | None = None, robot_type: str = "xlerobot_2wheels",
-                 extra_features: dict[str, dict[str, Any]] | None = None):
+                 extra_features: dict[str, dict[str, Any]] | None = None,
+                 image_writer_threads: int = 0):
         if not joint_names:
             raise ValueError("joint_names must list the joints in the order they are recorded")
         self.root = Path(root)
@@ -77,11 +78,11 @@ class EpisodeRecorder:
         from lerobot.datasets.lerobot_dataset import LeRobotDataset  # slow import; keep it off module load
 
         if (self.root / "meta" / "info.json").exists():
-            self.ds = LeRobotDataset.resume(repo_id, root=self.root, image_writer_threads=0)
+            self.ds = LeRobotDataset.resume(repo_id, root=self.root, image_writer_threads=image_writer_threads)
             log.info("resuming dataset %s at %s (%d episodes)", repo_id, self.root, self.ds.meta.total_episodes)
         else:
             self.ds = LeRobotDataset.create(repo_id, fps=fps, features=self.features, root=self.root, robot_type=robot_type,
-                                            use_videos=False, image_writer_threads=0)
+                                            use_videos=False, image_writer_threads=image_writer_threads)
             log.info("created dataset %s at %s", repo_id, self.root)
 
     # ---- episode lifecycle --------------------------------------------------------
