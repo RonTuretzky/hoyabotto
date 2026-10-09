@@ -23,7 +23,10 @@ numbers. **Nothing below has moved a motor yet.** Safety rules from `CLAUDE.md` 
 
 - Arms use the digital twin's mapping: **zero = middle of each saved range (tick 2047 for every arm joint today), sign +1**.
   The owner accepted it on 8 Oct after a live overlay that agreed roughly. It is recorded as accepted, not measured.
-- Jaw: saved `range_min` = closed = URDF −10°, 360/4096° per tick (twin convention, assumed).
+- Jaw (corrected 9 Oct): the simulation's closed jaw (URDF −10°) is where the pads meet, **saved range_min + 82
+  ticks** (left: 1355, measured on 9 Oct; right: assumed the same offset, not measured), 360/4096° per tick. The 8 Oct
+  maps had put −10° at range_min, about 7° too closed: the runner would have aborted on the right jaw and commanded
+  the jaws into each other. See `carton-fold-policy-chat-mac-handoff.md`.
 - The maps are tied to the calibration read live on 8 Oct (`calibration-2026-10-08.json`). On the robot Mac, bind them
   to the live file. The tool refuses if any arm motor's homing offset or range differs, meaning the arms were recalibrated:
 
@@ -51,7 +54,7 @@ until they are.
 | elbow_flex | +30.7° | **2396** | **2396** |
 | wrist_flex | +95° (bent up) | **3128** | **3128** |
 | wrist_roll | left 0.3°, right 85.9° | **2050** | **3024** |
-| gripper | closed | **≈1276** (closed) | **≈1272** (closed) |
+| gripper | −9.7° (closed: pads meet) | **≈1358** (pads meet, measured 1355–1359) | **≈1354** (assumed: range_min + 82) |
 
 Picture: `docs/img/fold-policy-setup/training-start-pose.png`. Shoulders folded low, wrists bent up, jaws closed,
 both claws parked either side of the carton's near wall; the right wrist is rolled about 86°.

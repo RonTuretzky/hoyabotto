@@ -28,11 +28,11 @@
   }
  },
  "gripper": {
-  "model_zero_tick": 1382.8,
+  "model_zero_tick": 1464.8,
   "model_sign": 1
  },
  "evidence": {
   "joints": "ACCEPTED BY THE OWNER, NOT MEASURED (2026-10-08 22:50): zero = middle of the saved range, sign +1 (the digital twin's feetech_degrees_v1 mapping). Live read-only twin overlay at 22:40 agreed roughly (silhouette IoU 0.52 after a fitted head offset; arms in black sleeves). STATUS.md 2026-10-08 22:40.",
-  "gripper": "ASSUMED: saved range_min = jaw closed = URDF -10 deg (twin convention), 360/4096 deg per tick."
+  "gripper": "Pads meet = model jaw closed (URDF -10 deg, the fold simulation's lower limit) at saved range_min + 82 = 1351 ticks, 360/4096 deg per tick. Measured on the LEFT jaw 9 Oct 00:00-00:26 (empty closes settle at 1355-1359, STATUS.md); the same offset as farm/sim/sim_robot.py GRIPPER_CLOSED_OFFSET_TICKS. ASSUMED for the right jaw: its meeting point is not measured."
  }
 }

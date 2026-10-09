@@ -35,7 +35,7 @@ from unittest import mock
 
 import numpy as np
 
-from carton.fold_policy_runner import (ARMS, CAMERA_KEYS, OWNER_JOINTS, SUFFIXES, TICKS_PER_REV, ArmMap, Frame,
+from carton.fold_policy_runner import (ARMS, CAMERA_KEYS, DEFAULT_ROBOT_CAMERAS, LEGACY_CAMERA_KEYS, OWNER_JOINTS, SUFFIXES, TICKS_PER_REV, ArmMap, Frame,
                                        load_arm_maps, parse_owner_status)
 
 SOFTWARE = Path(__file__).resolve().parents[1]
@@ -390,6 +390,8 @@ class FakeOwner:
         t.ROOT, t.SESSION, t.CAL = self.workdir, self.session, self.calibration
         t.OAK_RECTIFIED_DIR, t.OAK_RAW_DIR = self.workdir / "work/oak-rectified-stream", self.workdir / "work/oak-stream"
         t.time = C(time=self.clock, sleep=self.sleep, time_ns=time.time_ns, monotonic=self.clock)
+        t.WRIST_DIRS = [self.workdir / "work/wrist-camera-stream"]
+        sys.modules["wrist_cameras"].time = t.time      # its 1 s freshness check reads the same (virtual) clock
         t.DIRECT_CLIENT = self.client
         t.REQUESTS.clear()
 
@@ -480,6 +482,24 @@ class FakeOwner:
         tmp.write_text(json.dumps(manifest))
         tmp.replace(folder / "oak.json")
 
+    def publish_wrist(self, name, rgb):
+        """A wrist stream manifest as wrist_cameras.select_wrist_manifest reads it (identity = the configured ID)."""
+        import cv2
+        folder = self.tools.WRIST_DIRS[0]
+        folder.mkdir(parents=True, exist_ok=True)
+        seq = getattr(self, "_wrist_seq", {}).get(name, 0) + 1
+        self._wrist_seq = {**getattr(self, "_wrist_seq", {}), name: seq}
+        ok, buf = cv2.imencode(".jpg", cv2.cvtColor(np.ascontiguousarray(rgb), cv2.COLOR_RGB2BGR))
+        data = buf.tobytes()
+        image = f"{name}-{seq:06d}.jpg"
+        (folder / image).write_bytes(data)
+        manifest = {"camera_id": sys.modules["wrist_cameras"].WRIST_CAMERA_IDS[name], "stream_id": f"{name}-sim",
+                    "seq": seq, "image": image, "sha256": hashlib.sha256(data).hexdigest(),
+                    "captured_at": self.clock(), "width": int(rgb.shape[1]), "height": int(rgb.shape[0])}
+        tmp = folder / f"{name}.json.tmp"
+        tmp.write_text(json.dumps(manifest))
+        tmp.replace(folder / f"{name}.json")
+
     def publish_phone(self, rgb):
         import cv2
         folder = self.workdir / "work/phone_camera"
@@ -495,6 +515,7 @@ class FakeOwner:
 class SimDirectTransport:
     """No owner: targets go straight to the plant as goals. Isolates the policy and the runner's own bounds."""
     name = "sim-direct"
+    streams_gripper_closure = True     # simulation-only diagnostic of gripper_mode 'stream'
 
     def __init__(self, plant, calibration, clock):
         self.plant, self.calibration, self.clock = plant, calibration, clock
@@ -530,23 +551,33 @@ class SimDirectTransport:
 
 
 # ------------------------------------------------------------------------------------------------ cameras
-class SimCameras:
-    """Renders the simulated `overhead` (policy key `top`) and `front` cameras, stamped with the virtual clock."""
-    CAMERAS = {"top": "overhead", "front": "front"}
+SCENE_CAMERA = {"top": "overhead"}   # policy key -> MuJoCo camera where they differ (as tools/eval_fold_policy.py)
 
-    def __init__(self, plant, clock):
+
+def scene_camera_keys(model) -> tuple[str, ...]:
+    """Policy keys a fold scene can render: the robot-model cameras if it has them, else the first policy's."""
+    names = {model.camera(i).name for i in range(model.ncam)}
+    return CAMERA_KEYS if set(CAMERA_KEYS) <= names else LEGACY_CAMERA_KEYS
+
+
+class SimCameras:
+    """Renders the policy's cameras from the scene (`top` is the simulated `overhead`), stamped with the virtual clock."""
+    def __init__(self, plant, clock, keys=LEGACY_CAMERA_KEYS):
         self.plant, self.clock, self.seq = plant, clock, 0
+        self.keys = tuple(keys)
 
     def frames(self):
         self.seq += 1
         now = self.clock()
-        return {key: Frame(self.plant.render(cam), now, self.seq, f"sim:{cam}") for key, cam in self.CAMERAS.items()}
+        return {key: Frame(self.plant.render(SCENE_CAMERA.get(key, key)), now, self.seq,
+                           f"sim:{SCENE_CAMERA.get(key, key)}") for key in self.keys}
 
 
 class SyntheticCameras:
     """Small deterministic images for fast tests; `freeze` repeats the last frame, `delay_s` ages it."""
-    def __init__(self, clock, shape=(24, 32, 3)):
+    def __init__(self, clock, shape=(24, 32, 3), keys=CAMERA_KEYS):
         self.clock, self.shape, self.seq = clock, shape, 0
+        self.keys = tuple(keys)
         self.freeze, self.delay_s = False, 0.0
         self.last = None
 
@@ -557,17 +588,22 @@ class SyntheticCameras:
         now = self.clock() - self.delay_s
         rng = np.random.default_rng(self.seq)
         self.last = {k: Frame(rng.integers(0, 255, self.shape, dtype=np.uint8), now, self.seq, f"synthetic:{k}")
-                     for k in CAMERA_KEYS}
+                     for k in self.keys}
         return self.last
 
 
-def sim_camera_publisher(plant):
-    """For ApiCameras through the real robot_get_cameras: overhead -> 'oak' manifest, front -> phone files."""
+def sim_camera_publisher(plant, keys=LEGACY_CAMERA_KEYS):
+    """For ApiCameras through the real robot_get_cameras. First policy: overhead -> 'oak' manifest, front -> phone
+    files. Robot-model policy: the head camera `front` -> 'oak', the wrist cameras -> the wrist streams."""
+    legacy = tuple(keys) == LEGACY_CAMERA_KEYS
     def publish(owner: FakeOwner, names):
         if "oak" in names:
-            owner.publish_oak(plant.render("overhead"))
+            owner.publish_oak(plant.render("overhead" if legacy else "front"))
         if "phone" in names:
             owner.publish_phone(plant.render("front"))
+        for name in ("left_wrist", "right_wrist"):
+            if name in names:
+                owner.publish_wrist(name, plant.render(name))
     return publish
 
 
@@ -635,13 +671,17 @@ class SimRig:
 
 
 def build_sim_rig(trial: Path, workdir: Path, *, owner: bool = True, owner_period_s=0.05, rtt_s=0.0,
-                  api_cameras: bool = False, height=240, width=320, max_speed_ticks_s=None, load_model="constant"):
-    """MuJoCo carton fold simulation behind the deployed owner (owner=True) or directly (owner=False)."""
+                  api_cameras: bool = False, height=240, width=320, max_speed_ticks_s=None, load_model="constant",
+                  camera_keys=None):
+    """MuJoCo carton fold simulation behind the deployed owner (owner=True) or directly (owner=False).
+
+    `camera_keys` are the policy's cameras (default: what the scene has, see scene_camera_keys)."""
     import mujoco
     from carton.fold_policy_runner import ApiCameras, ApiOwnerTransport
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=False)
     model = mujoco.MjModel.from_xml_path(str(Path(trial) / "run/scene.xml"))
+    keys = tuple(camera_keys or scene_camera_keys(model))
     zero_sign, ranges = sim_zero_sign_and_ranges(model)
     calibration = fake_calibration(ranges)
     maps, _ = write_joint_maps(workdir / "joint-maps", calibration, zero_sign,
@@ -651,16 +691,17 @@ def build_sim_rig(trial: Path, workdir: Path, *, owner: bool = True, owner_perio
     clock = VirtualClock()
     if owner:
         fake = FakeOwner(plant, calibration, workdir / "robot", clock=clock, owner_period_s=owner_period_s, rtt_s=rtt_s,
-                         camera_publisher=sim_camera_publisher(plant) if api_cameras else None)
+                         camera_publisher=sim_camera_publisher(plant, keys) if api_cameras else None)
         transport = ApiOwnerTransport(fake, clock=clock)
-        cameras = ApiCameras(fake, {"top": "oak", "front": "phone"}) if api_cameras else SimCameras(plant, clock)
+        mapping = {"top": "oak", "front": "phone"} if keys == LEGACY_CAMERA_KEYS else DEFAULT_ROBOT_CAMERAS
+        cameras = ApiCameras(fake, mapping) if api_cameras else SimCameras(plant, clock, keys)
         return SimRig(clock, fake.sleep, transport, cameras, maps, plant, fake, calibration)
 
     def sleep(dt):
         plant.integrate(dt)
         clock.advance(dt)
     transport = SimDirectTransport(plant, calibration, clock)
-    return SimRig(clock, sleep, transport, SimCameras(plant, clock), maps, plant, None, calibration)
+    return SimRig(clock, sleep, transport, SimCameras(plant, clock, keys), maps, plant, None, calibration)
 
 
 def build_kinematic_rig(workdir: Path, start: dict[str, int] | None = None, *, rate_ticks_s=200.0, owner_period_s=0.05,
