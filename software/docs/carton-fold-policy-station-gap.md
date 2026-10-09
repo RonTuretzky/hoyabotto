@@ -405,3 +405,19 @@ physical question. The difference moves each shoulder by 45 mm.
   - a mismatched station is refused;
   - appearance changes;
   - install/uninstall, and a scene built at a measured station.
+
+## Wrist camera body: not in the simulation (measured 9 Oct)
+
+The simulated arms carry **no camera geometry**: the gripper links are the bare SO-101 meshes. The real arms carry
+the wrist camera module on each fixed jaw: **36 × 43 × 67 mm**, extending **65 mm along the jaw** beyond the pad
+and 13 mm sideways (upstream model `Left_Arm_Camera`/`Right_Arm_Camera` meshes in the `Fixed_Jaw` frame). The
+policy trained with claws that are physically smaller than the real ones, and the fold is contact (the claws press
+the flaps: closest gripper-to-flap approach in the demos is 0 mm).
+
+Checked by replaying 6 demos (816 sampled steps) with a module-sized box attached to each simulated gripper at the
+model's position: the module **never enters** the carton or a flap; its **nearest approach to any carton surface is
+15.4 mm**. So the unmodelled body clears the trained motion, with a small margin (the carton spot tolerance alone is
+±3 mm). It is still a gap: if the policy ever pushes with the jaw's outer face, or the real module sits further out
+than the model's, the box would meet the flap first. The 9 Oct real run never reached the carton, so this has not
+been observed on hardware. The wrist-lens tool (`tools/capture_wrist_calibration.py`) plans its poses with 3 cm
+clearance for the same reason.
