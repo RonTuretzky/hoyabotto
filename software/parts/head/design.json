@@ -1,0 +1,54 @@
+{
+  "part": "oak_d_lite_pitch_holder.stl",
+  "frame": "X pitch axis, +Y up, +Z forward; pitch axis at Y=0, Z=0.48; mm",
+  "bbox_min": [
+    -47.0,
+    -10.5,
+    -10.5
+  ],
+  "bbox_max": [
+    47.0,
+    53.0,
+    10.5
+  ],
+  "volume_mm3": 20816.2,
+  "camera": {
+    "model": "OAK-D Lite (DM9095)",
+    "size_mm": [
+      91.0,
+      28.0,
+      17.45
+    ],
+    "bottom_edge_y": 24.0,
+    "back_face_z": 10.5,
+    "front_face_z": 27.95,
+    "vesa_m4_holes_xy": [
+      [
+        -37.5,
+        42.51
+      ],
+      [
+        37.5,
+        42.51
+      ]
+    ],
+    "lens_row_y": 43.06,
+    "usb_c_opening_centre_xz": [
+      -15.55,
+      22.18
+    ],
+    "tripod_thread_xz": [
+      30.18,
+      15.05
+    ]
+  },
+  "screws": "2 x M4 x 10 (5 mm plate + 5 mm into the 6.5 mm deep camera threads); horn/idler screws as the stock holder",
+  "mesh": {
+    "faces": 74594,
+    "watertight": true,
+    "mesh_volume_mm3": 20815.3
+  },
+  "source_step_sha256": "82f6daf66599e416e3d894ca66d2d1d3716a1c3cb9973635b3905e8d6f601a25",
+  "stl_sha256": "b446f7de6866791bd688b605603d6561c46588537de180ed1651cc4214d2a827",
+  "step_sha256": "59e76e4c090f0aa0a02e877d61f45ad49898ba8b3e8293b8b5d051f4552764a5"
+}

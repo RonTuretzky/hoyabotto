@@ -1,0 +1,84 @@
+{
+  "stl": "oak_d_lite_pitch_holder.stl",
+  "stl_sha256": "b446f7de6866791bd688b605603d6561c46588537de180ed1651cc4214d2a827",
+  "watertight": true,
+  "components": 1,
+  "volume_mm3": 20815.3,
+  "bbox_min": [
+    -47.0,
+    -10.5,
+    -10.5
+  ],
+  "bbox_max": [
+    47.0,
+    53.0,
+    10.5
+  ],
+  "oak_enclosure_sha256": "b3366fe8472ddc7e2e88fc813df8bc981353e90917aa1551f0366815b641f288",
+  "oak_mesh_bounds_in_holder_frame": [
+    [
+      -45.5,
+      24.0,
+      10.5
+    ],
+    [
+      45.5,
+      52.0,
+      27.95
+    ]
+  ],
+  "oak_vesa_holes_from_mesh": [
+    [
+      -37.64,
+      42.5
+    ],
+    [
+      37.36,
+      42.5
+    ]
+  ],
+  "holder_m4_holes": [
+    [
+      -37.5,
+      42.51
+    ],
+    [
+      37.5,
+      42.51
+    ]
+  ],
+  "vesa_alignment_error_mm": [
+    0.14,
+    0.14
+  ],
+  "camera_box_vs_holder_intersection_mm3": 0.0,
+  "straight_usb_plug_box_vs_holder_mm3": 0.0,
+  "assembly_step_sha256": "c8ea24210483e2b5551d0909ffbe9e45c9f97983a945c3d332cf251018750725",
+  "upstream_holder_mesh_watertight": false,
+  "yaw_block_bounds_in_holder_frame": [
+    [
+      -23.4,
+      -24.4,
+      -40.1
+    ],
+    [
+      24.6,
+      14.6,
+      13.9
+    ]
+  ],
+  "pitch_sweep_deg": {
+    "upstream_d435_holder": {
+      "first_contact_down": 0.0,
+      "first_contact_up": -0.0
+    },
+    "oak_holder_no_plug": {
+      "first_contact_down": 0.0,
+      "first_contact_up": -0.0
+    },
+    "oak_holder_straight_plug_20mm": {
+      "first_contact_down": 0.0,
+      "first_contact_up": -0.0
+    }
+  }
+}

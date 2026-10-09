@@ -1,0 +1,67 @@
+{
+  "frame": "tilt link frame (XLeRobot_0_3_0.3mf object 39): X tilt axis, +Y front (camera side), camera at -Z, axis at Z=8.33; mm",
+  "stl_orientation": "STL files are in print orientation: part front face on the bed, +Z up (design +Y -> print -Z); STEP files are in the design frame",
+  "camera": {
+    "bottom_edge_z": -13.0,
+    "top_edge_z": -41.0,
+    "back_face_y": 13.299999999999999,
+    "front_face_y": 30.75,
+    "lens_row_z": -32.06,
+    "usb_c_opening_centre_xy": [
+      -15.55,
+      24.98
+    ]
+  },
+  "link_interface": {
+    "tongue_x": [
+      -11.100000000000001,
+      12.600000000000001
+    ],
+    "tongue_y": [
+      -10.1,
+      10.299999999999999
+    ],
+    "tongue_z": [
+      -21.3,
+      -11.799999999999999
+    ],
+    "bar_under_feet_z": [
+      -21.3,
+      -18.5
+    ],
+    "screw_holes_yz": [
+      [
+        6.0,
+        -13.6
+      ],
+      [
+        -4.0,
+        -14.1
+      ]
+    ],
+    "pilot_d": 2.7,
+    "pilot_depth": 9.0,
+    "screw": "M3 x 10 (4 off, from the stock connector)",
+    "screw_length": 10.0
+  },
+  "parts": {
+    "oak_d_lite_slot_cradle": {
+      "stl": "oak_d_lite_slot_cradle.stl",
+      "step": "oak_d_lite_slot_cradle.step",
+      "bbox_min": [
+        -47.75,
+        -10.1,
+        -44.0
+      ],
+      "bbox_max": [
+        47.75,
+        32.95,
+        -10.0
+      ],
+      "volume_mm3": 23745.8,
+      "faces": 2860,
+      "stl_sha256": "359e69121ca770b3847fdfb55be0c8e8b30c84ee6f2c7bebbd321b67c8361653",
+      "step_sha256": "584e582e36c30f06c7f5169aa1a8d13a6199ef1d4f16dd064c615d803fa08c07"
+    }
+  }
+}

@@ -54,6 +54,13 @@ ARM_SUFFIXES = SUFFIXES[:5]
 LIFT_GROUP = ("shoulder_lift", "elbow_flex", "wrist_flex")
 PAN_GROUP = ("shoulder_pan", "wrist_roll")
 ARM_TOLERANCE_TICKS = 30        # arrival tolerance per arm joint (~2.6 deg)
+# A joint whose target sits at the edge of its commandable range can stop short of it on its MECHANICAL stop (the
+# right wrist_flex does: target 3128, commandable max 3130, settles at 3086-3089 on 9 Oct). That is not drift, so a
+# shortfall TOWARD the range edge of up to this much is accepted and reported, never resent. Any other deviation,
+# or a shortfall away from the edge, still aborts. Not a tolerance relaxation: it only applies within EDGE_TICKS
+# of the commandable limit, and the fold runner's own start check (+/-10 deg) is unaffected.
+MECHANICAL_STOP_SHORT_TICKS = 60  # ~5.3 deg
+EDGE_TICKS = 8                    # target this close to the commandable limit counts as "at the edge"
 JAW_TOLERANCE_TICKS = 30        # jaw "near its meeting point" (the owner's own gripper settle tolerance)
 LEG_MAX_TICKS = 280             # paddle_segments.PADDLE_SEGMENT_TICKS: the owner's own long-move piece
 OWNER_MAX_TRAVEL = 341          # paddle_joint_executor.SEGMENT
@@ -434,6 +441,17 @@ class StartPoseMover:
         self.calls.append(name)
         return self.robot.call(name, args)
 
+    def _stopped_short_at_edge(self, name, measured, target):
+        """True when `target` is within EDGE_TICKS of the joint's commandable limit and `measured` fell short of it
+        TOWARD the inside of the range by at most MECHANICAL_STOP_SHORT_TICKS: the servo met its mechanical stop."""
+        ranges = {n: r for m in self.maps.values() for n, r in m.ranges().items()}
+        lo, hi = commandable(ranges, name)
+        if abs(target - hi) <= EDGE_TICKS:
+            return 0 < target - measured <= MECHANICAL_STOP_SHORT_TICKS
+        if abs(target - lo) <= EDGE_TICKS:
+            return 0 < measured - target <= MECHANICAL_STOP_SHORT_TICKS
+        return False
+
     def snapshot(self):
         sent = self.clock()
         return parse_owner_status(_ok(self.call("robot_get_execution", {}), "robot_get_execution"),
@@ -574,7 +592,8 @@ class StartPoseMover:
             snap = self.snapshot()
             self.check_owner(snap)
             drift = {n: snap.ticks[n] - leg.start[n] for n in OWNER_JOINTS
-                     if not n.endswith("gripper") and abs(snap.ticks[n] - leg.start[n]) > cfg.arm_tolerance_ticks}
+                     if not n.endswith("gripper") and abs(snap.ticks[n] - leg.start[n]) > cfg.arm_tolerance_ticks
+                     and not self._stopped_short_at_edge(n, snap.ticks[n], leg.start[n])}
             if drift:
                 raise Abort(f"Leg {i}: the arms are not where the plan expects (ticks off): {drift}")
             actual_start = dict(snap.ticks)
@@ -615,7 +634,11 @@ class StartPoseMover:
         final = self.snapshot()
         self.check_owner(final)
         residual = {n: final.ticks[n] - target[n] for n in OWNER_JOINTS}
-        arms_ok = all(abs(residual[n]) <= cfg.arm_tolerance_ticks for n in OWNER_JOINTS if not n.endswith("gripper"))
+        short = {n: residual[n] for n in OWNER_JOINTS if not n.endswith("gripper")
+                 and abs(residual[n]) > cfg.arm_tolerance_ticks and self._stopped_short_at_edge(n, final.ticks[n], target[n])}
+        arms_ok = all(abs(residual[n]) <= cfg.arm_tolerance_ticks or n in short
+                      for n in OWNER_JOINTS if not n.endswith("gripper"))
+        summary["stopped_short_at_mechanical_stop"] = short
         jaws = {}
         for arm in ARMS:
             n = _owner(arm, "gripper")

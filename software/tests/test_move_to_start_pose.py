@@ -348,3 +348,62 @@ def test_released_joint_maps_and_saved_ranges_reach_the_handoff_ticks(tmp_path):
     jaw_legs = [leg for leg in summary["plan"]["legs"] if leg["phase"] == "jaw"]
     assert jaw_legs and all(leg["expected_s"] > leg["duration_s"] for leg in jaw_legs)     # contact-mode closes
     assert rig.owner.owner.state["stop_count"] == 0 and not rig.owner.faults
+
+
+def test_a_joint_that_meets_its_mechanical_stop_at_the_range_edge_is_accepted(tmp_path):
+    """9 Oct on the robot: right wrist_flex settles at ~3088 against its 3128 target, whose commandable max is 3130;
+    the servo hits its mechanical stop ~40 ticks short. That is reported, accepted and never resent: not drift.
+    The default test rig gives every joint a wide range, so this rig puts the wrist's saved range where the real
+    robot's is: commandable max = target + 2."""
+    wrist = "right_arm_wrist_flex"
+    probe = kinematic_rig(tmp_path, enable=False, name="probe")
+    target = target_of(probe)
+    ranges = {n: r for m in probe.arm_maps.values() for n, r in m.ranges().items()}
+    ranges[wrist] = (ranges[wrist][0], target[wrist] + 2 + S.OWNER_TARGET_MARGIN)   # edge 2 ticks past the target
+    start = dict(target, **{wrist: target[wrist] - 300})
+    rig = F.build_kinematic_rig(tmp_path / "rig", start, ranges=ranges)
+    target = target_of(rig)
+    lo, hi = S.commandable({n: r for m in rig.arm_maps.values() for n, r in m.ranges().items()}, wrist)
+    assert hi - target[wrist] <= S.EDGE_TICKS, (target[wrist], hi)      # the target really is at the range edge
+    rig.plant.blocked[wrist] = target[wrist] - 40                       # mechanical stop 40 short of the target
+    telemetry = rig.owner.owner.telemetry
+
+    def stalled(bus, n):
+        row = telemetry(bus, n)
+        if n == wrist and rig.plant.ticks(n) == rig.plant.blocked[wrist]:
+            row.update(Moving=0, Present_Velocity=0)
+        return row
+    rig.owner.owner.telemetry = stalled
+    rig.enable_all()
+    summary = mover(rig, ClearChecker(), execute=True, operator="ron").run()
+    assert summary["aborted"] is None, summary["aborted"]
+    assert summary["arms_at_start_pose"] is True
+    assert summary["stopped_short_at_mechanical_stop"] == {wrist: -40}
+    assert len([m for m in rig.owner.moves() if wrist in m["positions"]]) >= 1
+    assert "robot_stop" not in called(rig)
+
+
+def test_the_same_shortfall_on_a_mid_range_joint_still_aborts(tmp_path):
+    """The allowance is only for targets at the commandable edge: a joint 40 ticks off in the middle of its range
+    is real drift and aborts as before."""
+    rig = kinematic_rig(tmp_path, enable=False)
+    target = target_of(rig)
+    elbow = "left_arm_elbow_flex"
+    ranges = {n: r for m in rig.arm_maps.values() for n, r in m.ranges().items()}
+    lo, hi = S.commandable(ranges, elbow)
+    assert min(target[elbow] - lo, hi - target[elbow]) > S.EDGE_TICKS   # mid-range
+    start = dict(target, **{elbow: target[elbow] - 300})
+    rig = kinematic_rig(tmp_path, start, name="rig2")
+    rig.plant.blocked[elbow] = target[elbow] - 40
+    telemetry = rig.owner.owner.telemetry
+
+    def stalled(bus, n):
+        row = telemetry(bus, n)
+        if n == elbow and rig.plant.ticks(n) == rig.plant.blocked[elbow]:
+            row.update(Moving=0, Present_Velocity=0)
+        return row
+    rig.owner.owner.telemetry = stalled
+    summary = mover(rig, ClearChecker(), execute=True, operator="ron").run()
+    assert summary["aborted"] is not None
+    assert "tolerance" in summary["aborted"] or "ticks off" in summary["aborted"]
+    assert "robot_stop" not in called(rig)

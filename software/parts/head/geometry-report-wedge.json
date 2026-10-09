@@ -1,0 +1,56 @@
+{
+ "stl_watertight": true,
+ "is_volume": true,
+ "volume_mm3": 50520,
+ "bounds_design": [
+  [
+   -47.8,
+   -50.8,
+   -4.3
+  ],
+  [
+   47.8,
+   10.1,
+   44.0
+  ]
+ ],
+ "part_vs_link": 0.0,
+ "camera_vs_part": 0.0,
+ "camera_vs_link": 0.0,
+ "plug_vs_part": 0.0,
+ "plug_vs_link": 0.0,
+ "m3_vs_link": [
+  0.0,
+  0.0,
+  0.0,
+  0.0
+ ],
+ "m3_in_tongue": [
+  0.0,
+  0.0,
+  0.0,
+  0.0
+ ],
+ "bodies": 1,
+ "print": {
+  "orientation": "standing on its -X end wall (least unsupported overhang of the 7 lays tested)",
+  "bounds_mm": [
+   [
+    0.0,
+    0.0,
+    0.0
+   ],
+   [
+    48.3,
+    60.9,
+    95.5
+   ]
+  ],
+  "height_mm": 95.5,
+  "bed_contact_mm2": 1214.9,
+  "overhang_gt45_mm2": 1364.2,
+  "horizontal_overhang_mm2": 1316.9,
+  "note": "the stock lay (box front on the bed) leaves the tilted box underside 1.8 cm2 unsupported; on end the overhangs are the ledge/top plate edges, printable with light support or none"
+ },
+ "stl_sha256": "2e185efd583e1ba84d3c3019db82b0dff583d73c686efdbbd981063361b1ca74"
+}

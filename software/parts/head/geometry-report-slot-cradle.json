@@ -1,0 +1,38 @@
+{
+  "link_mesh_watertight": true,
+  "oak_mesh_bounds_in_link_frame": [
+    [
+      -45.5,
+      13.3,
+      -41.0
+    ],
+    [
+      45.5,
+      30.75,
+      -13.0
+    ]
+  ],
+  "oak_d_lite_slot_cradle": {
+    "part_watertight": true,
+    "part_volume_mm3": 23746.0,
+    "part_vs_link_mm3": 0.0,
+    "camera_box_vs_part_mm3": 0.0,
+    "camera_box_vs_link_mm3": 0.0,
+    "plug_box_vs_part_mm3": 0.0,
+    "plug_box_vs_link_mm3": 0.0,
+    "m3_shank_vs_link_mm3": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "m3_shank_in_tongue_mm3": [
+      3.05,
+      4.51,
+      3.05,
+      4.51
+    ],
+    "tongue_volume_in_slot_mm3": 2597.7,
+    "part_vs_link_overlap_bounds": null
+  }
+}
