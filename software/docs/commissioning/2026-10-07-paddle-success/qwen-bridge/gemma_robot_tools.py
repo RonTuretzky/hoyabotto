@@ -70,6 +70,10 @@ def target_schema(names, description):
 TARGET = target_schema(POSITION_NAMES, 'Absolute raw encoder ticks by canonical motor name; query robot_get_capabilities.commandable_ranges first. Endpoints are not geometric full extension.')
 ARM_TARGET = target_schema(ARM_NAMES + ARM_ALIASES, 'Canonical names preferred, e.g. right_arm_shoulder_lift. With arm=right, shoulder_lift is also accepted. Do not mix aliases for the same joint; wrong-arm keys rejected. Example shape: {"right_arm_shoulder_lift": 2000}; select targets from fresh state and commandable_ranges.')
 HEAD_TARGET = target_schema([n for n in POSITION_NAMES if n.startswith('head_motor_')], 'Canonical head motor names and integer encoder ticks.')
+STREAM_MARGIN = 40  # stream_joint_executor/paddle_joint_executor MARGIN: stream targets outside it are rejected, never clamped
+STREAM_TARGET = {'type': 'object', 'minProperties': 1, 'additionalProperties': False,
+                 'description': 'Canonical arm motor names (both arms allowed, grippers included) to integer encoder ticks, each 40 ticks inside the saved range and within 96 ticks of the present position.',
+                 'properties': {n: {'type': 'integer', 'minimum': CAL[n]['range_min'] + STREAM_MARGIN, 'maximum': CAL[n]['range_max'] - STREAM_MARGIN} for n in ARM_NAMES}}
 
 def range_margin():
     """Ticks a target must stay inside the saved range: the pickup profile's executor needs 40 (it refuses
@@ -211,6 +215,8 @@ TOOLS = [
     tool('robot_halt_motion', 'Stop the running motion now and HOLD where the arm is (the base brakes and releases). Nothing is released, unlike robot_stop. Use it when monitoring shows the motion should not continue; then send a new move.'),
     tool('robot_move_head', 'Direct head targets when the current owner explicitly supports those head motors. Does not start or arm an owner; saved ranges and supervision enforced.', {'positions': HEAD_TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions']),
     tool('robot_set_gripper', 'Direct gripper encoder target within current owner selected scope; saved range and supervision enforced. Stall does not establish grasp success.', {'arm': {'type': 'string', 'enum': ['left', 'right']}, 'position_ticks': {'type': 'integer'}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['arm', 'position_ticks']),
+    tool('robot_stream_joint_targets', 'Stream mode only (owner started with --stream; refused otherwise). One set of absolute arm targets for a 10 Hz policy client: no wait, one owner command, returns once the owner acknowledges it. Both arms and grippers allowed; every named arm needs all six joints enabled. The owner moves each goal at most 40 ticks per loop toward its target; a target outside the commandable range or more than 96 ticks from the present position rejects the whole set; a joint within 2 ticks of its present position or held goal is skipped; jaws change at most 10 ticks per command and a closing jaw that meets resistance (load >= 250 or 40 ticks behind) stops where it is until it is opened (jaw_contact). With no new targets for 0.5 s the stream ends holding. Arm contact (load >= 350, stalled, 50 ticks behind) holds everything where it is and ends the stream (contact_halt); send robot_hold_here before streaming again. A refusal returns accepted=false and never releases motors.', {'positions': STREAM_TARGET}, ['positions']),
+    tool('robot_hold_here', 'Stream mode only (owner started with --stream; refused otherwise). Hold every enabled joint at its present position, with no torque ramp-down and no release; ends any running motion or stream. A refusal returns accepted=false and never releases motors.'),
     tool('robot_move_base', 'One guarded base pulse through the sole owner (owner must be started with --wheels): both wheels switch to velocity mode, drive for duration_s, brake, settle, release torque and restore settings; wheels are never left powered. Each wheel is limited to 0.02 m/s (straight: |linear_m_s|<=0.02; turning in place: |angular_rad_s|<=0.16 rad/s, positive turns left), at most 3 s per call (about 6 cm). Requires a fresh phone feed; a stale feed brakes early. Wheel health (status, load<=500, velocity<=400, 10-14 V) is checked every sample; any failure or robot_stop stops the wheels and releases all motors. Allowed while the arm is released or holding, not while an arm move runs. Returns wheel encoder deltas only; slip and actual cart travel are unverified, so check cameras after each pulse.', {'linear_m_s': {'type': 'number', 'minimum': -0.02, 'maximum': 0.02}, 'angular_rad_s': {'type': 'number', 'minimum': -0.16, 'maximum': 0.16}, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 3}}, ['linear_m_s', 'angular_rad_s', 'duration_s']),
 ]
 from gemma_reach_planner import POSE_SCHEMA, validate_poses, inspect_or_plan
@@ -239,7 +245,8 @@ for entry in TOOLS:
 RETIRED = {'robot_move_head', 'robot_get_readiness', 'robot_get_keyframes', 'robot_get_skills', 'robot_get_evidence'}
 TOOLS = [t for t in TOOLS if t['function']['name'] not in RETIRED]
 # Callable, but not offered to the pilot: the tag-calibration mover's raw one-joint steps (the pilot uses robot_move_joint_targets).
-PILOT_HIDDEN = {'robot_move_motor_targets'}
+# The stream tools are for the policy client (gemma_direct_client stream/hold_here), never for the chat model.
+PILOT_HIDDEN = {'robot_move_motor_targets', 'robot_stream_joint_targets', 'robot_hold_here'}
 SCHEMAS = {t['function']['name']: t['function']['parameters'] for t in TOOLS}
 
 
@@ -503,6 +510,12 @@ def saved_motor_readiness():
         return {'available': False, 'fresh': False, 'error': str(exc)}
 
 
+def stream_mode():
+    """True when the hardware owner advertises 'stream' (started with --stream)."""
+    try:return 'stream' in (DIRECT_CLIENT.status().get('capabilities') or [])
+    except (OSError, ValueError, KeyError, TypeError):return False
+
+
 def capabilities():
     ready = DIRECT_CLIENT.readiness()
     return {'mode': 'direct_joint', 'control_mode': 'direct_joint',
@@ -528,6 +541,7 @@ def capabilities():
             'cartesian_pickup_additional_requirements': ['validated spatial target registration and actual tool/contact offset when requesting a Cartesian plan'],
             'wheel_policy': 'robot_move_base guarded velocity pulses (<=0.02 m/s per wheel, <=3 s, released between pulses) when the owner runs with --wheels; robot_set_motor_enable cannot power the wheels in the right-arm scope', 'base_drive_supported': ready.get('base_drive_supported') is True, 'automatic_motor_activation': False, 'remote_owner_start_supported': False,
             'stop_latch': False, 'owner_restart_required_after_stop': False,
+            'stream_mode': stream_mode(),
             'stop_behavior': 'robot_stop and any owner fault release all motors and cancel the move in progress (never resumed). No STOP latch: the owner returns to idle and motors stay released until an explicit robot_set_motor_enable, which repeats all health, range, camera and voltage checks. A failed release keeps the owner not healthy (OWNER_NOT_HEALTHY).',
             'blockers': ready['blockers']}
 
@@ -728,6 +742,18 @@ def dispatch(name, args):
         return DIRECT_CLIENT.halt(), None
     if name == 'robot_move_head':
         return DIRECT_CLIENT.execute(args['positions'], args.get('duration_s', 3)), None
+    if name in ('robot_stream_joint_targets', 'robot_hold_here'):
+        if not stream_mode():
+            return {'accepted': False, 'motor_writes': 0, 'reason': 'STREAM_MODE_DISABLED: the hardware owner was not started with --stream (redeploy_robot_server.py --stream, after owner approval); nothing was sent',
+                    'requested_tool': name}, None
+        if name == 'robot_hold_here':
+            return DIRECT_CLIENT.hold_here(), None
+        positions = normalize_targets(args['positions'])
+        wrong = sorted(n for n in positions if n not in ARM_NAMES)
+        if wrong:
+            raise ValueError('robot_stream_joint_targets takes arm motors only: ' + ', '.join(wrong))
+        result = DIRECT_CLIENT.stream(positions)
+        return {k: result.get(k) for k in ('accepted', 'reason', 'command_id', 'no_op', 'skipped_joints', 'jaw_contact', 'jaw_limited', 'jaw_ignored_closing', 'phase', 'owner_phase', 'stop_count', 'owner_stopped', 'rejected') if k in result}, None
     if name == 'robot_move_base':
         return DIRECT_CLIENT.drive_base(args['linear_m_s'], args['angular_rad_s'], args['duration_s']), None
     if name == 'robot_set_gripper':
@@ -862,7 +888,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(400, body)
         except Exception as e:
             body = {'ok': False, 'result': {'error': str(e),
-                'motor_writes': ('not_observed_by_bridge' if reserved and req.get('name') in ('robot_move_joint_targets', 'robot_move_head', 'robot_set_gripper', 'robot_set_motor_enable', 'robot_move_motor_targets', 'robot_move_path', 'robot_halt_motion', 'robot_move_base') else 0)}}
+                'motor_writes': ('not_observed_by_bridge' if reserved and req.get('name') in ('robot_move_joint_targets', 'robot_move_head', 'robot_set_gripper', 'robot_set_motor_enable', 'robot_move_motor_targets', 'robot_move_path', 'robot_halt_motion', 'robot_move_base', 'robot_stream_joint_targets', 'robot_hold_here') else 0)}}
             if reserved:
                 with CACHE_LOCK: REQUESTS[request_id] = (fingerprint, body)
             return self.send_json(409, body)
