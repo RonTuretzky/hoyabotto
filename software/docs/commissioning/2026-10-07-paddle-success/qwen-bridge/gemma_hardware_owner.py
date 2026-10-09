@@ -29,7 +29,7 @@ def recover_ports(buses,reason,state,now):
  return recovered
 
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,stream=None,head=False):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,stream=None,head=False,teleop=False,upstream_reference=None):
   self.read_only=read_only
   # Stream mode: stream_targets/hold_here for a 10 Hz policy client (stream_joint_executor.py, STREAM-MODE.md). On with
   # the pickup profile; it does nothing until a client sends one of its two ops. stream=False is the pre-stream owner.
@@ -57,6 +57,9 @@ class HardwareOwner:
   self.position_names=all_position_names if position_scope is None else list(position_scope)
   self.commandable_names=set() if read_only else set(self.names if position_scope is None else self.position_names)
   self.ranges={n:[self.cal[n].range_min,self.cal[n].range_max] for n in self.position_names}
+  if teleop:
+   for n in ('head_motor_1','head_motor_2'):
+    if n in self.names and n in self.cal:self.ranges[n]=[self.cal[n].range_min,self.cal[n].range_max]
   # Base drive: guarded velocity pulses only (wheel_pulse_executor); wheels never join the enabled/hold set.
   self.wheel_names=[n for n in WHEELS if n in self.names] if wheels and not read_only else []
   if wheels and not read_only and len(self.wheel_names)!=2:raise ValueError('Base drive requires both wheel motors on the owner buses')
@@ -67,6 +70,14 @@ class HardwareOwner:
   if self.stream:
    from stream_joint_executor import LIMITS
    self.state['capabilities'].append('stream');self.state['stream_limits']=dict(LIMITS)
+  self.upstream_reference=upstream_reference
+  if upstream_reference is not None:
+   if not teleop:raise ValueError('Upstream Joy-Con reference requires manual teleop support')
+   upstream_reference.validate_calibration(self.cal)
+  self.teleop=None
+  if teleop:
+   from joycon_teleop import ManualTeleop
+   self.teleop=ManualTeleop(self)
  def arm_scope(self):return [n for n in self.position_names if '_arm_' in n]
  def load_limit(self,n):return 500 if n.endswith('gripper') or not self.paddle_profile else HEAD_TORQUE_LIMIT if n in self.head_names else 800
  def read(self,n,f):return int(self.by_name[n].read(f,n,normalize=False,num_retry=2))
@@ -176,6 +187,7 @@ class HardwareOwner:
    if self.paddle_profile and not wheel and not self.engine.active:self.lease=self.clock()+120
    if self.state.get('local_gripper_probe') and not self.engine.active:
     self.release_all('Local probe complete',record=False)
+  if self.teleop:self.teleop.tick()
   self.publish();return self.state
  def driving(self):return isinstance(self.engine,WheelPulseExecutor) and self.engine.active
  def camera_fresh(self):
@@ -185,9 +197,9 @@ class HardwareOwner:
   return type(stamp) in (int,float) and math.isfinite(stamp) and 0<=self.wall()-stamp<10 and d.get('seq') is not None
  def publish(self):
   if not(self.engine and self.engine.active):self.state['phase']='holding' if self.enabled else 'idle'
-  # Goals only mean something while a motor holds; a released motor's old goal is never reused (enable re-reads the encoder).
+  # Goals only mean something while a motor holds; enable always re-reads the encoder.
   self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals={n:g for n,g in self.goals.items() if n in self.enabled},lease_remaining=max(0,self.lease-self.clock()),stop_latched=False)
- def enable(self,names,enabled):
+ def enable(self,names,enabled,manual=False):
   if not isinstance(names,list) or not names or len(set(names))!=len(names) or not set(names)<=set(self.names) or type(enabled)is not bool:raise ValueError('Select known distinct motor names and boolean enabled')
   if not enabled:
    if self.engine and self.engine.active:self.release_all('Release requested during movement')
@@ -199,7 +211,8 @@ class HardwareOwner:
    except RuntimeError as exc:raise ValueError(str(exc)) from exc
    if not camera_ready:raise ValueError('Pickup phone feed paused; motor activation refused')
   if self.read_only:raise ValueError('READ_ONLY_OWNER: motor activation disabled; calibration mismatch must be resolved deliberately')
-  if not set(names)<=self.commandable_names:raise ValueError('UNSUPPORTED_OWNER_SCOPE: requested motors are read-only')
+  allowed=self.commandable_names | ({'head_motor_1','head_motor_2'} if manual and self.teleop else set())
+  if not set(names)<=allowed:raise ValueError('UNSUPPORTED_OWNER_SCOPE: requested motors are read-only')
   # No STOP latch: after a STOP or fault this explicit request is the only way motors re-enable. A failed torque-off is a hardware problem.
   if self.state.get('ok') is not True:raise ValueError('OWNER_NOT_HEALTHY: last release failed '+json.dumps(self.state.get('release_errors'))+'; STOP must confirm release first')
   if self.engine and self.engine.active:raise ValueError('Movement is in progress')
@@ -256,7 +269,7 @@ class HardwareOwner:
   except Exception as e:return str(e)
  def release_all(self,reason,record=True):
   # Releases every enabled motor and cancels any move; nothing re-enables or resumes until an explicit enable_motors. No latch.
-  errors=[]
+  errors=self.teleop.cancel(reason) if self.teleop else []
   if isinstance(self.engine,WheelPulseExecutor) and (self.engine.active or self.engine.powered):errors+=self.engine.abort() # moving base first
   if self.engine:self.engine.active=False  # stop advancing before easing off
   # Ease torque off unless the bus itself failed (those writes would fail too).
@@ -286,6 +299,13 @@ class HardwareOwner:
   op=c.get('op')
   if self.read_only and op not in ('stop','enable_motors','hold'):raise ValueError('READ_ONLY_OWNER: motion commands disabled')
   if op=='stop':self.release_all('Operator STOP');self.state['completed']=c['id'];return
+  if op=='teleop_claim':
+   if not self.teleop:raise ValueError('Manual control not installed in this owner')
+   self.teleop.claim(c);self.state['completed']=c['id'];self.publish();return
+  if op=='teleop_end':
+   if not self.teleop or not self.teleop.active or c.get('token')!=self.teleop.token:raise ValueError('Manual session changed')
+   self.release_all('Manual control released');self.state['completed']=c['id'];return
+  if self.teleop and self.teleop.active:raise ValueError('Manual control owns the robot; STOP remains available')
   if op=='enable_motors':self.enable(c.get('names'),c.get('enabled'));self.state['completed']=c['id'];return
   if op=='local_gripper_probe':
    if self.paddle_profile:raise ValueError('Legacy diagnostic probe unavailable under pickup profile')
@@ -436,6 +456,11 @@ def main():
   except Exception as exc:
    transaction.update(finished_at=time.time(),error=str(exc));bus.last_telemetry_failure=transaction
    raise RuntimeError(str(exc)+'; transaction='+json.dumps(transaction)) from exc
+ upstream_reference=None
+ if '--upstream-joycon-reference' in sys.argv:
+  if '--teleop' not in sys.argv:raise ValueError('Upstream Joy-Con mode requires --teleop')
+  from joycon_reference import PhysicalReference
+  upstream_reference=PhysicalReference.load(sys.argv[sys.argv.index('--upstream-joycon-reference')+1])
  r=LeRobotXLeRobot(load_profile(PROFILE).robot).robot;buses=[r.bus1,r.bus2];owner=None;ownership=None;stop=threading.Event()
  signal.signal(signal.SIGTERM,lambda *_:stop.set());signal.signal(signal.SIGINT,lambda *_:stop.set())
  last=None
@@ -458,12 +483,17 @@ def main():
   if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
   if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)  # before any check that needs it
   buses=live
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,head='--head' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,head='--head' in sys.argv,soft_release_s=2.0,teleop='--teleop' in sys.argv,upstream_reference=upstream_reference);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
   owner.state['missing_buses']=missing
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)
   while not stop.is_set():
-   try:owner.poll()
+   try:
+    mailbox=folder/'teleop-input.json'
+    if owner.teleop and owner.teleop.active and mailbox.exists():
+     try:owner.teleop.accept(json.loads(mailbox.read_text()))
+     except (ValueError,TypeError,KeyError) as e:raise RuntimeError('Invalid manual input: '+str(e)) from e
+    owner.poll()
    except RuntimeError as e:
     owner.state['failed_command_id']=owner.current_command
     if owner.engine:

@@ -51,6 +51,8 @@ LAST_GOOD = None
 calibration = Path('/Users/teachera/.cache/huggingface/lerobot/calibration/robots/xlerobot_2wheels/farm_xlerobot.json')
 CAL = json.loads(calibration.read_text())
 DIRECT_CLIENT = DirectJointClient(SESSION, CAL)
+from joycon_teleop_api import TeleopAPI
+TELEOP = TeleopAPI(DIRECT_CLIENT)
 PEER_DER = ssl.PEM_cert_to_DER_cert((TLS / 'gateway-server.pem').read_text())
 PEER_SHA = hashlib.sha256(PEER_DER).hexdigest()
 
@@ -815,6 +817,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.peer_ok():
             return self.send_json(403, {'ok': False, 'error': 'Unpinned mTLS client'})
+        if self.path == '/teleop/status':
+            try: return self.send_json(200, {'ok': True, 'result': TELEOP.status()})
+            except (ValueError, OSError, KeyError) as e: return self.send_json(503, {'ok': False, 'error': str(e)})
         if self.path == '/health':
             return self.send_json(200, {'ok': True, 'service': 'xlerobot-private-tools', 'mode': 'direct_joint', 'control_mode': 'direct_joint',
                                         'execution_adapter_bound': True, 'motion_ready': DIRECT_CLIENT.readiness()['motion_ready'],
@@ -850,6 +855,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.peer_ok():
             return self.send_json(403, {'ok': False, 'error': 'Unpinned mTLS client'})
+        if self.path.startswith('/teleop/'):
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 8192: raise ValueError('Invalid manual request size')
+                body = json.loads(self.rfile.read(size), parse_constant=lambda x: (_ for _ in ()).throw(ValueError('Nonfinite JSON')))
+                return self.send_json(200, {'ok': True, 'result': TELEOP.post(self.path[8:], body)})
+            except (ValueError, RuntimeError, OSError, KeyError, TypeError) as e:
+                return self.send_json(400, {'ok': False, 'error': str(e)})
         if self.path == '/admin/deploy':
             try:
                 size = int(self.headers.get('Content-Length', '0'))

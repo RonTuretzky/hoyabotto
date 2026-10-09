@@ -1,0 +1,22 @@
+[
+  {
+    "source": "sources/lerobot_motors_bus.py.txt",
+    "url": "https://github.com/huggingface/lerobot/blob/v0.6.1/src/lerobot/motors/motors_bus.py",
+    "sha256": "6ce6109e32590ac2830f6995d13bb478b1a984695cc9ca59c0763ff091666393"
+  },
+  {
+    "source": "sources/native_config.py.txt",
+    "url": "https://github.com/Vector-Wangel/XLeRobot/blob/b017b5e6354bd9f61f4247a920c72622ca0aade0/software/src/robots/xlerobot_2wheels/config_xlerobot_2wheels.py",
+    "sha256": "a882924abf802f10ff21584c6f5c8b7e43f9b966c5cb0ec93c84436abe876c14"
+  },
+  {
+    "source": "sources/native_driver.py.txt",
+    "url": "https://github.com/Vector-Wangel/XLeRobot/blob/b017b5e6354bd9f61f4247a920c72622ca0aade0/software/src/robots/xlerobot_2wheels/xlerobot_2wheels.py",
+    "sha256": "5034debe3158109fcf6c0a0bcce4782beab6e1ca82d12e7c7fe2348d3a9e7ba0"
+  },
+  {
+    "source": "sources/lerobot_feetech.py.txt",
+    "url": "https://github.com/huggingface/lerobot/blob/v0.6.1/src/lerobot/motors/feetech/feetech.py",
+    "sha256": "0460413cd6a641cede015ac19ac53d2cfe9c343af1bd18ed74e1951229f64ff2"
+  }
+]

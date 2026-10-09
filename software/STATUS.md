@@ -1,3 +1,29 @@
+## Joy-Con commissioning preparation — 9 October 2026, 20:27–20:33 JST
+
+The user confirmed they are commissioning the Joy-Con controls. This workspace merges
+`codex/mac-joycon-reader` revision `bf4c6bc` into current main `a4c7999`, retaining the
+OAK head scope, head torque/load cap and policy streaming support. Conflicts were
+resolved without replacing the newer owner implementation.
+
+- Local checks: all 59 Joy-Con tests and all 26 deployment test files passed. An added
+  combined head/manual/stream regression check also passed: competing policy/head
+  commands cannot steal an active Joy-Con session or release its motors on refusal;
+  STOP still releases it. Upstream deployment now also refuses `--no-head`.
+- Read-only live preflight: healthy idle owner, all 16 torque bits zero, no enabled
+  motors or active lease, no missing buses, and no reported calibration mismatches.
+  The current arm poses both round-trip through the original IK branch within the
+  adapter's 0.5-unit tolerance. This supersedes the incompatible-pose observation
+  from 8 October; it is a dated check, not a motion test.
+- A current native reference is prepared under `.context/joycon-readiness/` (ignored).
+  The live API still lacks `/teleop/status`; the corrected bridge is not deployed.
+  This Mac currently detects no original Joy-Cons. Operator Mac, physical clearance
+  and working SSH access are pending the user's replies. Existing SSH identities
+  were rejected; authenticated read-only robot API access works.
+- No remote file/service changes, motor commands or calibration writes were made.
+  Physical rail release, disconnect, focus loss, STOP, direction and observed
+  small-motion checks remain outstanding. Do not describe offline tests as live
+  commissioning completion.
+
 ## OAK on the head: head made commandable; live calibration pending — 9 October 2026, 14:30–16:00 JST
 
 The owner mounted the OAK-D Lite on the two-servo head (slot cradle on the stock tilt link) and removed the USB head camera.
@@ -105,6 +131,85 @@ Live ranges match the 7 October calibration; every arm joint's range is centred 
   black sleeves that hide the joints. Validate with the head pose measured from floor tags (setup slides step 6) and sleeves off.
 - The real arms' black sleeves differ from the simulated arms the fold policy saw; recolour the sim arms or remove the sleeves.
 - Scripts and frames: `/Users/wk/Documents/ChatGPT/Hackatuson/output/robot-readonly/` (`ro.py`, `twin_overlay.py`, `fit_head.py`, `snap-224017`).
+
+## Joy-Con update waits for controller handoff; wheel geometry synchronized — 8 October 2026
+
+- A fresh read-only preflight briefly reported all 16 motors released. The final
+  remote check caught new motion with all 12 arm motors enabled and an active
+  lease, so the inactive `135f6a7` installation was aborted before directory
+  creation. Only that Git commit was fetched. No stop, release, restart, servo
+  write, or deployment was performed by this work; the earlier locked `04dd3ae`
+  copy remains unchanged. Remote report: owner PID 36752, API PID 36787,
+  owner session 1791448804.245714, live checkout `056031f`.
+- A matching local native calibration binding was prepared at Mac reader
+  `.build/native-reference-neooooo-135f6a7.json`, fingerprint
+  `91ff2251b8559d2c0e1e59c9db438b896e316a5b750e133e2109a53b72d121b3`.
+  It was not installed on the robot Mac. Calibration must be rechecked later.
+- Merged `056031f` locally to retain the live owner's wheel-radius/track updates.
+  The manual owner now reports wheelbase/radius/speed limits. Both native and
+  legacy Joy-Con drive scaling consume reported geometry instead of assuming
+  a 0.25 m track. Missing/invalid geometry blocks driving. Limits remain at most
+  2 cm/s per wheel (about 0.089 rad/s in-place with the current 0.45 m track).
+- Verification: complete local suite 59/59; owner wheel and manual teleop tests
+  pass, including rejection of the former 0.16 rad/s turn before wheel writes.
+  All testing used simulated/fake motors. No physical drive test is claimed.
+- User clarification is pending: continue motors-off only or arrange handoff
+  from the active controller for supervised physical setup. Until then retain
+  the launch lock and do not interrupt the current robot session.
+
+## Original Joy-Con hardware units corrected locally — 8 October 2026
+
+- Source audit found a material mismatch in the inactive `04dd3ae` adapter:
+  the original XLeRobot example defaults to `use_degrees=False`, so its arm/head
+  outputs are normalized -100..100 values and grippers 0..100. Treating these
+  values as geometric degrees does not reproduce the original motor commands.
+- Added `NativeReference`, reusing LeRobot 0.6.1's original normalization methods
+  verbatim in a module with no serial/device imports. Config, driver, motors-bus
+  and Feetech sources are pinned with hashes and checked offline. Saved calibration
+  ranges, homing registers and drive modes bind both adapter and sole owner.
+  New geometric zero measurements are not required for this native default path.
+- Retained existing physical rates, 40-tick target margin, rail hold-to-run,
+  watchdogs, reference matching and installation lock. A two-tick quantization
+  deadband prevents repeated integer conversions from causing neutral drift;
+  an unchanged captured position is not pulled to a command limit on rail hold.
+- Local checks: full 56-test suite passed, followed by 10 focused native tests
+  after adding neutral endpoint coverage (57 unique tests). Both unit modes run
+  the original controller through the actual owner/API with fake motors only.
+- Read-only live calibration snapshot had no reported hardware mismatches. A
+  native binding was generated in the ignored Mac reader `.build` directory.
+  The observed arm poses did not round-trip through the original IK branch
+  (about 8 logical units per arm); arming rejects such poses without homing.
+- Another controller was holding all 12 arm motors during this audit, confirmed
+  again with 0.008 s read age. No remote files, services, registers or calibration
+  were changed. The corrected package is not yet installed; `04dd3ae` stays locked.
+  Continue only with fresh all-released readback for the approved inactive update.
+  Physical motion still needs separate authorization and supervised validation.
+
+## Original Joy-Con adapter installed inactive on Neooooo — 8 October 2026
+
+- User approved installation with motors disabled. Exact adapter revision
+  `04dd3ae8b04dfcb4e1d9107b4db20f1d451b5334` is installed separately at
+  `/Users/teachera/Documents/Codex/2026-10-05/m/work/joycon-adapter/04dd3ae`.
+  It has not been loaded into the live owner/API, and no motion test was authorized.
+- Remote installation verification: all 833 tracked blobs match the commit;
+  `software/tools/mac-joycon-reader/MOTOR_CONTROL_DISABLED` existed before checks;
+  the launcher and bridge both reject `--connect-robot` with exit 2. Syntax and
+  the installation-lock test passed; `installation.json` records the installation.
+- Remote before/after report: owner PID 35073 and API PID 35541 unchanged,
+  motor writes 0 to 0, all 16 torque bits zero, no enabled motors or active lease.
+  Independent pinned-mTLS readback afterward also reported all 16 released,
+  no enabled motors, and 0.0065 s read age. These are installation-time readings.
+- Original upstream control/IK methods remain vendored and source-tested. The
+  macOS adapter translates controller input to those methods and routes physical
+  output through the existing sole owner. Local verification: 46-test suite,
+  then nine focused hardware-adapter tests including the newly added launch lock;
+  24 owner test files passed after integrating newer main-branch robot fixes.
+- Live checkout/deployed service/configuration/calibration were not changed by
+  this installation. Another task advanced the live checkout to `056031f…`
+  during installation; reconcile its current fixes before any future activation.
+- Remaining: measured joint zero/directions and gripper endpoints for the pinned
+  upstream model, real controller checks, and separately authorized physical
+  validation. No physical parity or carton-task completion is claimed.
 
 ## Misleading "Owner telemetry stale"; refusal pause removed — 8 October 2026, 12:12–12:25
 
