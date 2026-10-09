@@ -1,5 +1,42 @@
 ## Authorized wrist direction probe: read-only preflight and sampler repair — 9 October 2026
 
+- After the user moved table1 toward the light, both measured tags decode in5/5
+  fresh raw frames83318/83321/83324/83327/83330 with hamming0. Table1 margin is
+  70.0–71.5 and shortest edge69.3–69.4px; hand2 margin73.1–73.9 and edge43.1px.
+  Strict read-only preflight then PASSES, with OAK83620 genuinely bracketed by
+  stationary encoder reads after2 frame attempts. Owner remains idle/released,
+  motor_writes1114, stop_count0, pilot idle. This resolves the current tag/clock
+  sampling blockers, not physical joint mapping or camera-to-arm calibration.
+  Evidence: raw-tag-burst-1791557890/ and after-table-reposition/ under the probe
+  directory. Keep the tags fixed; a moved anchor needs a new baseline.
+- Latest after the user corrected Neooooo's clock: two independent twenty-pair
+  read-only checks pass LINK_FITS_REGISTRATION. Median robot-minus-chat offset
+  is +2.23/+2.25ms; the latest observed owner ages are +19.4 to +67.3ms, with no
+  future timestamps. This verifies these snapshots, not durable synchronization.
+  Final uncached state confirms all16 motors torque-off, owner idle, pilot idle,
+  motor_writes1114 and stop_count0. No enable, move, STOP, recording start,
+  camera/configuration change or server restart was performed in this probe work.
+- The strict post-sync sample refused `Need visible table tag 1 and gripper tag 2`.
+  Five additional raw OAK frames80079/80082/80085/80088/80092 decode fixed-housing
+  hand2 in5/5 and table1 in3/5, with unchanged detector settings. Table1 is visible
+  but its upper white border lies in shadow. Tight offline crops decode it in5/5;
+  these diagnostic crops are NOT accepted live calibration samples. The exact
+  full-frame extraction failure is not established. Asked the user to move only
+  the table-tag paper toward the lamp, flat and fully on the table, then recheck.
+- Scratch runner repair has41 passing offline fault-injection tests, including
+  emergency STOP/readback despite an expired hold deadline and decision expiry
+  during authenticated request preparation. The original hold violation remains
+  a refusal; no additional motion is authorized by the cleanup time allowance.
+  Final independent targeted review confirms both repairs. Execution remains
+  blocked: the current
+  phone supplies receipt-only timestamps while the runner requires capture
+  freshness, and its remaining visual-review interval is under7seconds. Neither
+  receipt time nor passing fake tests establishes physical clearance. No live
+  direction check, joint-map validation or camera-to-arm fit has been completed.
+- Latest evidence: `.context/tag-direction-probe/link-final-clock-recheck.json`,
+  `raw-tag-burst-1791557563/`, `final-readonly-post-sync.json`,
+  `runner-final-test-output.txt` and `runner-second-review.md` in seville-v2.
+- Earlier same-session chronology follows (the clock blocker below is resolved):
 - User authorized small, slow right-arm direction checks. Current preflight refused
   before enabling or sending any positioning command: `Motor telemetry is stale or
   host clocks differ: left_arm_shoulder_pan`. All16 motors remain torque-off. Fresh
@@ -11,6 +48,12 @@
   A separate successful SNTP exchange reports +26.2 ms +/-15.8 ms. These are
   separate measurements, not simultaneous host-to-UTC observations. The link
   tool's minimum RTT/2 is not a proven uncertainty bound around its median offset.
+  After the user's second local correction, independent Apple SNTP reads -1.0 ms
+  +/-14.4 ms on this Mac, but the paired robot offset remains +41.8 ms and owner
+  ages still reach -15.1 ms. This supports a remaining robot-host mismatch, not a
+  request to keep correcting this Mac. SSH refused the configured key; requested
+  a clock correction in Terminal on Neooooo. No remote clock or system settings
+  were changed, and no motion was attempted while this gate failed.
   The Mac had previously been corrected successfully. Its running timed daemon
   logged a-28.6ms adjustment at23:23:25; this is consistent with some recurrence
   but does not establish the cause. Noninteractive correction requires an admin
