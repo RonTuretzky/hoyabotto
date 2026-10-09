@@ -349,7 +349,7 @@ def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_s
         for site in body.findall('site'):
             if site.get('name') in ('head_camera_rgb_optical_frame', 'head_camera_depth_optical_frame'):
                 site.set('group', '4')
-    lens = ' '.join(f'{v:.4f}' for v in twin.HEAD_OPTICAL_OFFSET_M)
+    lens = ' '.join(f'{v:.4f}' for v in getattr(twin, 'HEAD_OPTICAL_OFFSET_M', (0.0, 0.0, 0.0)))
     ET.SubElement(head, 'camera', name='oak', pos=lens, xyaxes=OAK_CAMERA_XYAXES, fovy=f'{OAK_FOVY_DEG:.4f}')
     tilt = math.radians(WRIST_TILT_DEG)
     wrist_xyaxes = _fmt((-1.0, 0.0, 0.0, 0.0, -math.sin(tilt), math.cos(tilt)))
