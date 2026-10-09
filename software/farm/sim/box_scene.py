@@ -6,7 +6,11 @@ sites, the OAK optical site ``HEAD_SITE`` on ``HEAD_CAMERA_BODY``, floor, lights
 - a table (box geom, 0.60 m deep x 0.90 m wide, top at ``table_top_m``) whose near edge is ``TABLE_NEAR_M`` forward
   of the robot origin; four visual legs;
 - a free cardboard box (body ``box``, freejoint ``box_free``, 0.25 kg, friction 1.0, a brown corrugation-striped
-  material) resting on the table's near edge, with an open carton flap: body ``box_flap`` (geom ``flap``, 7 cm tall,
+  material) resting on the table's near edge. ``preset`` picks the box (``PRESETS``): 'real' (the default) is the
+  carton measured on the robot on 9 October, an OPEN box (floor and four walls, rim 77 cm) with a 16 cm right flap
+  (the target: ``flap_hinge``, bodies ``box_flap*``) whose starting lean is drawn per seed, and a 16 cm far flap
+  leaning in; its crease plasticity lives in SimRobot (``PLASTIC``). 'near7' is the 8 October scene described next,
+  a closed box with one open carton flap: body ``box_flap`` (geom ``flap``, 7 cm tall,
   3.5 mm thick, the box's full width, 10 g) on hinge joint ``flap_hinge`` along the near top edge (axis along the box
   width). Angle 0 = vertical, positive = folded inward over the box top, 90 = flat on the top (the joint stops at
   ``FLAP_RANGE_DEG``; the flap and the box are parent and child, so MuJoCo does not collide them and the stop is
