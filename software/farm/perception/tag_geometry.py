@@ -15,7 +15,11 @@ import numpy as np
 
 
 # apriltag-geometry.json sections consumed elsewhere (farm/perception/paddle_target.py).
-NON_MEASUREMENT_SECTIONS = ("paddle_grasp",)
+# "carton_tags" holds the printed carton kit's black-square sizes (farm/perception/carton_pose.py):
+# they are measured exactly like "tags" but stay out of the fingerprint, so adding or editing
+# carton sizes does not invalidate a registration bound to tag_geometry_sha256 (tags 1/2/3).
+NON_MEASUREMENT_SECTIONS = ("paddle_grasp", "carton_tags")
+SIZE_SECTIONS = ("tags", "carton_tags")
 
 
 def fingerprint(value):
@@ -137,9 +141,16 @@ class TagGeometry:
         if config.get("schema") != 1 or config.get("family") != "tag36h11":
             raise ValueError("Expected schema 1 tag36h11 geometry configuration")
         self.config = json.loads(json.dumps(config, allow_nan=False))
-        self.sizes = self.config.get("tags", {})
-        if not self.sizes:
+        if not self.config.get("tags"):
             raise ValueError("Explicit tag sizes and their measurement sources are required")
+        self.sizes = {}
+        for section in SIZE_SECTIONS:
+            entries = self.config.get(section) or {}
+            if not isinstance(entries, dict):
+                raise ValueError(f"{section} must map tag IDs to sizes")
+            if set(entries) & set(self.sizes):
+                raise ValueError("A tag ID may appear in only one size section")
+            self.sizes.update(entries)
         for key, spec in self.sizes.items():
             size = spec.get("black_square_mm")
             if (not key.isdigit() or not 0 <= int(key) <= 586 or type(size) not in (float, int)

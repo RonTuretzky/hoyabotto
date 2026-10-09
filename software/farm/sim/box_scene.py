@@ -46,7 +46,7 @@ import numpy as np
 
 from farm.sim import xlerobot_twin as twin
 
-# Robot frame origin in model coordinates: the shoulder-pan axes are at model (-0.09, +-0.1552, 0.7915).
+# Robot frame origin stays fixed under the symmetric 273 mm arm-spacing overlay.
 ROBOT_ORIGIN_MODEL = np.array([-0.09, 0.0, 0.0])
 AXES = np.array([twin.FORWARD, twin.LEFT, twin.UP], dtype=float)  # rows: robot axes in model coordinates
 

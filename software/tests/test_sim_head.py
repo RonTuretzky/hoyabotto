@@ -150,14 +150,14 @@ def test_oak_follows_the_head(robot):
         pan_q0 = float(robot.data.qpos[robot.motors['head_motor_1'].qadr])
         tilt_q0 = float(robot.data.qpos[robot.motors['head_motor_2'].qadr])
     start = robot.positions()
-    # pan +100 ticks: the view turns to the robot's LEFT (about 8.8 deg)
+    # pan +100 ticks: the view turns to the robot's RIGHT (about 8.8 deg), as observed on the real OAK
     ok(robot.call('robot_move_head', {'positions': {'head_motor_1': start['head_motor_1'] + 100}, 'duration_s': 1}))
     view1, _ = oak_view(robot)
     with robot.lock:
         pan_q1 = float(robot.data.qpos[robot.motors['head_motor_1'].qadr])
-    assert pan_q1 - pan_q0 == pytest.approx(math.radians(100 * 360 / 4096), abs=0.01)
+    assert pan_q1 - pan_q0 == pytest.approx(-math.radians(100 * 360 / 4096), abs=0.01)
     yaw = lambda v: math.degrees(math.atan2(v[1], v[0]))  # noqa: E731
-    assert yaw(view1) - yaw(view0) == pytest.approx(100 * 360 / 4096, abs=1.5)
+    assert yaw(view1) - yaw(view0) == pytest.approx(-100 * 360 / 4096, abs=1.5)
     pixels1 = oak_pixels(robot)
     assert np.abs(pixels1 - pixels0).mean() > 3, 'the rendered oak view did not change after a pan'
     # tilt +100 ticks: it looks further DOWN

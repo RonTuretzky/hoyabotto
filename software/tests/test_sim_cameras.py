@@ -199,6 +199,7 @@ def test_depth_scene_nearest_object_is_the_box_or_claw(world, cams):
     assert scene['nearest'] is not None
     with world.lock:
         box = box_scene.robot_frame_of_box(world.model, world.data)
+        hand = box_scene.AXES @ (world.data.body('Fixed_Jaw').xpos - box_scene.ROBOT_ORIGIN_MODEL)
     # query the pixel where the box's top centre projects: it must back-project to the box top within 5 cm
     rot = np.asarray(twin_pose['rotation'])
     pos = np.asarray(twin_pose['position_m'])
@@ -215,7 +216,9 @@ def test_depth_scene_nearest_object_is_the_box_or_claw(world, cams):
     # the nearest blob (the box, flap or the claw above it) sits within the box's neighbourhood
     centre = scene['nearest']['centre_m']
     assert abs(centre[0] - box['forward_m']) < 0.25 and abs(centre[1] - box['left_m']) < 0.25
-    assert box['top_m'] - 0.05 < centre[2] < box['top_m'] + 0.15
+    # At 273 mm spacing the tilted hand housing can be the nearest blob, above
+    # the old box-height window. Check it against the posed hand origin too.
+    assert box['top_m'] - 0.05 < centre[2] < box['top_m'] + 0.15 or math.dist(centre, hand) < 0.08
 
 
 def test_depth_scene_nearest_is_the_box_when_the_arms_are_out_of_view(world, cams):

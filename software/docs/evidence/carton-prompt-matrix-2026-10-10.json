@@ -1,0 +1,1610 @@
+{
+  "metric": "historical pinch-only task; owner subsequently authorized pushing",
+  "tag_rendering": false,
+  "batches": [
+    {
+      "batch": "V0-v2-baseline-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 7,
+      "folded": 8,
+      "pushed_gt_10deg": 1,
+      "median_rounds": 12.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 5.3,
+          "status": "finished",
+          "rounds": 16,
+          "minutes": 1.15
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.8,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.95
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.2,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.02
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.7,
+          "status": "finished",
+          "rounds": 15,
+          "minutes": 1.06
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.9,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.01
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 17.8,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 0.94
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.3,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.0
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.6,
+          "status": "finished",
+          "rounds": 15,
+          "minutes": 1.24
+        }
+      ]
+    },
+    {
+      "batch": "V0-v2-baseline-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 6,
+      "folded": 6,
+      "pushed_gt_10deg": 2,
+      "median_rounds": 12.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.2,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.86
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 10.4,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 5.65
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.1,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.08
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.2,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 0.96
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.96
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.7,
+          "status": "finished",
+          "rounds": 21,
+          "minutes": 1.52
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 12.4,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 7.08
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.7,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.91
+        }
+      ]
+    },
+    {
+      "batch": "V1-outward-order-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 4,
+      "folded": 7,
+      "pushed_gt_10deg": 3,
+      "median_rounds": 21.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 13.4,
+          "status": "finished",
+          "rounds": 19,
+          "minutes": 2.51
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 105.7,
+          "status": "finished",
+          "rounds": 40,
+          "minutes": 5.71
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 8.3,
+          "status": "finished",
+          "rounds": 21,
+          "minutes": 2.59
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 8.9,
+          "status": "finished",
+          "rounds": 20,
+          "minutes": 1.45
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 8.3,
+          "status": "finished",
+          "rounds": 21,
+          "minutes": 1.33
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 15.2,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 7.03
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.4,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 0.81
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 10.0,
+          "status": "finished",
+          "rounds": 22,
+          "minutes": 1.49
+        }
+      ]
+    },
+    {
+      "batch": "V1-outward-order-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 8,
+      "folded": 8,
+      "pushed_gt_10deg": 0,
+      "median_rounds": 11.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.4,
+          "status": "finished",
+          "rounds": 10,
+          "minutes": 0.85
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 6.9,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 0.98
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.8,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.93
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.1,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.0
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.4,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 0.92
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.4,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.95
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.2,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.01
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.4,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 0.97
+        }
+      ]
+    },
+    {
+      "batch": "V2-wrist-check-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 5,
+      "folded": 5,
+      "pushed_gt_10deg": 3,
+      "median_rounds": 22.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 30.0,
+          "status": "finished",
+          "rounds": 27,
+          "minutes": 9.85
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 23.9,
+          "status": "finished",
+          "rounds": 31,
+          "minutes": 7.73
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 9.0,
+          "status": "finished",
+          "rounds": 19,
+          "minutes": 1.59
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 6.7,
+          "status": "finished",
+          "rounds": 22,
+          "minutes": 2.58
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.9,
+          "status": "finished",
+          "rounds": 21,
+          "minutes": 1.95
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 14.2,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 6.92
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.95
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.4,
+          "status": "finished",
+          "rounds": 23,
+          "minutes": 1.72
+        }
+      ]
+    },
+    {
+      "batch": "V2-wrist-check-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 8,
+      "folded": 8,
+      "pushed_gt_10deg": 0,
+      "median_rounds": 12.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.5,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 1.09
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.3,
+          "status": "finished",
+          "rounds": 18,
+          "minutes": 2.41
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.6,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.08
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.9,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 0.98
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 17,
+          "minutes": 1.86
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.7,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.03
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.9,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.05
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.9,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.03
+        }
+      ]
+    },
+    {
+      "batch": "V3-tags-after-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 4,
+      "folded": 7,
+      "pushed_gt_10deg": 4,
+      "median_rounds": 22.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 13.4,
+          "status": "finished",
+          "rounds": 19,
+          "minutes": 3.03
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 29.9,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 9.8
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 8.5,
+          "status": "finished",
+          "rounds": 20,
+          "minutes": 3.04
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 9.8,
+          "status": "finished",
+          "rounds": 20,
+          "minutes": 2.98
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 22.6,
+          "status": "finished",
+          "rounds": 27,
+          "minutes": 3.8
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 5.3,
+          "status": "finished",
+          "rounds": 36,
+          "minutes": 8.07
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.81
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 10.2,
+          "status": "finished",
+          "rounds": 25,
+          "minutes": 3.09
+        }
+      ]
+    },
+    {
+      "batch": "V3-tags-after-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 8,
+      "folded": 8,
+      "pushed_gt_10deg": 0,
+      "median_rounds": 12.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.2,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 2.06
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.4,
+          "status": "finished",
+          "rounds": 18,
+          "minutes": 3.75
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.9,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.61
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.5,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.31
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.2,
+          "status": "finished",
+          "rounds": 17,
+          "minutes": 2.81
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.9,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 2.52
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.6,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.01
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.4,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 1.89
+        }
+      ]
+    },
+    {
+      "batch": "V4-compact-rewrite-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 6,
+      "folded": 6,
+      "pushed_gt_10deg": 2,
+      "median_rounds": 26.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.5,
+          "status": "finished",
+          "rounds": 26,
+          "minutes": 3.61
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 19.6,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 10.12
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 8.6,
+          "status": "finished",
+          "rounds": 21,
+          "minutes": 3.08
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 9.3,
+          "status": "finished",
+          "rounds": 26,
+          "minutes": 3.19
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 5.5,
+          "status": "finished",
+          "rounds": 22,
+          "minutes": 3.12
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 29.3,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 9.07
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 2.1
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.9,
+          "status": "finished",
+          "rounds": 26,
+          "minutes": 3.79
+        }
+      ]
+    },
+    {
+      "batch": "V4-compact-rewrite-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 7,
+      "folded": 7,
+      "pushed_gt_10deg": 1,
+      "median_rounds": 13.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.0,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 1.69
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 46.2,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 10.32
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 8.7,
+          "status": "finished",
+          "rounds": 19,
+          "minutes": 2.69
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.3,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 1.65
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.4,
+          "status": "finished",
+          "rounds": 20,
+          "minutes": 2.95
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.4,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.68
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.3,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.6
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.2,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.91
+        }
+      ]
+    },
+    {
+      "batch": "V5c-safe-first-compact-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 7,
+      "folded": 8,
+      "pushed_gt_10deg": 1,
+      "median_rounds": 13.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.8,
+          "status": "finished",
+          "rounds": 26,
+          "minutes": 4.9
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 5.8,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 2.79
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.6,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 4.11
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.2,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 2.75
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.7,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 4.07
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 17.7,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.96
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.7,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 2.34
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.4,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 2.59
+        }
+      ]
+    },
+    {
+      "batch": "V5c-safe-first-compact-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 6,
+      "folded": 7,
+      "pushed_gt_10deg": 2,
+      "median_rounds": 15.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.2,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 2.42
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 80.1,
+          "status": "finished",
+          "rounds": 21,
+          "minutes": 4.94
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.7,
+          "status": "finished",
+          "rounds": 33,
+          "minutes": 11.95
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.4,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 3.74
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.5,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.59
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.5,
+          "status": "finished",
+          "rounds": 18,
+          "minutes": 4.21
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 17.1,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 9.67
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.2,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.61
+        }
+      ]
+    },
+    {
+      "batch": "V5e-safe-first-order-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 7,
+      "folded": 8,
+      "pushed_gt_10deg": 1,
+      "median_rounds": 12.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.8,
+          "status": "finished",
+          "rounds": 25,
+          "minutes": 6.76
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 5.0,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 3.62
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.5,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 3.83
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.9,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.39
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.9,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 2.65
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 18.5,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 2.52
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.7,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 3.79
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.4,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.83
+        }
+      ]
+    },
+    {
+      "batch": "V5e-safe-first-order-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 5,
+      "folded": 6,
+      "pushed_gt_10deg": 2,
+      "median_rounds": 15.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.1,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 2.37
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 9.6,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 13.7
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 6.0,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 3.66
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 20.5,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 11.46
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.8,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 3.64
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.4,
+          "status": "finished",
+          "rounds": 16,
+          "minutes": 3.98
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 18.1,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 11.03
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.5,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.32
+        }
+      ]
+    },
+    {
+      "batch": "V6-final-candidate-default-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 3,
+      "folded": 5,
+      "pushed_gt_10deg": 4,
+      "median_rounds": 20.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 12.9,
+          "status": "finished",
+          "rounds": 20,
+          "minutes": 4.45
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 12.1,
+          "status": "finished",
+          "rounds": 15,
+          "minutes": 2.04
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 7.7,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 2.31
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 8.8,
+          "status": "finished",
+          "rounds": 20,
+          "minutes": 2.66
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 27.0,
+          "status": "finished",
+          "rounds": 28,
+          "minutes": 4.71
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 22.4,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 14.36
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.7,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 1.72
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 9.0,
+          "status": "finished",
+          "rounds": 23,
+          "minutes": 2.61
+        }
+      ]
+    },
+    {
+      "batch": "V6-final-candidate-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 6,
+      "folded": 7,
+      "pushed_gt_10deg": 1,
+      "median_rounds": 12.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.1,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 1.59
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 0.0,
+          "status": "finished",
+          "rounds": 1,
+          "minutes": 0.38
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.3,
+          "status": "finished",
+          "rounds": 16,
+          "minutes": 2.94
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.0,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 2.26
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.0,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 2.36
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.7,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 2.04
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.8,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.12
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": false,
+          "folded": true,
+          "deg_push": 10.8,
+          "status": "finished",
+          "rounds": 32,
+          "minutes": 7.36
+        }
+      ]
+    },
+    {
+      "batch": "V6-final-candidate-out-deepseek-flash-s28",
+      "runs": 8,
+      "fold_by_pinch": 8,
+      "folded": 8,
+      "pushed_gt_10deg": 0,
+      "median_rounds": 13.0,
+      "seeds": [
+        {
+          "seed": 28,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.6,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.29
+        },
+        {
+          "seed": 29,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.44
+        },
+        {
+          "seed": 30,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.76
+        },
+        {
+          "seed": 31,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.6,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 1.87
+        },
+        {
+          "seed": 32,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.2,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 2.02
+        },
+        {
+          "seed": 33,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 5.2,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.36
+        },
+        {
+          "seed": 34,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.6,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 3.39
+        },
+        {
+          "seed": 35,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.3,
+          "status": "finished",
+          "rounds": 20,
+          "minutes": 2.2
+        }
+      ]
+    },
+    {
+      "batch": "V6-final-candidate-out-opus55",
+      "runs": 4,
+      "fold_by_pinch": 4,
+      "folded": 4,
+      "pushed_gt_10deg": 0,
+      "median_rounds": 14.5,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.2,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 2.67
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.7,
+          "status": "finished",
+          "rounds": 19,
+          "minutes": 3.65
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.2,
+          "status": "finished",
+          "rounds": 16,
+          "minutes": 3.84
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.0,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 2.67
+        }
+      ]
+    },
+    {
+      "batch": "V7-final-out-deepseek-flash",
+      "runs": 8,
+      "fold_by_pinch": 7,
+      "folded": 7,
+      "pushed_gt_10deg": 1,
+      "median_rounds": 13.0,
+      "seeds": [
+        {
+          "seed": 20,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.5,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.53
+        },
+        {
+          "seed": 21,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 7.2,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 2.38
+        },
+        {
+          "seed": 22,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.2,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.99
+        },
+        {
+          "seed": 23,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 1.7,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.47
+        },
+        {
+          "seed": 24,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.9,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.77
+        },
+        {
+          "seed": 25,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.1,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 1.92
+        },
+        {
+          "seed": 26,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.8,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.88
+        },
+        {
+          "seed": 27,
+          "fold_by_pinch": false,
+          "folded": false,
+          "deg_push": 19.9,
+          "status": "stopped: max rounds (40) reached",
+          "rounds": 40,
+          "minutes": 10.56
+        }
+      ]
+    },
+    {
+      "batch": "V7-final-out-deepseek-flash-s36",
+      "runs": 8,
+      "fold_by_pinch": 8,
+      "folded": 8,
+      "pushed_gt_10deg": 0,
+      "median_rounds": 13.5,
+      "seeds": [
+        {
+          "seed": 36,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.5,
+          "status": "finished",
+          "rounds": 16,
+          "minutes": 2.06
+        },
+        {
+          "seed": 37,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.7,
+          "status": "finished",
+          "rounds": 13,
+          "minutes": 1.72
+        },
+        {
+          "seed": 38,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.3,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 1.85
+        },
+        {
+          "seed": 39,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.8,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.91
+        },
+        {
+          "seed": 40,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 0.4,
+          "status": "finished",
+          "rounds": 16,
+          "minutes": 4.56
+        },
+        {
+          "seed": 41,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 4.8,
+          "status": "finished",
+          "rounds": 12,
+          "minutes": 1.84
+        },
+        {
+          "seed": 42,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 2.4,
+          "status": "finished",
+          "rounds": 11,
+          "minutes": 1.56
+        },
+        {
+          "seed": 43,
+          "fold_by_pinch": true,
+          "folded": true,
+          "deg_push": 3.4,
+          "status": "finished",
+          "rounds": 14,
+          "minutes": 4.0
+        }
+      ]
+    }
+  ]
+}

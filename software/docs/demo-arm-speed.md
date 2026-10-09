@@ -1,6 +1,12 @@
 # Demo arm speed
 
 Choose the speed before enabling an arm. `normal` stays the default.
+The API enum is `normal|demo`: **300 ticks/s means `speed_profile:"demo"`**, not
+normal with 300-tick waypoints. Waypoint size and speed have different units.
+The pilot convenience actions may omit the profile and enable normal. For an
+explicitly requested demo, use an explicit enable first, then verify
+`arm_speed_profiles` in `robot_get_execution`. A Joy-Con selector change applies
+to that UI's next Arm operation; it does not change the pilot or a holding arm.
 
 - Joy-Con: select **Arm speed → Demo · up to26°/s**, then Arm. Keep using the
   matching rail deadman. Stop before changing the selection.

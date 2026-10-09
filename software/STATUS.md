@@ -1,3 +1,65 @@
+## Pilot geometry, push policy and simulation results — 10 October 2026, 04:15 JST
+
+- Activated seven reviewed files in the local `gemma-xlerobot` pilot/farm-live copy:
+  head-pan sign correction, shared 273 mm arm spacing, carton-pose read tool,
+  push-authorized system policy, and eyes/supervisor guidance. Source-hash checks
+  passed, and the chat-only restart returned connected. The hardware owner stayed
+  at generation1791551739.406972. No motor command, enable, release or STOP was
+  issued by this integration. Private originals and receipt:
+  `pilot/.private/integration-backup-1791573318/`.
+- Earlier installation attempts refused an active owner/busy pilot before writing.
+  Actual installation at1791573318 required chat idle, owner idle and fresh all16
+  torque-off readback both before backup and before writes. Reload used another
+  fresh all16-off check. The user resumed the pilot afterward: verification at
+  1791573353 showed the left arm holding on normal, motor_writes12860, stop_count29.
+  These global counters include the concurrent user's activity. The integration
+  did not interrupt that run or change its holding-arm profile.
+- XLeRobot040 arm-base STEP and SO101 mounting holes give 273.000 mm shoulder-pan
+  spacing in the export orientation; the owner approximately corroborated 273 mm
+  on the assembly. Twin, reach solver and carton midpoint translation share that
+  value. The default vendored MJCF gets 18.7 mm inward translation per arm at load;
+  vendor assets and custom models are preserved. Height, orientation and full
+  motor mapping are not established by this measurement. Re-sense coordinates.
+- Head pan was mirrored: at historical2659ticks the real OAK looked right while
+  the old twin looked left (+50.449 degrees). Model sign -1 gives -50.449 degrees,
+  consistent with the recording. Raw motor angles/ticks are preserved; camera
+  `head_angles_deg` now uses model convention (+pan left/+tilt down). The current
+  near-centre view is not an independent sign test. Zero/tilt/full physical mapping
+  remain unvalidated. No head motion was commanded for this correction.
+- The owner permits deliberate flap pushing with claw pads/body, and reports grip
+  material under the carton. Pinch/lift is optional; camera/cable/arm-link clearance
+  and existing load/contact/travel/STOP guards remain. Fold output describes the
+  commanded claw-tip arc, not a measured flap angle or verified closure. Contact
+  stops do not trigger automatic retry, release or retreat. The eyes now describe
+  actual pads/edges, treating jaw-zone/scale overlays as unvalidated. Mirrored
+  carton roles are explicit:11 right flap,12 left;21/28 right wall,22 left.
+- `robot_get_carton_pose` is in the live catalog and `/api/carton-pose` responds.
+  It requires finite fresh stationary head samples bracketing OAK capture, unchanged
+  registration, matching intrinsics/geometry and head within3ticks of2085/2623.
+  The activation check refused head capture timing; no new coordinate estimate or
+  successful physical fold is claimed. Historical held-out0.8–1.5mm fit residuals
+  do not validate today's model/ranges/gripper. The tool reports coarse geometry
+  and explicitly does not supply executable contact targets.
+- Fastest supported arm preset is `demo`:300ticks/s (~26.37degrees/s), versus owner
+  normal100; waypoint size is separate. Demo is selected in the disarmed Joy-Con
+  UI for its next explicit Arm; this does not change pilot speed. The live pilot's
+  latest left-arm readback remained normal. New supervisor guidance selects demo
+  explicitly at an authorized enable of a released arm when requested; it must
+  not release a holding arm merely to switch. No faster motion was tested here.
+- Simulation comparison: on matched v8b seeds12–15, Flash and Opus5.5 both passed
+  3/4 under the old pinch metric; medians1.03/2.205min favour Flash for speed.
+  Latest Flash V7 outward-lean batches scored7/8 +8/8 =15/16; Opus V6 scored4/4
+  on a smaller, different prompt batch. Qwen3.8 27B supplied eyes, not a separately
+  ranked vision benchmark. No rendered AprilTags exist in those matrix scenes:
+  the results test missing-tag fallback/scan recipes, not tag-targeting accuracy.
+  Historical pinch scores are unchanged; the push policy has not been benchmarked.
+- Verification:348 relevant twin/head/camera/depth/reach/tag/pose/installer tests
+  passed. Staged composition was idempotent and compiled; all seven installed
+  hashes match. Live twin HTTP200, import path,273mm constant and head sign checked;
+  `mapping_validated` remains false. Evidence in seville-v2
+  `.context/resume-20261010/{integration-receipt,activation-verification}.json`,
+  `combined-tests.txt`, `head-debug/` and `speed-selection-receipt.json`.
+
 ## AprilTag calibration: short lift exposed completion-reporting mismatch — 10 October 2026
 
 - Tags and stationary sampling work. Five observations before/after the lift

@@ -1,0 +1,102 @@
+{
+  "sources": [
+    {
+      "file": "XLeRobot040_armbase.step",
+      "sha256": "af143711c4e970ed8a56cec2d5ade5520d809034958b0e8851a85b1bee95d03a",
+      "url": "https://github.com/Vector-Wangel/XLeRobot/blob/b017b5e6354bd9f61f4247a920c72622ca0aade0/hardware/step/XLeRobot_040/XLeRobot040_armbase.step"
+    },
+    {
+      "file": "Base_SO101.step",
+      "sha256": "95209ec6a3ca06b1ec084f72d9c73324bdcf9d0e17213ef293f45f95a3993288",
+      "url": "https://github.com/TheRobotStudio/SO-ARM100/blob/5f6d2b876a53a4872e405b991dd925556c9e38a4/STEP/SO101/Base_SO101.step"
+    }
+  ],
+  "units": "mm",
+  "solid_count": 14,
+  "local_pan_xz_mm": [
+    0.0,
+    45.2
+  ],
+  "plates": [
+    {
+      "solid_index_0based": 10,
+      "rotation_centre_xy_mm": [
+        21.326728,
+        152.376143
+      ],
+      "mating_holes_xy_mm": [
+        [
+          -16.952662,
+          124.599646
+        ],
+        [
+          -16.952662,
+          180.152641
+        ],
+        [
+          52.822329,
+          120.626143
+        ],
+        [
+          52.822329,
+          184.126143
+        ]
+      ],
+      "base_to_cad_xy_translation_mm": [
+        45.322329,
+        152.37614325
+      ],
+      "maximum_hole_residual_mm": 7.499999696847226e-07,
+      "shoulder_pan_xy_mm": [
+        0.12232900000000058,
+        152.37614325
+      ],
+      "pan_offset_from_rotation_centre_mm": [
+        -21.204399,
+        2.499999993688107e-07
+      ]
+    },
+    {
+      "solid_index_0based": 12,
+      "rotation_centre_xy_mm": [
+        21.326728,
+        -120.623857
+      ],
+      "mating_holes_xy_mm": [
+        [
+          -16.952662,
+          -148.400354
+        ],
+        [
+          -16.952662,
+          -92.847359
+        ],
+        [
+          52.822329,
+          -152.373857
+        ],
+        [
+          52.822329,
+          -88.873857
+        ]
+      ],
+      "base_to_cad_xy_translation_mm": [
+        45.322329,
+        -120.62385674999999
+      ],
+      "maximum_hole_residual_mm": 7.499999838955773e-07,
+      "shoulder_pan_xy_mm": [
+        0.12232900000000058,
+        -120.62385674999999
+      ],
+      "pan_offset_from_rotation_centre_mm": [
+        -21.204399,
+        2.500000135796654e-07
+      ]
+    }
+  ],
+  "shoulder_pan_separation_mm": 273.0,
+  "orientation": "Both top plates in the STEP export orientation; local SO101 Y upward, X to -CAD Y, Z to -CAD X",
+  "limitation": "The mounts rotate. This is not a measurement of installed mount angles or a live kinematic calibration.",
+  "motor_writes": 0
+}

@@ -10,7 +10,7 @@ to the robot: the ticks go to the chat's motion tools (``plan_steps`` splits the
 How it solves (``method`` 'analytic+twin-refine'):
 
 1. Shoulder pan from the horizontal geometry. Each arm's pan axis is vertical at forward 0, left
-   +-SHOULDER_LEFT_M (measured on the twin: 0.1552 m). The whole arm lies in the vertical plane
+   +-SHOULDER_LEFT_M (273 mm assembly spacing: 0.1365 m each side). The whole arm lies in the vertical plane
    through that axis, so pan = atan2 of the target's lateral offset from the axis over its forward
    offset. A positive feetech pan swings EITHER arm toward the robot's RIGHT (verified on the twin for
    both arms), so mirrored targets give opposite pans.
@@ -61,6 +61,7 @@ import math
 import numpy as np
 
 from farm.sim import xlerobot_twin as twin
+from farm.kinematics.xlerobot_geometry import SHOULDER_LEFT_M, SHOULDER_UP_M
 
 METHOD = 'analytic+twin-refine'
 UPSTREAM = ('Vector-Wangel/XLeRobot@b017b5e6354bd9f61f4247a920c72622ca0aade0 software/src/model/SO101Robot.py '
@@ -76,8 +77,6 @@ LIFT_LIMITS_DEG = (90 - math.degrees(3.45), 90 - math.degrees(-0.1))     # upstr
 ELBOW_LIMITS_DEG = (math.degrees(-0.2) - 90, math.degrees(math.pi) - 90)  # -101.5 .. 90
 
 # Twin geometry in the robot frame (measured on the vendored model, see tests/test_so101_reach.py).
-SHOULDER_LEFT_M = {'left': 0.1552, 'right': -0.1552}  # pan axis lateral position
-SHOULDER_UP_M = 0.894                                  # shoulder-lift axis height
 LIFT_AHEAD_M = 0.0306                                  # lift axis ahead of the pan axis, along the pan direction
 TIP_ALONG_M = 0.165                                    # wrist-flex axis -> claw tip along the hand axis (0.060 + 0.105)
 TIP_BELOW_M = 0.008                                    # claw tip below the hand axis (twin TIP_POS x)

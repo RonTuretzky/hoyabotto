@@ -88,7 +88,7 @@ def test_so101_joint_limits_are_reported_not_applied():
     assert reach.LIFT_LIMITS_DEG == pytest.approx((-107.68, 95.73), abs=0.01)
     assert reach.ELBOW_LIMITS_DEG == pytest.approx((-101.46, 90.0), abs=0.01)
     # wrist point straight below the lift axis: the IK clamps the lift at 95.7 deg and we say so
-    problems = reach.analytic_solve('left', {'forward_m': 0.1956, 'left_m': 0.1552, 'up_m': 0.702})['problems']
+    problems = reach.analytic_solve('left', {'forward_m': 0.1956, 'left_m': 0.1365, 'up_m': 0.702})['problems']
     assert any('shoulder_lift would be at the SO-101 joint limit' in p for p in problems)
     assert reach.analytic_solve('left', EXAMPLE)['problems'] == []
 
@@ -103,8 +103,8 @@ def test_pitch_rule_and_tip_offset():
 def test_analytic_solve_geometry_and_problems():
     a = reach.analytic_solve('left', EXAMPLE)
     assert a['problems'] == []
-    assert a['pan_deg'] == pytest.approx(math.degrees(math.atan2(0.1552 - 0.12, 0.30)))  # target right of the shoulder: +pan
-    assert a['reach_m'] == pytest.approx(math.sqrt(0.30 ** 2 + (0.12 - 0.1552) ** 2 + (0.84 - 0.894) ** 2))
+    assert a['pan_deg'] == pytest.approx(math.degrees(math.atan2(0.1365 - 0.12, 0.30)))  # target right of the shoulder: +pan
+    assert a['reach_m'] == pytest.approx(math.sqrt(0.30 ** 2 + (0.12 - 0.1365) ** 2 + (0.84 - 0.894) ** 2))
     d = a['degrees']
     assert d['left_arm_wrist_flex'] == pytest.approx(-d['left_arm_shoulder_lift'] - d['left_arm_elbow_flex'])
     # the analytic model closes the loop: its own FK puts the tip back on the target
@@ -204,7 +204,7 @@ def test_grid_of_targets():
     shoulder, up 0.75..1.05 (measured: 180 of 343 points solve with ranges like the robot's; worst 0.9 mm)."""
     ok = total = 0
     for f, dl, u in itertools.product((0.10, 0.20, 0.30, 0.40), (-0.15, -0.05, 0.05, 0.15), (0.75, 0.85, 0.95, 1.05)):
-        target = {'forward_m': f, 'left_m': 0.1552 + dl, 'up_m': u}
+        target = {'forward_m': f, 'left_m': 0.1365 + dl, 'up_m': u}
         r = reach.solve_reach('left', target, NEUTRAL, RANGES)
         _assert_shape(r, 'left')
         total += 1

@@ -23,6 +23,29 @@ JAW = {'Jaw_L': (-21.46, 100.0), 'Jaw_R': (-21.46, 100.0)}
 
 # ---------------------------------------------------------------- mapping math
 
+def test_273mm_overlay_preserves_vendor_asset_and_custom_geometry(tmp_path):
+    import xml.etree.ElementTree as ET
+    original = twin.VENDORED_MODEL.read_bytes()
+    scene = ET.fromstring(twin._scene_xml(twin.VENDORED_MODEL))
+    for name, want_y in (('Base', -0.0913), ('Base_2', 0.0913)):
+        assert [float(v) for v in scene.find(f'.//body[@name="{name}"]').get('pos').split()] == pytest.approx(
+            [-0.09, want_y, 0.395])
+    assert twin.VENDORED_MODEL.read_bytes() == original
+    custom = tmp_path / 'custom.xml'
+    custom.write_bytes(original)
+    scene = ET.fromstring(twin._scene_xml(custom))
+    assert float(scene.find('.//body[@name="Base"]').get('pos').split()[1]) == -0.11
+    assert float(scene.find('.//body[@name="Base_2"]').get('pos').split()[1]) == 0.11
+
+
+def test_assembly_overlay_refuses_drifted_base(tmp_path, monkeypatch):
+    custom = tmp_path / 'changed.xml'
+    custom.write_text(twin.VENDORED_MODEL.read_text().replace('pos="-0.09 -0.11 0.395"',
+                                                           'pos="-0.09 -0.12 0.395"'))
+    monkeypatch.setattr(twin, 'VENDORED_MODEL', custom)
+    with pytest.raises(ValueError, match='upstream Base position changed'):
+        twin._scene_xml(custom)
+
 def test_midpoint_is_zero_and_offsets_reach_the_model():
     angles, unmapped, model = twin.motor_angles(NEUTRAL, RANGES)
     assert unmapped == []
@@ -414,7 +437,7 @@ def test_camera_pose_at_mapped_zero_looks_forward_and_level_from_the_head():
 
 
 @render
-def test_camera_pose_tilt_down_and_pan_left_signs():
+def test_camera_pose_tilt_down_and_pan_right_signs():
     level = twin.camera_pose(NEUTRAL, RANGES)
     down = twin.camera_pose(_ticks(head_motor_2=20), RANGES)
     assert down['head_angles_deg']['tilt'] == pytest.approx(20.0, abs=0.1)
@@ -427,13 +450,58 @@ def test_camera_pose_tilt_down_and_pan_left_signs():
     assert _axes(up)[2][2] == pytest.approx(math.sin(math.radians(20)), abs=0.002)
     pan = twin.camera_pose(_ticks(head_motor_1=30), RANGES)
     _, _, z = _axes(pan)
-    assert z[1] == pytest.approx(math.sin(math.radians(30)), abs=0.002)    # ticks above the midpoint: looks LEFT
+    assert z[1] == pytest.approx(-math.sin(math.radians(30)), abs=0.002)   # ticks above the midpoint: looks RIGHT
     assert z[0] == pytest.approx(math.cos(math.radians(30)), abs=0.002) and abs(z[2]) < 1e-6
+    assert pan['head_angles_deg']['pan'] == pytest.approx(-30.0, abs=0.1)
     assert pan['position_m'][2] == pytest.approx(level['position_m'][2])
     # a joint map sign of -1 on the tilt flips the assumption
     flipped = twin.camera_pose(_ticks(head_motor_2=20), RANGES,
                                joint_map={'validated': True, 'joints': {'head_motor_2': {'sign': -1}}})
     assert _axes(flipped)[2][2] == pytest.approx(_axes(up)[2][2]) and flipped['mapping_validated'] is True
+
+
+@render
+@pytest.mark.parametrize('pan_tick, expected_yaw', [(1573, 45.0), (2085, 0.0), (2597, -45.0),
+                                                 (2659, -50.44921875), (2094, -0.791015625)])
+def test_head_pan_recording_regression_and_rendered_link_axis(pan_tick, expected_yaw):
+    """2026-10-10: OAK turns RIGHT at 2659, returns forward at2094. Exercise the model/radian path
+    at both signs, the midpoint and recorded ticks; the rendered camera link and reported optical axis agree.
+    This observed direction does not validate the midpoint, tilt sign, or full robot mapping."""
+    import numpy as np
+    ranges = dict(RANGES, head_motor_1=(1019, 3151), head_motor_2=(1932, 2665))
+    ticks = dict(NEUTRAL, head_motor_1=pan_tick, head_motor_2=2621)
+    raw, _, model = twin.motor_angles(ticks, ranges)
+    raw_pan = (pan_tick - 2085) * 360 / 4096
+    assert raw['head_motor_1'] == pytest.approx(raw_pan)  # encoder angle API has not changed
+    assert twin.motor_ticks({'head_motor_1': raw_pan}, ranges)['head_motor_1'] == pytest.approx(pan_tick)
+    assert model['head_pan_joint'] == pytest.approx(expected_yaw)
+    pose = twin.camera_pose(ticks, ranges)
+    z = _axes(pose)[2]
+    assert math.degrees(math.atan2(z[1], z[0])) == pytest.approx(expected_yaw, abs=1e-6)
+    assert pose['head_angles_deg']['pan'] == pytest.approx(expected_yaw)
+    assert pose['mapping_validated'] is False
+
+    def rendered_link():
+        t = twin._twin(twin.find_model()[0])
+        t.render(model, ('top',), (64, 48))
+        return (float(t.data.qpos[t.qadr['head_pan_joint']]),
+                t.axes @ t.data.body(twin.HEAD_CAMERA_BODY).xmat.reshape(3, 3)[:, 0])
+    radians, mesh_forward = twin._executor().submit(rendered_link).result()
+    assert radians == pytest.approx(math.radians(expected_yaw))
+    assert mesh_forward == pytest.approx(z, abs=1e-9)
+    assert np.linalg.norm(mesh_forward) == pytest.approx(1.0)
+
+
+@render
+def test_head_pan_joint_map_flips_corrected_default_without_changing_encoder_units():
+    ticks = _ticks(head_motor_1=30, head_motor_2=20)
+    joint_map = {'joints': {'head_motor_1': {'sign': -1, 'zero_tick': NEUTRAL['head_motor_1']}}}
+    pose = twin.camera_pose(ticks, RANGES, joint_map=joint_map)
+    z = _axes(pose)[2]
+    assert math.degrees(math.atan2(z[1], z[0])) == pytest.approx(30.0, abs=0.1)
+    assert pose['head_angles_deg']['pan'] == pytest.approx(30.0, abs=0.1)
+    assert pose['head_angles_deg']['tilt'] == pytest.approx(20.0, abs=0.1)
+    assert pose['mapping_validated'] is False
 
 
 @render
@@ -451,11 +519,11 @@ def test_head_optical_offset_moves_the_lens_in_the_camera_link_frame():
     assert cradle['rotation'] == stock['rotation']                           # an offset never turns the view
     custom = twin.camera_pose(NEUTRAL, RANGES, joint_map={'joints': {}, 'head_optical_offset_m': [0.01, 0.02, -0.03]})
     assert np.array(custom['position_m']) - np.array(stock['position_m']) == pytest.approx([0.01, 0.02, -0.03], abs=1e-9)
-    # panned 90 deg left, the link's forward offset points to the robot's left
+    # +90 raw encoder degrees pans right, so the link's forward offset points to the robot's right
     pan = _ticks(head_motor_1=90)
     d = np.array(twin.camera_pose(pan, RANGES, joint_map={'joints': {}, 'head_optical_offset_m': [0.05, 0, 0]})['position_m']) \
         - np.array(twin.camera_pose(pan, RANGES, joint_map=zero)['position_m'])
-    assert d == pytest.approx([0.0, 0.05, 0.0], abs=1e-6)
+    assert d == pytest.approx([0.0, -0.05, 0.0], abs=1e-6)
     for bad in ([0, 0], [0, 0, 1.0], [0, 0, float('nan')], 'x', [True, 0, 0]):
         with pytest.raises(ValueError, match='head_optical_offset_m'):
             twin.camera_pose(NEUTRAL, RANGES, joint_map={'joints': {}, 'head_optical_offset_m': bad})

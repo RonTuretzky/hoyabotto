@@ -13,10 +13,11 @@ an SO-101 ``so101_new_calib`` URDF joint angle and converted to this model's joi
 the fixed per-joint offset/sign in ``JOINT_TABLE`` (a model-to-model conversion, fitted
 geometrically; it is not a robot calibration). Grippers follow the repo convention (LeRobot
 RANGE_0_100: 0 at range_min) mapped linearly onto the model jaw range; ``angles_deg`` reports a
-gripper as its jaw opening in degrees from closed. Head: zero = model forward/level, sign +1, a
-pure guess. Nothing about this mapping has been checked against the physical robot:
-``mapping_validated`` stays False until a human compares the render with a photo and writes a
-joint map with ``validated: true``.
+gripper as its jaw opening in degrees from closed. Head pan has model sign -1: increasing raw ticks
+turns the camera RIGHT, as observed in the 2026-10-10 OAK recording at 2094 -> 2659 -> 2094 ticks.
+Head zero = model forward/level at the range midpoint and tilt sign +1 remain assumptions; this
+direction observation does not validate the full mapping. ``mapping_validated`` stays False unless
+a joint map explicitly sets ``validated: true``.
 
 A joint map (``{'validated': bool, 'joints': {motor: {'zero_tick': int, 'sign': 1|-1}}, 'head_optical_offset_m':
 [forward, left, up]}``) replaces the midpoint/sign of any listed motor and, optionally, the head camera's optical
@@ -43,12 +44,14 @@ site added at load time (``HEAD_SITE``) to the model's ``head_camera_link`` body
 convention: +x out of the lens, +z up) with the ROS optical convention. The vendored model's own
 ``head_camera_rgb_optical_frame`` site is NOT used: its ``euler="-1.5708 0 -1.5708"`` is the URDF's
 extrinsic rpy, but MuJoCo applies euler intrinsically, so at zero head that site's z axis points to the
-robot's LEFT (its x is up and its y forward). Head sign assumptions, both unvalidated: at the mapped
+robot's LEFT (its x is up and its y forward). At the assumed mapped
 zero (midpoint of each head motor's saved range) the camera looks exactly forward and level; model
 ``head_tilt_joint`` positive = look DOWN (the axis is the tilt link's +y, the robot's left), so
 ``head_motor_2`` ticks above its midpoint tilt the camera down; model ``head_pan_joint`` positive = look
-LEFT, so ``head_motor_1`` ticks above its midpoint pan left. Checked numerically against the model; a
-joint map with ``sign: -1`` for either head motor flips the assumption.
+LEFT, so ``head_motor_1`` needs model sign -1: ticks above its midpoint pan RIGHT.
+``head_angles_deg`` reports these model angles (+pan left, +tilt down), while ``angles_deg`` and
+``motor_ticks`` retain the raw feetech angle convention. A joint map with ``sign: -1`` for either
+head motor flips its default direction. Neither head zero nor tilt direction is physically validated.
 
 All MuJoCo/OpenGL work runs on one dedicated worker thread that owns the model and renderers,
 so ``render_twin`` and ``claw_positions`` may be called from any thread (e.g. a threaded HTTP
@@ -77,7 +80,7 @@ MAPPING = 'feetech_degrees_v1'
 TICKS_PER_TURN = 4096
 MODEL_ENV = 'XLEROBOT_TWIN_MODEL'
 VENDORED_MODEL = Path(__file__).resolve().parent / 'assets' / 'xlerobot' / 'xlerobot.xml'
-VENDORED_ID = 'xlerobot.xml (Vector-Wangel/MuJoCo-GS-Web@0d60421, vendored)'
+VENDORED_ID = 'xlerobot.xml (Vector-Wangel/MuJoCo-GS-Web@0d60421, vendored; 273mm assembly overlay)'
 IGNORED_MOTORS = frozenset({'base_left_wheel', 'base_right_wheel'})
 
 # The one table: canonical motor -> (model joint, model offset deg, model sign).
@@ -100,7 +103,7 @@ JOINT_TABLE = {
     'right_arm_wrist_flex':    ('Wrist_Pitch_R', 0.0, 1),
     'right_arm_wrist_roll':    ('Wrist_Roll_R', 2.79, -1),
     'right_arm_gripper':       ('Jaw_R', None, None),
-    'head_motor_1':            ('head_pan_joint', 0.0, 1),   # pan (farm/tools/robot_test.py)
+    'head_motor_1':            ('head_pan_joint', 0.0, -1),  # ticks increase RIGHT; model positive pans LEFT
     'head_motor_2':            ('head_tilt_joint', 0.0, 1),  # tilt
 }
 
@@ -155,9 +158,10 @@ CAMERA_FRAME = (FRAME + " rotation columns are the camera's optical x (image rig
 # axis, on its centre line: ~3 mm ahead of and ~10 mm above the camera link origin. DESIGN values, not measured; the
 # optical axis is the link's forward (no built-in tilt). A joint map's 'head_optical_offset_m' overrides it.
 HEAD_OPTICAL_OFFSET_M = (0.003, 0.0, 0.0104)
-HEAD_SIGN_NOTE = ('head zero = midpoint of each head motor\'s saved range, camera level and forward; head_motor_2 '
-                  'ticks above the midpoint tilt the camera DOWN, head_motor_1 ticks above pan it LEFT (sign +1, '
-                  'unvalidated; a joint map sign of -1 flips either)')
+HEAD_SIGN_NOTE = ('head zero = midpoint of each head motor\'s saved range, camera level and forward (unvalidated); '
+                  'head_motor_2 ticks above the midpoint tilt the camera DOWN (unvalidated), head_motor_1 ticks '
+                  'above pan it RIGHT (model sign -1; direction observed in the 2026-10-10 OAK recording); '
+                  'model angles are +pan LEFT and +tilt DOWN; a joint map sign of -1 flips either default direction')
 
 
 # ---------------------------------------------------------------- mapping (pure, no MuJoCo)
@@ -306,6 +310,19 @@ def find_model():
 def _scene_xml(path):
     """Upstream MJCF made fixed-base and render-ready (floor, lights, offscreen buffer)."""
     root = ET.parse(path).getroot()
+    if Path(path).resolve() == VENDORED_MODEL.resolve():
+        from farm.kinematics.xlerobot_geometry import ARM_INWARD_SHIFT_M
+        for name, old_y, shift in (('Base', -0.11, ARM_INWARD_SHIFT_M),
+                                    ('Base_2', 0.11, -ARM_INWARD_SHIFT_M)):
+            matches = root.findall(f'.//body[@name="{name}"]')
+            if len(matches) != 1:
+                raise ValueError(f'273mm assembly overlay: expected one {name} body')
+            body = matches[0]
+            pos = [float(v) for v in body.get('pos', '').split()]
+            if len(pos) != 3 or any(abs(a - b) > 1e-9 for a, b in zip(pos, (-0.09, old_y, 0.395))):
+                raise ValueError(f'273mm assembly overlay: upstream {name} position changed')
+            pos[1] += shift
+            body.set('pos', ' '.join(f'{v:.10g}' for v in pos))
     compiler = root.find('compiler')
     if compiler is None:
         compiler = ET.SubElement(root, 'compiler')
@@ -620,7 +637,7 @@ def camera_pose(positions_ticks, ranges, *, joint_map=None, camera='oak'):
     """The head camera's optical frame in the robot frame, from encoder ticks: forward kinematics, no rendering.
 
     Returns {'position_m': [forward, left, up], 'rotation': 3x3 (columns = optical x, y, z axes in the robot
-    frame), 'frame', 'site', 'camera', 'head_angles_deg': {'pan', 'tilt'} (feetech_degrees_v1, None when that
+    frame), 'frame', 'site', 'camera', 'head_angles_deg': {'pan', 'tilt'} (model angles: +pan LEFT, +tilt DOWN; None when that
     motor is unmapped and the model keeps it at zero), 'head_sign_note', 'mapping', 'mapping_validated',
     'unmapped', 'model'}. Only camera='oak' (the head camera) exists; ValueError otherwise, or for a bad
     joint_map; RuntimeError if the model lacks the head camera body or the shoulder-pan joints (no robot frame);
@@ -635,8 +652,12 @@ def camera_pose(positions_ticks, ranges, *, joint_map=None, camera='oak'):
     if pose is None:
         raise RuntimeError(f'model {model_id} lacks the {HEAD_CAMERA_BODY} body or the shoulder-pan joints of '
                            f'{", ".join(ARMS)}: no camera pose in the robot frame')
+    head_angles = {}
+    for axis, motor in (('pan', 'head_motor_1'), ('tilt', 'head_motor_2')):
+        _, offset, sign = JOINT_TABLE[motor]
+        head_angles[axis] = None if motor not in angles else offset + sign * angles[motor]
     pose.update(_mapping_fields(joint_map), camera=camera, unmapped=list(unmapped), model=model_id,
-                head_angles_deg={'pan': angles.get('head_motor_1'), 'tilt': angles.get('head_motor_2')},
+                head_angles_deg=head_angles,
                 head_sign_note=HEAD_SIGN_NOTE, head_optical_offset_m=list(head_optical_offset(joint_map)),
                 head_optical_offset_source=('joint_map' if isinstance(joint_map, dict) and joint_map.get('head_optical_offset_m') is not None
                                             else 'cradle design (HEAD_OPTICAL_OFFSET_M)'))
