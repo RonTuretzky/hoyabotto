@@ -6,6 +6,20 @@ from gemma_control_limits import SOFTWARE_TEMPERATURE_LIMIT_C
 from wheel_pulse_executor import WheelPulseExecutor,WHEELS
 from head_joint_executor import HEAD_MOTORS,HEAD_LIMITS,HEAD_TORQUE_LIMIT
 PHONE_CAMERA=Path('/Users/teachera/Documents/Codex/2026-10-05/m/work/phone_camera/latest.json')
+OAK_CAMERA=Path(os.environ.get('XLEROBOT_OAK_RAW_DIR','/Users/teachera/Documents/Codex/2026-10-06/users-teachera-documents-codex-2026-10/work/oak-live-stream'))/'oak.json'
+
+def supervision_metadata():
+ """The freshest supervising camera feed: the phone overview upload or the head OAK stream.
+ Both give a time on this Mac's clock and a frame sequence, so the same freshness rules apply to either;
+ the phone is no longer required when the OAK is streaming."""
+ best={}
+ for name,path,stamp in (('phone',PHONE_CAMERA,'received_at'),('oak',OAK_CAMERA,'captured_at')):
+  try:d=json.loads(path.read_text())
+  except (OSError,ValueError):continue
+  t=d.get(stamp)
+  if type(t) in (int,float) and math.isfinite(t) and d.get('seq') is not None and (not best or t>best['received_at']):
+   best={'received_at':t,'seq':(name,d['seq']),'source':name}
+ return best
 
 DIAGNOSTIC_REGISTERS=['Torque_Enable','Operating_Mode','Goal_Position','Goal_Time','Goal_Velocity','Acceleration','Torque_Limit','Max_Torque_Limit','Max_Temperature_Limit','P_Coefficient','I_Coefficient','D_Coefficient','CW_Dead_Zone','CCW_Dead_Zone','Minimum_Startup_Force','Protection_Current','Protective_Torque','Protection_Time','Overload_Torque','Over_Current_Protection_Time','Unloading_Condition','Lock']
 
@@ -38,7 +52,7 @@ class HardwareOwner:
   self.soft_release_s=soft_release_s;self.sleep=sleep;self.writer=None  # writer(): persist self.state now (set by main)  # >0: STOP/faults ease torque off over this many seconds
   self.paddle_profile=paddle_profile
   self.motion_count=0
-  if camera_metadata is None:camera_metadata=lambda:json.loads(PHONE_CAMERA.read_text())
+  if camera_metadata is None:camera_metadata=supervision_metadata
   self.camera_metadata=camera_metadata
   if paddle_profile:
    from paddle_camera_gate import PaddleCameraGate
