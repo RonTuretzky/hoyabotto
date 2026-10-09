@@ -61,8 +61,14 @@ class RobotClient:
             # Never retry a robot command after an uncertain transport outcome.
             raise RobotTransportError(f'{name}: robot API unreachable ({type(exc).__name__})') from None
         if not body.get('ok'):
-            result = body.get('result') or {}
-            raise RobotError(f"{name}: {result.get('error') or result.get('reason') or body.get('error') or 'refused'}")
+            # The API wraps the owner's own reply, so its reason can sit one level down.
+            reason, layer = None, body
+            for _ in range(3):
+                if not isinstance(layer, dict):
+                    break
+                reason = reason or layer.get('error') or layer.get('reason')
+                layer = layer.get('result')
+            raise RobotError(f"{name}: {reason or 'refused'}")
         return body['result']
 
 
