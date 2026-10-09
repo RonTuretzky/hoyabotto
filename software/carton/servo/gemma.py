@@ -25,6 +25,7 @@ from farm.perception.tag_sampling import ARM_JOINTS, HEAD_JOINTS, gripper_tag_fo
 MIN_STEP_TICKS = 3        # owner: each joint in a move travels 3..341 ticks; <=2 is answered as a no-op
 MOVE_DURATION_S = 0.4     # one <=16-tick step; the pickup owner ramps at most 40 ticks per >=0.4 s interval
 RELEASE_CONFIRM_S = 8.0   # STOP/fault release eases torque off over ~2 s; keep reading this long for torque-zero
+FRAME_READ_ATTEMPTS = 8   # latest-frame endpoints can initially return a capture preceding our encoder bracket
 
 
 def result(payload, tool):
@@ -275,23 +276,94 @@ class GemmaTagObserver:
         self.count = 0
 
     def observe(self, after=0.0):
-        before, _ = self.transport.read_state()
-        payload = self.robot.call('robot_get_tags', {'cameras': [self.camera], 'tag_ids': [1, self.gripper_tag_id]})
-        row = result(payload, 'robot_get_tags').get('observations', {}).get(self.camera, {})
-        following, _ = self.transport.read_state()
-        frame = row.get('frame', {})
-        stamp = finite(frame.get('captured_at'), 'camera capture time')
-        # On a link faster than the owner's poll the second read can repeat the first snapshot; read again
-        # (bounded) until the owner has sampled every motor after the frame. No limit is relaxed.
+        deadline = min(self.clock() + self.transport.limits.frame_age_s, self.transport.deadline)
+        self._check_deadline(deadline)
+        before, a = self.transport.read_state()
+        earliest = max(r['captured_at'] for r in before['result']['motors'])
+        identity, anchor, previous = self.identity, self.anchor, self.last
+        for attempt in range(FRAME_READ_ATTEMPTS):
+            self._check_deadline(deadline)
+            payload, row, frame, corners, candidate_anchor, candidate_identity = self._frame()
+            stamp = frame['captured_at']
+            if identity is not None and candidate_identity != identity:
+                raise Refused('Camera stream, geometry or intrinsics changed')
+            if anchor is not None and np.max(np.linalg.norm(candidate_anchor-anchor, axis=1)) > 2:
+                raise Refused('Table anchor moved; camera or scene changed')
+            if previous is not None:
+                if frame['seq'] < previous['seq'] or stamp < previous['captured_at']:
+                    raise Refused('Camera frame went backwards')
+                if frame['seq'] == previous['seq'] and any(frame.get(k) != previous.get(k) for k in ('captured_at', 'sha256')):
+                    raise Refused('Camera frame changed without advancing its sequence')
+                if frame['seq'] > previous['seq'] and stamp == previous['captured_at']:
+                    raise Refused('Camera frame sequence advanced without a newer capture time')
+            identity = candidate_identity
+            if anchor is None:
+                anchor = candidate_anchor.copy()
+            previous = frame
+            self._check_deadline(deadline)
+            following, b = self.transport.read_state()
+            self._stationary(a, b)
+            self._check_deadline(deadline)
+            if stamp >= earliest and stamp > after and (self.last is None or
+                    (frame['seq'] > self.last['seq'] and stamp > self.last['captured_at'])):
+                break
+            # Only wait out a valid cached capture from before this bracket.
+            # Do not slide the first encoder sample forward or accept an old frame.
+            if stamp >= earliest or attempt == FRAME_READ_ATTEMPTS - 1:
+                raise Refused('Camera observation lacks a stationary encoder bracket: camera frame did not advance')
+            # Waiting cannot hide a STOP, restart or foreign write that returned to the same pose.
+            # status() validates the owner marker and its own complete telemetry snapshot.
+            _, waiting_q = self.transport.status()
+            self._stationary(a, waiting_q)
+        # A fast link can repeat the owner's snapshot. Keep the original before sample
+        # and validate every intermediate read, even if a displaced arm later returns.
         for _ in range(4):
             if min(r['captured_at'] for r in following['result']['motors']) >= stamp:
                 break
-            following, _ = self.transport.read_state()
-        if (frame.get('timestamp_basis') != 'capture' or not frame.get('stream_id')
-                or not 0 <= self.clock()-stamp <= self.transport.limits.frame_age_s or stamp <= after):
+            self._check_deadline(deadline)
+            following, b = self.transport.read_state()
+            self._stationary(a, b)
+            self._check_deadline(deadline)
+        if not 0 <= self.clock()-stamp <= self.transport.limits.frame_age_s:
             raise Refused('Need a fresh camera capture after the measured movement')
-        if self.last is not None and (frame['seq'] <= self.last['seq'] or stamp <= self.last['captured_at']):
-            raise Refused('Camera frame did not advance')
+        if not earliest <= stamp <= min(r['captured_at'] for r in following['result']['motors']):
+            raise Refused('Camera observation lacks a stationary encoder bracket')
+        # The pixel controller can work without an unambiguous 3D orientation.
+        try:
+            sample = stationary_sample(before, following, row, self.transport.arm, gripper_tag_id=self.gripper_tag_id)
+            rejection = None
+        except ValueError as exc:
+            sample, rejection = None, str(exc)
+        self.identity, self.anchor = identity, anchor
+        self.capture = {'sample': sample, 'sample_rejection': rejection, 'before': before, 'after': following,
+                        'frame_reads': attempt + 1}
+        self.transport.observed_q = b
+        self.transport.observed_at = stamp
+        self.payload, self.last = payload, frame
+        self.count += 1
+        return Observation((corners-candidate_anchor.mean(axis=0)).ravel(), stamp,
+            {self.camera: frame['seq']}, {'table': candidate_anchor.tolist(), 'gripper': corners.tolist()},
+            {self.camera: frame['stream_id']})
+
+    @staticmethod
+    def _stationary(first, following):
+        if following.keys() != first.keys() or any(abs(first[n]-following[n]) > 3 for n in first):
+            raise Refused('Camera observation lacks a stationary encoder bracket: motor drift')
+
+    def _check_deadline(self, deadline):
+        if self.clock() >= deadline:
+            raise Refused('Camera observation lacks a stationary encoder bracket: frame wait expired')
+
+    def _frame(self):
+        """Validate each candidate, including cached frames; malformed evidence is never retried."""
+        payload = self.robot.call('robot_get_tags', {'cameras': [self.camera], 'tag_ids': [1, self.gripper_tag_id]})
+        row = result(payload, 'robot_get_tags').get('observations', {}).get(self.camera, {})
+        frame = row.get('frame', {})
+        stamp = finite(frame.get('captured_at'), 'camera capture time')
+        if (frame.get('timestamp_basis') != 'capture' or not frame.get('stream_id')
+                or not frame.get('camera_id') or type(frame.get('seq')) is not int or frame['seq'] < 0
+                or not 0 <= self.clock()-stamp <= self.transport.limits.frame_age_s):
+            raise Refused('Need a fresh camera capture after the measured movement')
         tags = {t['tag_id']: t for t in row.get('tags', []) if t.get('status') == 'DETECTED'}
         if not {1, self.gripper_tag_id} <= set(tags):
             raise Refused(f'Need visible table tag 1 and gripper tag {self.gripper_tag_id}')
@@ -300,36 +372,14 @@ class GemmaTagObserver:
         if not mount or mount.get('arm') != self.transport.arm or mount.get('body') != 'fixed_gripper_housing' or not mount.get('source'):
             raise Refused(f'Tag {self.gripper_tag_id} lacks matching confirmed fixed-housing mounting')
         identity = (frame['camera_id'], frame['stream_id'], geometry.get('geometry_config_sha256'), geometry.get('calibration_sha256'), row.get('image_size_px'), self.transport.arm, self.gripper_tag_id, dict(mount))
-        if self.identity is not None and identity != self.identity:
-            raise Refused('Camera stream, geometry or intrinsics changed')
-        anchor = np.asarray(tags[1]['corners_px'], dtype=float)
-        corners = np.asarray(tags[self.gripper_tag_id]['corners_px'], dtype=float)
+        try:
+            anchor = np.asarray(tags[1]['corners_px'], dtype=float)
+            corners = np.asarray(tags[self.gripper_tag_id]['corners_px'], dtype=float)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise Refused('Invalid tag corners') from exc
         if anchor.shape != (4, 2) or corners.shape != (4, 2) or not np.isfinite([anchor, corners]).all():
             raise Refused('Invalid tag corners')
-        if self.anchor is not None and np.max(np.linalg.norm(anchor-self.anchor, axis=1)) > 2:
-            raise Refused('Table anchor moved; camera or scene changed')
-        self.identity = identity
-        if self.anchor is None:
-            self.anchor = anchor.copy()
-        # The pixel controller can work without an unambiguous 3D orientation.
-        try:
-            sample = stationary_sample(before, following, row, self.transport.arm, gripper_tag_id=self.gripper_tag_id)
-            rejection = None
-        except ValueError as exc:
-            sample, rejection = None, str(exc)
-        a = {r['name']: r for r in before['result']['motors']}
-        b = {r['name']: r for r in following['result']['motors']}
-        if (any(abs(a[n]['Present_Position']-b[n]['Present_Position']) > 3 for n in a)
-                or not max(r['captured_at'] for r in a.values()) <= stamp <= min(r['captured_at'] for r in b.values())):
-            raise Refused('Camera observation lacks a stationary encoder bracket')
-        self.capture = {'sample': sample, 'sample_rejection': rejection, 'before': before, 'after': following}
-        self.transport.observed_q = {n: r['Present_Position'] for n, r in b.items()}
-        self.transport.observed_at = stamp
-        self.payload, self.last = payload, frame
-        self.count += 1
-        return Observation((corners-anchor.mean(axis=0)).ravel(), stamp,
-            {self.camera: frame['seq']}, {'table': anchor.tolist(), 'gripper': corners.tolist()},
-            {self.camera: frame['stream_id']})
+        return payload, row, frame, corners, anchor, identity
 
     def evidence(self, folder, observation):
         folder.mkdir(parents=True, exist_ok=False)

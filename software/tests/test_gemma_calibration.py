@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from carton.servo.common import Limits, Refused, digest
-from carton.servo.gemma import GemmaTagObserver, GemmaTransport
+from carton.servo.gemma import FRAME_READ_ATTEMPTS, GemmaTagObserver, GemmaTransport
 from carton.servo.tag_calibration import motion_lock, readiness, registration_offsets, run_calibration
 from farm.perception.gemma_calibration import CalibrationRobot
 from farm.perception.tag_sampling import ARM_JOINTS
@@ -331,6 +331,280 @@ def test_observation_changes_cannot_feed_calibration(rig, mutation):
     owner.call = call
     with pytest.raises(Refused):observer.observe()
     assert not owner.writes
+
+
+@pytest.fixture
+def frame_rig(rig):
+    owner, cfg = rig
+    transport = GemmaTransport(owner, 'right', cfg['joints'], execute=True, clock=owner.clock)
+    transport.preflight()
+    return owner, transport, GemmaTagObserver(owner, transport, clock=owner.clock)
+
+
+def cached_camera(owner, cached_reads=1, *, cached_row=None, mutate=None, state_hook=None):
+    """Serve an actual prior fake capture, followed by new captures; record unchanged evidence.
+
+    Hooks inject faults into the fake API only. None of these tests opens a camera or motor port.
+    """
+    original = owner.call
+    cached = cached_row if cached_row is not None else original('robot_get_tags', {})['result']['observations']['oak']
+    reads = {'tags': [], 'states': []}
+
+    def call(name, args, request_id=None):
+        payload = original(name, args, request_id)
+        if name == 'robot_get_tags':
+            index = len(reads['tags'])
+            if cached_reads is None or index < cached_reads:
+                payload['result']['observations']['oak'] = copy.deepcopy(cached)
+            row = payload['result']['observations']['oak']
+            if mutate:
+                mutate(row, index)
+            reads['tags'].append(copy.deepcopy(row))
+        elif name == 'robot_get_state':
+            if state_hook:
+                state_hook(payload, len(reads['states']))
+            reads['states'].append(copy.deepcopy(payload))
+        return payload
+
+    owner.call = call
+    return reads
+
+
+@pytest.mark.parametrize('cached_reads', [1, 3])
+@pytest.mark.parametrize('already_observed', [False, True])
+def test_cached_frames_wait_for_new_capture_inside_original_bracket(frame_rig, cached_reads, already_observed):
+    owner, transport, observer = frame_rig
+    if already_observed:
+        observer.observe()
+    cached_row = observer.payload['result']['observations']['oak'] if already_observed else None
+    reads = cached_camera(owner, cached_reads, cached_row=cached_row)
+    after = owner.now
+    observation = observer.observe(after=after)
+    capture = observer.capture
+    earliest = max(r['captured_at'] for r in reads['states'][0]['result']['motors'])
+    assert all(row['frame']['captured_at'] < earliest for row in reads['tags'][:-1])
+    assert capture['before'] == reads['states'][0] and capture['after'] == reads['states'][-1]
+    assert capture['frame_reads'] == len(reads['tags']) == cached_reads + 1
+    assert len(reads['states']) == cached_reads + 2
+    assert earliest <= observation.captured_at <= min(r['captured_at'] for r in capture['after']['result']['motors'])
+    assert observation.captured_at > after
+    assert observer.last == reads['tags'][-1]['frame'] == capture['sample']['frame']
+    assert observer.payload['result']['observations']['oak'] == reads['tags'][-1]
+    assert transport.observed_at == observation.captured_at and transport.observed_q == owner.q
+    assert capture['sample']['stationary_bracket_verified'] is True
+    assert not owner.writes
+
+
+def test_permanently_frozen_capture_exhausts_attempts_without_sliding_bracket(frame_rig):
+    owner, transport, observer = frame_rig
+    reads = cached_camera(owner, cached_reads=None)
+    with pytest.raises(Refused, match='camera frame did not advance'):
+        observer.observe()
+    assert len(reads['tags']) == FRAME_READ_ATTEMPTS
+    assert len({r['frame']['captured_at'] for r in reads['tags']}) == 1
+    assert len(reads['states']) == FRAME_READ_ATTEMPTS + 1
+    assert observer.count == 0 and observer.last is observer.capture is observer.identity is observer.anchor is None
+    assert transport.observed_at is transport.observed_q is None and not owner.writes
+
+
+def test_frozen_encoder_poll_refuses_without_retrying_camera(frame_rig):
+    owner, _, observer = frame_rig
+    def state_hook(payload, index):
+        if index:
+            for row in payload['result']['motors']:
+                row['captured_at'] = reads['states'][0]['result']['motors'][0]['captured_at']
+    reads = cached_camera(owner, cached_reads=0, state_hook=state_hook)
+    with pytest.raises(Refused, match='stationary encoder bracket'):
+        observer.observe()
+    assert len(reads['tags']) == 1 and len(reads['states']) == 6
+    assert observer.last is None and not owner.writes
+
+
+@pytest.mark.parametrize('during_catchup', [False, True])
+def test_movement_during_frame_wait_refuses_before_a_return_to_original_pose(frame_rig, during_catchup):
+    owner, _, observer = frame_rig
+    def state_hook(payload, index):
+        rows = payload['result']['motors']
+        if during_catchup and index == 1:
+            for row in rows:
+                row['captured_at'] -= .04  # a valid owner poll that still precedes the fresh frame
+        if index == (2 if during_catchup else 1):
+            next(r for r in rows if r['name'] == 'right_arm_shoulder_pan')['Present_Position'] += 4
+        # Subsequent reads would return the original pose. They must never be reached.
+    reads = cached_camera(owner, cached_reads=0 if during_catchup else 1, state_hook=state_hook)
+    with pytest.raises(Refused, match='motor drift'):
+        observer.observe()
+    assert len(reads['tags']) == 1 and len(reads['states']) == (3 if during_catchup else 2)
+    assert observer.last is None and not owner.writes
+
+
+@pytest.mark.parametrize('change', ['stream', 'camera', 'geometry', 'intrinsics', 'resolution', 'mount', 'anchor'])
+def test_identity_and_table_anchor_are_bound_to_first_cached_candidate(frame_rig, change):
+    owner, _, observer = frame_rig
+    def mutate(row, index):
+        if index != 1:
+            return
+        if change == 'stream':row['frame']['stream_id'] = 'restarted'
+        if change == 'camera':row['frame']['camera_id'] = 'other-camera'
+        if change == 'geometry':row['pose_3d']['geometry_config_sha256'] = 'other-geometry'
+        if change == 'intrinsics':row['pose_3d']['calibration_sha256'] = 'other-intrinsics'
+        if change == 'resolution':row['image_size_px'] = [1280, 960]
+        if change == 'mount':row['pose_3d']['tags'][1]['mount'] = dict(owner.mount, source='replacement fixture')
+        if change == 'anchor':row['tags'][0]['corners_px'][0][0] += 3
+    reads = cached_camera(owner, mutate=mutate)
+    with pytest.raises(Refused, match='changed'):
+        observer.observe()
+    assert len(reads['tags']) == 2 and observer.last is None and not owner.writes
+
+
+@pytest.mark.parametrize('bad', ['missing_tag', 'bad_mount', 'corners_shape', 'corners_nan', 'corners_text',
+                                'time_nan', 'time_inf', 'time_bool', 'future', 'stale', 'sequence_bool',
+                                'sequence_negative', 'sequence_missing', 'camera_missing', 'stream_missing', 'receipt'])
+@pytest.mark.parametrize('candidate', [0, 1])
+def test_invalid_cached_or_new_frames_are_never_retried(frame_rig, bad, candidate):
+    owner, _, observer = frame_rig
+    def mutate(row, index):
+        if index != candidate:
+            return
+        frame = row['frame']
+        if bad == 'missing_tag':row['tags'].pop()
+        if bad == 'bad_mount':row['pose_3d']['tags'][1]['mount'] = dict(owner.mount, body='moving_jaw')
+        if bad == 'corners_shape':row['tags'][1]['corners_px'] = [[1, 2]]
+        if bad == 'corners_nan':row['tags'][1]['corners_px'][0][0] = float('nan')
+        if bad == 'corners_text':row['tags'][1]['corners_px'][0][0] = 'invalid'
+        if bad == 'time_nan':frame['captured_at'] = float('nan')
+        if bad == 'time_inf':frame['captured_at'] = float('inf')
+        if bad == 'time_bool':frame['captured_at'] = True
+        if bad == 'future':frame['captured_at'] = owner.now + .001
+        if bad == 'stale':frame['captured_at'] = owner.now - 10
+        if bad == 'sequence_bool':frame['seq'] = True
+        if bad == 'sequence_negative':frame['seq'] = -1
+        if bad == 'sequence_missing':frame.pop('seq')
+        if bad == 'camera_missing':frame.pop('camera_id')
+        if bad == 'stream_missing':frame.pop('stream_id')
+        if bad == 'receipt':frame['timestamp_basis'] = 'receipt'
+    reads = cached_camera(owner, mutate=mutate)
+    with pytest.raises(Refused):
+        observer.observe()
+    assert len(reads['tags']) == candidate + 1
+    assert observer.last is None and not owner.writes
+
+
+@pytest.mark.parametrize('bad', ['backwards_sequence', 'backwards_time', 'changed_time', 'changed_hash', 'frozen_time'])
+def test_invalid_frame_progression_is_not_waited_out(frame_rig, bad):
+    owner, _, observer = frame_rig
+    def mutate(row, index):
+        if index != 1:
+            return
+        frame = row['frame']
+        if bad == 'backwards_sequence':frame['seq'] -= 1
+        if bad == 'backwards_time':frame['captured_at'] -= .001
+        if bad == 'changed_time':frame['captured_at'] += .001
+        if bad == 'changed_hash':frame['sha256'] = 'changed-without-new-sequence'
+        if bad == 'frozen_time':frame['seq'] += 1
+    reads = cached_camera(owner, cached_reads=2, mutate=mutate)
+    with pytest.raises(Refused, match='Camera frame'):
+        observer.observe()
+    assert len(reads['tags']) == 2 and observer.last is None and not owner.writes
+
+
+def test_frame_inside_bracket_but_before_movement_cutoff_is_not_retried(frame_rig):
+    owner, _, observer = frame_rig
+    reads = cached_camera(owner, cached_reads=0)
+    with pytest.raises(Refused, match='camera frame did not advance'):
+        observer.observe(after=owner.now + .5)
+    assert len(reads['tags']) == 1 and not owner.writes
+
+
+@pytest.mark.parametrize('expiry', ['already_expired', 'tag_reply', 'encoder_reply', 'encoder_catchup'])
+def test_frame_wait_deadline_prevents_further_api_reads(frame_rig, expiry):
+    owner, transport, observer = frame_rig
+    def state_hook(payload, index):
+        if expiry == 'encoder_catchup' and index >= 1:
+            for row in payload['result']['motors']:
+                row['captured_at'] = reads['states'][0]['result']['motors'][0]['captured_at']
+    reads = cached_camera(owner, cached_reads=0 if expiry == 'encoder_catchup' else 1,
+                          state_hook=state_hook)
+    # The observation must use the original deadline, not a fresh budget on each loop.
+    budget = {'already_expired': -.001, 'tag_reply': .035, 'encoder_reply': .055, 'encoder_catchup': .075}[expiry]
+    transport.deadline = owner.now + budget
+    with pytest.raises(Refused, match='expired|budget'):
+        observer.observe()
+    assert len(reads['tags']) == (0 if expiry == 'already_expired' else 1)
+    assert len(reads['states']) == {'already_expired': 0, 'tag_reply': 1, 'encoder_reply': 2, 'encoder_catchup': 3}[expiry]
+    assert observer.last is None and not owner.writes
+
+
+def test_frame_wait_also_has_a_local_deadline_with_calibration_budget_remaining(frame_rig):
+    owner, transport, observer = frame_rig
+    transport.limits = Limits(frame_age_s=.15)
+    def state_hook(payload, index):
+        if index == 1:
+            owner.now += .2  # slow response; telemetry still satisfies status_age_s
+    reads = cached_camera(owner, state_hook=state_hook)
+    calls_before = len(owner.calls)
+    with pytest.raises(Refused, match='frame wait expired'):
+        observer.observe()
+    assert owner.now < transport.deadline
+    assert len(reads['tags']) == 1 and len(reads['states']) == 2
+    assert not any(n == 'robot_get_execution' for n, _ in owner.calls[calls_before:])
+    assert observer.last is None and not owner.writes
+
+
+@pytest.mark.parametrize('failed_tool', ['robot_get_tags', 'robot_get_state', 'robot_get_execution'])
+@pytest.mark.parametrize('timeout', [False, True])
+def test_api_failure_during_cached_wait_propagates_without_retry(frame_rig, failed_tool, timeout):
+    owner, _, observer = frame_rig
+    reads = cached_camera(owner)
+    original = owner.call
+    def call(name, args, request_id=None):
+        payload = original(name, args, request_id)
+        if name == failed_tool and (name != 'robot_get_state' or len(reads['states']) == 2):
+            if timeout:
+                raise TimeoutError('fake owner timeout')
+            return {'ok': False, 'result': {'error': 'fake hardware error'}}
+        return payload
+    owner.call = call
+    with pytest.raises(TimeoutError if timeout else Refused):
+        observer.observe()
+    assert len(reads['tags']) == 1 and observer.last is None and not owner.writes
+
+
+@pytest.mark.parametrize('fault', ['status', 'moving', 'velocity', 'load', 'enabled', 'ranges', 'raw_ranges'])
+def test_encoder_fault_during_cached_frame_wait_is_not_retried(frame_rig, fault):
+    owner, _, observer = frame_rig
+    def state_hook(payload, index):
+        if index != 1:
+            return
+        state = payload['result']
+        row = next(r for r in state['motors'] if r['name'] == 'right_arm_shoulder_pan')
+        if fault == 'status':row['Status'] = 8
+        if fault == 'moving':row['Moving'] = 1
+        if fault == 'velocity':row['Present_Velocity'] = 2
+        if fault == 'load':row['Present_Load'] = 500
+        if fault == 'enabled':row['Torque_Enable'] = 1
+        if fault == 'ranges':state['commandable_ranges']['right_arm_shoulder_pan']['min_ticks'] += 1
+        if fault == 'raw_ranges':state['raw_calibration_ranges']['right_arm_shoulder_pan']['min_ticks'] += 1
+    reads = cached_camera(owner, state_hook=state_hook)
+    with pytest.raises(Refused):
+        observer.observe()
+    assert len(reads['tags']) == 1 and len(reads['states']) == 2 and not owner.writes
+
+
+@pytest.mark.parametrize('fault', ['restart', 'foreign_write', 'stop', 'owner_motion'])
+def test_owner_change_during_cached_frame_wait_is_not_retried(frame_rig, fault):
+    owner, _, observer = frame_rig
+    def mutate(row, index):
+        if index == 0:
+            if fault == 'restart':owner.started += 1
+            if fault == 'foreign_write':owner.command += 1; owner.writes += 1
+            if fault == 'stop':owner.stopped = True
+            if fault == 'owner_motion':owner.phase = 'moving'
+    reads = cached_camera(owner, mutate=mutate)
+    with pytest.raises(Refused):
+        observer.observe()
+    assert len(reads['tags']) == 1 and observer.last is None
+    assert all(n.startswith('robot_get_') for n, _ in owner.calls)
 
 
 def test_post_observation_pose_change_blocks_first_enable(rig):

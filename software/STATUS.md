@@ -1,3 +1,42 @@
+## Authorized wrist direction probe: read-only preflight and sampler repair — 9 October 2026
+
+- User authorized small, slow right-arm direction checks. Current preflight refused
+  before enabling or sending any positioning command: `Motor telemetry is stale or
+  host clocks differ: left_arm_shoulder_pan`. All16 motors remain torque-off. Fresh
+  bracketing API reads show no tick changes and motor_writes unchanged at1114.
+- Initial twenty API pairs report robot-minus-chat median +57.4 ms; observed owner
+  ages reach -27.5 ms. Independent read-only Apple SNTP reports +43.9 ms +/-15.3 ms.
+  After the account switch, another twenty-pair read-only check still refuses:
+  median offset +58.3 ms, owner ages -23.4 to +13.7 ms, median RTT 65.9 ms.
+  A separate successful SNTP exchange reports +26.2 ms +/-15.8 ms. These are
+  separate measurements, not simultaneous host-to-UTC observations. The link
+  tool's minimum RTT/2 is not a proven uncertainty bound around its median offset.
+  The Mac had previously been corrected successfully. Its running timed daemon
+  logged a-28.6ms adjustment at23:23:25; this is consistent with some recurrence
+  but does not establish the cause. Noninteractive correction requires an admin
+  password. No timestamp offsets or freshness-limit changes were applied.
+- Fresh OAK frame66206 accepts measured table1 and fixed-housing hand2. Phone
+  frame475067 provides the arm side view (receipt timing only), and right-wrist
+  frame118235 is fresh. No camera setting, head position, owner or server restart.
+- The raw `robot_move_motor_targets` endpoint is deliberately hidden from the
+  pilot catalog but remains callable by calibration. Its absence from that list
+  was not an API incompatibility; no motion-tool rename is needed.
+- Camera sampler now boundedly waits for a genuinely newer capture inside the
+  original encoder bracket. Every candidate and intermediate encoder read is
+  checked; missing tags, drift, invalid/future timestamps, changed stream/geometry,
+  owner restart, STOP or competing writes are refused. Gates remain unchanged.
+- Offline verification: 116 focused calibration tests pass, and the fake-hardware
+  qwen-bridge registration contract passes (including owner fault, tag loss,
+  obstacles, stale phone and clock disagreement). The sampler rejects late API
+  results but does not cancel an already-running synchronous API call.
+- A scratch one-joint probe runner is prepared for normal-speed wrist_roll+16ticks
+  (about1.4deg), recorded observation, reviewed return and verified release. It has
+  NOT been executed. Independent review identified cleanup/logging dependencies,
+  review-deadline and decision-binding gaps, recording verification gaps, and
+  incomplete return/failure reporting; execution remains withheld pending repair.
+  No full joint mapping, registration or task readiness claimed.
+- Evidence and worker reports: seville-v2 .context/tag-direction-probe/.
+
 ## Measured tag sizes and clock/geometry diagnosis — 9 October 2026, 23:08 JST
 
 - User confirmed replacement black squares measure60mm (table1) and40mm (hand2).
