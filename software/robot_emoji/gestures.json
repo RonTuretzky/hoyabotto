@@ -1,7 +1,7 @@
 {
-  "_about": "Six single-choice gestures, each with its own joint and shape so they read differently from across a room. Right arm only (the head stays still: moving it voids the OAK-to-arm tag registration). Demo arm speed (300 ticks/s, 40-tick owner ramp), legs <= 341 ticks, no gripper, every gesture returns and releases. None has been run on hardware yet: supervise the first run of each.",
+  "_about": "Six single-choice gestures, each with its own joint and shape so they read differently from across a room. Right arm only (the head stays still: moving it voids the OAK-to-arm tag registration). Normal arm speed (100 ticks/s, 40-tick owner ramp; the demo profile crashed the robot's hardware owner on its first real enable, 10 Oct 06:26), legs <= 341 ticks, no gripper, every gesture returns and releases. None has been run on hardware yet: supervise the first run of each.",
   "_target_show_seconds": 30,
-  "_speed_profile": "demo",
+  "_speed_profile": "normal",
   "wave": {
     "emoji": "👋",
     "label": "手を振る",

@@ -1,4 +1,6 @@
 """Restart-safe show supervisor. Reconnects the fixed cloud API without editing the slides."""
+from pathlib import Path as _P
+RELAY_AGENT = _P.home() / 'Library/LaunchAgents/com.hoyabotto.robot-relay.plist'
 import argparse
 import json
 import re
@@ -65,7 +67,8 @@ def main():
         while not STOP.is_set():
             # The robot's existing pinned-certificate internet relay works across separate networks.
             # Do not start a second listener when another robot app already owns its local relay port.
-            if not listening(1242) and down('robot-relay'):
+            # robot_emoji.relay's launch agent, when installed, is the one owner of that forwarder.
+            if not RELAY_AGENT.exists() and not listening(1242) and down('robot-relay'):
                 start('robot-relay', [config['cloudflared'], 'access', 'tcp', '--hostname', robot_config['relay_hostname'], '--url', '127.0.0.1:1242'])
             if down('service'):
                 start('service', [sys.executable, '-m', 'robot_emoji', '--port', '8790', '--public-port', '8791',
