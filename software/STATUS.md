@@ -1,3 +1,49 @@
+## OAK on the head: head made commandable; live calibration pending — 9 October 2026, 14:30–16:00 JST
+
+The owner mounted the OAK-D Lite on the two-servo head (slot cradle on the stock tilt link) and removed the USB head camera.
+
+- **Owner/API (main 3b5ef54, deployed 14:50 with a released restart):** the owner now starts with `--head` (OAK
+  head scope).
+  - `robot_set_motor_enable` takes `head_motor_1` (pan) and `head_motor_2` (tilt). They are not part of any arm's
+    six-joint rule.
+  - Moves go through `robot_move_head` only: at most 200 ticks per joint per move, `duration_s` at least 1 s per 100
+    ticks, a 40-tick range margin, and the arm guards. The head's load and torque limit is 500.
+  - Live, `robot_get_capabilities` reports `head_supported: true`, with commandable ranges 1059..3111 (pan) and
+    1972..2625 (tilt). `test_head_scope.py`; details in qwen-bridge `PADDLE-PROFILE.md`.
+- **Not yet moved on the hardware.** Every enable, head and arms alike, is refused while the phone overview feed is
+  down. The phone has sent no frames since about 14:50; its server process runs, but the page is not streaming. At
+  15:54 the robot Mac also dropped off the network (no ping, relay reset).
+  - The head was released at pan 2074 / tilt 2211. There the OAK sees the room, roughly level, with the box at the
+    bottom right edge. The table is not in view, so the table-plane tilt fit needs the head tilted down first.
+  - **Tilt reach (to be measured):** the commandable tilt maximum, 2625, is 414 ticks (36.4 deg) beyond 2211. If 2211
+    is about level, the head cannot look 58 deg down (the fold policy's training tilt) without a mount change.
+- **Twin (a69a360):** `HEAD_OPTICAL_OFFSET_M = (0.003, 0, 0.0104)` m, the lens relative to the model's
+  head_camera_link. These are cradle design values: CAD -Z is the model's up, because the stock connector bar sits
+  30 mm from the tilt axis, where the model's camera link is. The joint map can override them with
+  `head_optical_offset_m`.
+  - The sim's oak camera sits at the lens; the stock USB-camera mesh and the marker sites are removed.
+  - Head zero and signs are still the unvalidated midpoint/+1. On 8 October an overlay suggested about +15.5 deg tilt
+    and +17 deg pan.
+- **Chat (chat Mac, not in git):**
+  - New `aim` decision: at `left_claw`, `right_claw`, `box` or a point, or relative `pan_deg`/`tilt_deg`. Ticks come
+    from the twin's head model by finite differences, are clamped, and are sent as moves of at most 180 ticks; then
+    an eyes look on the new view.
+  - Auto-aim before an oak look that names a claw or the box, when the view is more than 15 deg off.
+  - Head names are allowed in enable. The head's pan/tilt and where the OAK points are in the state preamble and in sense.
+  - Prompts: the head is movable, the OAK is the only head camera, and the phone stands on the robot's right.
+  - Tests: `test_aim.py` (14). `test_orchestration` keeps its 7 failures from before these changes (refusal and
+    gripper-range tests). farm-live is on main. `workspace.json` `object_top_m` is 0.81 (HACHIYO carton 108 mm).
+- **Cameras:** the saved USB head camera ID (0x12130005a39230) is dropped quietly at camera setup (deployed
+  cameras-only). `robot_get_cameras` returned frames from the oak (raw fallback; the rectified stream is stale), left
+  wrist and right wrist; the phone did not.
+- **Sim (5be8690):** `robot_move_head` and head enable work as on the owner, and the oak follows the head (`test_sim_head.py`).
+- **Next, once the phone streams:** run `/tmp/headwork/livecal.py all` from the chat Mac. It does:
+  - the sign test, pan +100 / tilt +100 with OAK image shifts;
+  - tilt-down steps with table-plane fits.
+  Then set the `head_motor_2` `zero_tick` in `.private/twin-joint-map.json` to (tick − real_down × 4096/360).
+  After that, aim at each claw to fit the pan zero, and cross-check with `tools/auto_head_pose.py --box-tags`
+  (branch RonTuretzky/fold-box-tags) once the tags are on.
+
 ## Fold policy from the chat Mac: software and simulation only — 9 October 2026
 
 Handoff: `docs/carton-fold-policy-chat-mac-handoff.md`. Branch `RonTuretzky/fold-policy-chat-mac`. No motor was
