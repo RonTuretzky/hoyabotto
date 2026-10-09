@@ -69,7 +69,7 @@ def main():
                 start('robot-relay', [config['cloudflared'], 'access', 'tcp', '--hostname', robot_config['relay_hostname'], '--url', '127.0.0.1:1242'])
             if down('service'):
                 start('service', [sys.executable, '-m', 'robot_emoji', '--port', '8790', '--public-port', '8791',
-                    '--relay-only', '--robot-config', config['robot_config'], '--proxy-token-file', config['token_file'],
+                    '--robot-config', config['robot_config'], '--proxy-token-file', config['token_file'],
                     '--state-file', str(root / 'queue.json')])
             if down('visitor-tunnel'):
                 origin = registered = None

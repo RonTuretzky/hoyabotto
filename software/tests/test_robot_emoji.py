@@ -10,7 +10,7 @@ import pytest
 from robot_emoji import gestures as G
 from robot_emoji import server as S
 from robot_emoji.performer import Busy, PerformError, Performer
-from robot_emoji.robot import FakeRobot
+from robot_emoji.robot import FakeRobot, RobotTransportError
 
 RIGHT = G.arm_motors('right')
 START = {'right_arm_shoulder_pan': 1930, 'right_arm_shoulder_lift': 2375, 'right_arm_elbow_flex': 1350,
@@ -223,6 +223,22 @@ def test_enable_refused_moves_nothing():
     assert 'robot_move_path' not in names(robot)
 
 
+def test_uncertain_enable_is_recovered_without_replaying_enable():
+    robot = fake()
+    original = robot.call
+    def call(name, arguments=None, timeout=30):
+        result = original(name,arguments,timeout)
+        if name=='robot_set_motor_enable' and arguments['enabled']:
+            raise RobotTransportError('Enable acknowledgement lost')
+        return result
+    robot.call = call
+    with pytest.raises(PerformError,match='outcome was unknown'):
+        Performer(robot,G.load(),log=lambda _:None).perform(['wave'])
+    assert len([args for name,args in robot.calls if name=='robot_set_motor_enable' and args['enabled']])==1
+    assert not robot.enabled
+    assert names(robot).count('robot_move_path')==1  # Recovery home only, never raise/gesture.
+
+
 def test_refused_move_while_holding_goes_home_and_releases():
     robot = fake()
     robot.fail['robot_move_path'] = 'Movement is in progress'
@@ -337,6 +353,65 @@ def test_web_failure_pauses_the_show(web):
         time.sleep(.05)
     assert get(base + f"/api/requests/{ticket['id']}")['state'] == 'failed'
     assert get(base + '/api/state')['armed'] is False
+
+
+def test_read_only_transport_outage_keeps_ticket_queued_then_recovers(monkeypatch):
+    monkeypatch.setattr(S,'BUSY_RETRY_S',.02)
+    monkeypatch.setattr(S,'THANKS_S',0)
+    robot = fake()
+    original = robot.call
+    outage = threading.Event()
+    outage.set()
+    def call(name, arguments=None, timeout=30):
+        if name=='robot_get_motion' and outage.is_set():
+            raise RobotTransportError('Read-only connection unavailable')
+        return original(name,arguments,timeout)
+    robot.call = call
+    show = S.Show(robot,G.load(),armed=True)
+    ticket = show.submit('Ada',['wave'])
+    show.start()
+    deadline = time.time()+2
+    while not show.robot_note.startswith('waiting:') and time.time()<deadline:
+        time.sleep(.01)
+    assert show.request_status(ticket['id'])['state']=='queued' and show.armed
+    assert show.request_status(ticket['id'])['waiting_reason']
+    assert not robot.calls
+    outage.clear()
+    deadline = time.time()+2
+    while show.request_status(ticket['id'])['state']!='done' and time.time()<deadline:
+        time.sleep(.01)
+    show.close()
+    assert show.request_status(ticket['id'])['state']=='done'
+    assert names(robot).count('robot_move_path')==3
+
+
+def test_second_read_only_preflight_failure_does_not_fail_or_enable(monkeypatch):
+    monkeypatch.setattr(S,'BUSY_RETRY_S',.02)
+    monkeypatch.setattr(S,'THANKS_S',0)
+    robot = fake()
+    original = robot.call
+    outage = threading.Event();outage.set()
+    reads = 0
+    def call(name, arguments=None, timeout=30):
+        nonlocal reads
+        if name=='robot_get_motion':
+            reads += 1
+            if reads>=2 and outage.is_set():
+                raise RobotTransportError('Second preflight read unavailable')
+        return original(name,arguments,timeout)
+    robot.call = call
+    show = S.Show(robot,G.load(),armed=True)
+    ticket = show.submit('Ada',['wave']);show.start()
+    deadline=time.time()+2
+    while not show.robot_note.startswith('waiting:') and time.time()<deadline:time.sleep(.01)
+    assert show.request_status(ticket['id'])['state']=='queued' and show.armed
+    assert all(name.startswith('robot_get_') for name in names(robot))
+    outage.clear()
+    deadline=time.time()+2
+    while show.request_status(ticket['id'])['state']!='done' and time.time()<deadline:time.sleep(.01)
+    show.close()
+    assert show.request_status(ticket['id'])['state']=='done'
+    assert names(robot).count('robot_move_path')==3
 
 
 def test_operator_routes_need_token_off_loopback(web):

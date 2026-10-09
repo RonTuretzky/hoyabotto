@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import gestures as G
 from .performer import Busy, PerformError, Performer
-from .robot import FakeRobot, RobotClient, RobotError
+from .robot import FakeRobot, RobotClient, RobotError, RobotTransportError
 
 STATIC = Path(__file__).with_name('static')
 PAGES = {'/': 'kiosk.html', '/screen': 'screen.html', '/operator': 'operator.html'}
@@ -143,6 +143,7 @@ class Show:
             ahead = next((i for i, r in enumerate(self.queue) if r is req), None)
             return {'id': req['id'], 'name': req['name'], 'emojis': self.request_emojis(req),
                     'state': req['state'], 'phase': req['phase'], 'error': req['error'],
+                    'waiting_reason': self.robot_note if req['state']=='queued' and self.robot_note.startswith(('waiting:', 'checking robot')) else None,
                     'position': None if ahead is None else ahead + 1 + (self.current is not None)}
 
     def request_status(self, rid):
@@ -204,8 +205,16 @@ class Show:
                 if self.closed:
                     return
                 req = self.queue[0]
+                self.robot_note = 'checking robot connection'
             try:
                 self.performer.preflight(req['gestures'])
+            except RobotTransportError:
+                # This preflight contains only get_motion/get_state reads. No
+                # motor command has been dispatched, so leave the ticket queued.
+                with self.lock:
+                    self.robot_note = 'waiting: robot connection is reconnecting'
+                    self.lock.wait(BUSY_RETRY_S)
+                continue
             except Busy as e:
                 with self.lock:
                     self.robot_note = f'waiting: {e}'
@@ -232,6 +241,19 @@ class Show:
                     self.queue.appendleft(req)
                     self._persist()
                 self.log(f'robot taken before start: {e}')
+            except RobotTransportError as e:
+                # perform() repeats the same read-only preflight before its
+                # enable callback. A transport failure there is still safe to wait.
+                if req['phase'] is None:
+                    with self.lock:
+                        req['state'], self.current = 'queued', None
+                        self.queue.appendleft(req)
+                        self.robot_note = 'waiting: robot connection is reconnecting'
+                        self._persist()
+                        self.lock.wait(BUSY_RETRY_S)
+                else:
+                    self._finish(req, 'failed', str(e))
+                    self._cooldown()
             except (PerformError, RobotError) as e:
                 self._finish(req, 'failed', str(e))
                 self._cooldown()

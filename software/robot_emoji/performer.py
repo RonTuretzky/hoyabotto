@@ -16,7 +16,7 @@ import threading
 import time
 
 from . import gestures as G
-from .robot import RobotError
+from .robot import RobotError, RobotTransportError
 
 
 class Busy(Exception):
@@ -88,6 +88,10 @@ class Performer:
         on_phase('enable')
         try:
             self.robot.call('robot_set_motor_enable', {'names': motors, 'enabled': True})
+        except RobotTransportError as e:
+            if not self.aborted.is_set():
+                self._recover(plan, e)
+            raise PerformError('Motor-enable outcome was unknown; recovery attempted and show paused') from None
         except RobotError as e:
             raise PerformError(f'Enable refused (nothing moved): {e}') from None
         summary = {'arm': plan['arm'], 'paths': [], 'home': plan['home']}

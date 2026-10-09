@@ -77,8 +77,9 @@ The supervisor restarts the show/tunnel after a process failure and reconnects t
 The show always starts paused. Requests waiting in line survive restart; an interrupted performance is
 marked failed instead of being replayed. Names remain public, and a visitor still needs the robot Mac and
 the chat-Mac service online for a physical performance. The paired hardware client is reused directly from
-`chat_server.Robot` in its existing venv, with LAN discovery disabled for this runtime. The existing internet
-relay is used with the pinned server certificate and client certificate. No SSH or hardware-server restart
+`chat_server.Robot` in its existing venv. It prefers direct LAN access when reachable and falls back to the
+existing internet relay, using the pinned server certificate and client certificate on both paths. Visitors
+can use any internet-connected Wi-Fi; they do not need to share the robot's network. No SSH or hardware-server restart
 is required. The server thread continues to own the remote relay setup and the sole hardware owner.
 
 To update/reinstall the copied runtime while the show is paused, from `software/` with the existing venv:
@@ -115,6 +116,11 @@ October 9 resting pose (23.6 s movement, roughly 30 s including settling/network
 set; reaching it would require changing the robot's guarded speed profile.
 
 Failures:
+- **Connection unavailable during read-only checks.** The request stays queued and the armed show checks
+  again after a short wait. The visitor sees that the robot is reconnecting and their place is saved. The
+  repeated preflight immediately before enable has the same behavior. No motor command has been sent.
+- **Unknown enable acknowledgement.** Enable is never replayed. The service checks the owner, attempts
+  guarded return/release or STOP as needed, and pauses the show for an operator check.
 - **Owner fault or STOP.** The owner has already released everything, so the service sends nothing more.
 - **Other failures while the arm is held.** A refused move or a network error leads to a halt (if moving), a
   move home and a release. If that also fails, the service sends `robot_stop`.
@@ -179,5 +185,11 @@ zero/tiny moves and enabling only the head pan motor. Arm gestures preserve the 
 enable requirement and never command the gripper. Existing speed/torque/acceleration/camera
 guards are unchanged.
 
-New presets have passed software tests and read-only live range checks; first physical runs
-still need supervision. STOP remains set until the operator explicitly re-arms.
+All presets have passed software tests and read-only live range checks. On October 9, restored wiggle
+ticket `d33df7c24044` for ron completed from 22:57:19 to 22:57:56 JST: raise, wiggle and return each reported
+`completed: true` with `endpoint_settled`, followed by successful motor release. Its original failure was
+a read-only connection outage before enable; only that confirmed undispatched request was restored.
+This is controller completion evidence; the gesture's hardware-verification flag still awaits the
+operator's visual confirmation. Durations depend on the starting pose: this run took about 37 seconds.
+First Celebration and Look around runs still need supervision. STOP remains set until the operator
+explicitly re-arms.

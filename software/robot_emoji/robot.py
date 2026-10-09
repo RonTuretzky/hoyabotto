@@ -15,6 +15,10 @@ class RobotError(RuntimeError):
     """The API answered ok=false (refused or failed), or could not be reached."""
 
 
+class RobotTransportError(RobotError):
+    """Transport failed; a read-only preflight can wait, but a write must not be replayed."""
+
+
 class RobotClient:
     """Adapter around the server thread's existing paired mTLS client."""
 
@@ -48,14 +52,14 @@ class RobotClient:
         try:
             return self.client.get('/health')
         except (OSError, ValueError) as exc:
-            raise RobotError(f'Robot API unreachable: {type(exc).__name__}') from None
+            raise RobotTransportError(f'Robot API unreachable: {type(exc).__name__}') from None
 
     def call(self, name, arguments=None, timeout=30):
         try:
             body = self.client.call(name, arguments or {}, request_id='emoji-' + uuid.uuid4().hex)
         except (OSError, ValueError) as exc:
             # Never retry a robot command after an uncertain transport outcome.
-            raise RobotError(f'{name}: robot API unreachable ({type(exc).__name__})') from None
+            raise RobotTransportError(f'{name}: robot API unreachable ({type(exc).__name__})') from None
         if not body.get('ok'):
             result = body.get('result') or {}
             raise RobotError(f"{name}: {result.get('error') or result.get('reason') or body.get('error') or 'refused'}")
