@@ -230,13 +230,16 @@ def main():
         summary = json.loads((demos/'summary.json').read_text())
         status['valid_demos'] = require_collection(summary)
         api.upload_file(path_or_fileobj=demos/'summary.json',path_in_repo='refit/collection.json',repo_id=args.model_repo)
-        # Save the expensive simulation evidence before any image conversion.
+        # Save the expensive simulation evidence before any image conversion: scenes, states and outcomes.
+        # The per-physics-step contact streams (tens of GB for slow demos) stay in the job; their independent
+        # scores are already in each demo.json. Private Hub storage is limited.
         publish('saving_demonstrations')
         evidence = work/'simulation-evidence.tar.gz'
         with tarfile.open(evidence,'w:gz',compresslevel=1) as archive:
             for p in sorted(demos.rglob('*')):
-                if p.is_file() and (p.suffix.lower() in ('.json','.npz','.xml','.obj','.stl') or p.name.endswith('.jsonl.gz')):
+                if p.is_file() and p.suffix.lower() in ('.json','.npz','.xml','.obj','.stl'):
                     archive.add(p,arcname=str(p.relative_to(work)))
+        status['evidence_bytes'] = evidence.stat().st_size
         with evidence.open('rb') as f:
             status['evidence_sha256'] = hashlib.file_digest(f,'sha256').hexdigest()
         api.upload_file(path_or_fileobj=evidence,path_in_repo='refit/simulation-evidence.tar.gz',repo_id=args.model_repo)
@@ -294,7 +297,8 @@ def main():
              '--policy.type=act','--policy.device=cuda','--policy.use_amp=true','--policy.chunk_size=100',
              '--policy.n_action_steps=100','--policy.optimizer_lr=3e-5','--policy.private=true','--policy.push_to_hub=false',
              f'--policy.repo_id={args.model_repo}',f'--batch_size={batch_per_gpu}',f'--steps={args.steps}',
-             '--save_freq=1000','--save_checkpoint_to_hub=true','--log_freq=100',
+             # Milestones only: every 1k-step checkpoint is ~1.4 GB on the Hub and counts against private storage.
+             '--save_freq=5000','--save_checkpoint_to_hub=true','--log_freq=100',
              '--num_workers=8','--env_eval_freq=0','--wandb.enable=false',f'--job_name=dcm_refit_h200x{gpu_count}',
              f'--output_dir={work/"train"}'],'training',max(1,deadline-time.time()),train_progress)
         publish('training_completed_pending_evaluation')
