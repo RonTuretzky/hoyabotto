@@ -5,12 +5,12 @@ their name is on the big screen while it does. The first and only gesture so far
 
 It runs on the **chat Mac**, the one that holds the paired client certificate
 (`gemma-xlerobot/pilot/.private/robot.json`). It moves the robot only through the existing robot API (`POST /call`
-on the sole hardware owner). It opens no serial port, starts no owner and changes no limits. It uses only the
-standard library.
+on the sole hardware owner). It opens no serial port, starts no owner and changes no limits. It reuses the existing paired mTLS client and its installed Python environment.
 
 ```sh
 cd software
-python3 -m robot_emoji                  # real robot; kiosk on http://localhost:8790/
+source /Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/.venv/bin/activate
+python -m robot_emoji                  # real robot; kiosk on http://localhost:8790/
 python3 -m robot_emoji --fake           # no robot: simulated moves at the owner's pace
 python3 -m robot_emoji --host 0.0.0.0   # phones on the same network can reach the kiosk
 ```
@@ -55,11 +55,45 @@ homepage link once. Commit those assets and the homepage on `gh-pages` and push 
 contains only the public URL, no certificate or operator token. Never copy software or runtime logs to Pages.
 The presentation's slide contents stay intact; its file hash changes because the link is appended.
 
-The October 9 demo uses a Cloudflare **Quick Tunnel**. Keep this Mac and the two processes running.
-The endpoint expires when cloudflared stops and changes on a new start. After restarting, re-export and
-publish with the new URL. For a permanent endpoint, use a named Cloudflare Tunnel to the same visitor port;
-the website architecture needs no Workers or Cloudflare Pages. Queue state is in memory and resets when
-the service restarts. Offline pages show a reconnecting message and disable new submissions.
+The presentation itself also polls the same public state. The active participant's name, emoji and phase
+appear in a fixed overlay **on every slide at hoyabotto.com**, including after slide changes. The overlay
+hides when idle or offline and briefly says thanks after completion. All 14 supplied slides retain their
+content and navigation. The visitor link opens a new tab so it does not replace the presentation.
+
+### Fixed cloud endpoint and automatic startup
+
+The fixed API is **https://hoya-botto-show.ronturetzky.workers.dev**. GitHub Pages still hosts the slides.
+A small Cloudflare Worker forwards only visitor queue/status routes; a Durable Object persists the current
+connection origin. Authenticated registration updates that origin whenever the Mac's internal Quick Tunnel
+changes. The website URL and config stay the same across Mac restarts; no manual publishing is needed.
+The cloud registration secret is stored as a Worker secret and in a private local token file. It cannot arm
+the robot, and is never included in the website.
+
+The live runtime is installed outside the Conductor workspace, in:
+
+- `~/Library/Application Support/HoyaBotto/robot_emoji/` — copied service and supervisor
+- `~/Library/Application Support/HoyaBotto/queue.json` — persistent waiting requests and outcomes
+- `~/Library/LaunchAgents/com.hoyabotto.emoji-show.plist` — automatic startup at **login after restart**
+
+The supervisor restarts the show/tunnel after a process failure and reconnects the fixed cloud endpoint.
+The show always starts paused. Requests waiting in line survive restart; an interrupted performance is
+marked failed instead of being replayed. Names remain public, and a visitor still needs the robot Mac and
+the chat-Mac service online for a physical performance. The paired hardware client is reused directly from
+`chat_server.Robot` in its existing venv, with LAN discovery disabled for this runtime. The existing internet
+relay is used with the pinned server certificate and client certificate. No SSH or hardware-server restart
+is required. The server thread continues to own the remote relay setup and the sole hardware owner.
+
+To update/reinstall the copied runtime while the show is paused, from `software/` with the existing venv:
+
+```sh
+python -m robot_emoji.install_runtime --api-url https://hoya-botto-show.ronturetzky.workers.dev
+```
+
+A restart of this launch agent is a useful recovery test; it is not a literal Mac reboot test. Keep the
+Mac awake while the robot show is running. Startup requires the user's normal login/unlock.
+
+The earlier manual Quick Tunnel commands above remain useful for standalone development. For this
+installed runtime, the supervisor manages and registers its internal tunnel automatically.
 
 Test the public form with the show paused, verify the ticket on the display, then remove the test request
 locally. Do not arm the real robot just to smoke-test website integration. A successful queue submission

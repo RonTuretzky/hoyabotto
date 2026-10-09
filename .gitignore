@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .DS_Store
 dist/
+.wrangler/
 xlerobot-deck.html
 sensor-shopping.html
 

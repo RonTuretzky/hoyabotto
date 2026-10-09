@@ -12,6 +12,7 @@ import argparse
 import collections
 import hmac
 import json
+import os
 import secrets
 import threading
 import time
@@ -51,7 +52,7 @@ def clean_name(raw):
 class Show:
     """Queue, current performance and the worker that runs them one at a time."""
 
-    def __init__(self, robot, catalog, armed=False, clock=time.time):
+    def __init__(self, robot, catalog, armed=False, clock=time.time, state_path=None):
         self.robot = robot
         self.catalog = catalog
         self.clock = clock
@@ -65,6 +66,34 @@ class Show:
         self.log_lines = collections.deque(maxlen=200)
         self.performer = Performer(robot, catalog, log=self.log)
         self.closed = False
+        self.state_path = Path(state_path) if state_path else None
+        if self.state_path and self.state_path.exists():
+            saved = json.loads(self.state_path.read_text())
+            self.requests = {r['id']: r for r in saved['requests']}
+            for r in self.requests.values():
+                if r['state'] == 'performing':
+                    r.update(state='failed', phase=None, error='Show restarted during a performance; the operator must check the robot')
+            self.queue.extend(self.requests[rid] for rid in saved['queue'] if self.requests[rid]['state'] == 'queued')
+            recovered = [r for r in self.requests.values() if r['state'] == 'failed' and r['id'] not in saved['recent']]
+            self.recent.extend((recovered + [self.requests[rid] for rid in saved['recent']])[:8])
+            self.armed = False
+            self._persist()
+
+    def _persist(self):
+        """Persist before dispatch; interrupted performances are never automatically replayed."""
+        if not self.state_path:
+            return
+        with self.lock:
+            self.state_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {'requests': list(self.requests.values()), 'queue': [r['id'] for r in self.queue],
+                    'recent': [r['id'] for r in self.recent]}
+            temporary = self.state_path.with_suffix('.tmp')
+            with temporary.open('w') as stream:
+                os.chmod(temporary, 0o600)
+                json.dump(data, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.state_path)
 
     def log(self, message):
         line = time.strftime('%H:%M:%S') + ' ' + message
@@ -88,6 +117,7 @@ class Show:
             self.requests[req['id']] = req
             while len(self.requests) > 500:
                 self.requests.pop(next(iter(self.requests)))
+            self._persist()
             self.lock.notify_all()
         self.log(f"queued {req['id']} {name!r} {''.join(self.catalog[k].emoji for k in keys)}")
         return self.public_request(req)
@@ -125,6 +155,7 @@ class Show:
                 if r['id'] == rid:
                     self.queue.remove(r)
                     r['state'] = 'removed'
+                    self._persist()
                     return True
         return False
 
@@ -171,6 +202,7 @@ class Show:
                     continue
                 self.queue.popleft()
                 req['state'], self.current, self.robot_note = 'performing', req, 'performing'
+                self._persist()
             self.log(f"performing {req['id']} for {req['name']!r}")
             try:
                 summary = self.performer.perform(req['gestures'], lambda p, g=None: self._phase(req, p, g))
@@ -180,6 +212,7 @@ class Show:
                 with self.lock:
                     req['state'], self.current = 'queued', None
                     self.queue.appendleft(req)
+                    self._persist()
                 self.log(f'robot taken before start: {e}')
             except (PerformError, RobotError) as e:
                 self._finish(req, 'failed', str(e))
@@ -192,6 +225,7 @@ class Show:
             req['state'], req['error'], req['phase'] = state, error, None
             self.current = req if state == 'done' else None
             self.recent.appendleft(req)
+            self._persist()
         if error:
             self.log(f"{req['id']} failed: {error}")
         if state == 'done':
@@ -216,7 +250,7 @@ class Show:
             self.lock.notify_all()
 
 
-def make_handler(show, token, public_only=False, allowed_origins=SITE_ORIGINS):
+def make_handler(show, token, public_only=False, allowed_origins=SITE_ORIGINS, proxy_token=None):
     submissions = {}
     submissions_lock = threading.Lock()
     class Handler(BaseHTTPRequestHandler):
@@ -303,6 +337,9 @@ def make_handler(show, token, public_only=False, allowed_origins=SITE_ORIGINS):
                     if public_only:
                         # Only trust Cloudflare's visitor header on the tunnel's loopback listener.
                         peer = self.headers.get('CF-Connecting-IP') or self.client_address[0]
+                        supplied = self.headers.get('X-Hoya-Proxy-Token', '')
+                        if proxy_token and hmac.compare_digest(supplied.encode(), proxy_token.encode()):
+                            peer = self.headers.get('X-Hoya-Visitor-IP') or peer
                         with submissions_lock:
                             now = time.monotonic()
                             for key in list(submissions):
@@ -329,11 +366,14 @@ def make_handler(show, token, public_only=False, allowed_origins=SITE_ORIGINS):
                 return self.send(404, {'error': 'Not found'})
             except ValueError as e:
                 return self.send(400, {'error': str(e)})
+            except OSError:
+                show.set_armed(False)
+                return self.send(503, {'error': 'The show could not save this request. The operator must check it.'})
     return Handler
 
 
-def serve(show, host, port, token, public_only=False):
-    server = ThreadingHTTPServer((host, port), make_handler(show, token, public_only=public_only))
+def serve(show, host, port, token, public_only=False, proxy_token=None):
+    server = ThreadingHTTPServer((host, port), make_handler(show, token, public_only=public_only, proxy_token=proxy_token))
     server.daemon_threads = True
     return server
 
@@ -343,26 +383,30 @@ def main(argv=None):
     ap.add_argument('--host', default='127.0.0.1')
     ap.add_argument('--port', type=int, default=8790)
     ap.add_argument('--public-port', type=int, help='separate visitor-only loopback listener for an HTTPS tunnel')
+    ap.add_argument('--state-file', help='durable request queue; restarts always start paused')
+    ap.add_argument('--proxy-token-file', help='private cloud relay token file, never an operator credential')
+    ap.add_argument('--relay-only', action='store_true', help='use the internet robot relay, never local network discovery')
     ap.add_argument('--fake', action='store_true', help='simulated robot, no API calls')
     ap.add_argument('--gestures', default=str(G.DEFAULT_PATH))
     ap.add_argument('--robot-config', help='robot.json with the paired client certificate (default: $XLEROBOT_ADMIN_CONFIG or the chat Mac path)')
     ap.add_argument('--token', help='operator token for other devices (default: random, printed)')
     a = ap.parse_args(argv)
     catalog = G.load(a.gestures)
-    robot = FakeRobot() if a.fake else RobotClient(a.robot_config)
+    robot = FakeRobot() if a.fake else RobotClient(a.robot_config, prefer_lan=not a.relay_only)
     if not a.fake:
         try:
             health = robot.health()
             print(f"robot API: ok={health.get('ok')} motion_ready={health.get('motion_ready')} owner_active={health.get('motor_owner_active')}")
         except RobotError as e:
             print(f'robot API not reachable yet ({e}); requests wait until it is')
-    show = Show(robot, catalog)
+    show = Show(robot, catalog, state_path=a.state_file)
     show.start()
     token = a.token or secrets.token_urlsafe(9)
     server = serve(show, a.host, a.port, token)
     public_server = None
     if a.public_port:
-        public_server = serve(show, '127.0.0.1', a.public_port, token, public_only=True)
+        proxy_token = Path(a.proxy_token_file).read_text().strip() if a.proxy_token_file else None
+        public_server = serve(show, '127.0.0.1', a.public_port, token, public_only=True, proxy_token=proxy_token)
         threading.Thread(target=public_server.serve_forever, name='emoji-public-http', daemon=True).start()
         print(f'public visitor API http://127.0.0.1:{a.public_port}/ (no operator controls)')
     shown = 'localhost' if a.host in ('127.0.0.1', '0.0.0.0') else a.host

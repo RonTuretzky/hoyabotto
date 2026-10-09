@@ -1349,3 +1349,27 @@ Live Chrome verification: a `Website test` wave submitted on hoyabotto.com recei
 ticket and appeared on the public display. The request was removed locally afterwards; fresh
 state remained paused with no current performance. All five deployed visitor/config/homepage
 assets matched local SHA-256 expectations. Pages deployment: 5acefdc, build status built.
+
+
+### 2026-10-09 JST: participant names on the presentation; fixed cloud API and restart recovery
+
+The active participant name, emoji and phase now appear directly over all 14 presentation slides
+at hoyabotto.com. A local fixture with no robot connection verified that the simulated overlay
+stays visible across slide 1→2 and hides when the gesture ends. Slide content is unchanged.
+Live Chrome confirmed 14 slides and the fixed API origin in the published overlay.
+
+The fixed visitor API is hoya-botto-show.ronturetzky.workers.dev. Its Worker proxies only visitor
+routes; a Durable Object persists the current connection origin. The launch agent
+com.hoyabotto.emoji-show starts the installed show outside this workspace at login after a
+restart and re-registers changed internal tunnel addresses without website edits. Queue state
+is durable; startup is paused, and interrupted performances fail instead of replaying.
+A real show-service restart changed the upstream tunnel address while retaining the same API
+URL and the queued Restart test request. That test request was removed afterwards. No literal
+Mac reboot was performed.
+
+The service reuses the handed-off chat_server.Robot paired mTLS client in its existing venv.
+A read-only robot_get_state through link=relay verified zero enabled motors. The installed
+runtime disables LAN discovery and restores the existing internet relay client if needed.
+The hardware server, owner, SSH, camera registration and OAK commissioning were not changed.
+No real gesture was armed or dispatched; the physical wave remains unverified.
+Tests: 21 robot-emoji tests passed. Docs: docs/robot-emoji.md.

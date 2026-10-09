@@ -93,7 +93,7 @@ async function refresh() {
   $('recent').replaceChildren(...s.recent.map(q => item(q, false)));
   if (s.log) $('log').textContent = s.log.slice().reverse().join('\n');
   else $('log').textContent = 'Log needs this Mac or the operator token in the URL.';
-  if (s.robot_api) $('api').textContent = s.robot_api.fake ? '(fake robot)' : '(' + (s.robot_api.lan_url || s.robot_api.relay_url) + ')';
+  if (s.robot_api) $('api').textContent = s.robot_api.fake ? '(fake robot)' : '(paired robot API · ' + (s.robot_api.link || 'connecting') + ')';
   const u = s.unverified || [];
   $('unverified').hidden = !u.length;
   $('unverified').textContent = u.length ? `Not yet verified on the robot: ${u.join(', ')}. Its poses come from the digital twin. On the first run, watch the whole arm with STOP and the 12 V switch in reach.` : '';

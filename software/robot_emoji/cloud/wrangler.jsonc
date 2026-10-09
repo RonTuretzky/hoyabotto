@@ -1,0 +1,14 @@
+{
+  "name": "hoya-botto-show",
+  "main": "worker.js",
+  "account_id": "7bbf9b2433ed1a804c9946b415bec994",
+  "compatibility_date": "2026-10-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "durable_objects": {
+    "bindings": [{ "name": "SHOW_CONNECTION", "class_name": "ShowConnection" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ShowConnection"] }],
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 }
+}

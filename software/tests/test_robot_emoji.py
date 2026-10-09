@@ -269,3 +269,67 @@ def test_private_listener_rejects_tunnel_loopback_privilege(web):
     assert post(base + '/api/operator/arm', {'armed': True}, {'CF-Connecting-IP': '203.0.113.1'})[0] == 403
     assert post(base + '/api/operator/arm', {'armed': True}, {'Origin': 'https://hoyabotto.com'})[0] == 403
     assert post(base + '/api/operator/arm', {'armed': True}, {'Origin': base})[0] == 200
+
+
+def test_queue_survives_restart_without_replaying_interrupted_motion(tmp_path):
+    path = tmp_path / 'queue.json'
+    first = S.Show(fake(), G.load(), state_path=path)
+    ticket = first.submit('Ada', ['wave'])
+    next_ticket = first.submit('Bob', ['wave'])
+    # Model a process loss AFTER dispatch was recorded, including an uncertain motor outcome.
+    with first.lock:
+        req = first.queue.popleft()
+        req['state'] = 'performing'
+        first.current = req
+        first._persist()
+    robot = fake()
+    restored = S.Show(robot, G.load(), armed=True, state_path=path)
+    assert restored.armed is False
+    assert restored.request_status(ticket['id'])['state'] == 'failed'
+    assert [r['id'] for r in restored.queue] == [next_ticket['id']]
+    assert robot.calls == []
+    assert restored.remove(next_ticket['id'])
+    assert not S.Show(fake(), G.load(), state_path=path).queue
+
+
+def test_proxy_visitor_identity_requires_authentication(public_web):
+    show, robot, _ = public_web
+    server = S.serve(show, '127.0.0.1', 0, 'secret-token', public_only=True, proxy_token='cloud-secret')
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f'http://127.0.0.1:{server.server_port}'
+    headers = {'CF-Connecting-IP':'198.51.100.1', 'X-Hoya-Visitor-IP':'203.0.113.1', 'X-Hoya-Proxy-Token':'wrong'}
+    try:
+        assert post(base + '/api/requests', {'name':'Ada','gestures':['wave']}, headers)[0] == 201
+        assert post(base + '/api/requests', {'name':'Bob','gestures':['wave']}, {**headers,'X-Hoya-Visitor-IP':'203.0.113.2'})[0] == 429
+        assert post(base + '/api/requests', {'name':'Bob','gestures':['wave']}, {**headers,'X-Hoya-Visitor-IP':'203.0.113.2','X-Hoya-Proxy-Token':'cloud-secret'})[0] == 201
+        assert not show.armed and not robot.calls
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_paired_client_adapter_does_not_retry_unknown_command_outcomes(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from robot_emoji.robot import RobotClient, RobotError
+    class PairedRobot:
+        def __init__(self, path):
+            self.link = 'relay'
+            self.calls = []
+            self.fail = False
+        def lan_reachable(self, url):
+            return True
+        def call(self, name, arguments, request_id=None):
+            self.calls.append((name, arguments, request_id))
+            if self.fail:
+                raise OSError('Transport outcome unknown')
+            return {'ok':True, 'result':{'source':'paired-client'}}
+    monkeypatch.setattr(sys, 'path', list(sys.path))
+    monkeypatch.setitem(sys.modules, 'chat_server', SimpleNamespace(Robot=PairedRobot))
+    robot = RobotClient(prefer_lan=False)
+    assert not robot.client.lan_reachable('https://example.local')
+    assert robot.call('robot_get_state', {'fresh':False})['source'] == 'paired-client'
+    robot.client.fail = True
+    with pytest.raises(RobotError, match='unreachable'):
+        robot.call('robot_move_path', {'arm':'right'})
+    assert len(robot.client.calls) == 2  # One dispatch per invocation, even after a network failure.

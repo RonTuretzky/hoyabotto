@@ -5,12 +5,7 @@ every call, and no automatic retry of a call whose outcome is unknown.
 """
 import json
 import os
-import socket
-import ssl
 import threading
-import urllib.error
-import urllib.parse
-import urllib.request
 import uuid
 
 DEFAULT_CONFIG = '/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/.private/robot.json'
@@ -21,52 +16,46 @@ class RobotError(RuntimeError):
 
 
 class RobotClient:
-    def __init__(self, config_path=None):
+    """Adapter around the server thread's existing paired mTLS client."""
+
+    def __init__(self, config_path=None, prefer_lan=True):
+        import sys
+        from pathlib import Path
         self.config_path = config_path or os.environ.get('XLEROBOT_ADMIN_CONFIG', DEFAULT_CONFIG)
-        c = json.loads(open(self.config_path).read())
-        self.config = c
-        self.ctx = ssl.create_default_context(cafile=c['server_certificate'])
-        self.ctx.load_cert_chain(c['client_certificate'], c['client_key'])
-        self.lan_ctx = ssl.create_default_context(cafile=c['server_certificate'])
-        self.lan_ctx.load_cert_chain(c['client_certificate'], c['client_key'])
-        self.lan_ctx.check_hostname = False  # still pinned to the robot's certificate; its SAN lacks the LAN name
+        pilot = Path(self.config_path).resolve().parent.parent
+        # The handoff client imports its installed farm modules. This checkout can
+        # predate those modules, so use the client's canonical farm source first.
+        farm_source = pilot.parent / 'farm-live/software'
+        if farm_source.exists():
+            if str(farm_source) in sys.path:
+                sys.path.remove(str(farm_source))
+            sys.path.insert(0, str(farm_source))
+        if str(pilot) not in sys.path:
+            sys.path.insert(0, str(pilot))
+        from chat_server import Robot
+        if prefer_lan:
+            self.client = Robot(Path(self.config_path))
+        else:
+            class InternetRobot(Robot):
+                def lan_reachable(self, lan_url):
+                    return False
+            self.client = InternetRobot(Path(self.config_path))
 
     def describe(self):
-        return {'config': self.config_path, 'relay_url': self.config['url'], 'lan_url': self.config.get('lan_url')}
-
-    def _base(self):
-        """The direct LAN address when it answers (both Macs on one network), else the Cloudflare relay."""
-        lan = self.config.get('lan_url')
-        if lan:
-            u = urllib.parse.urlsplit(lan)
-            try:
-                with socket.create_connection((u.hostname, u.port or 443), timeout=.8):
-                    return lan.rstrip('/'), self.lan_ctx
-            except OSError:
-                pass
-        return self.config['url'].rstrip('/'), self.ctx
-
-    def request(self, path, payload=None, timeout=30):
-        base, ctx = self._base()
-        req = urllib.request.Request(base + path, data=None if payload is None else json.dumps(payload).encode(),
-                                     headers={'Content-Type': 'application/json'})
-        try:
-            with urllib.request.urlopen(req, context=ctx, timeout=timeout) as r:
-                return json.loads(r.read())
-        except urllib.error.HTTPError as e:
-            try:
-                return json.loads(e.read() or b'{}')
-            except ValueError:
-                raise RobotError(f'HTTP {e.code} from robot API') from None
-        except (OSError, ValueError) as e:
-            raise RobotError(f'Robot API unreachable: {e}') from None
+        return {'paired_client': True, 'link': self.client.link}
 
     def health(self):
-        return self.request('/health', timeout=10)
+        try:
+            return self.client.get('/health')
+        except (OSError, ValueError) as exc:
+            raise RobotError(f'Robot API unreachable: {type(exc).__name__}') from None
 
     def call(self, name, arguments=None, timeout=30):
-        body = self.request('/call', {'name': name, 'arguments': arguments or {},
-                                      'request_id': 'emoji-' + uuid.uuid4().hex}, timeout=timeout)
+        try:
+            body = self.client.call(name, arguments or {}, request_id='emoji-' + uuid.uuid4().hex)
+        except (OSError, ValueError) as exc:
+            # Never retry a robot command after an uncertain transport outcome.
+            raise RobotError(f'{name}: robot API unreachable ({type(exc).__name__})') from None
         if not body.get('ok'):
             result = body.get('result') or {}
             raise RobotError(f"{name}: {result.get('error') or result.get('reason') or body.get('error') or 'refused'}")
@@ -147,4 +136,3 @@ class FakeRobot:
             self.phase = 'idle'
             return {'release_confirmed': True}
         raise RobotError(f'{name}: not simulated')
-
