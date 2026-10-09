@@ -1366,3 +1366,24 @@ Robot Mac now runs main af4b887 (owner restarted 17:30 JST with motors released;
 - Left-arm reach close to the body, from the reach solver at the current calibration: at pitch -55 the claw reaches 92 cm up only out to about 28 cm forward and 95-96 cm only out to about 21-23 cm; pitch -65 stops at 92 cm and pitch -75 at about 90 cm. At pitch -48 and steeper, about 16 cm forward and 99 cm up needs a wrist_flex beyond its 3153 limit.
 - Box tonight (left-claw model frame, cart after the pulses described above plus one owner-authorised 5 cm forward pulse at 00:17): no flap stands on the near side. The phone shows the near rim at about the claw height of 95-99 cm (model), which does not match the 81 cm box-top figure; the far and robot-right flaps stand, and the robot-left flap leans outward. A forearm or wrist landing on the near rim stops a descending claw with a contact halt while the tip is still 6-10 cm lower, inside the box. These heights are model estimates and are not tape-measured.
 - Pilot chat: a client that drops the `/api/chat` stream triggers STOP (BrokenPipe leads to cancel and stop). An overnight helper killed this way stopped a run the owner had steered at 00:13; no fault resulted.
+
+
+### 2026-10-09 JST (morning): box measured with the head depth camera, left-flap fold attempt
+
+- Folded rest pose (elbow about 2980) is not reachable with the cart against the table. Folding the left elbow from 2521 toward 2821 at shoulder_lift 1150 stopped in a contact halt at elbow 2666 (load 400): the claw lands on the box. The left arm is parked with the claw over the box's left side instead (last pose: claw 12 fwd / 26 left / 100 up in the model, pitch -35, all six left motors holding). The right arm is released near its folded pose (pan 2230, lift 880, elbow 2848, wrist_flex 3017).
+- Pilot eyes: the Cerebras (Qwen) account is out of credits (HTTP 402), so the pilot/eyes model is now `claude-sonnet-5-5` (native images). Once, it answered "camera tool unavailable" without calling the tool. Six offline tests all called it, and re-asking works.
+- With the arms out of the way, the OAK looks down into the open box. The scene tool's table-plane fit lands on the box floor (70 cm), which is valid because the floor is at table height. The reported tilt correction varies between calls (27.5 to 52.6 degrees, lens about 1.17 m). The calibrated points:
+  - box floor 69.7-71 cm;
+  - far rim (crease) 76-78 cm at 42-44 cm forward;
+  - right wall top 77.4 cm at left -18;
+  - left wall top about 81 cm at left +21, with the lower wall at left +22 and the floor next to it at left +24.
+  - Rim, taken as 77 cm: `.private/workspace.json` `object_top_m` changed from 0.81 to 0.77.
+  - Flaps:
+    - far flap standing, free edge 93-94 cm across left +11 to -16, about 38-44 cm forward (beyond the left arm's reach at that height);
+    - right flap standing, free edge about 93 cm at (34 fwd, -21 left), leaning about 3 cm outward;
+    - near flap folded down;
+    - LEFT flap folded or hanging OUTWARD. The left wrist sees it from outside, nearly flat, with the floor beyond, and the OAK shows no standing panel on the left.
+  - Near face: the box floor is visible from 27 cm forward, so the near face is at 27 cm forward or closer.
+- The phone overview camera stands on the robot's RIGHT side. Its foreground claw is the RIGHT claw, the face printed HACHIYO is the robot-right wall, and the panel above it is the right flap. Earlier phone readings of "the near rim at claw height" were the right side.
+- Not verified: the claw model's heights against the depth camera. The OAK depth at the left claw tip was invalid, and the phone puts the right claw lower than its 84 cm model height.
+- No pinch or fold on 9 October. No flap stands that the left arm can reach with unrolled jaws: the left flap is outward, the near flap is down, and the far flap is too far. The candidates are the right flap with the right arm (its gripper's empty-closed point is not measured yet, so the pinch verdict for the right arm is not calibrated) or standing the left flap up by hand.
