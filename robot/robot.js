@@ -1054,14 +1054,31 @@ function sceneAt(s, time) {
 // ---------------------------------------------------------------- scroll, resize, loop
 const chapters = [...document.querySelectorAll('.chapter')];
 const bar = document.getElementById('progress-bar');
+// The training chapter is a 2D overlay: the 3D scene holds at the end of packing while it plays.
+const LEARN = chapters.findIndex(ch => ch.dataset.chapter === 'learn');
+let domS = 0;
 function scrollS() {
   const y = scrollY, vh = innerHeight, max = document.documentElement.scrollHeight - vh;
   bar.style.width = (100 * y / Math.max(1, max)).toFixed(2) + '%';
+  domS = 0;
   for (let i = chapters.length - 1; i >= 0; i--) {
     const el = chapters[i], top = el.offsetTop, h = el.offsetHeight;
-    if (y >= top || i === 0) { const span = Math.max(1, Math.min(h, max - top)); return i + clamp((y - top) / span, 0, 0.9999); }
+    if (y >= top || i === 0) { const span = Math.max(1, Math.min(h, max - top)); domS = i + clamp((y - top) / span, 0, 0.9999); break; }
   }
-  return 0;
+  const i = Math.floor(domS), t = domS - i;
+  if (LEARN < 0 || i < LEARN) return domS;
+  return i === LEARN ? LEARN - 0.0001 : i - 1 + t;
+}
+// training: one pre-rendered video (1 -> 9 -> 36 -> 144 -> every simulation clip), played when the chapter is on screen
+const wall = document.getElementById('wall'), trainVid = document.getElementById('trainvid');
+let wasOn = false;
+function updateWall() {
+  const i = Math.floor(domS), t = domS - i, on = i === LEARN;
+  wall.style.opacity = on ? E(t, 0, 0.05) * (1 - E(t, 0.94, 0.995)) : 0;
+  if (LEARN >= 0 && domS > LEARN - 1.5 && trainVid.preload !== 'auto') { trainVid.preload = 'auto'; trainVid.load(); }
+  if (on && !wasOn) { try { trainVid.currentTime = 0; } catch (_) {} trainVid.play().catch(() => {}); }
+  if (!on && wasOn) trainVid.pause();
+  wasOn = on;
 }
 let W = 0, H = 0, mobile = false, centered = false;
 function resize() {
@@ -1088,7 +1105,8 @@ function frame() {
   sSmooth += (target - sSmooth) * (Math.abs(target - sSmooth) > 1.5 ? 1 : 0.12);
   const s = sSmooth;
   sceneAt(s, time);
-  fadeCards(target);
+  fadeCards(domS);
+  updateWall();
   const cam = camAt(s);
   if (s < 1) { const a = (REDUCED ? 0 : Math.sin(time * 0.22) * 0.18) * (1 - seg(s, 0.6, 1)); cam.p.sub(cam.t).applyAxisAngle(V3(0, 0, 1), a).add(cam.t); }
   const dbg = window.__hoya.debugCam; if (dbg) { cam.p.set(...dbg.p); cam.t.set(...dbg.t); }

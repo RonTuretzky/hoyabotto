@@ -16,6 +16,7 @@
 <body>
 <canvas id="stage" aria-hidden="true"></canvas>
 <div id="labels" aria-hidden="true"></div>
+<div id="wall" aria-hidden="true"><video id="trainvid" src="robot/training/training.mp4" poster="robot/training/training-poster.jpg" muted loop playsinline preload="none"></video></div>
 <a id="turn" class="turn" href="wave.html" hidden role="status" aria-live="polite"><span id="turn-emoji"></span><span id="turn-text"></span></a>
 <div id="loading" role="status"><span class="spinner"></span>3Dモデルを読み込み中…</div>
 
@@ -132,6 +133,18 @@
       <li><span class="chip sim">シミュレーション</span>短いふた2枚：未経験の初期条件63件中63件成功</li>
       <li><span class="chip plan">実機は未達成</span>2026年10月9日の試行では折れず</li>
       <li><span class="chip vision">構想</span>長いふたとテープ</li>
+    </ul>
+  </div>
+</section>
+
+<section class="chapter" data-chapter="learn" style="--len:380vh">
+  <div class="card">
+    <p class="eyebrow">学習</p>
+    <h2>仮想の箱で、<br>数えきれないほど練習</h2>
+    <p>カメラと関節角度だけで動く制御モデル（ACT）を、シミュレーションの中で学習させ、そのたびに評価しました。</p>
+    <ul class="status">
+      <li><span class="chip sim">シミュレーション</span>動画はすべて仮想環境です</li>
+      <li><span class="chip plan">実機は未達成</span>本物の箱ではまだ。新しいモデルはロボットの速度上限に合わせ、遅い版を学習中</li>
     </ul>
   </div>
 </section>
