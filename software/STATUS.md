@@ -1,3 +1,22 @@
+## Emoji show: six gestures verified on both arms, OAK supervision, auto-recovery — 10 October 2026, ~07:20 JST
+
+- 06:26 the owner lost the motor board on /dev/cu.usbmodem5B790186401 (left_arm_shoulder_pan first): "Coherent
+  servo read communication failure" then "port not open"; the owner exited and every enable was refused. Restarted
+  remotely with `robot_admin.py deploy <deployed head> --mode restart` (motors released); all 16 motors back, no
+  missing buses. Cause not established (USB/12 V/board reset); it happened one second BEFORE the show's first
+  demo-speed enable, but the show stays on normal speed until demo speed is checked on hardware.
+- Enables were then refused because the phone overview feed was down (paddle-profile camera gate). The owner now
+  accepts the freshest of the phone upload and the head OAK stream (same 10 s / hold-resume rules; commit be9cb5b,
+  test_supervision_camera.py). Deployed; main 8e9230c is the robot's recorded deploy (owner files match).
+- Six emoji gestures (👋 wave, 🙋 arm up, 💪 curl, 🤝 handshake, 👉 point, 🔄 circle), normal speed, ran on hardware via
+  the show's Performer: all six on the RIGHT arm and all six mirrored on the LEFT arm completed with every path
+  endpoint_settled; worst settle residual 20 ticks (right) / 19 ticks (left); 31–48 s each; every run returned to
+  rest and released. Controller completion only: appearance from the audience was not reviewed by this session.
+- The show falls back to the mirrored left arm when the right arm faults or refuses before moving, requeues requests
+  refused before motion, and after a third failure in a row restarts the owner through /admin/deploy on the recorded
+  head (at most once per 10 min). Relay forwarder on the chat Mac is now a launch agent; `hoyabotto-reconnect <name>`
+  after a robot-side quick-tunnel restart. Details: software/docs/robot-emoji.md.
+
 ## AprilTag blocker fixes: phone timing and isolated deployment — 10 October 2026
 
 - After the user moved table tag1 fully onto the tabletop, OAK frame89288 accepts
