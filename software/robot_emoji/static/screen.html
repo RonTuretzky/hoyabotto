@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hoya Botto · Live screen</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: -apple-system, system-ui, "Segoe UI", sans-serif; color: #fff; overflow: hidden;
+         background: radial-gradient(circle at 30% 20%, #3b2a6b, #120d24 70%); display: flex; flex-direction: column; }
+  .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 4vh 4vw; }
+  .emojis { font-size: 22vh; line-height: 1; }
+  .emojis span { display: inline-block; transform-origin: 70% 80%; }
+  .performing .emojis span { animation: wave 1.2s ease-in-out infinite; }
+  @keyframes wave { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(18deg); } 75% { transform: rotate(-12deg); } }
+  .hello { font-size: 5vh; opacity: .75; margin-top: 3vh; letter-spacing: .05em; }
+  .name { font-size: 15vh; font-weight: 800; line-height: 1.05; margin-top: 1vh; word-break: break-word;
+          background: linear-gradient(90deg, #ffd166, #ff7a45, #ff4f8b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .phase { font-size: 3.2vh; opacity: .6; margin-top: 3vh; min-height: 4vh; }
+  .idle .emojis span { animation: bob 3s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-2vh); } }
+  .idle .name { font-size: 8vh; }
+  footer { display: flex; align-items: center; gap: 2vw; padding: 2.5vh 4vw; background: rgba(255,255,255,.06); font-size: 3vh; min-height: 9vh; }
+  footer .label { opacity: .55; text-transform: uppercase; letter-spacing: .1em; font-size: 2.2vh; white-space: nowrap; }
+  footer .next { display: flex; gap: 1.6vw; overflow: hidden; white-space: nowrap; }
+  footer .pill { background: rgba(255,255,255,.1); border-radius: 99px; padding: .6vh 1.6vw; }
+  footer .url { margin-left: auto; opacity: .55; font-size: 2.4vh; white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { .emojis span { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="stage idle" id="stage">
+  <div class="emojis" id="emojis"><span>👋</span></div>
+  <div class="hello" id="hello"></div>
+  <div class="name" id="name">Pick an emoji and type your name</div>
+  <div class="phase" id="phase"></div>
+</div>
+<footer>
+  <span class="label">Up next</span>
+  <div class="next" id="next"></div>
+  <span class="url" id="url"></span>
+</footer>
+<script src="emoji-config.js"></script>
+<script src="emoji-api.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+$('url').textContent = window.ROBOT_EMOJI_API ? 'hoyabotto.com/wave.html' : location.host;
+const PHASES = { enable: 'Getting ready…', raise: 'Raising the arm…', motion: 'Here we go!', return: 'Going back to rest…', release: 'All done' };
+
+function setEmojis(list) {
+  const want = list.join('|');
+  if ($('emojis').dataset.k === want) return;
+  $('emojis').dataset.k = want;
+  $('emojis').replaceChildren(...list.map(e => { const s = document.createElement('span'); s.textContent = e; return s; }));
+}
+
+function render(s) {
+  const c = s.current, stage = $('stage');
+  if (c) {
+    const done = c.state === 'done';
+    stage.className = 'stage ' + (done ? 'done' : 'performing');
+    setEmojis(c.emojis);
+    $('hello').textContent = done ? 'Thank you' : 'This one is for';
+    $('name').textContent = c.name;
+    const p = (c.phase || '').split(':')[0];
+    $('phase').textContent = done ? '🎉' : (PHASES[p] || '');
+  } else {
+    stage.className = 'stage idle';
+    setEmojis(s.catalog.map(g => g.emoji));
+    $('hello').textContent = s.armed ? '' : 'The robot is taking a short break';
+    $('name').textContent = 'Pick an emoji and type your name';
+    $('phase').textContent = '';
+  }
+  $('next').replaceChildren(...(s.queue.length ? s.queue.slice(0, 8) : [{ name: '—', emojis: [] }]).map(r => {
+    const d = document.createElement('span'); d.className = 'pill'; d.textContent = (r.emojis.join('') + ' ' + r.name).trim(); return d;
+  }));
+}
+
+async function tick() {
+  try { render(await emojiFetch('/api/state')); } catch (e) {
+    $('stage').className = 'stage idle';
+    $('hello').textContent = 'Show offline';
+    $('name').textContent = 'We’ll be back soon';
+    $('phase').textContent = 'Reconnecting…';
+    $('next').replaceChildren();
+  }
+  setTimeout(tick, 700);
+}
+tick();
+</script>
+</body>
+</html>

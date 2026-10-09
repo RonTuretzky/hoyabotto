@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emoji show · operator</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, system-ui, "Segoe UI", sans-serif; background: #f4f4f6; color: #1d1b2f; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 140px; }
+  h1 { font-size: 22px; margin: 0 0 14px; }
+  .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .state { font-size: 18px; font-weight: 700; }
+  .armed { color: #1e8e3e; } .paused { color: #b06000; }
+  button { font: inherit; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; background: #e7e5ef; }
+  button.primary { background: #1e8e3e; color: #fff; }
+  .warn { background: #fff4d6; border: 1px solid #f0d38a; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0eef4; }
+  pre { margin: 0; font-size: 12px; max-height: 280px; overflow: auto; white-space: pre-wrap; }
+  .muted { color: #6b6880; font-size: 14px; }
+  #stop { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 728px; margin: 0 auto; padding: 22px; font-size: 28px;
+          font-weight: 800; background: #d93025; color: #fff; border-radius: 16px; box-shadow: 0 6px 18px rgba(217,48,37,.4); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Emoji show · operator</h1>
+  <div class="card">
+    <div class="row">
+      <span class="state" id="state">…</span>
+      <button id="arm" class="primary">Arm</button>
+      <span class="muted" id="robot"></span>
+    </div>
+    <p class="muted">Arm only when the robot has clear space, the gripper is empty, and you can watch it. Look around moves the head and its mounted camera. Pausing lets the current performance finish; STOP releases every motor now.</p>
+    <div class="warn" id="unverified" hidden></div>
+  </div>
+  <div class="card">
+    <div class="muted">Now</div>
+    <div id="current" class="state">—</div>
+  </div>
+  <div class="card">
+    <div class="muted">Queue</div>
+    <ul id="queue"></ul>
+  </div>
+  <div class="card">
+    <div class="muted">Recent</div>
+    <ul id="recent"></ul>
+  </div>
+  <div class="card">
+    <div class="muted">Log <span id="api"></span></div>
+    <pre id="log"></pre>
+  </div>
+</main>
+<button id="stop">STOP</button>
+<script>
+const $ = id => document.getElementById(id);
+const token = new URLSearchParams(location.search).get('token') || '';
+const headers = { 'Content-Type': 'application/json', 'X-Operator-Token': token };
+let armed = false;
+const post = (path, body) => fetch(path, { method: 'POST', headers, body: JSON.stringify(body || {}) }).then(r => r.json());
+const label = r => `${r.emojis.join('')} ${r.name}`;
+
+$('arm').onclick = () => post('/api/operator/arm', { armed: !armed }).then(refresh);
+$('stop').onclick = () => post('/api/operator/stop').then(r => { if (!r.ok) alertBox('STOP failed: ' + r.error + ' — use the 12 V switch'); refresh(); });
+function alertBox(text) { $('robot').textContent = text; $('robot').style.color = '#d93025'; }
+
+function item(r, withRemove) {
+  const li = document.createElement('li');
+  const t = document.createElement('span');
+  t.textContent = label(r) + (r.state === 'failed' ? ' — failed: ' + r.error : r.state === 'done' ? ' — done' : '');
+  li.append(t);
+  if (withRemove) {
+    const b = document.createElement('button'); b.textContent = 'Remove';
+    b.onclick = () => post('/api/operator/remove', { id: r.id }).then(refresh);
+    li.append(b);
+  }
+  return li;
+}
+
+async function refresh() {
+  const r = await fetch('/api/state', { headers });
+  const s = await r.json();
+  armed = s.armed;
+  $('state').textContent = armed ? 'ARMED' : 'PAUSED';
+  $('state').className = 'state ' + (armed ? 'armed' : 'paused');
+  $('arm').textContent = armed ? 'Pause' : 'Arm';
+  $('arm').className = armed ? '' : 'primary';
+  $('robot').textContent = 'robot: ' + s.robot; $('robot').style.color = '';
+  $('current').textContent = s.current ? `${label(s.current)} · ${s.current.phase || s.current.state}` : '—';
+  $('queue').replaceChildren(...s.queue.map(q => item(q, true)));
+  $('recent').replaceChildren(...s.recent.map(q => item(q, false)));
+  if (s.log) $('log').textContent = s.log.slice().reverse().join('\n');
+  else $('log').textContent = 'Log needs this Mac or the operator token in the URL.';
+  if (s.robot_api) $('api').textContent = s.robot_api.fake ? '(fake robot)' : '(paired robot API · ' + (s.robot_api.link || 'connecting') + ')';
+  const u = s.unverified || [];
+  $('unverified').hidden = !u.length;
+  $('unverified').textContent = u.length ? `Not yet verified on the robot: ${u.join(', ')}. New gesture paths need supervised first runs. Watch the whole robot with STOP and the 12 V switch in reach.` : '';
+}
+setInterval(refresh, 1000); refresh();
+</script>
+</body>
+</html>

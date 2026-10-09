@@ -726,6 +726,18 @@ Live ranges match the 7 October calibration; every arm joint's range is centred 
   upstream model, real controller checks, and separately authorized physical
   validation. No physical parity or carton-task completion is claimed.
 
+## Emoji show service (software only) — 8 October 2026, 23:00
+
+- `robot_emoji/` (`python3 -m robot_emoji`, docs `docs/robot-emoji.md`): kiosk, big screen and operator page on the
+  chat Mac. Each emoji is a gesture run through the robot API (enable the arm's six joints, raise, gesture,
+  return to rest, release only those joints). Starts paused; waits while anyone else holds a motor.
+- First gesture 👋 (right arm): raised hand pan 2100, lift 2300, elbow 1150, wrist flex 1600; the wrist flaps ±170 while
+  the pan sways 1990..2210. The poses come from the digital twin and are **not yet run on hardware**
+  (`verified_on_hardware: false`). Watch the first run with STOP and the 12 V switch in reach.
+- Read-only observation at 22:58: the left arm was holding over a carton (pilot session), and the right arm was
+  released at pan 1930, lift 2375, elbow 1350, wrist flex 3000. From there a wave takes about 14 s up, 15 s waving
+  and 14 s back at the owner's pace. No motion was sent from this session.
+
 ## Misleading "Owner telemetry stale"; refusal pause removed — 8 October 2026, 12:12–12:25
 
 - At 12:12:36 a left gripper closure faulted with "Pickup closure did not become stationary" (the guard is unchanged).
@@ -2168,3 +2180,109 @@ Follow-up phone frame 473339 (camera-direction-review-4) now gives a usable side
 view of the right-arm mount and arm/gripper profile after the owner repositioned
 the phone. Suitable for qualitative direction observation alongside OAK; no
 direction probe, path-clearance validation or absolute-zero calibration yet.
+
+### 2026-10-09 JST: hoyabotto.com visitor emoji integration
+
+The visitor kiosk (`/wave.html`) and live display (`/screen.html`) are published from the existing
+`gh-pages` branch. The homepage keeps its slide content with a small Wave link appended. The
+chat-Mac service shares one queue between local operator port 8790 and visitor-only port 8791.
+The public listener rejects all operator actions, including loopback/tunnel requests with a valid
+token, and omits logs/robot connection metadata. Exact site-origin CORS and a 30-second visitor
+submission interval are enforced. The startup health read returned ok/motion_ready/owner_active
+all true; the show starts PAUSED. No real motor enable, path, or STOP was sent for this integration.
+The wave remains unverified on hardware. Tests: 18 robot-emoji tests passed.
+
+This demonstration uses a Quick Tunnel and requires the chat Mac/service/tunnel to stay running.
+Its public URL changes after a tunnel restart; re-export with `robot_emoji.publish_site` and publish
+`emoji-config.js`, or use a named tunnel for a persistent HTTPS origin. See docs/robot-emoji.md.
+
+Live Chrome verification: a `Website test` wave submitted on hoyabotto.com received a queue
+ticket and appeared on the public display. The request was removed locally afterwards; fresh
+state remained paused with no current performance. All five deployed visitor/config/homepage
+assets matched local SHA-256 expectations. Pages deployment: 5acefdc, build status built.
+
+
+### 2026-10-09 JST: participant names on the presentation; fixed cloud API and restart recovery
+
+The active participant name, emoji and phase now appear directly over all 14 presentation slides
+at hoyabotto.com. A local fixture with no robot connection verified that the simulated overlay
+stays visible across slide 1→2 and hides when the gesture ends. Slide content is unchanged.
+Live Chrome confirmed 14 slides and the fixed API origin in the published overlay.
+
+The fixed visitor API is hoya-botto-show.ronturetzky.workers.dev. Its Worker proxies only visitor
+routes; a Durable Object persists the current connection origin. The launch agent
+com.hoyabotto.emoji-show starts the installed show outside this workspace at login after a
+restart and re-registers changed internal tunnel addresses without website edits. Queue state
+is durable; startup is paused, and interrupted performances fail instead of replaying.
+A real show-service restart changed the upstream tunnel address while retaining the same API
+URL and the queued Restart test request. That test request was removed afterwards. No literal
+Mac reboot was performed.
+
+The service reuses the handed-off chat_server.Robot paired mTLS client in its existing venv.
+A read-only robot_get_state through link=relay verified zero enabled motors. The installed
+runtime disables LAN discovery and restores the existing internet relay client if needed.
+The hardware server, owner, SSH, camera registration and OAK commissioning were not changed.
+No real gesture was armed or dispatched; the physical wave remains unverified.
+Tests: 21 robot-emoji tests passed. Docs: docs/robot-emoji.md.
+
+
+### 2026-10-09 JST: live-wave preflight — inactive historical base phase
+
+The other control session released both arms. The fresh owner state was idle/moving=false with
+no command or enabled motor, but robot_get_motion retained base_drive_phase=braking from its
+last motion. The wheel abort path clears active/powered without clearing the historical phase.
+The emoji preflight now accepts this explicitly idle case only after two fresh uncached state
+reads confirm all 16 released, both wheel torques/status clear, and stationary wheel encoders.
+Active motion, held motors, powered wheels, rolling wheels or cached state still block it.
+No hardware limit, owner or camera guard changed. Tests: 26 passed. Live read-only preflight
+passed (raise 19.6 s, motion 14.8 s, return 19.6 s at that starting pose). No real wave was sent;
+installed show remains paused for the first supervised test.
+
+
+### 2026-10-09 JST: full wave accepted on hardware; smaller Quick wave prepared
+
+Ron ticket c01e3542032f ran from 21:44:12 to 21:45:14 JST. Raise, motion and return
+reported completed=true/endpoint_settled, followed by motor release; operator said it
+worked perfectly. Preserve that exact pattern as Full wave (full_wave), hardware-verified.
+User selected a smaller wave to reduce duration. Default wave is now Quick wave: halfway
+along the tested raise path, one shoulder ±55/wrist ±85 sway, then return/release.
+Read-only live plan passes all current ranges: 9.6+4.4+9.6=23.6 s movement, about 30 s
+with measured prior overhead. This variant has not yet been run on hardware and stays
+unverified. Both variants request maximum existing controller pace, 40 ticks/0.4 s
+(100 ticks/s); no firmware maximum, speed, acceleration, torque or safety-profile change.
+Show paused for installation and the next supervised Quick wave. Tests: 27 passed.
+
+
+### 2026-10-09 JST: Full wave retired; compact floating slide badge
+
+User requested removal of the long wave and roughly 30-second emoji turns. Only Quick wave
+(wave) remains in the visitor catalog; future presets target 30 s. Ani's Quick wave reported
+all three paths completed/endpoint_settled and release from 22:02:28 to 22:02:58 (~30 s).
+The in-progress Full wave for Hi was allowed to return/release before catalog/runtime update.
+The show was paused during maintenance. Retired completed ticket history remains readable;
+queued mixed requests retain only the short gesture, and retired-only queued tickets are removed.
+
+Presentation badge now shows only name and emoji, small on the right side, drifting upward
+60 px over 30 s. A simulated Ron badge measured about 92×44 CSS px and remained visible
+when advancing slide 1→2. All 14 slide sections preserved. Reduced-motion support included.
+28 tests passed; cloud readback confirms only Quick wave, paused show, preserved queue/history.
+
+
+### 2026-10-09 JST: four live presets, one emoji per turn
+
+User clarified that make-it-live meant adding the suggested emoji choices, and requested
+exactly one emoji per visitor request. Public wave.html now offers Quick wave 👋, Robot
+wiggle 🤖, Celebration 🎉, Look around 👀 with a single-selection radio-style UI and backend
+len==1 guard. The small floating badge remains only on the presentation.
+
+Wiggle uses small relative wrist-roll offsets at the short-wave pose; celebration uses small
+elbow/wrist-flex pumping. Look around uses only head pan around its measured start (±80
+ticks, each leg below the existing 200-tick cap) through robot_move_head, then restores/releases.
+No hardware speed, torque, acceleration, gripper, owner or camera configuration changed.
+All four passed read-only range checks; planned movement at that pose was 26.8, 25.6, 25.6
+and 16.8 seconds respectively before network/settling overhead. New three remain unverified
+on hardware pending first supervised runs. Software tests: 35 passed. STOP stays canceled
+until explicit re-arm; it is not cleared by a later performance.
+
+Live browser verified four choices, exactly one checked after switching, and no floating
+badge on wave.html. Show restored live after current range/camera checks, with empty queue.
