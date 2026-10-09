@@ -1,5 +1,5 @@
 {
-  "_about": "Six single-choice gestures, each with its own joint and shape so they read differently from across a room. Right arm only (the head stays still: moving it voids the OAK-to-arm tag registration). Normal arm speed (100 ticks/s, 40-tick owner ramp; the demo profile crashed the robot's hardware owner on its first real enable, 10 Oct 06:26), legs <= 341 ticks, no gripper, every gesture returns and releases. None has been run on hardware yet: supervise the first run of each.",
+  "_about": "Six single-choice right-arm gestures, each an arm motion people read literally: wave, straight up, bicep curl, handshake, point, big circle. Directions from the XLeRobot twin: lower shoulder_lift / elbow_flex / wrist_flex ticks raise the hand, higher shoulder_lift reaches forward, shoulder_pan moves it sideways. Normal arm speed (100 ticks/s, 40-tick owner ramp), motion legs <= 341 ticks, no gripper; every gesture returns and releases. If the right arm is unavailable the show mirrors them onto the left arm.",
   "_target_show_seconds": 30,
   "_speed_profile": "normal",
   "wave": {
@@ -46,7 +46,7 @@
       }
     ]
   },
-  "hand": {
+  "up": {
     "emoji": "🙋",
     "label": "はーい！",
     "arm": "right",
@@ -59,25 +59,38 @@
         "wrist_flex": 1998
       },
       {
-        "shoulder_lift": 2165,
-        "elbow_flex": 1800
+        "shoulder_lift": 1600,
+        "elbow_flex": 1780,
+        "wrist_flex": 1850
       }
     ],
     "motion": [
       {
-        "wrist_flex": 1848
+        "wrist_flex": 1820
       },
       {
-        "wrist_flex": 2148
+        "wrist_flex": 1880
       },
       {
-        "wrist_flex": 1848
+        "wrist_flex": 1820
       },
       {
-        "wrist_flex": 1998
+        "wrist_flex": 1880
       },
       {
-        "shoulder_lift": 2165
+        "wrist_flex": 1820
+      },
+      {
+        "wrist_flex": 1880
+      },
+      {
+        "wrist_flex": 1820
+      },
+      {
+        "wrist_flex": 1880
+      },
+      {
+        "wrist_flex": 1850
       }
     ]
   },
@@ -115,9 +128,9 @@
       }
     ]
   },
-  "party": {
-    "emoji": "🎉",
-    "label": "お祝い",
+  "shake": {
+    "emoji": "🤝",
+    "label": "握手",
     "arm": "right",
     "verified_on_hardware": false,
     "raise": [
@@ -128,141 +141,146 @@
         "wrist_flex": 1998
       },
       {
-        "shoulder_lift": 2015,
-        "shoulder_pan": 2275
+        "shoulder_lift": 2130,
+        "elbow_flex": 2140,
+        "wrist_flex": 1998
       }
     ],
     "motion": [
       {
-        "shoulder_pan": 2231,
-        "shoulder_lift": 2121
+        "elbow_flex": 2240,
+        "wrist_flex": 2098
+      },
+      {
+        "elbow_flex": 2040,
+        "wrist_flex": 1898
+      },
+      {
+        "elbow_flex": 2240,
+        "wrist_flex": 2098
+      },
+      {
+        "elbow_flex": 2040,
+        "wrist_flex": 1898
+      },
+      {
+        "elbow_flex": 2240,
+        "wrist_flex": 2098
+      },
+      {
+        "elbow_flex": 2040,
+        "wrist_flex": 1898
+      },
+      {
+        "elbow_flex": 2140,
+        "wrist_flex": 1998
+      }
+    ]
+  },
+  "point": {
+    "emoji": "👉",
+    "label": "あなた！",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "raise": [
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865,
+        "elbow_flex": 2092,
+        "wrist_flex": 1998
+      },
+      {
+        "shoulder_pan": 2200,
+        "shoulder_lift": 2010,
+        "elbow_flex": 1830,
+        "wrist_flex": 1900
+      }
+    ],
+    "motion": [
+      {
+        "shoulder_lift": 2080
+      },
+      {
+        "shoulder_lift": 2010
+      },
+      {
+        "shoulder_lift": 2010
+      },
+      {
+        "shoulder_lift": 2080
+      },
+      {
+        "shoulder_lift": 2010
+      },
+      {
+        "shoulder_lift": 2010
+      }
+    ]
+  },
+  "circle": {
+    "emoji": "🔄",
+    "label": "ぐるぐる",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "raise": [
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865,
+        "elbow_flex": 2092,
+        "wrist_flex": 1998
+      },
+      {
+        "shoulder_pan": 2325
+      }
+    ],
+    "motion": [
+      {
+        "shoulder_pan": 2266,
+        "shoulder_lift": 2006
       },
       {
         "shoulder_pan": 2125,
-        "shoulder_lift": 2165
+        "shoulder_lift": 2065
       },
       {
-        "shoulder_pan": 2019,
-        "shoulder_lift": 2121
+        "shoulder_pan": 1984,
+        "shoulder_lift": 2006
       },
       {
-        "shoulder_pan": 1975,
-        "shoulder_lift": 2015
+        "shoulder_pan": 1925,
+        "shoulder_lift": 1865
       },
       {
-        "shoulder_pan": 2019,
-        "shoulder_lift": 1909
+        "shoulder_pan": 1984,
+        "shoulder_lift": 1724
+      },
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1665
+      },
+      {
+        "shoulder_pan": 2266,
+        "shoulder_lift": 1724
+      },
+      {
+        "shoulder_pan": 2325,
+        "shoulder_lift": 1865
+      },
+      {
+        "shoulder_pan": 2266,
+        "shoulder_lift": 2006
+      },
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 2065
+      },
+      {
+        "shoulder_pan": 1984,
+        "shoulder_lift": 2006
       },
       {
         "shoulder_pan": 2125,
         "shoulder_lift": 1865
-      },
-      {
-        "shoulder_pan": 2231,
-        "shoulder_lift": 1909
-      },
-      {
-        "shoulder_pan": 2275,
-        "shoulder_lift": 2015
-      },
-      {
-        "shoulder_pan": 2231,
-        "shoulder_lift": 2121
-      },
-      {
-        "shoulder_pan": 2125,
-        "shoulder_lift": 2165
-      },
-      {
-        "shoulder_pan": 2019,
-        "shoulder_lift": 2121
-      },
-      {
-        "shoulder_pan": 1975,
-        "shoulder_lift": 2015
-      }
-    ]
-  },
-  "robot": {
-    "emoji": "🤖",
-    "label": "ロボットダンス",
-    "arm": "right",
-    "verified_on_hardware": false,
-    "relative_joints": [
-      "wrist_roll"
-    ],
-    "raise": [
-      {
-        "shoulder_pan": 2125,
-        "shoulder_lift": 1865,
-        "elbow_flex": 2092,
-        "wrist_flex": 1998,
-        "wrist_roll": 0
-      }
-    ],
-    "motion": [
-      {
-        "elbow_flex": 2242,
-        "wrist_flex": 1848,
-        "wrist_roll": 170
-      },
-      {
-        "elbow_flex": 1942,
-        "wrist_flex": 2148,
-        "wrist_roll": -170
-      },
-      {
-        "elbow_flex": 2242,
-        "wrist_flex": 1848,
-        "wrist_roll": 170
-      },
-      {
-        "elbow_flex": 1942,
-        "wrist_flex": 2148,
-        "wrist_roll": -170
-      },
-      {
-        "elbow_flex": 2242,
-        "wrist_flex": 1848,
-        "wrist_roll": 170
-      },
-      {
-        "elbow_flex": 1942,
-        "wrist_flex": 2148,
-        "wrist_roll": -170
-      },
-      {
-        "elbow_flex": 2092,
-        "wrist_flex": 1998,
-        "wrist_roll": 0
-      }
-    ]
-  },
-  "bow": {
-    "emoji": "🙇",
-    "label": "おじぎ",
-    "arm": "right",
-    "verified_on_hardware": false,
-    "raise": [
-      {
-        "shoulder_pan": 2125,
-        "shoulder_lift": 1865,
-        "elbow_flex": 2092,
-        "wrist_flex": 1998
-      }
-    ],
-    "motion": [
-      {
-        "shoulder_lift": 1715,
-        "wrist_flex": 2248
-      },
-      {
-        "shoulder_lift": 1715,
-        "wrist_flex": 2248
-      },
-      {
-        "shoulder_lift": 1865,
-        "wrist_flex": 1998
       }
     ]
   }

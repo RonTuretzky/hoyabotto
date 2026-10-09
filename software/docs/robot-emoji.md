@@ -196,12 +196,16 @@ explicitly re-arms.
 
 ## Six distinct gestures at demo speed and the robot relay keeper (10 October 2026)
 
-- Six presets, each with its own joint and shape: 👋 手を振る (side-to-side sweep), 🙋 はーい！ (arm straight up,
-  hand flick), 💪 力こぶ (elbow curls), 🎉 お祝い (hand draws circles), 🤖 ロボットダンス (stiff elbow/wrist zig-zag
-  with wrist twists), 🙇 おじぎ (arm lowers forward). Right arm only: moving the head voids the OAK tag registration.
-  The arm is enabled with `speed_profile: demo` (300 ticks/s); performances take 8–14 s. None has run on hardware
-  yet: supervise the first run of each with STOP in reach. Installed in the runtime on 10 October; the show
-  restarts paused, so arm it from http://127.0.0.1:8790/operator.
+- Six presets, each an arm motion people read literally: 👋 手を振る (side-to-side wave), 🙋 はーい！ (arm straight up,
+  held), 💪 力こぶ (elbow curls), 🤝 握手 (reaches forward toward the visitor and pumps), 👉 あなた！ (points forward and
+  pokes twice), 🔄 ぐるぐる (whole arm draws a big circle). Directions come from the XLeRobot twin. Right arm by
+  default; if it reports a fault or refuses before moving, the show runs the mirror image on the left arm. Normal arm
+  speed (100 ticks/s): the first demo-speed enable on 10 October was followed by an owner fault. 30–40 s each.
+  None has run on hardware yet: supervise the first run of each with STOP in reach.
+- Recovery: a request refused before anything moved goes back to the front of the queue and is retried after 5 s; a
+  failure mid-motion is reported to that visitor and the show continues. A third failure in a row restarts the robot's
+  hardware owner through /admin/deploy on the version it already runs (at most once per 10 minutes). An operator STOP,
+  or failures a restart does not clear, pause the show.
 - Slide badge: rises from the bottom of the slide to the top through the show's phases and fades when done.
 - Robot link: `robot_emoji.relay` runs as launch agent `com.hoyabotto.robot-relay`. It keeps
   `cloudflared access tcp` running for robot.json's `relay_hostname` on 127.0.0.1:1242, restarts it if it exits or

@@ -54,7 +54,7 @@ HEAD_LOOK = {'_speed_profile': 'demo', 'look': {'emoji': '👀', 'label': 'look'
 
 def test_six_distinct_arm_gestures():
     catalog = G.load()
-    assert list(catalog) == ['wave', 'hand', 'flex', 'party', 'robot', 'bow']
+    assert list(catalog) == ['wave', 'up', 'flex', 'shake', 'point', 'circle']
     assert len({g.emoji for g in catalog.values()}) == 6
     # right arm only: the head stays at its registered pose
     assert {g.arm for g in catalog.values()} == {'right'}
@@ -128,7 +128,7 @@ def test_retired_preset_history_survives_catalog_removal(tmp_path):
     assert not robot.calls
 
 
-@pytest.mark.parametrize('key', ['wave', 'hand', 'flex', 'party', 'robot', 'bow'])
+@pytest.mark.parametrize('key', ['wave', 'up', 'flex', 'shake', 'point', 'circle'])
 def test_new_arm_gestures_return_and_release(key):
     robot = fake()
     before = dict(robot.positions)
@@ -449,7 +449,7 @@ def test_mid_motion_failure_is_reported_but_the_show_keeps_going(web, monkeypatc
     show.set_armed(True)
     _, first = post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']})
     assert wait_state(base, first, ('done', 'failed')) == 'failed'
-    _, second = post(base + '/api/requests', {'name': 'Bo', 'gestures': ['bow']})
+    _, second = post(base + '/api/requests', {'name': 'Bo', 'gestures': ['point']})
     assert wait_state(base, second, ('done', 'failed')) == 'done'
     assert get(base + '/api/state')['armed'] is True
 
