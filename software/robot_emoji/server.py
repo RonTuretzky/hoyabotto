@@ -71,8 +71,15 @@ class Show:
             saved = json.loads(self.state_path.read_text())
             self.requests = {r['id']: r for r in saved['requests']}
             for r in self.requests.values():
+                r.setdefault('emojis', self.request_emojis(r))
                 if r['state'] == 'performing':
                     r.update(state='failed', phase=None, error='Show restarted during a performance; the operator must check the robot')
+                elif r['state'] == 'queued' and any(key not in self.catalog for key in r['gestures']):
+                    remaining = [key for key in r['gestures'] if key in self.catalog]
+                    if remaining:
+                        r.update(gestures=remaining, emojis=[self.catalog[key].emoji for key in remaining])
+                    else:
+                        r.update(state='removed', phase=None, error='This preset is no longer available')
             self.queue.extend(self.requests[rid] for rid in saved['queue'] if self.requests[rid]['state'] == 'queued')
             recovered = [r for r in self.requests.values() if r['state'] == 'failed' and r['id'] not in saved['recent']]
             self.recent.extend((recovered + [self.requests[rid] for rid in saved['recent']])[:8])
@@ -111,7 +118,8 @@ class Show:
         with self.lock:
             if len(self.queue) >= QUEUE_MAX:
                 raise ValueError('The line is full, try again in a few minutes')
-            req = {'id': uuid.uuid4().hex[:12], 'name': name, 'gestures': list(keys), 'state': 'queued',
+            req = {'id': uuid.uuid4().hex[:12], 'name': name, 'gestures': list(keys),
+                   'emojis': [self.catalog[k].emoji for k in keys], 'state': 'queued',
                    'created': self.clock(), 'phase': None, 'error': None}
             self.queue.append(req)
             self.requests[req['id']] = req
@@ -122,10 +130,16 @@ class Show:
         self.log(f"queued {req['id']} {name!r} {''.join(self.catalog[k].emoji for k in keys)}")
         return self.public_request(req)
 
+    def request_emojis(self, req):
+        # Keep old tickets readable when a preset is retired. New tickets persist
+        # their displayed emojis rather than depending on tomorrow's catalog.
+        return req.get('emojis') or [self.catalog[k].emoji if k in self.catalog else '👋' if k == 'full_wave' else '❔'
+                                     for k in req['gestures']]
+
     def public_request(self, req):
         with self.lock:
             ahead = next((i for i, r in enumerate(self.queue) if r is req), None)
-            return {'id': req['id'], 'name': req['name'], 'emojis': [self.catalog[k].emoji for k in req['gestures']],
+            return {'id': req['id'], 'name': req['name'], 'emojis': self.request_emojis(req),
                     'state': req['state'], 'phase': req['phase'], 'error': req['error'],
                     'position': None if ahead is None else ahead + 1 + (self.current is not None)}
 
@@ -135,7 +149,7 @@ class Show:
 
     def snapshot(self):
         with self.lock:
-            view = lambda r: {'id': r['id'], 'name': r['name'], 'emojis': [self.catalog[k].emoji for k in r['gestures']],
+            view = lambda r: {'id': r['id'], 'name': r['name'], 'emojis': self.request_emojis(r),
                               'state': r['state'], 'phase': r['phase'], 'error': r['error']}
             return {'armed': self.armed, 'robot': self.robot_note, 'current': self.current and view(self.current),
                     'queue': [view(r) for r in self.queue], 'recent': [view(r) for r in self.recent],

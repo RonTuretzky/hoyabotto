@@ -1400,3 +1400,18 @@ with measured prior overhead. This variant has not yet been run on hardware and 
 unverified. Both variants request maximum existing controller pace, 40 ticks/0.4 s
 (100 ticks/s); no firmware maximum, speed, acceleration, torque or safety-profile change.
 Show paused for installation and the next supervised Quick wave. Tests: 27 passed.
+
+
+### 2026-10-09 JST: Full wave retired; compact floating slide badge
+
+User requested removal of the long wave and roughly 30-second emoji turns. Only Quick wave
+(wave) remains in the visitor catalog; future presets target 30 s. Ani's Quick wave reported
+all three paths completed/endpoint_settled and release from 22:02:28 to 22:02:58 (~30 s).
+The in-progress Full wave for Hi was allowed to return/release before catalog/runtime update.
+The show was paused during maintenance. Retired completed ticket history remains readable;
+queued mixed requests retain only the short gesture, and retired-only queued tickets are removed.
+
+Presentation badge now shows only name and emoji, small on the right side, drifting upward
+60 px over 30 s. A simulated Ron badge measured about 92×44 CSS px and remained visible
+when advancing slide 1→2. All 14 slide sections preserved. Reduced-motion support included.
+28 tests passed; cloud readback confirms only Quick wave, paused show, preserved queue/history.

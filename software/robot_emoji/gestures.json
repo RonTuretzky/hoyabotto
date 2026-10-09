@@ -1,5 +1,5 @@
 {
-  "_about": "Right-arm wave presets at the existing owner's maximum permitted interpolation pace: 40 encoder ticks every 0.4 seconds. Full wave was completed and accepted by the operator on 2026-10-09. Quick wave uses a halfway raise pose on that tested raising route and one smaller sway; its shorter sequence still needs a supervised physical test. No gripper movement or speed/acceleration/torque limit changes.",
+  "_about": "Short right-arm wave, targeting about 30 seconds including raise, gesture and return. Uses the existing maximum controller pace (40 ticks every 0.4 seconds). No gripper motion or hardware-limit changes. Retired full-height wave is not offered. Future emoji presets should stay near the same turn duration.",
   "wave": {
     "emoji": "👋",
     "label": "Quick wave",
@@ -28,40 +28,5 @@
       }
     ]
   },
-  "full_wave": {
-    "emoji": "👋",
-    "label": "Full wave",
-    "arm": "right",
-    "verified_on_hardware": true,
-    "raise": [
-      {
-        "shoulder_pan": 2100,
-        "shoulder_lift": 2300,
-        "elbow_flex": 1150,
-        "wrist_flex": 1600
-      }
-    ],
-    "motion": [
-      {
-        "shoulder_pan": 1990,
-        "wrist_flex": 1430
-      },
-      {
-        "shoulder_pan": 2210,
-        "wrist_flex": 1770
-      },
-      {
-        "shoulder_pan": 1990,
-        "wrist_flex": 1430
-      },
-      {
-        "shoulder_pan": 2210,
-        "wrist_flex": 1770
-      },
-      {
-        "shoulder_pan": 2100,
-        "wrist_flex": 1600
-      }
-    ]
-  }
+  "_target_show_seconds": 30
 }

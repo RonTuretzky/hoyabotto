@@ -46,14 +46,12 @@ def test_default_wave_loads_and_fits_live_ranges():
         assert 0 < p['duration_s'] <= G.MAX_PATH_S and len(p['waypoints']) <= G.MAX_PATH_WAYPOINTS
 
 
-def test_quick_wave_shortens_travel_at_the_same_controller_pace():
+def test_only_short_wave_is_offered_at_the_same_controller_pace():
     catalog = G.load()
+    assert list(catalog) == ['wave']
     assert len(catalog['wave'].motion) == 3
-    assert len(catalog['full_wave'].motion) == 5
-    assert catalog['full_wave'].verified_on_hardware is True
     quick = G.plan([catalog['wave']], START, RANGES)
-    full = G.plan([catalog['full_wave']], START, RANGES)
-    assert sum(p['duration_s'] for p in quick['paths']) < sum(p['duration_s'] for p in full['paths'])
+    assert sum(p['duration_s'] for p in quick['paths']) < 30
     assert G.STEP_TICKS == 40 and G.STEP_S == .4
     assert all('right_arm_gripper' not in w for p in quick['paths'] for w in p['waypoints'])
 
@@ -72,13 +70,36 @@ def test_motion_legs_must_be_one_owner_piece():
 
 
 def test_targets_outside_live_range_refused_but_home_is_clamped():
-    wave = G.load()['full_wave']
+    wave = G.load()['wave']
     narrow = json.loads(json.dumps(RANGES))
-    narrow['right_arm_elbow_flex']['min_ticks'] = 1200
-    with pytest.raises(G.GestureError, match='right_arm_elbow_flex=1150'):
+    narrow['right_arm_elbow_flex']['min_ticks'] = 2200
+    with pytest.raises(G.GestureError, match='right_arm_elbow_flex=2092'):
         G.plan([wave], START, narrow)
     sagged = dict(START, right_arm_shoulder_lift=3250)       # released joint resting past the commandable max
     assert G.plan([wave], sagged, RANGES)['home']['right_arm_shoulder_lift'] == 3230
+
+
+def test_retired_preset_history_survives_catalog_removal(tmp_path):
+    path = tmp_path / 'queue.json'
+    data = json.loads(G.DEFAULT_PATH.read_text())
+    data['full_wave'] = data['wave']
+    old = S.Show(fake(), G.parse(data), state_path=path)
+    done = old.submit('Previous turn', ['full_wave'])
+    request = old.queue.popleft()
+    request['state'] = 'done'
+    request.pop('emojis')  # Tickets from before emoji snapshots were persisted.
+    old.recent.appendleft(request)
+    pending = old.submit('Old selection', ['full_wave'])
+    mixed = old.submit('Short and long', ['wave', 'full_wave'])
+    old._persist()
+    robot = fake()
+    restored = S.Show(robot, G.load(), state_path=path)
+    assert restored.request_status(done['id'])['emojis'] == ['👋']
+    assert restored.snapshot()['recent'][0]['state'] == 'done'
+    assert restored.request_status(pending['id'])['state'] == 'removed'
+    assert restored.request_status(mixed['id'])['emojis'] == ['👋']
+    assert restored.queue[0]['gestures'] == ['wave'] and len(restored.queue) == 1
+    assert not robot.calls
 
 
 def test_path_seconds_follow_owner_pace():

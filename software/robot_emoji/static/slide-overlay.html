@@ -1,20 +1,25 @@
 <!-- robot-slide-overlay:start -->
 <style>
-#robot-show-overlay { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:2147483646;
-  display:flex; align-items:center; gap:18px; padding:16px 28px; max-width:calc(100vw - 40px);
-  border:2px solid #ffd166; border-radius:20px; background:rgba(18,13,36,.96); color:#fff;
-  box-shadow:0 8px 40px #0008; font-family:system-ui,sans-serif; pointer-events:none; }
+#robot-show-overlay { position:fixed; right:20px; bottom:18vh; z-index:2147483646;
+  display:flex; align-items:center; gap:8px; padding:8px 12px; max-width:220px;
+  border:1px solid rgba(255,255,255,.2); border-radius:18px; background:rgba(18,13,36,.86); color:#fff;
+  box-shadow:0 3px 12px #0003; font-family:system-ui,sans-serif; pointer-events:none;
+  animation:robot-badge-in .25s ease-out, robot-badge-rise 30s linear forwards; }
 #robot-show-overlay[hidden] { display:none !important; }
-#robot-show-emoji { font-size:56px; line-height:1; flex-shrink:0; }
-#robot-show-caption { font-size:14px; letter-spacing:.08em; color:#ffd166; }
-#robot-show-name { font-size:clamp(24px,3.5vw,44px); font-weight:800; line-height:1.15; overflow-wrap:anywhere; }
-#robot-show-phase { font-size:14px; color:#ddd; margin-top:4px; }
+#robot-show-emoji { font-size:26px; line-height:1; flex-shrink:0; }
+#robot-show-name { font-size:18px; font-weight:600; line-height:1.2; overflow-wrap:anywhere; max-width:160px; }
+@keyframes robot-badge-in { from { opacity:0; } to { opacity:1; } }
+@keyframes robot-badge-rise { from { transform:translateY(12px); } to { transform:translateY(-48px); } }
+@media (max-width:600px) {
+  #robot-show-overlay { right:10px; padding:6px 9px; gap:6px; max-width:170px; }
+  #robot-show-name { font-size:15px; max-width:115px; }
+  #robot-show-emoji { font-size:22px; }
+}
+@media (prefers-reduced-motion:reduce) { #robot-show-overlay { animation:none !important; transform:none; } }
 @media print { #robot-show-overlay, [data-robot-visitor-link] { display:none !important; } }
 </style>
 <aside id="robot-show-overlay" data-api-origin="__ROBOT_API_ORIGIN__" hidden role="status" aria-live="polite" aria-atomic="true">
-  <span id="robot-show-emoji" aria-hidden="true"></span>
-  <div><div id="robot-show-caption">THIS ONE IS FOR · この人に手を振ります</div>
-    <div id="robot-show-name"></div><div id="robot-show-phase"></div></div>
+  <span id="robot-show-emoji" aria-hidden="true"></span><span id="robot-show-name"></span>
 </aside>
 <script>
 (() => {
@@ -22,9 +27,6 @@
   const base = overlay.dataset.apiOrigin;
   const name = document.getElementById('robot-show-name');
   const emoji = document.getElementById('robot-show-emoji');
-  const caption = document.getElementById('robot-show-caption');
-  const phase = document.getElementById('robot-show-phase');
-  const phases = {enable:'Getting ready…', raise:'Raising the arm…', motion:'👋 Waving!', return:'Returning to rest…', release:'Finishing…'};
   async function poll() {
     try {
       const response = await fetch(base + '/api/state', {cache:'no-store', credentials:'omit', signal:AbortSignal.timeout(5000)});
@@ -34,17 +36,23 @@
       if (!current || !['performing', 'done'].includes(current.state)) {
         overlay.hidden = true;
       } else {
-        name.textContent = current.name;
-        emoji.textContent = current.emojis.join('');
-        const done = current.state === 'done';
-        caption.textContent = done ? 'THANK YOU · ありがとう' : 'THIS ONE IS FOR · この人に手を振ります';
-        phase.textContent = done ? '🎉' : (phases[(current.phase || '').split(':')[0]] || '');
+        if (name.textContent !== current.name) name.textContent = current.name;
+        const icons = current.emojis.join('');
+        if (emoji.textContent !== icons) emoji.textContent = icons;
+        overlay.setAttribute('aria-label', current.name + ' ' + icons);
+        const newTicket = overlay.dataset.ticket !== current.id;
         overlay.hidden = false;
+        if (newTicket) {
+          overlay.dataset.ticket = current.id;
+          overlay.style.animation = 'none';
+          void overlay.offsetWidth;
+          overlay.style.animation = '';
+        }
       }
     } catch (_) { overlay.hidden = true; }
     setTimeout(poll, 700);
   }
-  // The overlay lives outside the slide elements, so slide navigation never replaces it.
+  // Lives outside the slide elements; advancing slides preserves this floating badge.
   poll();
 })();
 </script>

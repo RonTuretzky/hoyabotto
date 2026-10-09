@@ -1,7 +1,7 @@
 # Emoji show: visitors pick an emoji, the robot performs it
 
 Visitors pick preset emojis on a kiosk page and type their name. The robot performs each emoji's gesture, and
-their name is on the big screen while it does. The presets are **Quick wave** and **Full wave**, both 👋 on the right arm.
+their name is on the big screen while it does. The offered preset is **Quick wave** (👋, right arm), targeting a roughly 30-second turn. Future emoji presets should stay near that duration.
 
 It runs on the **chat Mac**, the one that holds the paired client certificate
 (`gemma-xlerobot/pilot/.private/robot.json`). It moves the robot only through the existing robot API (`POST /call`
@@ -55,9 +55,7 @@ homepage link once. Commit those assets and the homepage on `gh-pages` and push 
 contains only the public URL, no certificate or operator token. Never copy software or runtime logs to Pages.
 The presentation's slide contents stay intact; its file hash changes because the link is appended.
 
-The presentation itself also polls the same public state. The active participant's name, emoji and phase
-appear in a fixed overlay **on every slide at hoyabotto.com**, including after slide changes. The overlay
-hides when idle or offline and briefly says thanks after completion. All 14 supplied slides retain their
+The presentation itself also polls the same public state. The active participant's name and emoji appear in a small **right-side badge on every slide at hoyabotto.com**, including after slide changes. It gently drifts upward over 30 seconds. The badge contains no caption or progress text and hides when idle or offline. All 14 supplied slides retain their
 content and navigation. The visitor link opens a new tab so it does not replace the presentation.
 
 ### Fixed cloud endpoint and automatic startup
@@ -111,10 +109,9 @@ does not validate a physical wave.
    its six joints are released.
 
 The owner's maximum permitted pace is 40-tick steps every 0.4 s (100 ticks/s, about 9 degrees/s).
-Both presets request that pace. Full wave was observed completing in about 61 s. Quick wave uses a
+The short wave requests that pace. The earlier full-height wave completed in about 61 s and has been retired. Quick wave uses a
 halfway raise pose and one smaller sway: its plan is 9.6 s raise, 4.4 s wave, 9.6 s return at the
-October 9 resting pose (23.6 s movement, roughly 30 s including settling/network time). The Quick
-wave duration is an estimate until its supervised hardware test. Firmware maximum speed was not
+October 9 resting pose (23.6 s movement, roughly 30 s including settling/network time). A live Quick wave for Ani completed in about 30 s (22:02:28–22:02:58 JST); durations can vary slightly with the starting pose and settling. Firmware maximum speed was not
 set; reaching it would require changing the robot's guarded speed profile.
 
 Failures:
@@ -150,9 +147,14 @@ Its `verified_on_hardware` flag is true; the general twin mapping is still unval
 
 Quick wave is now the default `wave` preset. Its starting pose is halfway along that successful
 raising route, with shoulder pan ±55 ticks and wrist flex ±85 ticks for one sway. It stays marked
-`verified_on_hardware: false` until its own supervised test. The original full-height sequence is
-preserved unchanged as `full_wave`. Watch the whole right arm on the first Quick wave with STOP
+`verified_on_hardware: false` until its own supervised test. The full-height sequence is retired and is no longer offered. Old completed tickets remain readable. Queued mixed selections retain their short gestures; long-only pending selections are marked removed. Watch the whole right arm on the first Quick wave with STOP
 and the 12 V switch in reach.
 
 Tests: `tests/test_robot_emoji.py` (plans, the call sequence against a fake owner, busy/refusal/fault/STOP
 handling, the queue and the web routes).
+
+## Presentation badge
+
+The badge is compact (about 92×44 CSS pixels for “Ron”), right aligned, and contains only the
+emoji and name. It drifts upward by 60 pixels over 30 seconds without restarting on each status
+poll. Reduced-motion preferences disable the animation. Slide content/navigation are unchanged.
