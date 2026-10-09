@@ -100,6 +100,26 @@ class StreamWriter:
         return record
 
 
+def apply_stream_profile(args):
+    """Load a locally commissioned stream profile; explicit trials may override it."""
+    path = args.output / 'oak-profile.json'
+    if args.mode != 'stream' or args.full_sensor or args.ignore_profile or not path.exists():
+        return None
+    profile = json.loads(path.read_text())
+    if (profile.get('schema') != 'xlerobot-oak-stream-profile/1' or
+            profile.get('sensor_mode') != '13MP' or
+            profile.get('isp_denominator') != 4 or profile.get('fps') != 10 or
+            not isinstance(profile.get('device_id'), str) or not profile['device_id'] or
+            len(profile.get('config_sha256', '')) != 64):
+        raise ValueError('Invalid commissioned OAK profile; refusing a different camera view')
+    if args.device and args.device != profile['device_id']:
+        raise ValueError('Requested device differs from commissioned OAK profile')
+    args.device = profile['device_id']
+    args.full_sensor, args.wide, args.usb2 = True, True, True
+    args.isp_denominator, args.fps = profile['isp_denominator'], profile['fps']
+    return profile
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["list", "capture", "preview", "stream"])
@@ -114,7 +134,9 @@ def main(argv=None) -> int:
     parser.add_argument("--full-sensor", action="store_true", help="IMX214 4208x3120 direct ISP field; camera commissioning")
     parser.add_argument("--isp-denominator", type=int, choices=(4, 8), default=4)
     parser.add_argument("--fps", type=int, choices=(5, 10), default=5)
+    parser.add_argument("--ignore-profile", action="store_true", help="Explicit commissioning/rollback override of saved stream profile")
     args = parser.parse_args(argv)
+    profile = apply_stream_profile(args)
     width, height = ((4208//args.isp_denominator)//16*16, 3120//args.isp_denominator) if args.full_sensor else (640, 360)
     rgb_fps = args.fps if args.full_sensor else (10 if args.wide else 15)
     if args.timeout <= 0 or args.seconds <= 0 or args.capture_seconds <= 0:
@@ -225,6 +247,8 @@ def main(argv=None) -> int:
                             rgb_crop_xywh=[(4208//args.isp_denominator-width)//2,0,width,height],
                             intrinsics_provenance="factory 3840x2160 centered ROI expanded by (+184,+480) to native 4208x3120, SDK scales/crops to output; physical validation pending")
         metadata["config_sha256"] = hashlib.sha256(json.dumps(metadata,sort_keys=True).encode()).hexdigest()
+        if profile and metadata['config_sha256'] != profile['config_sha256']:
+            raise RuntimeError('Camera calibration/configuration differs from commissioned profile')
         print(json.dumps(metadata), flush=True)
         device.startPipeline(pipeline)
         queue = device.getOutputQueue("rgbd", maxSize=2, blocking=False)

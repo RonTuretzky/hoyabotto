@@ -6,6 +6,19 @@ from pathlib import Path
 import redeploy_robot_server as d
 
 PROFILE = ['--full-sensor', '--isp-denominator', '4', '--fps', '10']
+SELECTED_CONFIG = 'a0f85c4e3814322178f172ceb1408066fd6904d6999685e27138222e1d2acfed'
+
+def persist_selected(m):
+    if m.get('config_sha256') != SELECTED_CONFIG:
+        raise RuntimeError('Refusing to persist an untested OAK configuration')
+    path = Path(d.OAK_RAW_DIR) / 'oak-profile.json'
+    profile = dict(schema='xlerobot-oak-stream-profile/1', sensor_mode='13MP',
+                   device_id=m['device_id'], isp_denominator=4, fps=10,
+                   config_sha256=SELECTED_CONFIG)
+    tmp = path.with_suffix('.tmp')
+    tmp.write_text(json.dumps(profile, indent=2)+'\n')
+    os.replace(tmp, path)
+    return str(path)
 
 def owner_snapshot():
     s=d.read_status()
@@ -41,6 +54,21 @@ def main():
     if a.dry_run:return
     if not a.cameras_only:raise ValueError('Explicit cameras-only required')
     if d.OAK_OFF.exists():raise RuntimeError('OAK explicitly disabled; changed nothing')
+    # The selected view already passed a 60-second trial. Persist it without any
+    # process restart when that same configuration remains fresh and advancing.
+    if previous.get('config_sha256') == SELECTED_CONFIG:
+        time.sleep(.4)
+        current = manifest()
+        if (current.get('stream_id') != previous.get('stream_id') or
+                current.get('seq', 0) <= previous.get('seq', 0) or
+                time.time()-current.get('captured_at', 0) > 1 or
+                d.processes('gemma_hardware_owner.py') != owners or
+                d.processes('gemma_robot_tools.py') != apis):
+            raise RuntimeError('Current stream/owner changed; profile not persisted')
+        path = persist_selected(current)
+        print(json.dumps(dict(success=True, profile_path=path, config_sha256=SELECTED_CONFIG,
+                              camera_restarted=False, owner_restarted=False, api_restarted=False)), flush=True)
+        return
     stamp=time.strftime('%Y%m%d-%H%M%S'); backup=d.WORK/'oak-commissioning'/stamp
     backup.mkdir(parents=True)
     # Snapshot the parent's known baseline, without modifying any dirty remote files.
@@ -79,6 +107,7 @@ def main():
         final={'success':True,'profile':PROFILE,'samples':samples,'manifest':manifest(),
                'owner_pids_unchanged':True,'api_pids_unchanged':True,'after':owner_snapshot(),'backup':str(backup)}
         (backup/'result.json').write_text(json.dumps(final,indent=2));print(json.dumps(final),flush=True)
+        persist_selected(final['manifest'])
     except BaseException as e:
         if not d.stop_oak():raise RuntimeError('Cannot stop failed trial; refusing duplicate camera owner') from e
         time.sleep(3);start(python,oldsoftware,restore_flags,log)
