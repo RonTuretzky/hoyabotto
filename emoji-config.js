@@ -1,1 +1,1 @@
-window.ROBOT_EMOJI_API = "https://contributors-ste-eng-forums.trycloudflare.com";
+window.ROBOT_EMOJI_API = "https://hoya-botto-show.ronturetzky.workers.dev";

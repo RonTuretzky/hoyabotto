@@ -18,16 +18,24 @@ point to GitHub Pages, and www is a DNS-only CNAME to ronturetzky.github.io.
 GitHub Pages handles TLS and redirects www to the apex; enforce HTTPS after issuance.
 Keep private source recordings, chats, working notes, and credentials out of this branch.
 
-## Visitor emoji show
+## Visitor emoji show on the presentation
 
-- Kiosk: https://hoyabotto.com/wave.html
-- Big screen: https://hoyabotto.com/screen.html
-- Operator: http://127.0.0.1:8790/operator on the chat Mac only
+The current participant's name, emoji and gesture phase appear directly over every presentation
+slide at https://hoyabotto.com/. Advancing slides preserves the overlay; it hides when idle or offline.
+The slide contents remain unchanged. The Wave link opens the visitor form in another tab.
 
-These static pages use emoji-config.js to reach the visitor-only port 8791 through HTTPS.
-The backend starts paused. Visitors cannot arm or stop the robot. Names are public.
-The current demo uses a Quick Tunnel and needs the chat Mac and cloudflared running;
-a tunnel restart requires updating emoji-config.js. Use a named tunnel for a permanent origin.
-Source and restart/export instructions: software/docs/robot-emoji.md on the robot-emoji-service branch.
+- Visitor form: https://hoyabotto.com/wave.html
+- Optional dedicated display: https://hoyabotto.com/screen.html
+- Local operator: http://127.0.0.1:8790/operator
+- Fixed visitor API: https://hoya-botto-show.ronturetzky.workers.dev
 
-Rollback this integration by reverting its gh-pages commit; domain/TLS settings were not changed.
+GitHub Pages hosts the slides/static pages. The cloud API keeps the live connection origin in
+a Durable Object. The installed Mac launch agent reconnects automatically after login/restart,
+including when its internal Quick Tunnel changes address. No website edits are needed on restart.
+Queue state is stored locally; interrupted performances fail instead of replaying. Startup stays paused.
+The paired hardware client uses the internet relay with certificate verification, independent of LAN discovery.
+The real robot Mac must remain online; its current relay still belongs to the existing hardware-server setup.
+The hardware server was not redeployed or restarted for this work.
+
+Sources and installation instructions: software/docs/robot-emoji.md on the robot-emoji-service branch.
+Rollback the presentation integration by reverting its gh-pages commits. Domain/TLS settings were not changed.
