@@ -28,8 +28,8 @@ def forbidden(a, b):
 
 
 class AuditedEpisode(base.Episode):
-    def __init__(self, trial, height, width):
-        super().__init__(trial, height, width)
+    def __init__(self, trial, height, width, **kwargs):
+        super().__init__(trial, height, width, **kwargs)
         self.camera_contract = trial_contract(trial)
         global LATEST
         LATEST = self
@@ -53,11 +53,8 @@ class AuditedEpisode(base.Episode):
         if target.shape != self.lo.shape or not np.isfinite(target).all():
             self.refusal = 'Invalid policy action'
             return False
-        target = np.clip(target, self.lo, self.hi)
-        start = d.ctrl[self.act_ids].copy()
-        for i in range(self.substeps):
-            t = min(1., (i + 1) / (self.substeps * .8))
-            d.ctrl[self.act_ids] = start + (target - start) * (t*t*(3-2*t))
+        for ctrl in self.ramp(target):
+            d.ctrl[self.act_ids] = ctrl
             started = float(d.time)
             mujoco.mj_step(m, d)
             row = sample_applied_contacts(m, d, step_started_at=started, forbidden_contact=forbidden)

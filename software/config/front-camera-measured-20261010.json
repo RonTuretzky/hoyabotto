@@ -1,0 +1,35 @@
+{
+ "pos": [
+  -0.03339,
+  -0.29468,
+  0.40971
+ ],
+ "xyaxes": [
+  0.99987,
+  0.013056,
+  -0.009511,
+  0.000624,
+  0.557195,
+  0.830382
+ ],
+ "tilt_down_deg": 33.86,
+ "assumed_pos": [
+  0.00528,
+  -0.28211,
+  0.46129
+ ],
+ "assumed_tilt_down_deg": 35.14,
+ "position_change_mm": [
+  -38.7,
+  -12.6,
+  -51.6
+ ],
+ "view_direction_change_deg": 5.3,
+ "source": {
+  "file": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/.private/tag-registration.json",
+  "method": "opencv_hand_eye_1",
+  "sha256": "830f1ec061cfa37e1ae49d3065bc572b509e4dc446e584e8185590a136c013d1",
+  "camera_id": "oak-1944301091DA1C2E00",
+  "frame": "right_base_link * base_from_camera; optical y,z flipped to MuJoCo camera axes"
+ }
+}

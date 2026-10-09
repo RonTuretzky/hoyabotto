@@ -71,7 +71,21 @@ def main():
     ap.add_argument('--gpus', type=int, choices=(4, 8), default=4)
     ap.add_argument('--max-minutes', type=float, default=355,
                     help='Operational timeout; leave five minutes before provider timeout')
+    ap.add_argument('--episodes', type=int, default=320)
+    ap.add_argument('--steps', type=int, default=25000)
+    # Robot conditions (docs/carton-fold-policy-station-gap.md; run 5 on 9 Oct): servo speed, policy tick rate,
+    # camera delays, measured head camera pose, per-episode visual jitter. None by default: the 9 Oct recipe.
+    ap.add_argument('--arm-cap-ticks-s', type=float, help='teacher speed cap, arm joints (robot ~80-90 ticks/s)')
+    ap.add_argument('--jaw-cap-ticks-s', type=float, help='teacher speed cap, jaws (10 ticks per policy tick)')
+    ap.add_argument('--sample-dt', type=float, default=.1, help='recording period; the dataset resamples to --fps')
+    ap.add_argument('--max-time', type=float, default=75., help='teacher time limit per demonstration (s)')
+    ap.add_argument('--fps', type=int, default=10, help='policy tick rate in the dataset')
+    ap.add_argument('--camera-lag', nargs='*', default=[], metavar='KEY=SECONDS')
+    ap.add_argument('--visual-jitter', type=float, default=0.)
+    ap.add_argument('--front-camera-pose', type=Path, help='measured head camera pose JSON (tools/front_camera_from_registration.py)')
     args = ap.parse_args()
+    if args.front_camera_pose is not None and not args.front_camera_pose.is_file():
+        raise SystemExit(f'Missing {args.front_camera_pose}')
     gpu_count = args.gpus
     batch_per_gpu = 32 // gpu_count
     collection_workers = gpu_count * 8
@@ -100,11 +114,18 @@ def main():
     # Root metadata also accompanies final model uploads; checkpoints copy sidecars before upload.
     for name in (CONTRACT_FILE, METADATA_FILE):
         api.upload_file(path_or_fileobj=work/name, path_in_repo=name, repo_id=args.model_repo)
+    robot_conditions = dict(arm_cap_ticks_s=args.arm_cap_ticks_s, jaw_cap_ticks_s=args.jaw_cap_ticks_s,
+                            sample_dt=args.sample_dt, max_time=args.max_time, fps=args.fps,
+                            camera_lag=list(args.camera_lag), visual_jitter=args.visual_jitter,
+                            front_camera_pose=json.loads(args.front_camera_pose.read_text()) if args.front_camera_pose else None)
     status = dict(hardware_commands=False, physical_registration_verified=False,
                   dataset_repo=args.dataset_repo, model_repo=args.model_repo,
                   gpus=gpu_count, global_batch_size=32, batch_per_gpu=batch_per_gpu,
-                  collection_workers=collection_workers, started=started,
-                  camera_contract=provenance(camera_contract))
+                  collection_workers=collection_workers, started=started, episodes=args.episodes, steps=args.steps,
+                  robot_conditions=robot_conditions, camera_contract=provenance(camera_contract))
+    (work/'robot-conditions.json').write_text(json.dumps(robot_conditions, indent=2))
+    api.upload_file(path_or_fileobj=work/'robot-conditions.json', path_in_repo='refit/robot-conditions.json',
+                    repo_id=args.model_repo)
 
     next_status_upload = 0.
 
@@ -186,19 +207,26 @@ def main():
                 except json.JSONDecodeError:
                     continue  # A worker can be in the middle of writing its status.
             done = len(rows)
-            status['recording_progress'] = dict(completed=done, total=320, elapsed=elapsed,
+            status['recording_progress'] = dict(completed=done, total=args.episodes, elapsed=elapsed,
                                                 successes=sum(bool(r.get('success')) for r in rows))
             if done:
-                status['recording_progress']['estimated_seconds_left'] = elapsed * (320-done)/done
+                status['recording_progress']['estimated_seconds_left'] = elapsed * (args.episodes-done)/done
 
+        station_args = ['--along','-.04','--radius','.125','--axis-sign','-1',
+                        '--pinch-normal-tilt-degrees','15','--pre-height','.035',
+                        '--teacher-position','-.5','-.7','.75','--clearance','.002']
+        if args.front_camera_pose:
+            station_args += ['--front-camera-pose', str(args.front_camera_pose)]
+        recorder_args = ['--sample-dt', str(args.sample_dt), '--max-time', str(args.max_time)]
+        if args.arm_cap_ticks_s:
+            recorder_args += ['--arm-cap-ticks-s', str(args.arm_cap_ticks_s)]
+        if args.jaw_cap_ticks_s:
+            recorder_args += ['--jaw-cap-ticks-s', str(args.jaw_cap_ticks_s)]
         one([sys.executable,'tools/record_refit_fold_demos.py',
-             '--upstream',str(root/'upstream/assets/robots/xlerobot/xlerobot.xml'),
-             '--along','-.04','--radius','.125','--axis-sign','-1',
-             '--pinch-normal-tilt-degrees','15','--pre-height','.035',
-             '--teacher-position','-.5','-.7','.75','--clearance','.002','--',
-             '--simulation-root',str(root),'--out',str(demos),'--episodes','320',
+             '--upstream',str(root/'upstream/assets/robots/xlerobot/xlerobot.xml'), *station_args, '--',
+             '--simulation-root',str(root),'--out',str(demos),'--episodes',str(args.episodes),
              '--seed0','10000','--workers',str(collection_workers),'--offset-x','-.005','.005',
-             '--yaw','-1','1','--stiffness','.015','.022'],'recording',7200,recording_progress)
+             '--yaw','-1','1','--stiffness','.015','.022', *recorder_args],'recording',7200,recording_progress)
         summary = json.loads((demos/'summary.json').read_text())
         status['valid_demos'] = require_collection(summary)
         api.upload_file(path_or_fileobj=demos/'summary.json',path_in_repo='refit/collection.json',repo_id=args.model_repo)
@@ -226,10 +254,13 @@ def main():
                 if elapsed > 300 and estimate > deadline-time.time()-900:
                     raise RuntimeError('Rendering forecast leaves insufficient time before operational timeout')
 
+        converter_args = ['--fps', str(args.fps), '--visual-jitter', str(args.visual_jitter)]
+        if args.camera_lag:
+            converter_args += ['--camera-lag', *args.camera_lag]
         processes([([sys.executable,'tools/fold_demos_to_lerobot.py','--batches',str(demos),
                     '--out',str(p),'--workers','3','--num-shards',str(gpu_count),'--shard-index',str(i),
                     '--image-writer-threads','8','--cameras','front=front','left_wrist=left_wrist',
-                    'right_wrist=right_wrist'],dict(os.environ,MUJOCO_EGL_DEVICE_ID=str(i)))
+                    'right_wrist=right_wrist', *converter_args],dict(os.environ,MUJOCO_EGL_DEVICE_ID=str(i)))
                     for i,p in enumerate(roots)],'rendering',7200,render_progress)
         publish('merging_dataset')
         status.update(merge_shards(roots,dataset,args.dataset_repo))
@@ -246,7 +277,7 @@ def main():
                 status['training_log_tail'] = lines[-5:]
                 import re
                 for line in reversed(lines):
-                    match = re.search(r'(\d+)/25000 \[([^]]+)\]', line)
+                    match = re.search(r'(\d+)/%d \[([^]]+)\]' % args.steps, line)
                     if match:
                         status['training_step'] = int(match[1])
                         status['training_progress_text'] = match[0]
@@ -262,7 +293,7 @@ def main():
              f'--dataset.repo_id={args.dataset_repo}',f'--dataset.root={dataset}',
              '--policy.type=act','--policy.device=cuda','--policy.use_amp=true','--policy.chunk_size=100',
              '--policy.n_action_steps=100','--policy.optimizer_lr=3e-5','--policy.private=true','--policy.push_to_hub=false',
-             f'--policy.repo_id={args.model_repo}',f'--batch_size={batch_per_gpu}','--steps=25000',
+             f'--policy.repo_id={args.model_repo}',f'--batch_size={batch_per_gpu}',f'--steps={args.steps}',
              '--save_freq=1000','--save_checkpoint_to_hub=true','--log_freq=100',
              '--num_workers=8','--env_eval_freq=0','--wandb.enable=false',f'--job_name=dcm_refit_h200x{gpu_count}',
              f'--output_dir={work/"train"}'],'training',max(1,deadline-time.time()),train_progress)

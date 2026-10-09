@@ -12,6 +12,12 @@ part of the sequence is simulated.
 
 Per trial: `run/` (the controller's own outputs, including scene.xml) and `demo.npz` with
 time, qpos, qvel, ctrl, plus `demo.json` (outcome, randomization, stop reason).
+
+Robot speed caps (`--arm-cap-ticks-s`, `--jaw-cap-ticks-s`): the real servos move at most ~90 encoder ticks/s
+(Goal_Velocity 100 at enable; run 5 on 9 Oct measured 74-91 ticks/s) and the owner streams a jaw at most 10 ticks per
+policy tick. With caps, every controller segment is stretched so its ramp never exceeds the cap, and a per-physics-step
+backstop clamps the applied targets, so the recorded `ctrl` is a motion the robot can follow. `--sample-dt` sets the
+recording rate; fold_demos_to_lerobot resamples it to the policy rate with the real camera delays.
 """
 from __future__ import annotations
 
@@ -60,9 +66,30 @@ audit = {'steps': 0, 'first_refusal': None}
 audit_path = cfg['npz'].replace('demo.npz', 'recorder-contact-steps.jsonl.gz')
 audit_stream = gzip.open(audit_path, 'wt', encoding='utf-8', compresslevel=1)
 audit_end = 0.
+TICKS_PER_RAD = 4096 / (2 * math.pi)
+cap = {'arm': cfg.get('arm_cap'), 'jaw': cfg.get('jaw_cap')}
+cap_stats = {'segments': 0, 'stretched_segments': 0, 'max_stretch_factor': 1.0, 'backstop_steps': 0,
+             'max_applied_ticks_per_s': 0.0}
+cap_limit = None   # per-actuator max |ctrl change| per physics step, radians
+cap_last = None
 original = mujoco.mj_step
 def stepped(m, d, *a):
-    global audit_end
+    global audit_end, cap_limit, cap_last
+    if cap['arm'] or cap['jaw']:
+        # Backstop: the controller's requested target may never move faster than the robot's servos.
+        if cap_limit is None:
+            jaws = [m.actuator(s + '_gripper').id for s in ('left', 'right')]
+            per_s = np.array([(cap['jaw'] if i in jaws else cap['arm']) or np.inf for i in range(m.nu)], float)
+            cap_limit = per_s / TICKS_PER_RAD * m.opt.timestep
+            cap_last = d.ctrl.copy()
+        requested = d.ctrl.copy()
+        applied = cap_last + np.clip(requested - cap_last, -cap_limit, cap_limit)
+        if np.any(np.abs(applied - requested) > 1e-9):
+            cap_stats['backstop_steps'] += 1
+        d.ctrl[:] = applied
+        cap_stats['max_applied_ticks_per_s'] = max(cap_stats['max_applied_ticks_per_s'],
+            float(np.max(np.abs(applied - cap_last)) * TICKS_PER_RAD / m.opt.timestep))
+        cap_last = applied
     started = float(d.time)
     original(m, d, *a)
     row = sample_applied_contacts(m, d, step_started_at=started,
@@ -94,6 +121,43 @@ def stepped(m, d, *a):
         state['reason'] = 'time limit'
         raise Done()
 mujoco.mj_step = stepped
+if cap['arm'] or cap['jaw']:
+    # Stretch every segment to 1.2 x (largest joint move / cap). The controller's smoothstep then exceeds the cap
+    # mid-segment, the backstop above limits the applied target to the cap (a servo at constant Goal_Velocity), and
+    # the applied target still reaches the segment's end point with slack: the rate-limited follower is below the
+    # cap only while the smoothstep is (about the first fifth), so it needs ~1.09 x delta / cap in all.
+    RAMP_MARGIN = 1.2
+    JOINTS5 = ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll')
+    uncapped_move = FoldingSimulation.move
+    def predicted_ctrl(self, targets, orientation, grippers, joint_targets):
+        ctrl = self.data.ctrl.copy()
+        for side, values in (joint_targets or {}).items():
+            ctrl[[self.model.actuator(side + '_' + j).id for j in JOINTS5]] = np.asarray(values, float)
+        for side, opening in (grippers or {}).items():
+            ctrl[self.model.actuator(side + '_gripper').id] = opening
+        for side, point in targets.items():
+            ori = orientation.get(side) if isinstance(orientation, dict) and side in orientation else orientation
+            q, _ = self.ik(side, np.asarray(point), ori)   # deterministic: the original move re-solves from this seed
+            ctrl[[self.model.actuator(side + '_' + j).id for j in JOINTS5]] = q
+        return ctrl
+    def capped_move(self, targets, seconds=.5, label='', orientation=None, capture=True, grippers=None, joint_targets=None):
+        ctrl = predicted_ctrl(self, targets, orientation, grippers, joint_targets)
+        delta = np.abs(ctrl - self.data.ctrl) * TICKS_PER_RAD
+        jaws = [self.model.actuator(s + '_gripper').id for s in ('left', 'right')]
+        arms = [i for i in range(self.model.nu) if i not in jaws]
+        need = 0.
+        if cap['arm']:
+            need = max(need, RAMP_MARGIN * float(delta[arms].max()) / cap['arm'])
+        if cap['jaw']:
+            need = max(need, RAMP_MARGIN * float(delta[jaws].max()) / cap['jaw'])
+        cap_stats['segments'] += 1
+        if need > seconds:
+            cap_stats['stretched_segments'] += 1
+            cap_stats['max_stretch_factor'] = max(cap_stats['max_stretch_factor'], need / seconds)
+            seconds = need
+        return uncapped_move(self, targets, seconds, label, orientation, capture=capture, grippers=grippers,
+                             joint_targets=joint_targets)
+    FoldingSimulation.move = capped_move
 original_move = FoldingSimulation.move
 def checked_move(self, *args, **kwargs):
     event = original_move(self, *args, **kwargs)
@@ -131,7 +195,8 @@ audit['path'] = audit_path
 np.savez_compressed(cfg['npz'], **{k: np.array(v) for k, v in rec.items()})
 with open(cfg['status'], 'w') as f:
     json.dump({'stop_reason': state['reason'], 'controller_error': error, 'samples': len(rec['time']),
-               'sim_time': rec['time'][-1] if rec['time'] else 0.0, 'contact_audit': audit}, f)
+               'sim_time': rec['time'][-1] if rec['time'] else 0.0, 'contact_audit': audit,
+               'sample_dt': cfg['dt'], 'speed_caps_ticks_per_s': cap, 'speed_cap_stats': cap_stats}, f)
 # The controller's renderer is only closed by FoldingSimulation.save(), which a stopped trial never reaches;
 # finalizing it during interpreter shutdown segfaults in glDeleteTextures. Outputs are written; skip teardown.
 import os
@@ -148,14 +213,16 @@ def demo_succeeded(demo):
             and audit.get('independent_score', {}).get('passed') is True)
 
 
-def run_trial(python, snapshot, root, trial_dir, seed, offset_x, yaw, stiffness, task, hold_after, max_time):
+def run_trial(python, snapshot, root, trial_dir, seed, offset_x, yaw, stiffness, task, hold_after, max_time,
+              sample_dt=SAMPLE_DT, arm_cap=None, jaw_cap=None):
     trial_dir.mkdir(parents=True)
     argv = ['--simulation-root', str(root), '--out', str(trial_dir / 'run'), '--carton-yaw-degrees', f'{yaw:.4f}',
             '--carton-offset-x', f'{offset_x:.5f}', '--seed', str(seed), '--hinge-stiffness', f'{stiffness:.5f}',
             *BASE_ARGS]
     cfg = {'script': str(snapshot / 'tools/diagnose_short_flap_brace.py'), 'argv': argv, 'robot': ROBOT,
-           'task_hinges': list(TASKS[task]), 'dt': SAMPLE_DT, 'folded': FOLDED_DEGREES, 'hold_after': hold_after,
-           'max_time': max_time, 'npz': str(trial_dir / 'demo.npz'), 'status': str(trial_dir / 'status.json')}
+           'task_hinges': list(TASKS[task]), 'dt': sample_dt, 'folded': FOLDED_DEGREES, 'hold_after': hold_after,
+           'max_time': max_time, 'npz': str(trial_dir / 'demo.npz'), 'status': str(trial_dir / 'status.json'),
+           'arm_cap': arm_cap, 'jaw_cap': jaw_cap}
     started = time.time()
     env = {**os.environ, 'PYTHONPATH': str(snapshot)}
     # Each trial is a fresh process: select its EGL device before importing MuJoCo.
@@ -190,8 +257,14 @@ def main(argv=None):
     ap.add_argument('--offset-x', type=float, nargs=2, default=(0., 0.), help='carton x offset range (m), uniform')
     ap.add_argument('--yaw', type=float, nargs=2, default=(0., 0.), help='carton yaw range (degrees), uniform')
     ap.add_argument('--stiffness', type=float, nargs=2, default=(.018, .018), help='hinge stiffness range')
+    ap.add_argument('--sample-dt', type=float, default=SAMPLE_DT, help='recording period (s); the dataset resamples it')
+    ap.add_argument('--arm-cap-ticks-s', type=float, help='robot servo speed cap for the ten arm joints (encoder ticks/s)')
+    ap.add_argument('--jaw-cap-ticks-s', type=float, help='speed cap for the two jaws (encoder ticks/s)')
     ap.add_argument('--python', default=sys.executable)
     args = ap.parse_args(argv)
+    if (args.arm_cap_ticks_s is not None and args.arm_cap_ticks_s <= 0) or \
+            (args.jaw_cap_ticks_s is not None and args.jaw_cap_ticks_s <= 0) or args.sample_dt <= 0:
+        raise SystemExit('Speed caps and --sample-dt must be positive')
     args.simulation_root = args.simulation_root.resolve()
     args.out = args.out.resolve()
     args.out.mkdir(parents=True, exist_ok=False)
@@ -208,7 +281,8 @@ def main(argv=None):
     results = []
     with ThreadPoolExecutor(args.workers) as pool:
         futures = {pool.submit(run_trial, args.python, snapshot, args.simulation_root, args.out / f'trial-{i:03d}',
-                               *job, args.task, args.hold_after, args.max_time): i for i, job in enumerate(jobs)}
+                               *job, args.task, args.hold_after, args.max_time, args.sample_dt,
+                               args.arm_cap_ticks_s, args.jaw_cap_ticks_s): i for i, job in enumerate(jobs)}
         for f in as_completed(futures):
             r = f.result()
             results.append(r)

@@ -1056,6 +1056,10 @@ def main(argv=None):
     ap.add_argument("--owner-period-s", type=float, default=0.05, help="sim-owner: owner loop period")
     ap.add_argument("--rtt-s", type=float, default=0.0, help="sim-owner: API round trip per call")
     ap.add_argument("--policy-latency-s", type=float, help="sim: virtual inference time per tick (default: measured)")
+    ap.add_argument("--sim-max-speed-ticks-s", type=float, help="sim: servo speed cap (robot: ~80-90 ticks/s)")
+    ap.add_argument("--sim-camera-lag", action="append", default=[], metavar="KEY=SECONDS",
+                    help="sim: frame delay per camera (robot, run 5: front=0.2 left_wrist=0.4 right_wrist=0.4)")
+    ap.add_argument("--sim-visual-jitter", type=float, default=0.0, help="sim: carton/fold_visual_jitter scale")
     ap.add_argument("--parent-pid", type=int, help="stop (halt, hold) if this parent process exits, e.g. the chat server")
     args = ap.parse_args(argv)
 
@@ -1079,10 +1083,15 @@ def main(argv=None):
         from carton import fold_policy_fakes as fakes
         if args.sim_trial is None:
             raise SystemExit("--sim-trial is required for simulation transports")
+        lag = {k: float(v) for k, v in _pairs(args.sim_camera_lag, "sim-camera-lag").items()}
+        meta["sim_conditions"] = {"max_speed_ticks_s": args.sim_max_speed_ticks_s, "camera_lag_s": lag,
+                                  "visual_jitter": args.sim_visual_jitter, "owner_period_s": args.owner_period_s,
+                                  "rtt_s": args.rtt_s}
         rig = fakes.build_sim_rig(args.sim_trial, args.out.with_name(args.out.name + "-sim"), owner=args.transport.startswith("sim-owner"),
                                   stream=args.transport == "sim-owner-stream",
                                   owner_period_s=args.owner_period_s, rtt_s=args.rtt_s,
-                                  camera_keys=policy_camera_keys(policy))
+                                  camera_keys=policy_camera_keys(policy), max_speed_ticks_s=args.sim_max_speed_ticks_s,
+                                  camera_lag_s=lag, visual_jitter=args.sim_visual_jitter)
         policy = fakes.LatencyPolicy(policy, rig.sleep, latency_s=args.policy_latency_s)
         runner = FoldPolicyRunner(policy, rig.transport, rig.cameras, rig.arm_maps, config, args.out, envelope=envelope,
                                   clock=rig.clock, sleep=rig.sleep, stop_requested=stopped, metadata=meta)

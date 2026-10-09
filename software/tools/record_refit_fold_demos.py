@@ -32,7 +32,14 @@ station_module.FoldingStation = refit_station
 _init = sim_module.FoldingSimulation.__init__
 def refit_init(self, source, out, **kwargs):
     st = kwargs['station']
-    kwargs['initial_arm_targets'] = {{s:[sign*.16,st.base_y+.12,st.base_height+.36]
+    # Start-pose jitter: the real arms reach the start pose only within a few ticks (the right wrist stops ~40
+    # ticks short of its target), so each demo starts from a slightly different pose, seeded by the trial seed.
+    import sys as _sys
+    seed = int(_sys.argv[_sys.argv.index('--seed')+1]) if '--seed' in _sys.argv else 0
+    jitter = {start_jitter_m!r}
+    rng = np.random.default_rng(seed + 7919)
+    kwargs['initial_arm_targets'] = {{s:(np.r_[sign*.16,st.base_y+.12,st.base_height+.36]
+        + (rng.uniform(-jitter, jitter, 3) if jitter else 0.)).tolist()
         for s,sign in [('left',-1),('right',1)]}}
     kwargs['initial_right_roll'] = None
     _init(self, source, out, **kwargs)
@@ -42,6 +49,15 @@ def refit_init(self, source, out, **kwargs):
     self.model.cam_fovy[self.model.camera('front').id] = contract['policy']['vertical_fov_deg']
     tree=ET.parse(Path(out)/'scene.xml')
     tree.getroot().find("worldbody/camera[@name='front']").set('fovy',str(contract['policy']['vertical_fov_deg']))
+    front_pose = {front_pose!r}
+    if front_pose:
+        # Measured head camera pose (arm-base frame): overrides the model's assumed head pose.
+        fpos = np.asarray(front_pose['pos'], float); fx = np.asarray(front_pose['xyaxes'][:3], float)
+        fy = np.asarray(front_pose['xyaxes'][3:], float)
+        front = tree.getroot().find("worldbody/camera[@name='front']")
+        front.set('pos', words(fpos)); front.set('xyaxes', words(np.r_[fx, fy]))
+        fid = self.model.camera('front').id; self.model.cam_pos[fid] = fpos
+        mujoco.mju_mat2Quat(self.model.cam_quat[fid], np.column_stack([fx, fy, np.cross(fx, fy)]).ravel())
     save_contract(out, contract)
     pos={teacher_position!r};rx,ry=look_at_axes(pos,[0,0,.15])
     teacher=tree.getroot().find("worldbody/camera[@name='station']")
@@ -54,8 +70,9 @@ def refit_init(self, source, out, **kwargs):
         station=st.report(), physical_registration_verified=False,
         head_input=contract['policy']['sampling'],
         camera_contract_sha256=contract['contract_sha256'],
-        head_extrinsics='model assumption; no calibrated transform from current head ticks',
-        teacher_anchor_group=4, collision_visual_group=3,
+        head_extrinsics=('measured head pose override: '+str(front_pose.get('source'))) if front_pose
+            else 'model assumption; no calibrated transform from current head ticks',
+        start_pose_jitter_m=jitter, teacher_anchor_group=4, collision_visual_group=3,
         hardware_commands=False), indent=2))
 sim_module.FoldingSimulation.__init__ = refit_init
 '''
@@ -74,7 +91,16 @@ def main(argv=None):
     ap.add_argument('--clearance', type=float)
     ap.add_argument('--axis-sign', type=int, choices=(-1,1))
     ap.add_argument('--teacher-position', type=float, nargs=3, default=[-.5,-.7,.75])
+    ap.add_argument('--start-jitter-m', type=float, default=0.,
+                    help='uniform +/- jitter of each arm\'s initial Cartesian target (m), seeded per trial')
+    ap.add_argument('--front-camera-pose', type=Path,
+                    help='JSON {pos:[3], xyaxes:[6], source:...}: measured head camera pose replacing the model one')
     args = ap.parse_args(argv[:split])
+    if args.start_jitter_m < 0 or args.start_jitter_m > .03:
+        ap.error('--start-jitter-m must be within 0..0.03')
+    front_pose = json.loads(args.front_camera_pose.read_text()) if args.front_camera_pose else None
+    if front_pose and (len(front_pose.get('pos', [])) != 3 or len(front_pose.get('xyaxes', [])) != 6):
+        ap.error('--front-camera-pose needs pos[3] and xyaxes[6]')
     for flag in ('--along', '--radius', '--pinch-normal-tilt-degrees', '--pre-height', '--axis-sign', '--clearance'):
         value = getattr(args, flag[2:].replace('-', '_'))
         if value is not None:
@@ -83,7 +109,9 @@ def main(argv=None):
             else:
                 recorder.BASE_ARGS += [flag, str(value)]
     recorder.TRIAL = PRELUDE.format(upstream=str(args.upstream.resolve()),
-                                   teacher_position=args.teacher_position) + recorder.TRIAL
+                                   teacher_position=args.teacher_position,
+                                   start_jitter_m=float(args.start_jitter_m),
+                                   front_pose=front_pose) + recorder.TRIAL
     recorder.main(argv[split+1:])
 
 if __name__ == '__main__':

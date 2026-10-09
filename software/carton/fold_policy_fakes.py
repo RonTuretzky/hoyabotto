@@ -582,6 +582,33 @@ class SimCameras:
                            f"sim:{SCENE_CAMERA.get(key, key)}") for key in self.keys}
 
 
+class LaggedSimCameras(SimCameras):
+    """SimCameras whose frames arrive `lag_s[key]` seconds after capture, like the robot's (run 5, 9 Oct: head
+    0.2 s, wrists 0.4 s). Each tick renders now and returns, per camera, the newest frame captured at or before
+    now - lag, stamped with its own capture time; before any frame is that old the first frame is returned."""
+    def __init__(self, plant, clock, keys=LEGACY_CAMERA_KEYS, lag_s=None):
+        super().__init__(plant, clock, keys)
+        self.lag_s = {k: float(v) for k, v in (lag_s or {}).items()}
+        self.history: dict[str, list[Frame]] = {k: [] for k in self.keys}
+
+    def frames(self):
+        fresh = super().frames()
+        now = self.clock()
+        out = {}
+        for key, frame in fresh.items():
+            history = self.history[key]
+            history.append(frame)
+            cutoff = now - self.lag_s.get(key, 0.)
+            chosen = history[0]
+            for f in history:
+                if f.captured_at <= cutoff + 1e-9:
+                    chosen = f
+            while len(history) > 1 and history[1].captured_at <= cutoff + 1e-9:
+                history.pop(0)
+            out[key] = chosen
+        return out
+
+
 class SyntheticCameras:
     """Small deterministic images for fast tests; `freeze` repeats the last frame, `delay_s` ages it."""
     def __init__(self, clock, shape=(24, 32, 3), keys=CAMERA_KEYS):
@@ -681,10 +708,12 @@ class SimRig:
 
 def build_sim_rig(trial: Path, workdir: Path, *, owner: bool = True, owner_period_s=0.05, rtt_s=0.0,
                   api_cameras: bool = False, height=240, width=320, max_speed_ticks_s=None, load_model="constant",
-                  camera_keys=None, stream: bool = False):
+                  camera_keys=None, stream: bool = False, camera_lag_s=None, visual_jitter=0.0):
     """MuJoCo carton fold simulation behind the deployed owner (owner=True) or directly (owner=False).
 
-    `camera_keys` are the policy's cameras (default: what the scene has, see scene_camera_keys)."""
+    `camera_keys` are the policy's cameras (default: what the scene has, see scene_camera_keys). `camera_lag_s`
+    delays the simulated frames per camera (LaggedSimCameras); `visual_jitter` perturbs the cameras per episode
+    (carton/fold_visual_jitter, seeded by the trial's seed); `max_speed_ticks_s` caps the servo speed."""
     import mujoco
     from carton.fold_policy_runner import ApiCameras, ApiOwnerTransport, StreamOwnerTransport
     workdir = Path(workdir)
@@ -697,20 +726,32 @@ def build_sim_rig(trial: Path, workdir: Path, *, owner: bool = True, owner_perio
                                evidence="SIMULATION ONLY: generated from MuJoCo joint ranges, not a robot measurement")
     plant = MujocoFoldPlant(trial, maps, height=height, width=width, max_speed_ticks_s=max_speed_ticks_s,
                             load_model=load_model)
+    if visual_jitter:
+        from carton.fold_visual_jitter import episode_rng, jitter_cameras, ImageJitter
+        seed = json.loads((Path(trial) / "demo.json").read_text()).get("seed", 0)
+        rng = episode_rng(seed)
+        plant.visual_jitter = jitter_cameras(plant.m, rng, visual_jitter)
+        image_jitter = ImageJitter(rng, visual_jitter)
+        unjittered_render = plant.render
+        plant.render = lambda camera: image_jitter(unjittered_render(camera))
     clock = VirtualClock()
+    def sim_cameras():
+        if camera_lag_s:
+            return LaggedSimCameras(plant, clock, keys, lag_s=camera_lag_s)
+        return SimCameras(plant, clock, keys)
     if owner:
         fake = FakeOwner(plant, calibration, workdir / "robot", clock=clock, owner_period_s=owner_period_s, rtt_s=rtt_s,
                          camera_publisher=sim_camera_publisher(plant, keys) if api_cameras else None, stream=stream)
         transport = (StreamOwnerTransport if stream else ApiOwnerTransport)(fake, clock=clock)
         mapping = {"top": "oak", "front": "phone"} if keys == LEGACY_CAMERA_KEYS else DEFAULT_ROBOT_CAMERAS
-        cameras = ApiCameras(fake, mapping) if api_cameras else SimCameras(plant, clock, keys)
+        cameras = ApiCameras(fake, mapping) if api_cameras else sim_cameras()
         return SimRig(clock, fake.sleep, transport, cameras, maps, plant, fake, calibration)
 
     def sleep(dt):
         plant.integrate(dt)
         clock.advance(dt)
     transport = SimDirectTransport(plant, calibration, clock)
-    return SimRig(clock, sleep, transport, SimCameras(plant, clock, keys), maps, plant, None, calibration)
+    return SimRig(clock, sleep, transport, sim_cameras(), maps, plant, None, calibration)
 
 
 def build_kinematic_rig(workdir: Path, start: dict[str, int] | None = None, *, rate_ticks_s=200.0, owner_period_s=0.05,
