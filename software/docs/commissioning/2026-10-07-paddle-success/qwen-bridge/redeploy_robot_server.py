@@ -26,7 +26,7 @@ OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api
 # Files only the API process loads: these can be replaced by restarting the API alone, with motors untouched.
 API_ONLY=['joycon_teleop_api.py','gemma_robot_tools.py','gemma_reach_planner.py','right-arm-kinematics.json','wrist_cameras.py','frame_clips.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
 INSTALL=['joycon_native_units.py','joycon_reference.py','joycon_teleop.py','joycon_teleop_api.py','calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','frame_clips.py','paddle-procedure.json','restart_gemma_owner_released.py','gemma_reach_planner.py','right-arm-kinematics.json','stream_joint_executor.py','head_joint_executor.py']
-TESTS=['test_oak_profile.py','test_joycon_teleop.py','test_joycon_commissioning.py','test_gripper_chunks.py','test_gripper_enable.py','test_oak_wait.py','test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_frame_clips.py','test_reach_planner_right.py','test_stream_targets.py','test_head_scope.py']
+TESTS=['test_oak_profile.py','test_joycon_teleop.py','test_joycon_commissioning.py','test_gripper_chunks.py','test_gripper_enable.py','test_oak_wait.py','test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_phone_camera_deploy.py','test_phone_deploy_dispatch.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_frame_clips.py','test_reach_planner_right.py','test_stream_targets.py','test_head_scope.py']
 OWNER_ARGS=['--both-arms','--paddle-profile','--wheels','--head','--allow-missing-bus'];  # an arm (or the head) whose calibration mismatches stays read-only
 API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
@@ -385,6 +385,7 @@ def main():
  parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
  parser.add_argument('--dry-run',action='store_true',help='run tests and show what would change; stop nothing')
  parser.add_argument('--api-only',action='store_true',help='install API-side files and restart only the API (safe while motors hold); refuses if owner-side files changed')
+ parser.add_argument('--phone-only',action='store_true',help='install and restart only the existing phone camera publisher; --dry-run checks without changes')
  parser.add_argument('--cameras-only',action='store_true',help='only start missing wrist-camera publishers (run from Terminal); the server is not touched')
  parser.add_argument('--joycon-teleop',action='store_true',help='explicitly enable manual Joy-Con sessions in the owner (starts disarmed)')
  parser.add_argument('--upstream-joycon-reference',type=Path,help='Explicitly install the measured upstream control mode in the owner; requires --joycon-teleop')
@@ -397,6 +398,14 @@ def main():
  parser.add_argument('--oak',choices=['on','off'],help='switch the OAK stream off (stays off across deploys) or back on; combine with --cameras-only')
  parser.add_argument('--release-holding',action='store_true',help='allow stopping an owner that is holding motors (the arm will lose torque; support it first)')
  args=parser.parse_args()
+ if args.phone_only:
+  if any(value for name,value in vars(args).items() if name not in ('phone_only','dry_run')):
+   parser.error('--phone-only can only be combined with --dry-run')
+  from phone_camera_deploy import deploy_phone_camera
+  report=deploy_phone_camera(ROOT,dry_run=args.dry_run)
+  print(json.dumps(report,indent=2),flush=True)
+  if report.get('ok') is not True:sys.exit(1)
+  return
  if args.native_joycon_reference:
   if not args.joycon_teleop or args.upstream_joycon_reference or args.right_arm_only or args.no_wheels or args.no_head or args.api_only or args.cameras_only or args.network_only or args.release_holding:
    parser.error('Native Joy-Con commissioning requires an exclusive full released deployment with arms, head and wheels')

@@ -7,7 +7,7 @@
 <script>
 'use strict';
 const $=id=>document.getElementById(id),token=decodeURIComponent(location.hash.slice(1)),client=crypto.randomUUID?.()||String(Date.now())+Math.random();
-const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{alpha:false});let stream=null,active=false,busy=false,timer=null,wake=null,facing='environment',sent=0,lastSent=0,run=0,uploadAbort=null;
+const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{alpha:false});let stream=null,active=false,busy=false,timer=null,wake=null,facing='environment',sent=0,lastSent=0,run=0,uploadAbort=null,browserStream=null,lastFrame=null;
 const headers=()=>({'Authorization':'Bearer '+token,'X-Camera-Client':client});
 function error(message){$('error').textContent=message;$('error').hidden=!message}
 function state(message,live=false){$('state').textContent=message;$('state').className=live?'live':''}
@@ -16,17 +16,59 @@ async function release(notify=true){active=false;run++;clearTimeout(timer);if(up
 async function start(){
  error('');if(!token){error('Camera key missing. Scan the Mac’s QR code again.');return}if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){error('Camera access needs the trusted secure connection. Complete the certificate setup, then reopen this page.');return}
  $('start').disabled=true;state('Opening camera…');
- try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:15,max:30}}});$('preview').srcObject=stream;await $('preview').play();active=true;run++;sent=0;lastSent=0;$('stop').disabled=false;$('flip').disabled=false;state('Camera on · connecting…');await keepAwake();sendFrame(run)}catch(e){await release(false);error(e.name==='NotAllowedError'?'Camera permission was not granted. Allow camera access for this page in your browser, then try again.':e.name==='NotFoundError'?'No camera is available on this device.':'Could not open the camera: '+e.message)}
+ try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:15,max:30}}});$('preview').srcObject=stream;await $('preview').play();active=true;run++;browserStream=crypto.randomUUID?.()||String(Date.now())+Math.random();lastFrame=null;sent=0;lastSent=0;$('stop').disabled=false;$('flip').disabled=false;state('Camera on · connecting…');await keepAwake();sendFrame(run)}catch(e){await release(false);error(e.name==='NotAllowedError'?'Camera permission was not granted. Allow camera access for this page in your browser, then try again.':e.name==='NotFoundError'?'No camera is available on this device.':'Could not open the camera: '+e.message)}
+}
+const timingProtocol='server-challenge-video-frame-v1';
+// Register only after the challenge arrives. Draw synchronously in a *new*
+// video-frame callback; a timer-driven draw of an old preview is not evidence.
+function challengedFrame(video,challengeReceived,generation,signal){
+ return new Promise((resolve,reject)=>{
+  let callback=null,done=false;
+  const finish=(err,value)=>{if(done)return;done=true;clearTimeout(deadline);signal.removeEventListener('abort',aborted);if(callback!==null)video.cancelVideoFrameCallback(callback);err?reject(err):resolve(value)};
+  const aborted=()=>finish(new DOMException('Capture cancelled','AbortError'));
+  const deadline=setTimeout(()=>finish(Error('No new video frame arrived for the challenge.')),900);
+  signal.addEventListener('abort',aborted,{once:true});
+  if(signal.aborted){aborted();return}
+  const next=(now,meta)=>{
+   callback=null;
+   if(!active||generation!==run||document.hidden){finish(Error('Camera sharing paused.'));return}
+   if(![now,meta.presentationTime,meta.mediaTime].every(v=>Number.isFinite(v)&&v>=0)||!Number.isSafeInteger(meta.presentedFrames)||meta.presentedFrames<1){finish(Error('Browser frame identity/timing unavailable.'));return}
+   if(meta.presentationTime<challengeReceived||meta.presentationTime>now||(lastFrame&&(meta.presentedFrames<=lastFrame.presented_frames||meta.mediaTime<=lastFrame.media_time_s))){callback=video.requestVideoFrameCallback(next);return}
+   try{
+    const scale=Math.min(1,1280/Math.max(video.videoWidth,video.videoHeight));
+    canvas.width=Math.max(10,Math.round(video.videoWidth*scale));canvas.height=Math.max(10,Math.round(video.videoHeight*scale));
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const timing={browser_stream_id:browserStream,presented_frames:meta.presentedFrames,media_time_s:meta.mediaTime,challenge_received_ms:challengeReceived,callback_now_ms:now,presentation_time_ms:meta.presentationTime};
+    canvas.toBlob(blob=>finish(blob?null:Error('Could not encode an image.'),{blob,timing}),'image/jpeg',.72);
+   }catch(e){finish(e)}
+  };
+  callback=video.requestVideoFrameCallback(next);
+ });
 }
 async function sendFrame(generation){
  if(!active||generation!==run)return;
  if(document.hidden){state('Sharing paused · page hidden');timer=setTimeout(()=>sendFrame(generation),500);return}
  if(busy){timer=setTimeout(()=>sendFrame(generation),100);return}
  const video=$('preview');if(!video.videoWidth){timer=setTimeout(()=>sendFrame(generation),100);return}
+ if(typeof video.requestVideoFrameCallback!=='function'||typeof video.cancelVideoFrameCallback!=='function'){state('Browser update required');error('This browser cannot confirm new video frames. Update the browser and reopen this page.');return}
  busy=true;const began=performance.now();let failed=false;
- try{const scale=Math.min(1,1280/Math.max(video.videoWidth,video.videoHeight));canvas.width=Math.max(10,Math.round(video.videoWidth*scale));canvas.height=Math.max(10,Math.round(video.videoHeight*scale));ctx.drawImage(video,0,0,canvas.width,canvas.height);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.72));if(!blob)throw Error('Could not capture an image.');if(!active||generation!==run)return;const abort=new AbortController();uploadAbort=abort;const timeout=setTimeout(()=>abort.abort(),5000);let response;try{response=await fetch('/api/frame',{method:'POST',headers:{...headers(),'Content-Type':'image/jpeg'},body:blob,signal:abort.signal})}finally{clearTimeout(timeout);if(uploadAbort===abort)uploadAbort=null}if(!response.ok)throw Error(await response.text());const info=await response.json();if(!active||generation!==run)return;sent++;lastSent=Date.now();state('Sharing live',true);$('stats').textContent=`${info.width} × ${info.height} · ${sent} images received by Mac · ${new Date(lastSent).toLocaleTimeString()}`;error('')}
- catch(e){failed=true;if(active&&generation===run){state('Connection interrupted');error(e.name==='AbortError'?'The Mac did not reply. Check Wi-Fi; retrying automatically.':'Image not delivered: '+e.message+' Retrying…')}}
- finally{busy=false;if(active&&generation===run)timer=setTimeout(()=>sendFrame(generation),failed?1200:Math.max(0,250-(performance.now()-began)))}
+ const abort=new AbortController();uploadAbort=abort;const timeout=setTimeout(()=>abort.abort(),5000);
+ try{
+  const challengeResponse=await fetch('/api/challenge',{method:'POST',headers:{...headers(),'X-Camera-Stream':browserStream},signal:abort.signal,cache:'no-store'});
+  if(!challengeResponse.ok)throw Error(await challengeResponse.text());
+  const challenge=await challengeResponse.json(),challengeReceived=performance.now();
+  if(challenge.protocol!==timingProtocol||typeof challenge.challenge_id!=='string')throw Error('Camera server timing protocol unavailable.');
+  if(!active||generation!==run)return;
+  const {blob,timing}=await challengedFrame(video,challengeReceived,generation,abort.signal);
+  if(!active||generation!==run||document.hidden)return;
+  const response=await fetch('/api/frame',{method:'POST',headers:{...headers(),'Content-Type':'image/jpeg','X-Camera-Timing':JSON.stringify({...timing,protocol:timingProtocol,challenge_id:challenge.challenge_id})},body:blob,signal:abort.signal,cache:'no-store'});
+  if(!response.ok)throw Error(await response.text());
+  const info=await response.json();if(!active||generation!==run)return;
+  if(info.frame_timing?.protocol!==timingProtocol||info.frame_timing?.challenge_id!==challenge.challenge_id)throw Error('Server did not confirm browser-frame timing.');
+  lastFrame=timing;sent++;lastSent=Date.now();state('Sharing · new video frames',true);
+  $('stats').textContent=`${info.width} × ${info.height} · ${sent} images received by Mac · ${new Date(lastSent).toLocaleTimeString()}`;error('');
+ }catch(e){failed=true;if(active&&generation===run){state('Connection interrupted');error(e.name==='AbortError'?'The Mac did not reply. Check Wi-Fi; retrying automatically.':'Image not delivered: '+e.message+' Retrying…')}}
+ finally{clearTimeout(timeout);if(uploadAbort===abort)uploadAbort=null;busy=false;if(active&&generation===run)timer=setTimeout(()=>sendFrame(generation),failed?1200:Math.max(0,250-(performance.now()-began)))}
 }
 $('start').onclick=start;$('stop').onclick=()=>release();$('flip').onclick=async()=>{await release();facing=facing==='environment'?'user':'environment';await start()};
 document.addEventListener('visibilitychange',()=>{if(active&&!document.hidden)keepAwake()});window.addEventListener('pagehide',()=>release());

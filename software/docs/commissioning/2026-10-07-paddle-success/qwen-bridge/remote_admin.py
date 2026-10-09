@@ -11,6 +11,7 @@ from pathlib import Path
 
 REF=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$')
 MODES={'joycon-ready':['--joycon-teleop','--native-joycon-reference','--no-wrist-cams'],'joycon-ready-dry-run':['--joycon-teleop','--native-joycon-reference','--no-wrist-cams','--dry-run'],'restart':[],'api-only':['--api-only'],'network-only':['--network-only'],'oak-off':['--cameras-only','--oak','off'],'oak-on':['--cameras-only','--oak','on'],'cameras-only':['--cameras-only'],'dry-run':['--dry-run'],'checkout-only':None}
+MODES.update({'phone-only': ['--phone-only'], 'phone-dry-run': ['--phone-only', '--dry-run']})
 MAX_LOG_BYTES=64*1024
 
 

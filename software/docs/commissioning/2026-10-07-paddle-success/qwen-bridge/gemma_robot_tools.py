@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import io
 import json
+import math
 import os
 import ssl
 import sys
@@ -217,7 +218,7 @@ TOOLS = [
     tool('robot_set_motor_enable', 'Explicitly enable or release named motors through the single hardware owner. Enabling HOLDS EACH MOTOR WHERE IT IS: the goal is set to the freshly read encoder before and after torque-on, so no motion happens and goals from earlier sessions are never used. A released joint may rest a little outside commandable_ranges (gravity); enabling is allowed anywhere inside the saved range and the next move must target inside commandable_ranges. Pickup profile: enable all six joints of an arm in one call. Head motors (head_motor_1 pan, head_motor_2 tilt; the OAK camera rides on the head) can be enabled when robot_get_capabilities.head_supported is true; they are not part of any arm six-joint rule and move only through robot_move_head. Wheels are read-only (robot_move_base needs no enable). Never automatically activates at server startup. speed_profile defaults to normal; demo raises arm positioning speed to at most 300 ticks/s (about 26 degrees/s) for an explicitly user-requested free-space demo. Select only while the arm is released. Grippers, head, base and contact/load guards stay unchanged. Policy streaming requires normal.', {'names': MOTOR_NAMES, 'enabled': {'type': 'boolean'}, 'speed_profile': {'type': 'string', 'enum': ['normal','demo']}}, ['names', 'enabled']),
     tool('robot_move_motor_targets', 'Raw integer encoder targets for the14 arm/head/gripper position motors already enabled. Sole owner enforces ranges, rates, following, watchdog and measured completion. No wheel movement or automatic activation.', {'positions': TARGET, 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}}, ['positions', 'duration_s']),
     tool('robot_get_state', 'Read all16 servo states while released; during an owner session return live selected-arm telemetry and explicitly aged cached remaining motors. Never creates a second serial owner.', {'fresh': {'type': 'boolean'}}),
-    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone timestamp is receipt, not capture; wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}, 'revive': {'type': 'boolean', 'description': 'Restart a stalled wrist stream to get a frame (default true; previews pass false)'}}),
+    tool('robot_get_cameras', 'Fresh OAK RGB (prefer actual rectified stream, explicit distorted fallback), phone, and wrist-camera snapshots (left_wrist, right_wrist: 640x480 native AVFoundation streams pinned to their device IDs; request them explicitly, the default is oak+phone). Reject stale feeds (>1 s). Phone captured_at stays null: legacy freshness is receipt only; challenged uploads additionally bound browser-frame age, never physical sensor exposure. Wrist images are not calibrated to the robot frame; images do not authorize motion.', {'cameras': {'type': 'array', 'items': {'type': 'string', 'enum': ['oak', 'phone', 'left_wrist', 'right_wrist']}, 'minItems': 1, 'maxItems': 4}, 'revive': {'type': 'boolean', 'description': 'Restart a stalled wrist stream to get a frame (default true; previews pass false)'}}),
     tool('robot_get_clip', 'Several recent frames of one camera as a short burst (oldest first, timestamps included): ask for it to see motion, e.g. whether the claw moved toward the object, whether the jaws closed on it, whether anything shifted. Not for distances. Costs several images; keep seconds and fps small.', {'camera': {'type': 'string', 'enum': list(frame_clips.CAMERAS)}, 'seconds': {'type': 'number', 'minimum': 0.5, 'maximum': 4, 'description': 'How far back the burst reaches (default 2)'}, 'fps': {'type': 'number', 'minimum': 1, 'maximum': 8, 'description': 'Frames per second in the burst (default 4); never more than 12 frames'}, 'max_width': {'type': 'integer', 'minimum': 160, 'maximum': 640, 'description': 'Frames are downscaled to this width in pixels (default 480)'}}, ['camera']),
     tool('robot_get_capabilities', 'Report actual joint ranges, units, supported controller protocol and concrete motion blockers.'),
     tool('robot_get_depth', 'Fresh OAK depth PNG paired with actual rectified or raw RGB manifest. Reject stale feeds; RGB-depth registration and robot transform remain unverified.'),
@@ -337,6 +338,76 @@ def state(fresh=True):
     return result
 
 
+def phone_frame_metadata(meta, *, wall_now=None, monotonic_now=None):
+    """Validate timing from the phone server on THIS host; never infer sensor exposure.
+
+    Persisted ages/live flags are snapshots, so recompute them. Monotonic values
+    are comparable only on the phone server's host, where this bridge runs.
+    Legacy manifests retain the existing receipt-only availability contract.
+    """
+    def number(value):
+        try:return type(value) in (int, float) and math.isfinite(value) and value >= 0
+        except OverflowError:return False
+
+    if not isinstance(meta, dict):
+        raise ValueError('Phone manifest is not an object')
+    stamp = meta.get('received_at')
+    if (not number(stamp) or type(meta.get('seq')) is not int or meta['seq'] < 1
+            or meta.get('captured_at') is not None):
+        raise ValueError('Invalid phone receipt timestamp/sequence or mislabeled capture')
+    wall_now = time.time() if wall_now is None else wall_now
+    age = wall_now - stamp
+    result = {'captured_at': None, 'received_at': stamp, 'seq': meta['seq'],
+              'stream_id': meta.get('stream_id'), 'age_s': age, 'receipt_age_s': age,
+              'fresh': number(age) and age <= 1, 'frame_timing': None,
+              'freshness_basis': 'server_receipt_only', 'browser_frame_fresh': False,
+              'browser_frame_age_upper_bound_s': None, 'browser_frame_age_evaluated_at': wall_now,
+              'timestamp_semantics': 'server receipt; capture delay unknown'}
+    timing = meta.get('frame_timing')
+    if timing is None:
+        if (meta.get('freshness_basis') == 'browser_video_frame'
+                or meta.get('browser_frame_fresh') is True
+                or meta.get('browser_frame_age_upper_bound_s') is not None):
+            raise ValueError('Missing phone timing evidence for claimed browser-frame bound')
+        return result
+    if (not isinstance(timing, dict) or timing.get('protocol') != 'server-challenge-video-frame-v1'
+            or timing.get('clock_domain') != 'phone_server_monotonic'):
+        raise ValueError('Unknown phone frame timing protocol')
+    fields = ('challenge_issued_at', 'challenge_issued_monotonic_s', 'received_monotonic_s',
+              'browser_frame_age_upper_bound_s_at_receipt', 'media_time_s',
+              'challenge_received_ms', 'callback_now_ms', 'presentation_time_ms')
+    if not all(number(timing.get(k)) for k in fields):
+        raise ValueError('Malformed phone frame timing numbers')
+    if (type(timing.get('presented_frames')) is not int or not 1 <= timing['presented_frames'] <= 2**53-1
+            or any(not isinstance(timing.get(k), str) or not timing[k] for k in
+                   ('server_instance_id', 'browser_stream_id', 'challenge_id'))
+            or not isinstance(meta.get('stream_id'), str)
+            or not meta['stream_id'].startswith(timing['server_instance_id'] + ':')
+            or not meta['stream_id'].endswith(':' + timing['browser_stream_id'])
+            or not isinstance(meta.get('sha256'), str) or len(meta['sha256']) != 64
+            or any(c not in '0123456789abcdef' for c in meta['sha256'])
+            or any(k not in timing or timing[k] is not None for k in ('sensor_exposure_at', 'sensor_exposure_age_s'))):
+        raise ValueError('Malformed phone frame identity/digest/exposure semantics')
+    elapsed = timing['received_monotonic_s'] - timing['challenge_issued_monotonic_s']
+    monotonic_now = time.monotonic() if monotonic_now is None else monotonic_now
+    receipt_age = monotonic_now - timing['received_monotonic_s']
+    if (not 0 <= elapsed <= 1 or not number(receipt_age) or not number(age)
+            or not math.isclose(elapsed, timing['browser_frame_age_upper_bound_s_at_receipt'], rel_tol=0, abs_tol=1e-9)
+            or not 0 <= stamp - timing['challenge_issued_at']
+            or abs(stamp - timing['challenge_issued_at'] - elapsed) > .05
+            or abs(age - receipt_age) > .05
+            or not timing['challenge_received_ms'] <= timing['presentation_time_ms'] <= timing['callback_now_ms']
+            or (timing['callback_now_ms'] - timing['challenge_received_ms']) / 1000 > elapsed + .05):
+        raise ValueError('Invalid phone timing interval or server clock discontinuity')
+    # The larger elapsed reading is conservative; no phone/server clock offset.
+    bound = elapsed + max(receipt_age, age)
+    result.update(frame_timing=dict(timing), freshness_basis='browser_video_frame',
+                  browser_frame_age_upper_bound_s=bound, browser_frame_fresh=bound <= 1,
+                  fresh=result['fresh'] and bound <= 1,
+                  timestamp_semantics='server challenge bounds browser frame presentation; physical sensor exposure unknown')
+    return result
+
+
 def camera_status():
     result = {}
     for name, path, field in [
@@ -345,15 +416,15 @@ def camera_status():
         ('phone', ROOT / 'work/phone_camera/latest.json', 'received_at')]:
         try:
             meta = json.loads(path.read_text())
-            age = time.time() - meta[field]
+            phone = phone_frame_metadata(meta) if name == 'phone' else None
+            age = phone['receipt_age_s'] if phone is not None else time.time() - meta[field]
             result[name] = {'available': True, 'fresh': 0 <= age <= 1, 'age_s': age,
                 field: meta[field], 'seq': meta.get('seq'), 'stream_id': meta.get('stream_id'),
                 'projection': meta.get('projection'),
                 'rgb_depth_pixel_registration_verified': meta.get('rgb_depth_pixel_registration_verified', False),
                 'robot_frame_calibrated': meta.get('robot_frame_calibrated', False)}
             if name == 'phone':
-                result[name]['timestamp_semantics'] = 'server receipt; capture delay unknown'
-                result[name]['captured_at'] = None
+                result[name].update(phone)
         except (OSError, ValueError, KeyError, TypeError) as exc:
             result[name] = {'available': False, 'fresh': False, 'error': str(exc)}
     result.update(wrist_status(WRIST_DIRS))
@@ -432,11 +503,19 @@ def cameras_strict(names, allow_revive=True):
                     folder = ROOT / 'work/phone_camera'
                     m = json.loads((folder / 'latest.json').read_text())
                     data = (folder / 'latest.jpg').read_bytes()
-                    assert m['seq'] == json.loads((folder / 'latest.json').read_text())['seq']
+                    reread = json.loads((folder / 'latest.json').read_text())
+                    if (m['seq'], m.get('stream_id')) != (reread['seq'], reread.get('stream_id')):
+                        raise AssertionError('Phone manifest changed during image read')
+                    # New manifests bind timing/identity to exactly these bytes,
+                    # including the image-before-manifest atomic replace window.
+                    if m.get('sha256') is not None:
+                        if hashlib.sha256(data).hexdigest() != m['sha256']:
+                            raise AssertionError('Phone image does not match manifest digest')
                     stamp = m['received_at']
                     image = {'camera_id': 'phone_overview', 'mime_type': 'image/jpeg',
-                             'captured_at': None, 'received_at': stamp, 'seq': m['seq'],
-                             'timestamp_semantics': 'server receipt; capture delay unknown'}
+                             **phone_frame_metadata(m)}
+                    if not image['fresh']:
+                        raise RuntimeError('phone image is stale (receipt or browser-frame bound)')
                 elif name in ('left_wrist', 'right_wrist'):
                     revived = False
                     try:

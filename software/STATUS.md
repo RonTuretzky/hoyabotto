@@ -1,3 +1,29 @@
+## AprilTag blocker fixes: phone timing and isolated deployment — 10 October 2026
+
+- After the user moved table tag1 fully onto the tabletop, OAK frame89288 accepts
+  tags1/2 (and10/14/26/27). Visual inspection confirms the black square is supported
+  and flat; fixed-housing hand2 remains visible. The anchor moved, so calibration
+  must establish a new baseline. Evidence: seville-v2
+  `.context/tag-direction-probe/parallel-fixes/table-flat-views/`.
+- Phone publisher/browser and API now carry a one-use server-challenge protocol,
+  advancing browser video-frame identity and a JPEG digest. The bridge recomputes
+  the browser-presentation age bound and refuses malformed/replayed/stale timing.
+  Physical sensor exposure remains unknown and captured_at stays null. This does
+  not establish synchronized sensor capture or metric phone calibration. Existing
+  browser pages must reload after deployment to load the new timing code.
+- Added exclusive phone-only/phone-dry-run admin modes: preflight the exact phone
+  process, interpreter, source files and listeners; back up and replace only
+  server.py/camera.html; restart only that process, with rollback on failure.
+  The API-side timing change requires an API-only deployment first. No owner,
+  OAK configuration, wrist publisher, calibration, speed or hardware limit changes.
+- Offline integration: all30 required bridge test files pass, including isolated
+  deployment and conflicting-mode refusal; phone timing68 Python tests and7
+  browser-logic tests pass. This records local verification, not deployment.
+- Fresh pre-deployment live read confirms all16 motors torque-off, owner idle,
+  pilot idle, owner generation1791551739.406972, motor_writes1114 and stop_count0.
+  No enable, move, STOP or recording start in this continuation. Camera-to-arm
+  calibration and physical joint mapping remain outstanding.
+
 ## Authorized wrist direction probe: read-only preflight and sampler repair — 9 October 2026
 
 - After the user moved table1 toward the light, both measured tags decode in5/5

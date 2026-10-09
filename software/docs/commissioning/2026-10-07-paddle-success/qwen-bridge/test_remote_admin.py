@@ -18,6 +18,8 @@ with tempfile.TemporaryDirectory() as tmp:
  except ValueError as x:assert 'No deploy record' in str(x)
  else:raise AssertionError('deploy without record')
  (root/'work/deploy.json').write_text(json.dumps({'checkout':str(checkout)}))
+ assert A.MODES['phone-only']==['--phone-only']
+ assert A.MODES['phone-dry-run']==['--phone-only','--dry-run']
  for bad in ['../x','-rf','main;rm','']:
   try:A.start_deploy(root,bad,'restart')
   except ValueError:pass
