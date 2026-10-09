@@ -123,7 +123,8 @@ GRIPPER_CLOSED_OFFSET = {'left': 82, 'right': 79}
 # - lift_bias_deg: the physical shoulder_lift sits this many degrees from what its ticks say (the arm model reads a few
 #   cm high near the box: a claw the model put at 73-75 cm met nothing below the 77 cm rim); positive = claw lower;
 # - roll_offset_deg: the physical wrist_roll sits this far from the twin's mapping, so the unrolled jaws open to the
-#   robot's left and right as on the real robot (the twin has them opening up and down).
+#   robot's left and right as on the real robot (the twin has them opening up and down);
+# - plastic (optional): overrides for box_scene.PLASTIC, e.g. a crease that is harder to set than the default.
 FIDELITY = {'meet_jitter_ticks': {'left': (0, 4), 'right': (-4, 10)},
             'right_grip_sticks': {'p_close': 0.5, 'p_open': 0.4, 'p_reopen': 0.7, 'close_band': (1520, 1610),
                                   'open_band': (1500, 1950)},
@@ -733,6 +734,8 @@ class SimRobot:
         if fidelity is not None:
             base.update(fidelity)
         self.fidelity = base
+        if self.plastic is not None and isinstance(base.get('plastic'), dict):
+            self.plastic.update(base['plastic'])   # e.g. a stiffer crease: {'rate_per_s': 0.3, 'full_set_deg': 112}
         self.rng = random.Random(1000003 * (int(seed) if isinstance(seed, int) else 0) + 17)
         self.world = World()
         self.lock = self.world.lock
