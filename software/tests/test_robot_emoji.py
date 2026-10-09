@@ -40,10 +40,22 @@ def test_default_wave_loads_and_fits_live_ranges():
     plan = G.plan([wave], START, RANGES)
     assert [p['part'] for p in plan['paths']] == ['raise', 'motion', 'return']
     assert plan['motors'] == RIGHT
-    # the gesture never touches the gripper or the wrist roll; home is where the arm rested
+    # The gesture never touches the gripper or wrist roll; home is where the arm rested.
     assert plan['home'] == {n: START[n] for n in ('right_arm_elbow_flex', 'right_arm_shoulder_lift', 'right_arm_shoulder_pan', 'right_arm_wrist_flex')}
     for p in plan['paths']:
         assert 0 < p['duration_s'] <= G.MAX_PATH_S and len(p['waypoints']) <= G.MAX_PATH_WAYPOINTS
+
+
+def test_quick_wave_shortens_travel_at_the_same_controller_pace():
+    catalog = G.load()
+    assert len(catalog['wave'].motion) == 3
+    assert len(catalog['full_wave'].motion) == 5
+    assert catalog['full_wave'].verified_on_hardware is True
+    quick = G.plan([catalog['wave']], START, RANGES)
+    full = G.plan([catalog['full_wave']], START, RANGES)
+    assert sum(p['duration_s'] for p in quick['paths']) < sum(p['duration_s'] for p in full['paths'])
+    assert G.STEP_TICKS == 40 and G.STEP_S == .4
+    assert all('right_arm_gripper' not in w for p in quick['paths'] for w in p['waypoints'])
 
 
 def test_motion_legs_must_be_one_owner_piece():
@@ -60,7 +72,7 @@ def test_motion_legs_must_be_one_owner_piece():
 
 
 def test_targets_outside_live_range_refused_but_home_is_clamped():
-    wave = G.load()['wave']
+    wave = G.load()['full_wave']
     narrow = json.loads(json.dumps(RANGES))
     narrow['right_arm_elbow_flex']['min_ticks'] = 1200
     with pytest.raises(G.GestureError, match='right_arm_elbow_flex=1150'):

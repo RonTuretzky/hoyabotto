@@ -1386,3 +1386,17 @@ Active motion, held motors, powered wheels, rolling wheels or cached state still
 No hardware limit, owner or camera guard changed. Tests: 26 passed. Live read-only preflight
 passed (raise 19.6 s, motion 14.8 s, return 19.6 s at that starting pose). No real wave was sent;
 installed show remains paused for the first supervised test.
+
+
+### 2026-10-09 JST: full wave accepted on hardware; smaller Quick wave prepared
+
+Ron ticket c01e3542032f ran from 21:44:12 to 21:45:14 JST. Raise, motion and return
+reported completed=true/endpoint_settled, followed by motor release; operator said it
+worked perfectly. Preserve that exact pattern as Full wave (full_wave), hardware-verified.
+User selected a smaller wave to reduce duration. Default wave is now Quick wave: halfway
+along the tested raise path, one shoulder ±55/wrist ±85 sway, then return/release.
+Read-only live plan passes all current ranges: 9.6+4.4+9.6=23.6 s movement, about 30 s
+with measured prior overhead. This variant has not yet been run on hardware and stays
+unverified. Both variants request maximum existing controller pace, 40 ticks/0.4 s
+(100 ticks/s); no firmware maximum, speed, acceleration, torque or safety-profile change.
+Show paused for installation and the next supervised Quick wave. Tests: 27 passed.

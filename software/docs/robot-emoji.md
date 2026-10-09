@@ -1,7 +1,7 @@
 # Emoji show: visitors pick an emoji, the robot performs it
 
 Visitors pick preset emojis on a kiosk page and type their name. The robot performs each emoji's gesture, and
-their name is on the big screen while it does. The first and only gesture so far is 👋, a right-arm wave.
+their name is on the big screen while it does. The presets are **Quick wave** and **Full wave**, both 👋 on the right arm.
 
 It runs on the **chat Mac**, the one that holds the paired client certificate
 (`gemma-xlerobot/pilot/.private/robot.json`). It moves the robot only through the existing robot API (`POST /call`
@@ -110,8 +110,12 @@ does not validate a physical wave.
 4. **Return and release.** The arm goes back to where it rested, clamped into the commandable range, and only
    its six joints are released.
 
-The owner's pace is 40-tick steps every 0.4 s (`farm/safety` and the pickup profile are unchanged). From
-today's resting pose, a wave therefore takes about 14 s to raise, 15 s to wave and 14 s to return, plus settling.
+The owner's maximum permitted pace is 40-tick steps every 0.4 s (100 ticks/s, about 9 degrees/s).
+Both presets request that pace. Full wave was observed completing in about 61 s. Quick wave uses a
+halfway raise pose and one smaller sway: its plan is 9.6 s raise, 4.4 s wave, 9.6 s return at the
+October 9 resting pose (23.6 s movement, roughly 30 s including settling/network time). The Quick
+wave duration is an estimate until its supervised hardware test. Firmware maximum speed was not
+set; reaching it would require changing the robot's guarded speed profile.
 
 Failures:
 - **Owner fault or STOP.** The owner has already released everything, so the service sends nothing more.
@@ -134,16 +138,21 @@ Ticks are raw encoder values with short joint names. Rules, checked when the fil
 
 To add an emoji, add an entry. The kiosk shows it on the next start.
 
-The wave's poses were chosen in the digital twin (`farm/sim/xlerobot_twin.py`):
+The Full wave's poses were chosen in the digital twin (`farm/sim/xlerobot_twin.py`):
 - **Raised hand:** pan 2100, lift 2300, elbow 1150, wrist flex 1600. The upper arm leans forward, and the
   forearm and hand point up, to the right of the mast. The twin puts the claw about 1.27 m above the floor.
 - **Wave:** the wrist flaps ±170 ticks while the shoulder pan sways between 1990 and 2210 (the hand moves about
   8 cm outward).
 
-The twin's tick-to-angle mapping is unvalidated, so the gesture is marked `verified_on_hardware: false` and the
-operator page says so. **For the first run on the robot**, someone watches the whole arm with STOP and the
-12 V switch in reach. If the real pose differs from the twin, correct the ticks, then set
-`verified_on_hardware: true`.
+Full wave completed on the real robot on October 9: raise, wave and return all reported
+`completed: true`, `endpoint_settled`, followed by release. The operator reported it worked perfectly.
+Its `verified_on_hardware` flag is true; the general twin mapping is still unvalidated.
+
+Quick wave is now the default `wave` preset. Its starting pose is halfway along that successful
+raising route, with shoulder pan ±55 ticks and wrist flex ±85 ticks for one sway. It stays marked
+`verified_on_hardware: false` until its own supervised test. The original full-height sequence is
+preserved unchanged as `full_wave`. Watch the whole right arm on the first Quick wave with STOP
+and the 12 V switch in reach.
 
 Tests: `tests/test_robot_emoji.py` (plans, the call sequence against a fake owner, busy/refusal/fault/STOP
 handling, the queue and the web routes).
