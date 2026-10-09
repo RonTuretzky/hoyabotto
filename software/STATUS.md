@@ -1,3 +1,33 @@
+## Measured tag sizes and clock/geometry diagnosis — 9 October 2026, 23:08 JST
+
+- User confirmed replacement black squares measure60mm (table1) and40mm (hand2).
+  Updated local apriltag-geometry.json size provenance; fixed right-housing mount
+  was already reconfirmed. These are owner measurements, not inferred image scale.
+- Twenty paired-API reads: median RTT57ms; median robot-minus-chat clock offset
+  +310ms. Independent read-only sntp on this Mac reports Apple time +321ms (+/-17ms),
+  supporting this Mac being behind. Noninteractive local correction was refused
+  because sudo requires a password; no clock was changed. User was given the local
+  Terminal command. Recheck clocks/freshness after it; preserve strict age gates.
+- A read-only stationary capture passed with frame53497 bracketed by robot-clock
+  encoder reads, no arm/head tick change, unambiguous hand-tag pose and1.20px
+  reprojection RMS. This proves sample coherence, not physical metric accuracy.
+  Initial latest-frame attempt was rejected for preceding the first encoder read;
+  the accepted capture waited for a genuinely bracketed new frame.
+- Candidate FK still refuses: right shoulder_lift3212ticks maps to+102.42deg,
+  outside pinned URDF +/-100deg. All other positioning joints fall within model
+  limits. This can reflect resting pose/model convention; it does not prove the
+  servo calibration is wrong. Check physical zero/direction and use an appropriate
+  clear calibration pose; do not clamp or widen model limits to suppress the error.
+- Next geometry steps: physical five-joint zero/direction checks, fixed-head8-fit/
+  3-heldout-pose hand-eye fit, then additional poses involving joints absent from
+  that two-axis grid; finally jaw-contact offset and bounded table workspace.
+  Fitter criteria are <=2mm RMS, <=4mm max position and <=2deg max orientation
+  for both fit and validation sets; passing residuals are not an absolute accuracy
+  guarantee. No motor commands, enable, restart or camera configuration changes.
+- Evidence: seville-v2 .context/tag-remount-check/clock-geometry/ (link.json,
+  local-sntp.txt, stationary-bracket.json, geometry-summary.json,
+  joint-mapping-check.json). Final sample confirms all16 motors released.
+
 ## Cable cleared: calibration tags co-visible — 9 October 2026, 22:49 JST
 
 - After the user hid the cable, table1 and hand2 both decoded in all five distinct
