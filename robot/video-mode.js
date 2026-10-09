@@ -53,7 +53,7 @@
       });
       // the clip's position is the chapter's progress: follow it in the sensor list and the G4 step counter
       var v = vids[front], vt = v.duration ? v.currentTime / v.duration : 0;
-      if (name(c) === 'sensors') { var si = Math.max(0, Math.min(9, Math.floor((vt - 0.06) / 0.09))); sensorItems.forEach(function (li, j) { li.classList.toggle('on', j === si); }); }
+      if (name(c) === 'sensors') { var si = Math.max(0, Math.min(sensorItems.length - 1, Math.floor((vt - 0.06) / (0.9 / sensorItems.length)))); sensorItems.forEach(function (li, j) { li.classList.toggle('on', j === si); }); }
       if (name(c) === 'assemble' && g4Num) {
         var st = 0; for (var k2 = 0; k2 < G4_STEPS.length; k2++) if (vt >= G4_STEPS[k2]) st = k2;
         g4Steps.forEach(function (li, j) { li.classList.toggle('on', j <= st); });

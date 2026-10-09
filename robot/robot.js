@@ -404,11 +404,6 @@ const phone = new THREE.Group();
   shadowed(phone); }
 phone.position.copy(SP(1, 0.25, -0.8, 0)); phone.rotation.z = -0.95; S1.add(phone);
 const phoneFrustum = frustum(V3(-0.01, 0.02, 1.2), V3(-1, 0, -0.55), V3(0, 0, 1), 0.75, 1.1, 0.55, 0x7a5cc7); phone.add(phoneFrustum);
-// Joy-Con pair, waiting at the table edge
-const joycons = new THREE.Group();
-[[0xff4554, 0.035], [0x00a7e1, -0.035]].forEach(([c, dy]) => { const j = box(0.035, 0.102, 0.03, M(c, { roughness: 0.35 }), 0.012); j.position.set(0, dy, 0.015); joycons.add(j);
-  const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.008, 0.008, 16).rotateX(Math.PI / 2), MAT.dark); stick.position.set(0, dy + (dy > 0 ? -0.02 : 0.02), 0.033); joycons.add(stick); });
-shadowed(joycons); at(joycons, SP(1, 0.29, -0.03, TABLE_H), 0.25); S1.add(joycons);
 // in the cart only: SHT31 air sensor and the screw-terminal moisture probe (drawn translucent)
 const cartOnly = new THREE.Group();
 { const ghost = c => M(c, { roughness: 0.5, transparent: true, opacity: 0.45 });
@@ -815,7 +810,6 @@ const SENSOR_LABELS = [
   label('AprilTag 36h11', '検出 4/4 フレーム', () => tags1[0].position.clone().add(V3(0, 0, 0.03)), 'tag'),
   label('サーボのフィードバック', '位置・負荷・電圧・電流', meshAnchor(partBy('Upper_Arm_Motor', 'armL'), 0, 0, 0.05)),
   label('車輪のエンコーダー', '走行距離を測る', meshAnchor(robot.parts.find(p => p.part === 'raskogwheel2'), 0, 0, 0.06)),
-  label('Joy-Con（左右）', 'ボタン・スティック・IMU', () => joycons.localToWorld(V3(0, 0, 0.06))),
   label('BH1750 ＋ ESP32', '未配線', () => paddle.localToWorld(V3(-0.055, 0, 0.03))),
   label('D500 LiDAR', '取付具を設計（未取付）', () => lidar.localToWorld(V3(0, 0, 0.09))),
   label('SHT31・土壌水分', 'カートに入れたのみ', () => cartOnly.localToWorld(V3(0, 0.02, 0.03))),
@@ -855,8 +849,7 @@ function sceneAt(s, time) {
   const pulse = 0.5 + 0.5 * Math.sin(time * 5);
   MAT.motor.emissive.setRGB(0.97, 0.45, 0.1).multiplyScalar(sw(4) * 0.55 * pulse);
   MAT.wheel.emissive.setRGB(0.97, 0.45, 0.1).multiplyScalar(sw(5) * 0.8 * pulse);
-  joycons.position.z = TABLE_H + sw(6) * 0.03 * (0.5 + 0.5 * Math.sin(time * 3));
-  const lidarK = Math.max(sw(8), c === 6 ? E(t, 0.3, 0.4) * (1 - E(t, 0.94, 1)) : 0);
+  const lidarK = Math.max(sw(7), c === 6 ? E(t, 0.3, 0.4) * (1 - E(t, 0.94, 1)) : 0);
   show(lidar, lidarK > 0 ? 1 : 0); updateScan(REDUCED ? 0 : time, lidarK);
   if (c === 2 && t > 0.2) look(sIdx === 2 ? phone.localToWorld(V3(0, 0, 1.2)) : SP(1, 0.45, 0, TABLE_H));
   if (c === 2 && sIdx === 1) { armL = { ...HOME.L, tip: [0.27, 0.22, 0.97], dir: [1, 0.1, -0.35] }; armR = { ...HOME.R, tip: [0.27, -0.22, 0.97], dir: [1, -0.1, -0.35] }; }
