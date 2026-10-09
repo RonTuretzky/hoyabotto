@@ -5,8 +5,10 @@
   margin75.26–75.72, shortest edge43.33–43.43px. The cable no longer crosses
   its printed pattern. Detector settings and OAK configuration were unchanged.
 - Read-only preflight now reports only the motor-clock freshness blocker. Its
-  returned fixed-housing confirmation is dated 2026-10-06, before today's tag
-  replacement, so current mounting rigidity must be reconfirmed. Existing joint
+  returned fixed-housing confirmation was dated 2026-10-06. User now reconfirmed
+  replacement tag2 is rigid on the fixed housing; local geometry provenance was
+  updated with that confirmation. Replacement print sizes remain nominal pending
+  ruler verification (60mm table1 / 40mm hand2 black squares). Existing joint
   mapping, tool-offset and workspace configuration remain unvalidated/incomplete.
 - Fresh uncached state: all16 motors released; row timestamps 203–223ms
   ahead of observer receipt. No motor writes or calibration motion. Evidence:
