@@ -1,3 +1,29 @@
+## Joy-Con server deployed; real input and read-only 3D preview — 9 October 2026
+
+- The admin-only bootstrap succeeded without changing owner PID 95469 or its
+  session. It backed up and replaced only `remote_admin.py`, then restarted the API.
+- Full commissioning deployment job `20261009-214147-322531` succeeded from
+  `6523472`. The fresh owner PID 14244 started with `--teleop` and the exact native
+  reference `9d52fbb1a9e6deb8cd4a514c4bfa373c97e4d37c58aa720a136ea5721f49473f`.
+  Independent paired-API readback confirmed manual routes available, reference
+  match, all 16 motors released and zero motor writes at startup. Camera processes
+  were preserved. Previous runtime files are backed up under
+  `work/backups/qwen-bridge-20261009-214211` on the robot Mac.
+- Both physical Joy-Cons were detected on this Mac. An old input-only MuJoCo
+  process held their HID devices exclusively; it was closed. Independent left/right
+  IMU streams then became calibrated and fresh. The user checked both rail buttons.
+- The local operator screen at `127.0.0.1:64684` starts disarmed and now renders a
+  960x640 read-only MuJoCo preview from encoder feedback. This is an upstream logical
+  model illustration, not validated physical geometry, base travel or collision
+  evidence. It opens no second controller reader and issues no robot commands.
+- A user Arm attempt exposed stale pre-claim feedback after activation. The claim
+  response now returns post-enable status; delayed-claim regression tests pass.
+  This response-only fix is being deployed API-only, without an owner restart.
+- Current local suite: 62 Joy-Con tests pass, including renderer checks that forbid
+  network/register writes/physics stepping and a delayed claim. Physical joint
+  directions, contact clearance, driving and hardware stopping behavior remain
+  commissioning checks; no autonomous task success is claimed.
+
 ## Joy-Con goal: paired-API commissioning path prepared — 9 October 2026
 
 The user explicitly asked to get teleoperation ready and selected this Mac

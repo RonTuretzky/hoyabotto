@@ -82,6 +82,18 @@ class ReferenceTests(unittest.TestCase):
 
 class HardwareAdapterTests(unittest.TestCase):
     def make_reference(self):return PhysicalReference(reference_record())
+
+    def test_slow_claim_returns_fresh_post_enable_feedback(self):
+        original=self.plant.call
+        def delayed(path,body=None,timeout=None):
+            if path=='claim':time.sleep(.3)
+            return original(path,body,timeout)
+        with patch.object(self.plant,'call',side_effect=delayed):
+            result=self.robot.call('claim',{'scope':'wholebody'})
+        self.assertIn('status',result)
+        self.assertTrue(self.robot.check_feedback()['ok'])
+        self.assertEqual(set(self.robot.state['enabled_motors']),set(POSITION_NAMES))
+        self.robot.call('release',{'token':result['token']})
     def setUp(self):
         self.no_network=patch('socket.socket',side_effect=AssertionError('Network forbidden in hardware adapter tests'));self.no_network.start()
         self.ref=self.make_reference()

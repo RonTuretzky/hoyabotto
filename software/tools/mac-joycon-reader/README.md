@@ -13,7 +13,7 @@ code and XLeRobot IK through the Mac HID reader, with local MuJoCo output.
 Read [the practice guide](teleop/README.md#original-controls-in-the-local-simulator)
 for the mappings and current verification limits. This launcher only controls MuJoCo.
 The separately prepared [physical adapter](teleop/README.md#prepared-original-controller-robot-adapter)
-requires measured references and explicit opt-in; it has not been deployed.
+requires an exact calibration binding and explicit opt-in. The corrected server was deployed disarmed on 9 October; physical commissioning remains separate.
 
 ## Run on the Mac paired with the Joy-Cons
 
