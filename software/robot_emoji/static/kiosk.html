@@ -39,6 +39,7 @@
   .status { padding: 12px 16px; border: 1px solid #eadfd3; border-radius: 12px; margin-bottom: 24px; }
   .note { color: var(--soft); font-size: 14px; line-height: 1.5; }
   button:focus-visible, a:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  @media (max-width:480px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 </style>
 </head>
 <body>
@@ -49,7 +50,7 @@
     <h1>Say hi to Hoya Botto 🤖</h1>
     <p class="lead">Pick an emoji, type your name, and the robot will do it while your name is on the screen.</p>
     <h2>1 · Pick <span id="max"></span></h2>
-    <div class="grid" id="grid"></div>
+    <div class="grid" id="grid" role="radiogroup" aria-label="Choose one emoji"></div>
     <h2>2 · Your name</h2>
     <input id="name" maxlength="24" autocomplete="off" placeholder="Your name" aria-label="Your name">
     <p class="note">Use a first name or nickname. It will appear in the public queue and on the big screen. A host starts each show.</p>
@@ -66,30 +67,30 @@
 <script src="emoji-config.js"></script>
 <script src="emoji-api.js"></script>
 <script>
-const MAX = 3;
+const MAX = 1;
 let catalog = [], picked = [], ticket = null, poll = null, online = false, submitting = false, armed = false;
 const $ = id => document.getElementById(id);
 if (!window.ROBOT_EMOJI_API) $('screen-link').href = '/screen';
-$('max').textContent = MAX === 1 ? 'an emoji' : `up to ${MAX} emojis`;
+$('max').textContent = 'one emoji';
 
 function render() {
+  if (catalog.length && !picked.length) picked = [catalog[0].key];
   $('grid').replaceChildren(...catalog.map(g => {
     const b = document.createElement('button');
     b.className = 'emoji' + (picked.includes(g.key) ? ' on' : '');
-    b.setAttribute('aria-pressed', String(picked.includes(g.key)));
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(picked.includes(g.key)));
     b.setAttribute('aria-label', g.label);
     const big = document.createElement('span'); big.className = 'big'; big.textContent = g.emoji;
     const label = document.createElement('span'); label.className = 'label'; label.textContent = g.label;
-    const order = document.createElement('span'); order.className = 'order'; order.textContent = picked.indexOf(g.key) + 1;
+    const order = document.createElement('span'); order.className = 'order'; order.textContent = '✓';
     b.append(order, big, label);
     b.onclick = () => {
-      if (picked.includes(g.key)) picked = picked.filter(k => k !== g.key);
-      else if (picked.length < MAX) picked.push(g.key);
+      picked = [g.key];
       render();
     };
     return b;
   }));
-  if (catalog.length === 1 && picked.length === 0) { picked = [catalog[0].key]; return render(); }
   $('go').disabled = !online || submitting || !(picked.length && $('name').value.trim());
 }
 

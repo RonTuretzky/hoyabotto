@@ -79,9 +79,12 @@ class Performer:
 
     def perform(self, keys, on_phase=lambda phase, detail=None: None):
         """Runs the whole performance; returns a summary. Raises Busy (nothing sent) or PerformError."""
-        self.aborted.clear()
+        if self.aborted.is_set():
+            raise PerformError('Stopped by the operator; re-arm the show before another performance')
         plan = self.preflight(keys)
         motors = plan['motors']
+        if self.aborted.is_set():
+            raise PerformError('Stopped by the operator')
         on_phase('enable')
         try:
             self.robot.call('robot_set_motor_enable', {'names': motors, 'enabled': True})
@@ -93,9 +96,7 @@ class Performer:
                 if self.aborted.is_set():
                     raise PerformError('Stopped by the operator')
                 on_phase(path['part'], path['gesture'])
-                result = self.robot.call('robot_move_path', {'arm': plan['arm'], 'waypoints': path['waypoints'],
-                                                             'duration_s': path['duration_s'], 'wait': True},
-                                         timeout=path['duration_s'] + 60)
+                result = self._move_path(plan, path)
                 outcome = result.get('closure_outcome')
                 summary['paths'].append({'part': path['part'], 'gesture': path['gesture'], 'completed': result.get('completed'),
                                          'outcome': outcome, 'residual': result.get('settle_residual_ticks')})
@@ -111,6 +112,31 @@ class Performer:
                 raise PerformError('Stopped by the operator') from None
             self._recover(plan, e)
             raise PerformError(str(e)) from None
+
+    def _move_path(self, plan, path, minimum_duration_s=0):
+        if plan['arm'] != 'head':
+            return self.robot.call('robot_move_path', {'arm': plan['arm'], 'waypoints': path['waypoints'],
+                'duration_s': path['duration_s'], 'wait': True}, timeout=path['duration_s'] + 60)
+        result = {'completed': True, 'closure_outcome': 'already_at_target'}
+        for waypoint in path['waypoints']:
+            if self.aborted.is_set():
+                raise PerformError('Stopped by the operator')
+            current = _positions(self.robot.call('robot_get_state', {'fresh': True}))
+            if any(type(current.get(n)) is not int for n in waypoint):
+                raise PerformError('Fresh head encoder readings are missing')
+            positions = {n:q for n,q in waypoint.items() if abs(q - current[n]) >= 3}
+            if not positions:
+                continue
+            travel = max(abs(q - current[n]) for n,q in positions.items())
+            if travel > G.HEAD_MAX_LEG_TICKS:
+                raise PerformError('Head moved since planning; bounded head step refused')
+            duration = max(travel / 100, G.path_seconds([positions], current), minimum_duration_s)
+            if self.aborted.is_set():
+                raise PerformError('Stopped by the operator')
+            result = self.robot.call('robot_move_head', {'positions': positions, 'duration_s': duration})
+            if result.get('completed') is not True and result.get('closure_outcome') != 'settled_short':
+                raise PerformError('Head step did not complete')
+        return result
 
     def _recover(self, plan, error):
         """After a failure: if the owner still holds our arm, take it home and release it; else nothing to do."""
@@ -129,11 +155,10 @@ class Performer:
             if motion.get('phase') == 'moving':
                 self.robot.call('robot_halt_motion')
             home = plan['paths'][-1]
-            self.robot.call('robot_move_path', {'arm': plan['arm'], 'waypoints': home['waypoints'],
-                                                'duration_s': max(home['duration_s'], 20), 'wait': True}, timeout=120)
+            self._move_path(plan, dict(home, duration_s=max(home['duration_s'], 20)), minimum_duration_s=20)
             self.robot.call('robot_set_motor_enable', {'names': plan['motors'], 'enabled': False})
             self.log('arm returned home and released after the failure')
-        except RobotError as e:
+        except (RobotError, PerformError) as e:
             self.log(f'return home failed ({e}); sending robot_stop')
             self._stop()
 

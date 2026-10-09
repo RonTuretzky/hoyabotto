@@ -1,5 +1,5 @@
 {
-  "_about": "Short right-arm wave, targeting about 30 seconds including raise, gesture and return. Uses the existing maximum controller pace (40 ticks every 0.4 seconds). No gripper motion or hardware-limit changes. Retired full-height wave is not offered. Future emoji presets should stay near the same turn duration.",
+  "_about": "Short single-choice gestures at the existing maximum controller pace (40 ticks every 0.4 seconds). Arm gestures use the short-wave raise pose. Look around uses bounded head pan offsets around its measured starting position. Every gesture returns and releases; no gripper motion or hardware-limit changes. New gestures still need supervised physical tests.",
   "wave": {
     "emoji": "👋",
     "label": "Quick wave",
@@ -28,5 +28,114 @@
       }
     ]
   },
-  "_target_show_seconds": 30
+  "_target_show_seconds": 30,
+  "wiggle": {
+    "emoji": "🤖",
+    "label": "Robot wiggle",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "relative_joints": [
+      "wrist_roll"
+    ],
+    "raise": [
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865,
+        "elbow_flex": 2092,
+        "wrist_flex": 1998,
+        "wrist_roll": 0
+      }
+    ],
+    "motion": [
+      {
+        "shoulder_pan": 2070,
+        "wrist_roll": -70
+      },
+      {
+        "shoulder_pan": 2180,
+        "wrist_roll": 70
+      },
+      {
+        "shoulder_pan": 2125,
+        "wrist_roll": 0
+      }
+    ]
+  },
+  "celebrate": {
+    "emoji": "🎉",
+    "label": "Celebration",
+    "arm": "right",
+    "verified_on_hardware": false,
+    "raise": [
+      {
+        "shoulder_pan": 2125,
+        "shoulder_lift": 1865,
+        "elbow_flex": 2092,
+        "wrist_flex": 1998
+      }
+    ],
+    "motion": [
+      {
+        "elbow_flex": 2027,
+        "wrist_flex": 1971
+      },
+      {
+        "elbow_flex": 2157,
+        "wrist_flex": 2025
+      },
+      {
+        "elbow_flex": 2092,
+        "wrist_flex": 1998
+      }
+    ]
+  },
+  "look": {
+    "emoji": "👀",
+    "label": "Look around",
+    "arm": "head",
+    "verified_on_hardware": false,
+    "relative_joints": [
+      "pan"
+    ],
+    "raise": [
+      {
+        "pan": 0
+      }
+    ],
+    "motion": [
+      {
+        "pan": -80
+      },
+      {
+        "pan": 80
+      },
+      {
+        "pan": -80
+      },
+      {
+        "pan": 80
+      },
+      {
+        "pan": -80
+      },
+      {
+        "pan": 80
+      },
+      {
+        "pan": -80
+      },
+      {
+        "pan": 80
+      },
+      {
+        "pan": -80
+      },
+      {
+        "pan": 80
+      },
+      {
+        "pan": 0
+      }
+    ]
+  }
 }

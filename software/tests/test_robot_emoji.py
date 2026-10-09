@@ -24,8 +24,10 @@ RANGES = {n: {'min_ticks': lo, 'max_ticks': hi, 'margin_ticks': 40} for n, (lo, 
 def fake(**kw):
     positions = {f'left_arm_{j}': 2047 for j in G.ARM_JOINTS}
     positions.update(START)
+    positions.update(head_motor_1=2085, head_motor_2=2600)
     ranges = {f'left_arm_{j}': {'min_ticks': 900, 'max_ticks': 3200} for j in G.ARM_JOINTS}
     ranges.update(RANGES)
+    ranges.update(head_motor_1={'min_ticks':1059,'max_ticks':3111},head_motor_2={'min_ticks':1972,'max_ticks':2625})
     return FakeRobot(positions, ranges, time_scale=0, **kw)
 
 
@@ -48,7 +50,8 @@ def test_default_wave_loads_and_fits_live_ranges():
 
 def test_only_short_wave_is_offered_at_the_same_controller_pace():
     catalog = G.load()
-    assert list(catalog) == ['wave']
+    assert list(catalog) == ['wave', 'wiggle', 'celebrate', 'look']
+    assert 'full_wave' not in catalog
     assert len(catalog['wave'].motion) == 3
     quick = G.plan([catalog['wave']], START, RANGES)
     assert sum(p['duration_s'] for p in quick['paths']) < 30
@@ -90,7 +93,8 @@ def test_retired_preset_history_survives_catalog_removal(tmp_path):
     request.pop('emojis')  # Tickets from before emoji snapshots were persisted.
     old.recent.appendleft(request)
     pending = old.submit('Old selection', ['full_wave'])
-    mixed = old.submit('Short and long', ['wave', 'full_wave'])
+    mixed = old.submit('Short and long', ['wave'])
+    old.requests[mixed['id']].update(gestures=['wave','full_wave'], emojis=['👋','👋'])
     old._persist()
     robot = fake()
     restored = S.Show(robot, G.load(), state_path=path)
@@ -100,6 +104,54 @@ def test_retired_preset_history_survives_catalog_removal(tmp_path):
     assert restored.request_status(mixed['id'])['emojis'] == ['👋']
     assert restored.queue[0]['gestures'] == ['wave'] and len(restored.queue) == 1
     assert not robot.calls
+
+
+@pytest.mark.parametrize('key', ['wiggle','celebrate'])
+def test_new_arm_gestures_return_and_release(key):
+    robot = fake()
+    before = dict(robot.positions)
+    result = Performer(robot, G.load(), log=lambda _:None).perform([key])
+    assert all(p['completed'] for p in result['paths'])
+    assert not robot.enabled
+    assert robot.positions == before
+
+
+def test_look_around_uses_only_bounded_head_moves_and_restores_pan():
+    robot = fake()
+    before = dict(robot.positions)
+    result = Performer(robot, G.load(), log=lambda _:None).perform(['look'])
+    assert result['arm'] == 'head'
+    assert 'robot_move_path' not in names(robot)
+    moves = [args for name,args in robot.calls if name == 'robot_move_head']
+    assert len(moves) == 11
+    current = before['head_motor_1']
+    for args in moves:
+        assert list(args['positions']) == ['head_motor_1']
+        target = args['positions']['head_motor_1']
+        assert abs(target-current) <= 200 and args['duration_s'] >= abs(target-current)/100
+        current = target
+    assert robot.positions == before and not robot.enabled
+    enables = [args for name,args in robot.calls if name=='robot_set_motor_enable']
+    assert all(args['names']==['head_motor_1'] for args in enables)
+
+
+def test_head_range_or_step_violation_is_rejected_before_enabling():
+    robot = fake()
+    robot.positions['head_motor_1'] = 3100
+    with pytest.raises(PerformError, match='outside commandable'):
+        Performer(robot,G.load(),log=lambda _:None).perform(['look'])
+    assert all(name.startswith('robot_get_') for name in names(robot))
+    data = json.loads(G.DEFAULT_PATH.read_text())
+    data['look']['motion'] = [{'pan':-110},{'pan':110}]
+    with pytest.raises(G.GestureError, match='exceeds 200'):
+        G.parse(data)
+
+
+def test_default_fake_robot_can_run_the_head_preset():
+    robot = FakeRobot(time_scale=0)
+    before = dict(robot.positions)
+    result = Performer(robot,G.load(),log=lambda _:None).perform(['look'])
+    assert result['arm']=='head' and robot.positions==before and not robot.enabled
 
 
 def test_path_seconds_follow_owner_pace():
@@ -204,6 +256,18 @@ def test_operator_stop_mid_move():
     assert names(robot)[-1] == 'robot_stop' and names(robot).count('robot_move_path') == 1
 
 
+def test_stop_is_not_cleared_by_starting_another_performance():
+    robot = fake()
+    show = S.Show(robot,G.load())
+    show.stop()
+    count = len(robot.calls)
+    with pytest.raises(PerformError,match='Stopped by the operator'):
+        show.performer.perform(['wave'])
+    assert len(robot.calls)==count
+    show.set_armed(True)
+    assert not show.performer.aborted.is_set()
+
+
 def test_clean_name():
     assert S.clean_name('  Ada \n  Lovelace ') == 'Ada Lovelace'
     assert S.clean_name('Zo​e') == 'Zoe'
@@ -255,6 +319,12 @@ def test_web_queue_waits_for_arm_then_performs(web):
         time.sleep(.05)
     assert get(base + f"/api/requests/{ticket['id']}")['state'] == 'done'
     assert names(robot).count('robot_move_path') == 3 and not robot.enabled
+
+
+def test_visitors_can_submit_only_one_emoji(web):
+    show, robot, base = web
+    assert post(base + '/api/requests', {'name':'Ada','gestures':['wave','wiggle']})[0] == 400
+    assert not show.queue and not robot.calls
 
 
 def test_web_failure_pauses_the_show(web):

@@ -29,7 +29,7 @@ from .robot import FakeRobot, RobotClient, RobotError
 STATIC = Path(__file__).with_name('static')
 PAGES = {'/': 'kiosk.html', '/screen': 'screen.html', '/operator': 'operator.html'}
 NAME_MAX = 24
-MAX_GESTURES = 3
+MAX_GESTURES = 1
 QUEUE_MAX = 30
 BUSY_RETRY_S = 3
 THANKS_S = 4
@@ -80,6 +80,8 @@ class Show:
                         r.update(gestures=remaining, emojis=[self.catalog[key].emoji for key in remaining])
                     else:
                         r.update(state='removed', phase=None, error='This preset is no longer available')
+                if r['state'] == 'queued' and len(r['gestures']) != 1:
+                    r.update(state='removed', phase=None, error='Choose one emoji per turn')
             self.queue.extend(self.requests[rid] for rid in saved['queue'] if self.requests[rid]['state'] == 'queued')
             recovered = [r for r in self.requests.values() if r['state'] == 'failed' and r['id'] not in saved['recent']]
             self.recent.extend((recovered + [self.requests[rid] for rid in saved['recent']])[:8])
@@ -112,7 +114,7 @@ class Show:
     def submit(self, name, keys):
         name = clean_name(name)
         if not isinstance(keys, list) or not keys or len(keys) > MAX_GESTURES or any(k not in self.catalog for k in keys):
-            raise ValueError(f'Pick 1 to {MAX_GESTURES} emojis')
+            raise ValueError('Pick exactly one emoji per turn')
         if len({self.catalog[k].arm for k in keys}) != 1:
             raise ValueError('Those emojis use different arms; pick them separately')
         with self.lock:
@@ -160,6 +162,8 @@ class Show:
     def set_armed(self, armed):
         with self.lock:
             self.armed = bool(armed)
+            if self.armed:
+                self.performer.aborted.clear()
             self.lock.notify_all()
         self.log('show ARMED: the robot will perform queued requests' if armed else 'show paused: the current performance finishes, nothing new starts')
 

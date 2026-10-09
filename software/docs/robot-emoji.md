@@ -1,7 +1,7 @@
 # Emoji show: visitors pick an emoji, the robot performs it
 
-Visitors pick preset emojis on a kiosk page and type their name. The robot performs each emoji's gesture, and
-their name is on the big screen while it does. The offered preset is **Quick wave** (👋, right arm), targeting a roughly 30-second turn. Future emoji presets should stay near that duration.
+Visitors pick exactly one preset emoji on the visitor page and type their name. The robot performs each emoji's gesture, and
+their name is on the big screen while it does. The offered presets are 👋 **Quick wave**, 🤖 **Robot wiggle**, 🎉 **Celebration**, and 👀 **Look around**, targeting short turns around 30 seconds.
 
 It runs on the **chat Mac**, the one that holds the paired client certificate
 (`gemma-xlerobot/pilot/.private/robot.json`). It moves the robot only through the existing robot API (`POST /call`
@@ -17,7 +17,7 @@ python3 -m robot_emoji --host 0.0.0.0   # phones on the same network can reach t
 
 | Page | For |
 |---|---|
-| `/` | Kiosk: pick up to 3 emojis, type a name (at most 24 characters), get a place in line |
+| `/` | Kiosk: pick exactly one emoji, type a name (at most 24 characters), get a place in line |
 | `/screen` | Big display: whose turn it is, the current phase, who is next |
 | `/operator` | Arm/pause, remove from the queue, log, and a big **STOP** |
 
@@ -127,7 +127,7 @@ the hard stop. The phone camera must be fresh: the owner refuses to enable witho
 
 ## Gestures (`robot_emoji/gestures.json`)
 
-Each gesture has an emoji, a label, an arm, a `raise` path (from rest to the start pose) and a `motion` path.
+Each gesture has an emoji, a label, a target group (left/right arm or head), a `raise` path (from rest to the start pose) and a `motion` path.
 Ticks are raw encoder values with short joint names. Rules, checked when the file loads:
 - The gripper is excluded, because a closing gripper cannot run inside a path.
 - Each motion leg is at most 341 ticks per joint, so the owner runs it as one piece and keeps the rhythm.
@@ -158,3 +158,26 @@ handling, the queue and the web routes).
 The badge is compact (about 92×44 CSS pixels for “Ron”), right aligned, and contains only the
 emoji and name. It drifts upward by 60 pixels over 30 seconds without restarting on each status
 poll. Reduced-motion preferences disable the animation. Slide content/navigation are unchanged.
+
+## Four single-choice presets
+
+The page uses a radio-style selector: choosing another emoji replaces the previous selection.
+The server rejects every request with zero or multiple gestures. The floating name/emoji badge
+appears only on the presentation, not on the visitor page.
+
+| Emoji | Preset | Motion |
+|---|---|---|
+| 👋 | Quick wave | Short raise, one pan/wrist-flex sway, return and release |
+| 🤖 | Robot wiggle | Same short raise, small pan/wrist-roll twist, return and release |
+| 🎉 | Celebration | Same short raise, small elbow/wrist-flex pump, return and release |
+| 👀 | Look around | Head pan ±80 ticks around its measured starting position, restore and release |
+
+`relative_joints` anchors positioning-joint offsets to the current measured pose. All resulting
+targets are checked against live commandable ranges before enable. Head moves use only the
+existing `robot_move_head` API: at most 200 ticks per call, at least 1 s per 100 ticks, skipping
+zero/tiny moves and enabling only the head pan motor. Arm gestures preserve the six-joint
+enable requirement and never command the gripper. Existing speed/torque/acceleration/camera
+guards are unchanged.
+
+New presets have passed software tests and read-only live range checks; first physical runs
+still need supervision. STOP remains set until the operator explicitly re-arms.

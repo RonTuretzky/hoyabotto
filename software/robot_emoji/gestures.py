@@ -11,7 +11,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_PATH = Path(__file__).with_name('gestures.json')
-ARMS = ('left', 'right')
+ARMS = ('left', 'right', 'head')
+HEAD_JOINTS = ('pan', 'tilt')
+HEAD_NAMES = {'pan': 'head_motor_1', 'tilt': 'head_motor_2'}
+HEAD_MAX_LEG_TICKS = 200
 ARM_JOINTS = ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper')
 GESTURE_JOINTS = ARM_JOINTS[:-1]   # no gripper: a closing gripper cannot run inside a path
 MAX_LEG_TICKS = 341                # the pickup owner's per-leg limit; longer legs are split into 280-tick pieces
@@ -34,6 +37,7 @@ class Gesture:
     raise_path: tuple
     motion: tuple
     verified_on_hardware: bool
+    relative_joints: tuple = ()
 
     def joints(self):
         return sorted({j for w in self.raise_path + self.motion for j in w})
@@ -42,7 +46,7 @@ class Gesture:
         return {'key': self.key, 'emoji': self.emoji, 'label': self.label}
 
 
-def _waypoints(key, part, value):
+def _waypoints(key, part, value, allowed=GESTURE_JOINTS):
     if not isinstance(value, list) or not 1 <= len(value) <= MAX_PATH_WAYPOINTS:
         raise GestureError(f'{key}.{part}: 1..{MAX_PATH_WAYPOINTS} waypoints required')
     out = []
@@ -50,8 +54,8 @@ def _waypoints(key, part, value):
         if not isinstance(w, dict) or not w:
             raise GestureError(f'{key}.{part}[{i}]: a non-empty joint -> ticks object required')
         for j, q in w.items():
-            if j not in GESTURE_JOINTS:
-                raise GestureError(f'{key}.{part}[{i}]: unknown or excluded joint {j!r}; allowed {GESTURE_JOINTS}')
+            if j not in allowed:
+                raise GestureError(f'{key}.{part}[{i}]: unknown or excluded joint {j!r}; allowed {allowed}')
             if type(q) is not int:
                 raise GestureError(f'{key}.{part}[{i}].{j}: integer ticks required')
         out.append(dict(w))
@@ -69,8 +73,12 @@ def parse(data):
             raise GestureError(f'{key}: arm must be one of {ARMS}')
         if not isinstance(g.get('emoji'), str) or not g['emoji'] or not isinstance(g.get('label'), str):
             raise GestureError(f'{key}: emoji and label strings required')
-        gesture = Gesture(key, g['emoji'], g['label'], g['arm'], _waypoints(key, 'raise', g.get('raise')),
-                          _waypoints(key, 'motion', g.get('motion')), g.get('verified_on_hardware') is True)
+        allowed = HEAD_JOINTS if g['arm'] == 'head' else GESTURE_JOINTS
+        relative = g.get('relative_joints', [])
+        if not isinstance(relative, list) or any(j not in allowed for j in relative) or len(set(relative)) != len(relative):
+            raise GestureError(f'{key}: relative_joints must be supported positioning joints')
+        gesture = Gesture(key, g['emoji'], g['label'], g['arm'], _waypoints(key, 'raise', g.get('raise'), allowed),
+                          _waypoints(key, 'motion', g.get('motion'), allowed), g.get('verified_on_hardware') is True, tuple(relative))
         # The motion starts where the raise ends; every leg must be one continuous owner piece, so the
         # gesture keeps its rhythm instead of being split.
         pose = {}
@@ -80,8 +88,9 @@ def parse(data):
             for j, q in w.items():
                 if j not in pose:
                     raise GestureError(f'{key}.motion[{i}].{j}: joint not set by the raise, so its start is unknown')
-                if abs(q - pose[j]) > MAX_LEG_TICKS:
-                    raise GestureError(f'{key}.motion[{i}].{j}: leg of {abs(q - pose[j])} ticks exceeds {MAX_LEG_TICKS}')
+                maximum = HEAD_MAX_LEG_TICKS if g['arm'] == 'head' else MAX_LEG_TICKS
+                if abs(q - pose[j]) > maximum:
+                    raise GestureError(f'{key}.motion[{i}].{j}: leg of {abs(q - pose[j])} ticks exceeds {maximum}')
             pose.update(w)
         gestures[key] = gesture
     if not gestures:
@@ -94,10 +103,14 @@ def load(path=DEFAULT_PATH):
 
 
 def canonical(arm, waypoint):
+    if arm == 'head':
+        return {HEAD_NAMES[j]: q for j, q in waypoint.items()}
     return {f'{arm}_arm_{j}': q for j, q in waypoint.items()}
 
 
 def arm_motors(arm):
+    if arm == 'head':
+        return list(HEAD_NAMES.values())
     return [f'{arm}_arm_{j}' for j in ARM_JOINTS]
 
 
@@ -126,7 +139,14 @@ def plan(gestures, start, ranges):
     paths, touched = [], set()
     for g in gestures:
         for part, points in (('raise', g.raise_path), ('motion', g.motion)):
-            canon = [canonical(arm, w) for w in points]
+            canon = []
+            for waypoint in points:
+                values = canonical(arm, waypoint)
+                for joint in g.relative_joints:
+                    name = HEAD_NAMES[joint] if arm == 'head' else f'{arm}_arm_{joint}'
+                    if name in values:
+                        values[name] += start[name]
+                canon.append(values)
             for w in canon:
                 for n, q in w.items():
                     lo, hi = ranges[n]['min_ticks'], ranges[n]['max_ticks']
@@ -138,7 +158,19 @@ def plan(gestures, start, ranges):
     paths.append({'gesture': None, 'part': 'return', 'waypoints': [home]})
     current = {n: start[n] for n in touched}
     for p in paths:
+        if arm == 'head':
+            durations = []
+            for w in p['waypoints']:
+                delta = max(abs(q - current[n]) for n, q in w.items())
+                if delta > HEAD_MAX_LEG_TICKS:
+                    raise GestureError(f'Head travel {delta} exceeds {HEAD_MAX_LEG_TICKS} ticks')
+                durations.append(max(delta / 100, path_seconds([w], current)))
+                current.update(w)
+            p['head_durations_s'] = durations
+            p['duration_s'] = sum(durations)
+            continue
         p['duration_s'] = min(MAX_PATH_S, path_seconds(p['waypoints'], current))
         for w in p['waypoints']:
             current.update(w)
-    return {'arm': arm, 'motors': arm_motors(arm), 'paths': paths, 'home': home}
+    motors = sorted(touched) if arm == 'head' else arm_motors(arm)
+    return {'arm': arm, 'motors': motors, 'paths': paths, 'home': home}

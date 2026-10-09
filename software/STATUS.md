@@ -1415,3 +1415,23 @@ Presentation badge now shows only name and emoji, small on the right side, drift
 60 px over 30 s. A simulated Ron badge measured about 92×44 CSS px and remained visible
 when advancing slide 1→2. All 14 slide sections preserved. Reduced-motion support included.
 28 tests passed; cloud readback confirms only Quick wave, paused show, preserved queue/history.
+
+
+### 2026-10-09 JST: four live presets, one emoji per turn
+
+User clarified that make-it-live meant adding the suggested emoji choices, and requested
+exactly one emoji per visitor request. Public wave.html now offers Quick wave 👋, Robot
+wiggle 🤖, Celebration 🎉, Look around 👀 with a single-selection radio-style UI and backend
+len==1 guard. The small floating badge remains only on the presentation.
+
+Wiggle uses small relative wrist-roll offsets at the short-wave pose; celebration uses small
+elbow/wrist-flex pumping. Look around uses only head pan around its measured start (±80
+ticks, each leg below the existing 200-tick cap) through robot_move_head, then restores/releases.
+No hardware speed, torque, acceleration, gripper, owner or camera configuration changed.
+All four passed read-only range checks; planned movement at that pose was 26.8, 25.6, 25.6
+and 16.8 seconds respectively before network/settling overhead. New three remain unverified
+on hardware pending first supervised runs. Software tests: 35 passed. STOP stays canceled
+until explicit re-arm; it is not cleared by a later performance.
+
+Live browser verified four choices, exactly one checked after switching, and no floating
+badge on wave.html. Show restored live after current range/camera checks, with empty queue.

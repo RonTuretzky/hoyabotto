@@ -69,8 +69,13 @@ class FakeRobot:
     def __init__(self, positions=None, ranges=None, time_scale=1.0, busy_motors=()):
         from .gestures import ARM_JOINTS
         names = [f'{a}_arm_{j}' for a in ('left', 'right') for j in ARM_JOINTS]
-        self.positions = dict(positions or {n: 2047 for n in names})
-        self.ranges = ranges or {n: {'min_ticks': 900, 'max_ticks': 3200, 'margin_ticks': 40} for n in names}
+        default_positions = {n: 2047 for n in names}
+        default_positions.update(head_motor_1=2085, head_motor_2=2600)
+        self.positions = dict(positions or default_positions)
+        default_ranges = {n: {'min_ticks': 900, 'max_ticks': 3200, 'margin_ticks': 40} for n in names}
+        default_ranges.update(head_motor_1={'min_ticks':1059,'max_ticks':3111,'margin_ticks':40},
+                              head_motor_2={'min_ticks':1972,'max_ticks':2625,'margin_ticks':40})
+        self.ranges = ranges or default_ranges
         self.time_scale = time_scale
         self.enabled = set(busy_motors)
         self.phase = 'holding' if self.enabled else 'idle'
@@ -127,6 +132,19 @@ class FakeRobot:
                 self.positions.update(w)
             self.phase = 'holding'
             return {'accepted': True, 'completed': True, 'endpoint_reached': True, 'closure_outcome': 'endpoint_settled'}
+        if name == 'robot_move_head':
+            points = args['positions']
+            if not set(points) <= self.enabled:
+                raise RobotError('Head motors must be enabled')
+            travel = max(abs(q - self.positions[n]) for n,q in points.items())
+            if travel > 200 or args['duration_s'] < travel / 100:
+                raise RobotError('Bounded head limits exceeded')
+            self.phase = 'moving'
+            if self.stopped.wait(args['duration_s'] * self.time_scale):
+                raise RobotError('Owner stopped: STOP requested')
+            self.positions.update(points)
+            self.phase = 'holding'
+            return {'completed': True, 'endpoint_reached': True, 'closure_outcome': 'endpoint_settled'}
         if name == 'robot_halt_motion':
             self.phase = 'holding' if self.enabled else 'idle'
             return {'halted': True}
