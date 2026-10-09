@@ -43,7 +43,7 @@ try:
 except Exception as e:print(json.dumps({'verified':False,'error':type(e).__name__+': '+str(e)}))
 '''
 sys.path.insert(0,str(BRIDGE))
-from wrist_cameras import WRIST_CAMERA_IDS,IDENTITY_VERIFIED,CONFIG as WRIST_CONFIG,select_wrist_manifest,wrist_dirs,resolve_ids,configure as configure_wrist_ids
+from wrist_cameras import WRIST_CAMERA_IDS,IDENTITY_VERIFIED,CONFIG as WRIST_CONFIG,select_wrist_manifest,wrist_dirs,resolve_ids,prune_head_camera,configure as configure_wrist_ids
 configure_wrist_ids(ROOT)
 
 CAMERA_REPORT=None  # list collecting camera-setup messages while setup_wrist_cameras runs
@@ -127,13 +127,15 @@ def _setup_wrist_cameras(dry_run):
  try:listed=json.loads(subprocess.run([str(CAPTURE),'--list'],capture_output=True,text=True,timeout=15).stdout or '[]')
  except Exception as e:say(f'WARNING wrist cameras unavailable: could not list cameras: {e}');return False
  say('cameras this Mac sees: '+(', '.join(f"{d.get('name')} [{d.get('camera_id')}]" for d in listed) or 'none'))
+ dropped=prune_head_camera(listed)  # the old USB head camera is gone (the OAK is the head camera): not an error
+ if dropped:say(f'old USB head camera {dropped} is not connected (the OAK is the head camera now); its saved ID is dropped')
  ids,verified,missing=resolve_ids(listed)
- changed=any(n in ids and (ids[n]!=WRIST_CAMERA_IDS[n] or verified[n]!=IDENTITY_VERIFIED[n]) for n in WRIST_CAMERA_IDS)
+ changed=bool(dropped) or any(n in ids and (ids[n]!=WRIST_CAMERA_IDS[n] or verified[n]!=IDENTITY_VERIFIED[n]) for n in WRIST_CAMERA_IDS)
  for n in WRIST_CAMERA_IDS:
   if n in missing:say(f'WARNING {n}: no camera available for it (expected {WRIST_CAMERA_IDS[n]})')
   elif ids[n]!=WRIST_CAMERA_IDS[n]:say(f'{n}: ID changed {WRIST_CAMERA_IDS[n]} -> {ids[n]}; left/right auto-assigned and marked unverified')
  if changed and not dry_run:
-  WRIST_CAMERA_IDS.update(ids);IDENTITY_VERIFIED.update(verified)
+  WRIST_CAMERA_IDS.update({n:ids[n] for n in ids});IDENTITY_VERIFIED.update({n:verified[n] for n in ids})
   import wrist_cameras as _wc  # head_camera_id is a saved setting; keep it
   (WORK/WRIST_CONFIG).write_text(json.dumps({**{n:{'camera_id':WRIST_CAMERA_IDS[n],'identity_verified':IDENTITY_VERIFIED[n]} for n in WRIST_CAMERA_IDS},'head_camera_id':_wc.HEAD_CAMERA_ID,'detected_at':time.time(),'available':listed},indent=2))
   say(f'saved wrist camera IDs to {WORK/WRIST_CONFIG}')
