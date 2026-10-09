@@ -96,6 +96,40 @@ def test_busy_robot_gets_no_writes():
     assert names(robot) == ['robot_get_motion']
 
 
+def stale_base_robot(*, moving=False, torque=0, delta=0, cached=False):
+    robot = fake()
+    original = robot.call
+    samples = 0
+    def call(name, arguments=None, timeout=30):
+        nonlocal samples
+        result = original(name, arguments, timeout)
+        if name == 'robot_get_motion':
+            result.update(phase='moving' if moving else 'idle', moving=moving, base_drive_phase='braking')
+        elif name == 'robot_get_state':
+            result.update(cached=cached, all_16_released=torque == 0)
+            result['motors'].extend({'name':n,'Torque_Enable':torque,'Status':0,'Present_Position':100 + samples * delta}
+                                   for n in ('base_left_wheel','base_right_wheel'))
+            samples += 1
+        return result
+    robot.call = call
+    return robot
+
+
+def test_inactive_last_base_phase_requires_two_fresh_released_stationary_samples():
+    robot = stale_base_robot()
+    assert Performer(robot, G.load(), log=lambda _:None).preflight(['wave'])['arm'] == 'right'
+    assert names(robot) == ['robot_get_motion','robot_get_state','robot_get_state']
+    assert robot.calls[1][1] == robot.calls[2][1] == {'fresh':True}
+
+
+@pytest.mark.parametrize('condition', [{'moving':True}, {'torque':1}, {'delta':5}, {'cached':True}])
+def test_base_braking_still_blocks_active_powered_rolling_or_stale_state(condition):
+    robot = stale_base_robot(**condition)
+    with pytest.raises(Busy):
+        Performer(robot, G.load(), log=lambda _:None).preflight(['wave'])
+    assert all(name.startswith('robot_get_') for name in names(robot))
+
+
 def test_enable_refused_moves_nothing():
     robot = fake()
     robot.fail['robot_set_motor_enable'] = 'Pickup phone feed paused; motor activation refused'

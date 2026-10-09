@@ -1373,3 +1373,16 @@ runtime disables LAN discovery and restores the existing internet relay client i
 The hardware server, owner, SSH, camera registration and OAK commissioning were not changed.
 No real gesture was armed or dispatched; the physical wave remains unverified.
 Tests: 21 robot-emoji tests passed. Docs: docs/robot-emoji.md.
+
+
+### 2026-10-09 JST: live-wave preflight — inactive historical base phase
+
+The other control session released both arms. The fresh owner state was idle/moving=false with
+no command or enabled motor, but robot_get_motion retained base_drive_phase=braking from its
+last motion. The wheel abort path clears active/powered without clearing the historical phase.
+The emoji preflight now accepts this explicitly idle case only after two fresh uncached state
+reads confirm all 16 released, both wheel torques/status clear, and stationary wheel encoders.
+Active motion, held motors, powered wheels, rolling wheels or cached state still block it.
+No hardware limit, owner or camera guard changed. Tests: 26 passed. Live read-only preflight
+passed (raise 19.6 s, motion 14.8 s, return 19.6 s at that starting pose). No real wave was sent;
+installed show remains paused for the first supervised test.
