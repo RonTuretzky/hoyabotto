@@ -1,4 +1,4 @@
-"""Four-process ACT entrypoint; bf16 autocast, full-precision saved weights."""
+"""Distributed ACT entrypoint; bf16 autocast, full-precision saved weights."""
 import torch
 from pathlib import Path
 from lerobot.scripts import lerobot_train

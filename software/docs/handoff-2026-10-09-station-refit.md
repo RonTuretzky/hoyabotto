@@ -1,31 +1,34 @@
 # Final DCM desk station refit — 9 October 2026
 
-The final OAK contract is integrated and cloud job **6ac8e7ae095c57808930634a** is RUNNING:
-https://huggingface.co/jobs/RonTuretzky/6ac8e7ae095c57808930634a
+The final OAK contract is integrated and cloud job **6ac8ea01fee2c90070178b79** is RUNNING:
+https://huggingface.co/jobs/RonTuretzky/6ac8ea01fee2c90070178b79
 
-The camera wait is finished. Provider readback confirms **demonstration recording** with 32 workers. All four NVIDIA H200 EGL
-renderers passed their actual projection checks (maximum axis error 0.1268 px). Use the live status below
-for current progress. Optimizer steps and a learned-policy result are not yet confirmed.
+The camera wait is finished. User requested stopping the four-H200 job and switching to eight H200s.
+Previous v6 job 6ac8e7ae095c57808930634a is confirmed CANCELED after about 7.6 minutes; no demonstration
+archive or checkpoint had been uploaded. Collection restarts. Use live status below for current progress.
+All eight NVIDIA H200 EGL and camera projection checks passed (maximum axis error 0.1268 px).
+Provider and pipeline readback confirm demonstration recording with 64 workers. Optimizer steps are not yet confirmed.
 No physical commands were issued. The server thread retains hardware ownership.
 
 ## Current training handoff
 
 Evidence root: outer workspace `.context/station-refit-2026-10-09/training/`.
 
-- `cloud-release-v6.tar.gz`: credential-free frozen source/assets, SHA-256 `e234979911042e02fccc239633b9dde0cd3adae8f81d25491e35b295dd0d1f27`.
+- `cloud-release-v7.tar.gz`: credential-free frozen source/assets, SHA-256 `6241f957793115af901d1ddff21ce9d2f658e613415e3aecd6834fa3a1a418e4`.
+- `eight-h200-verification.json`, `eight-h200-tests.log`: **36 passed**; eight-way merge/holdout checks. Only parallel-runner and DDP docstring differ from frozen v6 source; camera/assets unchanged.
 - `camera-integration-verification.json`, `camera-integration-tests.log`: **70 passed, 2 skipped** and one successful audited frozen-bundle teacher fold (seed 10001). Earlier station qualification: 15/16 nominal and 15/16 varied portable folds.
-- `launch-four-h200-v6.py`, `launch-v6-receipt.json`, `budget-and-launch.json`: deduplicated submission and source revision. Old launcher versions are historical and must not be reused.
-- `watch-cloud-v6.py`, `watch-cloud-v6.log`, `watch-cloud-v6.pid`: active read-only monitor; no cloud retries. `live-cloud-status.json` is authoritative polling output; `cloud-evaluation-v6/` will hold downloaded checkpoints and local evaluation.
-- Private model `RonTuretzky/act_carton_dcm_refit_20261009_v2`; dataset `RonTuretzky/carton_dcm_refit_20261009_v2`.
+- `launch-eight-h200-v7.py`, `launch-v7-receipt.json`, `budget-and-launch.json`: deduplicated submission and source revision. Old launcher versions are historical and must not be reused.
+- `watch-cloud-v7.py`, `watch-cloud-v7.log`, `watch-cloud-v7.pid`: active read-only monitor; no cloud retries. `live-cloud-status.json` is authoritative polling output; `cloud-evaluation-v7/` will hold downloaded checkpoints and local evaluation.
+- Private model `RonTuretzky/act_carton_dcm_refit_20261009_v3`; dataset `RonTuretzky/carton_dcm_refit_20261009_v3`.
 
-User removed the previous spending ceiling and requested speed. Four H200s cost approximately **$20/hour total**.
-Six-hour provider watchdog (~$120 maximum new compute) and 355-minute internal deadline; not an ETA.
+User removed the previous spending ceiling and requested speed. Eight H200s cost approximately **$40/hour total**.
+Six-hour provider watchdog (~$240 maximum new compute) and 355-minute internal deadline; not an ETA.
 All prior jobs were terminal before launch; v5 `6ac8daa0fee2c9007017836a` remains canceled. Actual billing unknown.
 
-Pipeline: 320 trials, seed 10000, 32 recorder workers; independent contact scoring, minimum 80% success
-and 128 valid demos. Every tenth seed is held out before four-way sharding. Three render workers per GPU,
+Pipeline: 320 trials, seed 10000, 64 recorder workers; independent contact scoring, minimum 80% success
+and 128 valid demos. Every tenth seed is held out before eight-way sharding. Three render workers per GPU,
 eight image writer threads per shard, native dataset aggregation and index/image/holdout validation.
-Four Accelerate ranks train ACT in bf16, batch 8 each (global 32), lr 3e-5, chunk 100, 25k steps,
+Eight Accelerate ranks train ACT in bf16, batch 4 each (global 32), lr 3e-5, chunk 100, 25k steps,
 checkpoint upload each 1k. All GPUs must verify actual NVIDIA EGL and correct pixel projection first.
 
 ## Final camera integration

@@ -1,4 +1,4 @@
-"""Bounded four-GPU simulation collection, sharded rendering and distributed ACT."""
+"""Bounded multi-GPU simulation collection, sharded rendering and distributed ACT."""
 from __future__ import annotations
 
 import argparse
@@ -68,9 +68,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--dataset-repo', required=True)
     ap.add_argument('--model-repo', required=True)
+    ap.add_argument('--gpus', type=int, choices=(4, 8), default=4)
     ap.add_argument('--max-minutes', type=float, default=355,
                     help='Operational timeout; leave five minutes before provider timeout')
     args = ap.parse_args()
+    gpu_count = args.gpus
+    batch_per_gpu = 32 // gpu_count
+    collection_workers = gpu_count * 8
     software = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(software))
     from huggingface_hub import HfApi
@@ -81,7 +85,7 @@ def main():
         if not api.repo_info(repo, repo_type=kind).private:
             raise RuntimeError('Cloud destinations must be private')
     os.environ.update(PYTHONPATH=str(software), OMP_NUM_THREADS='1',
-                      OPENBLAS_NUM_THREADS='1', MKL_NUM_THREADS='1', FOLD_EGL_DEVICE_COUNT='4')
+                      OPENBLAS_NUM_THREADS='1', MKL_NUM_THREADS='1', FOLD_EGL_DEVICE_COUNT=str(gpu_count))
     bundle = software.parent
     root = bundle/'simulation'
     relocate(root)
@@ -98,7 +102,9 @@ def main():
         api.upload_file(path_or_fileobj=work/name, path_in_repo=name, repo_id=args.model_repo)
     status = dict(hardware_commands=False, physical_registration_verified=False,
                   dataset_repo=args.dataset_repo, model_repo=args.model_repo,
-                  gpus=4, global_batch_size=32, started=started, camera_contract=provenance(camera_contract))
+                  gpus=gpu_count, global_batch_size=32, batch_per_gpu=batch_per_gpu,
+                  collection_workers=collection_workers, started=started,
+                  camera_contract=provenance(camera_contract))
 
     def publish(stage):
         status.update(stage=stage, updated=time.time(), seconds_left=max(0,deadline-time.time()))
@@ -155,17 +161,30 @@ def main():
     try:
         publish('gpu_preflight')
         processes([( [sys.executable,'tools/refit_gpu_preflight.py','--out',str(work/f'gpu-{i}.json')],
-                     dict(os.environ,MUJOCO_EGL_DEVICE_ID=str(i))) for i in range(4)],'gpu_preflight',180)
-        status['gpu_preflight'] = [json.loads((work/f'gpu-{i}.json').read_text()) for i in range(4)]
+                     dict(os.environ,MUJOCO_EGL_DEVICE_ID=str(i))) for i in range(gpu_count)],'gpu_preflight',180)
+        status['gpu_preflight'] = [json.loads((work/f'gpu-{i}.json').read_text()) for i in range(gpu_count)]
         publish('recording')
+        def recording_progress(elapsed):
+            rows = []
+            for path in demos.glob('trial-*/demo.json'):
+                try:
+                    rows.append(json.loads(path.read_text()))
+                except json.JSONDecodeError:
+                    continue  # A worker can be in the middle of writing its status.
+            done = len(rows)
+            status['recording_progress'] = dict(completed=done, total=320, elapsed=elapsed,
+                                                successes=sum(bool(r.get('success')) for r in rows))
+            if done:
+                status['recording_progress']['estimated_seconds_left'] = elapsed * (320-done)/done
+
         one([sys.executable,'tools/record_refit_fold_demos.py',
              '--upstream',str(root/'upstream/assets/robots/xlerobot/xlerobot.xml'),
              '--along','-.04','--radius','.125','--axis-sign','-1',
              '--pinch-normal-tilt-degrees','15','--pre-height','.035',
              '--teacher-position','-.5','-.7','.75','--clearance','.002','--',
              '--simulation-root',str(root),'--out',str(demos),'--episodes','320',
-             '--seed0','10000','--workers','32','--offset-x','-.005','.005',
-             '--yaw','-1','1','--stiffness','.015','.022'],'recording',7200)
+             '--seed0','10000','--workers',str(collection_workers),'--offset-x','-.005','.005',
+             '--yaw','-1','1','--stiffness','.015','.022'],'recording',7200,recording_progress)
         summary = json.loads((demos/'summary.json').read_text())
         status['valid_demos'] = require_collection(summary)
         api.upload_file(path_or_fileobj=demos/'summary.json',path_in_repo='refit/collection.json',repo_id=args.model_repo)
@@ -179,7 +198,7 @@ def main():
         with evidence.open('rb') as f:
             status['evidence_sha256'] = hashlib.file_digest(f,'sha256').hexdigest()
         api.upload_file(path_or_fileobj=evidence,path_in_repo='refit/simulation-evidence.tar.gz',repo_id=args.model_repo)
-        roots = [work/f'shard-{i}' for i in range(4)]
+        roots = [work/f'shard-{i}' for i in range(gpu_count)]
 
         def render_progress(elapsed):
             rows = [json.loads((p/'conversion-progress.json').read_text()) for p in roots
@@ -187,14 +206,14 @@ def main():
             done = sum(r['completed'] for r in rows)
             total = sum(r['total'] for r in rows)
             status['render_progress'] = dict(completed=done,total=total,shards_reporting=len(rows),elapsed=elapsed)
-            if done and len(rows)==4:
+            if done and len(rows)==gpu_count:
                 estimate = elapsed * (total-done)/done
                 status['render_progress']['estimated_seconds_left'] = estimate
                 if elapsed > 300 and estimate > deadline-time.time()-900:
                     raise RuntimeError('Rendering forecast leaves insufficient time before operational timeout')
 
         processes([([sys.executable,'tools/fold_demos_to_lerobot.py','--batches',str(demos),
-                    '--out',str(p),'--workers','3','--num-shards','4','--shard-index',str(i),
+                    '--out',str(p),'--workers','3','--num-shards',str(gpu_count),'--shard-index',str(i),
                     '--image-writer-threads','8','--cameras','front=front','left_wrist=left_wrist',
                     'right_wrist=right_wrist'],dict(os.environ,MUJOCO_EGL_DEVICE_ID=str(i)))
                     for i,p in enumerate(roots)],'rendering',7200,render_progress)
@@ -217,14 +236,14 @@ def main():
                                    '--format=csv,noheader,nounits'],capture_output=True,text=True,timeout=10)
             status['gpu_utilization'] = proc.stdout.strip().splitlines()
 
-        one(['accelerate','launch','--multi_gpu','--num_processes=4','--num_machines=1',
+        one(['accelerate','launch','--multi_gpu',f'--num_processes={gpu_count}','--num_machines=1',
              '--mixed_precision=bf16','--num_cpu_threads_per_process=1','tools/train_refit_ddp.py',
              f'--dataset.repo_id={args.dataset_repo}',f'--dataset.root={dataset}',
              '--policy.type=act','--policy.device=cuda','--policy.use_amp=true','--policy.chunk_size=100',
              '--policy.n_action_steps=100','--policy.optimizer_lr=3e-5','--policy.private=true',
-             f'--policy.repo_id={args.model_repo}','--batch_size=8','--steps=25000',
+             f'--policy.repo_id={args.model_repo}',f'--batch_size={batch_per_gpu}','--steps=25000',
              '--save_freq=1000','--save_checkpoint_to_hub=true','--log_freq=100',
-             '--num_workers=8','--env_eval_freq=0','--wandb.enable=false','--job_name=dcm_refit_h200x4',
+             '--num_workers=8','--env_eval_freq=0','--wandb.enable=false',f'--job_name=dcm_refit_h200x{gpu_count}',
              f'--output_dir={work/"train"}'],'training',max(1,deadline-time.time()),train_progress)
         publish('training_completed_pending_evaluation')
     except BaseException as exc:
