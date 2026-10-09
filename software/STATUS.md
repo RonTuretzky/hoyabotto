@@ -1,3 +1,29 @@
+## Final desk scene refit — 9 October 2026, 18:34 JST capture
+
+**Current handoff: [station refit](docs/handoff-2026-10-09-station-refit.md). Scene review before training.**
+The user confirmed a rectangular DCM-F5040H desk, **500 × 480 × 700 mm**, label capacity **5 kg**.
+The server captured fresh phone/OAK/wrist images; all 16 motors reported released before and after,
+with zero encoder deltas. Physical station registration is still unverified.
+
+- Both wrists now carry registered CAD visuals and two physical convex collision hulls each.
+  Camera contacts are forbidden, including contacts with foldable flaps. The module is about
+  **36 × 67 × 43 mm in gripper X/Y/Z**, with its long axis along **Y**.
+- Candidate base-line setbacks **150 / 180 / 200 mm** give parked camera/carton gaps
+  **39.9 / 62.5 / 80.4 mm**. Only **1/8 / 2/8 / 2/8** sparse folding poses pass.
+  These are static model checks, not safe paths, full folds, or proof that larger setbacks cannot work.
+- Mounting height **729.1 mm above floor**, spacing **220 mm**, carton inset **10 mm** and current
+  cart/table pose are assumptions. **775 mm is a different legacy frame origin**, not the mounting plane.
+- The old **15.4 mm clearance** replay used an incorrectly oriented camera box and is invalid.
+  The historical head solve used **box tags [10,26,27], zero gripper tags**; its translation cannot
+  establish arm-to-carton distance. The old **45 cm setback correction** is withdrawn.
+  The reported **113.65 mm was a vertical gap**, not a measured horizontal setback.
+- Review page: `.context/station-refit-2026-10-09/dcm-preview-v4/scene-review.html` in the outer
+  las-vegas-v1 workspace (absolute path in the handoff). Correct OAK intrinsics are used, but the real
+  and simulated head views still differ. No new camera-to-arm calibration, training or robot motion.
+
+Historical notes below retain the original run chronology; the corrections above supersede their
+station, camera-body clearance and head-pose interpretation.
+
 ## Fold policy: first run on the robot (smoke test) — 9 October 2026, afternoon/evening
 
 Pilot session seville-v2-34 drove it, owner at STOP. Branch `RonTuretzky/fold-box-tags`; handoff

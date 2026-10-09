@@ -1,5 +1,13 @@
 # Handoff — 9 October 2026, evening
 
+> **SUPERSEDED for station setup, camera geometry and next actions:**
+> [Final DCM desk station-refit handoff](handoff-2026-10-09-station-refit.md).
+> Preserve this page as the smoke-test history. Do not follow its 45 cm cart move, infer calibrated
+> camera-to-arm translation from box-only tags, or rely on its 15.4 mm camera-clearance replay
+> (incorrect camera-box orientation). The new preview uses colliding camera CAD and the confirmed
+> 500 × 480 × 700 mm rectangular desk. Neither a wedge nor training has been started in this refit.
+> The 775 mm legacy frame origin is not the mounting plane; demo reach is not the full reach envelope.
+
 State of the carton fold policy after today's first real-robot smoke test, with absolute paths. Branch
 `RonTuretzky/fold-box-tags` at `f6b0196`, pushed, **not merged to main**. Nothing below has folded a real carton.
 

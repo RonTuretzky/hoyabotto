@@ -40,8 +40,9 @@ def cart_boxes(station):
 
 def table_overlap(station,boxes=None):
     """Static world bodies share a weld in MuJoCo; check their overlap explicitly."""
-    table_lo=np.array([-.55,station.table_edge_y,-.032])
-    table_hi=np.array([.55,station.table_edge_y+1.1,0.])
+    width,depth=station.table_size
+    table_lo=np.array([-width/2,station.table_edge_y,-.032])
+    table_hi=np.array([width/2,station.table_edge_y+depth,0.])
     overlaps=[]
     for box in cart_boxes(station) if boxes is None else boxes:
         lo=np.asarray(box.center)-box.half_size

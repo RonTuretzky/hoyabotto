@@ -1,5 +1,21 @@
 # Fold policy: simulated cameras and station versus the real robot
 
+> **Current correction — 9 October, final DCM desk.** Use
+> [the station-refit handoff](handoff-2026-10-09-station-refit.md) for current geometry and evidence.
+> The table is rectangular **500 × 480 × 700 mm**, user confirmed. Both wrist cameras now have
+> registered CAD visuals and physical collision hulls; their gripper-frame long axis is **Y**
+> (approximately **36 × 67 × 43 mm X/Y/Z**). The old **15.4 mm replay clearance is invalid** because
+> its camera-box orientation was wrong, independently of the trained-versus-live trajectory gap.
+> Historical 35.145° tilt / −5.132° pan came from **box tags [10,26,27], with zero gripper tags**.
+> Translation was conditional on the assumed station; it does not establish camera-to-arm calibration
+> or a **45 cm** cart correction. A **113.65 mm vertical gap** was also mislabeled as setback.
+> CAD mounting plane **729.1 mm** and legacy Base origin **775 mm** are distinct frames.
+> A demo's **175 mm** maximum forward motion does not establish the arm's usable reach limit.
+> New 150/180/200 mm base-line setback candidates clear the carton at park but none passes every
+> sampled fold pose. Full folding and physical registration remain unvalidated; review precedes training.
+>
+> The sections below are historical analyses, not current commissioning instructions.
+
 The short-flap fold policy (ACT, trained on `tools/fold_demos_to_lerobot.py` datasets) sees two
 320×240 RGB images, `top` (scene camera `overhead`) and `front` (scene camera `front`), and the 12 arm
 joints. On the robot, the images must come from cameras placed and framed like the simulated ones,

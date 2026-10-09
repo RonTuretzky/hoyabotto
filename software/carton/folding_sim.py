@@ -77,7 +77,7 @@ def marker(parent,name,tag_id,size,pos,xyaxes=None):
     return b
 
 
-def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0., paddle=None, solver=None, additional_view_camera=None):
+def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018, material=None, offset=(0,0), yaw=0., paddle=None, solver=None, additional_view_camera=None, wrist_camera=True):
     material=material or CartonMaterial(hinge_stiffness=stiffness)
     if not station.carton_footprint(offset,yaw)['fully_on_table']:
         raise ValueError('Initial carton bottom extends beyond the tabletop')
@@ -133,9 +133,15 @@ def build_scene(source:Path,out:Path, *, station:FoldingStation, stiffness=.018,
         grip=b.find(f".//body[@name='{side}_gripper_link']")
         E.SubElement(grip,'site',name=side+'_tip',pos='-.0049 -.0002 -.096',size='.002',rgba='0 0 0 0')
         marker(grip,side+'_tag',4 if side=='left' else 2,.040,[.045,0,.008],[0,1,0,0,0,1])
+        if wrist_camera:
+            from carton.wrist_camera_geometry import add_wrist_camera
+            add_wrist_camera(asset, grip, side)
         world.append(b)
     E.SubElement(world,'light',pos='0 -.2 1.4',dir='0 0 -1',directional='true')
-    E.SubElement(world,'geom',name='table',type='box',pos=words([0,station.table_edge_y+.55,-.016]),size='.55 .55 .016',rgba='.70 .66 .58 1',friction='.7 .003 .0001',solref='.004 1')
+    tw,td=station.table_size
+    E.SubElement(world,'geom',name='table',type='box',
+                 pos=words([0,station.table_edge_y+td/2,-.016]),size=words([tw/2,td/2,.016]),
+                 rgba='.70 .66 .58 1',friction='.7 .003 .0001',solref='.004 1')
     marker(world,'table_tag',1,.060,np.asarray(station.table_tag_position)-[0,0,.0003])
     if station.backup_table_marker_xy is not None:
         marker(world,'table_tag_backup',20,.060,[*station.backup_table_marker_xy,.001])
@@ -263,8 +269,7 @@ class FoldingSimulation:
         # Horizontal footprint inset: a negative value means edge overhang,
         # not downward penetration. Keep the historical key as an alias so
         # old reports/consumers remain readable; name its meaning explicitly.
-        clearance=float(min(np.min(corners[:,0]+.55),np.min(.55-corners[:,0]),
-                            np.min(corners[:,1]-self.station.table_edge_y),np.min(self.station.table_edge_y+1.1-corners[:,1]))*1000)
+        clearance=min(self.station.edge_clearance(x,y) for x,y,_ in corners)*1000
         self.motion_stats['max_translation_mm']=max(self.motion_stats['max_translation_mm'],distance)
         self.motion_stats['max_horizontal_translation_mm']=max(self.motion_stats.get('max_horizontal_translation_mm',0.),horizontal)
         self.motion_stats['max_absolute_vertical_translation_mm']=max(self.motion_stats.get('max_absolute_vertical_translation_mm',0.),abs(vertical))
@@ -399,8 +404,12 @@ class FoldingSimulation:
         return event
 
     def forbidden_contact(self,a,b):
+        # Camera bodies must never act as flap pushers, including intentional
+        # cardboard contact phases where the jaw itself may touch a flap.
+        if any('_wrist_camera_' in v for v in (a,b)):
+            return True
         arms=(a.startswith(('left_','right_')),b.startswith(('left_','right_')))
-        return all(arms) or (any(arms) and ('table' in (a,b) or any(v.startswith(('wall_','cart_')) or v=='contents' for v in (a,b))))
+        return all(arms) or (any(arms) and any(v.startswith(('wall_','cart_','desk_leg_')) or v in ('table','floor','contents') for v in (a,b)))
 
     def step_diagnostic(self):
         return None

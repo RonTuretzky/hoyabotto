@@ -1,0 +1,109 @@
+{
+  "source_model": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/upstream/assets/robots/xlerobot/xlerobot.xml",
+  "source_sha256": "8052fa318c019742257728563187863b484c2882eee41d5c0215bc70e4d92685",
+  "registration": {
+    "rotation": [
+      [
+        -0.9999917950140349,
+        -0.003732666162140605,
+        -0.0015738830723747057
+      ],
+      [
+        -0.0015814728164586507,
+        0.002031251360365864,
+        0.9999966864753249
+      ],
+      [
+        -0.003729456841729814,
+        0.9999909705698511,
+        -0.002037137804046393
+      ]
+    ],
+    "translation_m": [
+      -0.0003677465274719467,
+      -1.3502547302937217e-06,
+      0.00118306246586284
+    ],
+    "method": "fixed jaw plus servo mesh ICP; 24 proper axis-aligned starts; 60 iterations each",
+    "rms_mm_approx": 1.7,
+    "source_script": "/tmp/fsg/wrist/align.py",
+    "physical_calibration": false
+  },
+  "physical_mount_verified": false,
+  "collision": "one convex hull per upstream part",
+  "mass_calibrated": false,
+  "parts": {
+    "left-1.obj": {
+      "bounds_m": [
+        [
+          -0.014707031478389207,
+          0.022244802173158273,
+          -0.02809679017219459
+        ],
+        [
+          0.021281263840751956,
+          0.08853659169178277,
+          0.014524721806003817
+        ]
+      ],
+      "sha256": "442d68e3e444fb787aa9d7f7522c547588b6064d55b0a7e7684539d17201d261",
+      "upstream_body": "Left_Arm_Camera",
+      "vertices": 410,
+      "triangles": 844
+    },
+    "left-2.obj": {
+      "bounds_m": [
+        [
+          -0.013747952801791011,
+          0.05775636920790917,
+          -0.014156198892463358
+        ],
+        [
+          0.020793780533133063,
+          0.08949956767107997,
+          0.014686533439886846
+        ]
+      ],
+      "sha256": "d50dfaa0b8ad8bc9fb1075758eef8bc631134ac096cb23c38c5e495aba5f56e4",
+      "upstream_body": "Left_Arm_Camera",
+      "vertices": 1202,
+      "triangles": 2416
+    },
+    "right-1.obj": {
+      "bounds_m": [
+        [
+          -0.014703298812227065,
+          0.02224277092179791,
+          -0.029096781142764455
+        ],
+        [
+          0.021284996506914098,
+          0.08853456044042238,
+          0.01352473083543391
+        ]
+      ],
+      "sha256": "deb2d96400d7b3451dd579ccc6395064bd8cb996fd4c977f507f3a9e03d1be95",
+      "upstream_body": "Right_Arm_Camera",
+      "vertices": 410,
+      "triangles": 844
+    },
+    "right-2.obj": {
+      "bounds_m": [
+        [
+          -0.01374422013562887,
+          0.057754337956548774,
+          -0.015156189863033187
+        ],
+        [
+          0.020797513199295202,
+          0.08949753641971957,
+          0.013686542469317048
+        ]
+      ],
+      "sha256": "0168d879d2c565ddc7ce2423b9b34b51f2b2ac23e6dc8d464cb7648959e9ccc5",
+      "upstream_body": "Right_Arm_Camera",
+      "vertices": 1202,
+      "triangles": 2416
+    }
+  }
+}

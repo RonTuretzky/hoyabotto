@@ -53,3 +53,14 @@ def test_rotating_box_requires_translation_to_keep_near_corner_supported():
     assert footprint['fully_on_table']
     assert footprint['minimum_table_edge_clearance_m']==pytest.approx(.01)
     assert not station.carton_footprint((0,dy-.011),yaw)['fully_on_table']
+
+
+def test_confirmed_dcm_table_checks_small_table_support_and_marker():
+    station=FoldingStation(.0291,.18,.01,table_size=(.50,.48))
+    assert station.carton_footprint()['fully_on_table']
+    assert station.carton_footprint()['minimum_table_edge_clearance_m']==pytest.approx(.01)
+    assert not station.carton_footprint(offset=(.061,0))['fully_on_table']
+    assert not station.carton_footprint(offset=(0,.188))['fully_on_table']
+    assert station.edge_clearance(0,station.table_edge_y)==pytest.approx(0.)
+    with pytest.raises(ValueError):
+        FoldingStation(.0291,.18,.01,table_size=(.50,.48),table_marker_xy=(.22,.1))

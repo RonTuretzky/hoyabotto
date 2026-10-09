@@ -34,6 +34,7 @@ build-backend = "setuptools.build_meta"
 include = ["farm*", "carton*"]
 
 [tool.setuptools.package-data]
+"carton" = ["assets/wrist-camera/*.obj", "assets/wrist-camera/*.json"]
 "farm.kinematics" = ["so101-assets.json"]
 "farm.vendor.autocal.upstream_pr3282" = ["provenance.json"]
 "farm.sim" = ["assets/xlerobot/*.xml", "assets/xlerobot/*.md", "assets/xlerobot/*.json", "assets/xlerobot/LICENSE", "assets/xlerobot/assets/*.stl"]

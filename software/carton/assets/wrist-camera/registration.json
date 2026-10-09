@@ -1,0 +1,28 @@
+{
+  "rotation": [
+    [
+      -0.9999917950140349,
+      -0.003732666162140605,
+      -0.0015738830723747057
+    ],
+    [
+      -0.0015814728164586507,
+      0.002031251360365864,
+      0.9999966864753249
+    ],
+    [
+      -0.003729456841729814,
+      0.9999909705698511,
+      -0.002037137804046393
+    ]
+  ],
+  "translation_m": [
+    -0.0003677465274719467,
+    -1.3502547302937217e-06,
+    0.00118306246586284
+  ],
+  "method": "fixed jaw plus servo mesh ICP; 24 proper axis-aligned starts; 60 iterations each",
+  "rms_mm_approx": 1.7,
+  "source_script": "/tmp/fsg/wrist/align.py",
+  "physical_calibration": false
+}
