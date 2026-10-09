@@ -1,0 +1,192 @@
+{
+  "schema": 1,
+  "status": "REGISTRATION_VALIDATED",
+  "binding": {
+    "arm": "right",
+    "camera_id": "oak-1944301091DA1C2E00",
+    "camera_calibration_sha256": "5f1be7fac4598b30b9aaba75884271d3d9ae937455f5b8b520a8e01ee5c348dc",
+    "camera_geometry": {
+      "camera_id": "oak-1944301091DA1C2E00",
+      "image_size_px": [
+        1040,
+        780
+      ],
+      "intrinsics": [
+        [
+          757.3411254882812,
+          0.0,
+          512.130615234375
+        ],
+        [
+          0.0,
+          757.4607543945312,
+          408.88897705078125
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "projection": "camera_pinhole_with_factory_distortion",
+      "effective_distortion": [
+        -4.6401896476745605,
+        16.705299377441406,
+        -7.162407564464957e-05,
+        -0.00028249737806618214,
+        -22.244977951049805,
+        -4.718361854553223,
+        16.918954849243164,
+        -22.367332458496094,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.007052261848002672,
+        0.00018638990877661854
+      ],
+      "coordinate_frame": "CAM_A_optical",
+      "lens_position": 79
+    },
+    "tag_geometry_sha256": "90e7817adf12354d01d794ad0020c47083a3162ec3b7cf749c663180dc7a2426",
+    "robot_model_sha256": "3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c",
+    "motor_calibration_sha256": "ce0de709f36423ae8b804c4d49848eb1f91c78f919f7d34113fb73aeffbd85ae",
+    "raw_arm_ranges_sha256": "712e2c969cedec13d3fd1710a0fdd6319e93ef19e862c429e5309771d7c835c4",
+    "encoder_mapping_source": "installed LeRobot MotorsBus._normalize DEGREES; candidate pending physical fit",
+    "gripper_tag_id": 2,
+    "gripper_tag_mount": {
+      "arm": "right",
+      "body": "fixed_gripper_housing",
+      "source": "User reconfirmed replacement tag 2 rigidly attached to right fixed gripper housing on 2026-10-09 after clearing cable; tag remains fixed when fingers open/close."
+    }
+  },
+  "binding_policy": "camera_id + camera geometry hash (resolution, projection, intrinsics, distortion); stream_id is provenance only, a new stream needs a passing gripper-consistency check",
+  "source_stream_id": "3b0d8d0d41c64aa9b6ce92d56462b95f",
+  "dataset_sha256": "7a18b7b3588ee98e332dba5c88e6871961194698a0648f2a0c9c1d42d89bc272",
+  "method": "opencv_hand_eye_1",
+  "base_from_camera": [
+    [
+      0.013055673409377454,
+      -0.5571947714045691,
+      0.8302791916645786,
+      0.03682085994738363
+    ],
+    [
+      -0.9998695332284904,
+      0.0006235842742537823,
+      0.016140869371913676,
+      0.14339076409954193
+    ],
+    [
+      -0.009511357067113674,
+      -0.8303815977380523,
+      -0.5571139346890739,
+      0.38061291561513
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "gripper_from_tag": [
+    [
+      -0.01928830533211838,
+      -0.981999423675203,
+      -0.18789649591991908,
+      0.00833794368810146
+    ],
+    [
+      0.04768407304667394,
+      -0.1886211254978275,
+      0.980891584321944,
+      -0.03386156814534744
+    ],
+    [
+      -0.9986762190295186,
+      0.009960066139447289,
+      0.050463914111010345,
+      -0.0747535725935951
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "transform_translation_units": "metres",
+  "residuals": {
+    "train": {
+      "count": 8,
+      "position_rms_mm": 1.4733011539688,
+      "position_max_mm": 1.8620884143220553,
+      "orientation_max_degrees": 0.2892385644383781
+    },
+    "validation": {
+      "count": 3,
+      "position_rms_mm": 0.842165925763821,
+      "position_max_mm": 1.0556997534165025,
+      "orientation_max_degrees": 0.30840799072392977
+    }
+  },
+  "excitation": {
+    "rotation_excitation_singular_values_rad": [
+      0.7872563688162173,
+      0.762255848652795,
+      0.05176722939995571
+    ],
+    "position_extent_m": [
+      0.010681557408739772,
+      0.09342790636228053,
+      0.035423216969299426
+    ]
+  },
+  "head_ticks_reference": [
+    2085.0,
+    2623.0
+  ],
+  "anchor_center_camera_mm_reference": [
+    -143.86599390722077,
+    -178.11879634294658,
+    823.9280503421617
+  ],
+  "anchor_corners_px_reference": [
+    [
+      408.47119140624994,
+      228.5569152832031
+    ],
+    [
+      354.233642578125,
+      230.00117492675784
+    ],
+    [
+      348.0700378417969,
+      261.30340576171875
+    ],
+    [
+      405.4724731445312,
+      258.69116210937494
+    ]
+  ],
+  "motion_ready": false,
+  "physical_grasp_validated": false,
+  "remaining": [
+    "Independently verify the jaw contact offset and workspace/path clearance",
+    "Revalidate after camera/head/tag mounting or motor calibration changes",
+    "A good fit validates this mapping over sampled poses, not all joint configurations"
+  ],
+  "fitter_motor_writes": 0,
+  "gripper_tag_id": 2,
+  "calibration_commands_sent": 40,
+  "commanded_path_ticks": 1164,
+  "cleanup": {
+    "release_confirmed": true,
+    "note": "run released via STOP after the post-release settle check refused on gravity motion; fit computed offline from the 11 saved poses (2026-10-10)",
+    "owner_started": 1791551739.406972
+  },
+  "output": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/tag-calibration-runs/1791566173290517000-registration",
+  "held_start": true,
+  "fitted_offline_at": 1791566318.947883
+}

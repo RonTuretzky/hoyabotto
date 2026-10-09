@@ -38,11 +38,17 @@ class GemmaTransport:
     """One-joint steps through robot_move_motor_targets, with measured readback."""
     min_step_ticks = MIN_STEP_TICKS
 
-    def __init__(self, robot, arm, joints, limits=None, *, execute=False, clock=time.time):
+    def __init__(self, robot, arm, joints, limits=None, *, execute=False, held_start=False, clock=time.time):
         if arm not in ('left', 'right'):
             raise Refused('Choose an explicit arm')
         self.robot, self.arm, self.clock = robot, arm, clock
         self.limits, self.execute = limits or Limits(), execute
+        # held_start: the operator has just positioned this arm with the owner's ordinary move tool and
+        # left exactly its six motors holding (the released arm sags out of the camera view). The run
+        # then starts from that held pose, sends no enable, and still releases/STOPs at the end.
+        self.held_start = bool(held_start)
+        if self.held_start and not execute:
+            raise Refused('A held start is only meaningful for an executing calibration')
         self.arm_names = [f'{arm}_arm_{n}' for n in ARM_JOINTS]
         self.position_names = self.arm_names[:-1]
         # The pickup-profile owner refuses any move unless all six motors of the arm are enabled.
@@ -158,10 +164,20 @@ class GemmaTransport:
         blockers = {n: v for n, v in caps.get('joint_blockers', {}).items() if n in self.hold_names and v}
         if blockers:
             raise Refused(f'Selected arm blockers: {blockers}')
+        if self.held_start:
+            # Decide the expected enable state from the owner BEFORE the first validated snapshot:
+            # exactly the six motors of this arm, holding, nothing else. Anything different is refused
+            # without a write, and finish() then has nothing to release.
+            s = self._execution()
+            if s.get('phase') != 'holding' or sorted(s.get('enabled_motors') or []) != sorted(self.hold_names):
+                raise Refused(f'Held start needs exactly the six motors of the {self.arm} arm holding: {s.get("enabled_motors")}')
+            if finite(s.get('lease_remaining'), 'lease remaining') <= 2*self.limits.command_timeout_s:
+                raise Refused('Held start: the owner lease is nearly over; reposition again and start at once')
+            self.enabled = self.write_attempted = True
         if self.ranges is None:
             self.read_state()
         s, q = self.status()
-        if s.get('enabled_motors'):
+        if s.get('enabled_motors') and not self.held_start:
             raise Refused('Calibration must start with all motors released and other motion clients idle')
         return {'arm': self.arm, 'joints': self.joints,
                 # Experiment.align expects raw ranges and applies its own 4 tick margin.
@@ -190,6 +206,8 @@ class GemmaTransport:
         _, q = self.status()
         if any(abs(q[n]-self.origin[n]) > 3 for n in q):
             raise Refused('Robot moved from the observed starting pose before enabling')
+        if self.held_start:
+            return  # already holding exactly the six motors (verified in preflight and every status read)
         self.write_attempted = True
         payload = self.robot.call('robot_set_motor_enable', {'names': self.hold_names, 'enabled': True})
         ack = result(payload, 'robot_set_motor_enable')
@@ -258,11 +276,25 @@ class GemmaTransport:
             return
         payload = self.robot.call('robot_set_motor_enable', {'names': self.hold_names, 'enabled': False})
         self.enabled = False
-        self._acknowledge(payload, 'robot_set_motor_enable')
-        # Releasing may allow gravity movement; require fresh torque-zero, not a pose hold.
-        state = result(self.robot.call('robot_get_state', {'fresh': True}), 'robot_get_state')
-        if state.get('cached') is not False or not self._released(state.get('motors', [])) or len({r.get('name') for r in state['motors']}) != 16:
+        ack = result(payload, 'robot_set_motor_enable')
+        if (ack.get('accepted') is not True or ack.get('completed') is not True or ack.get('owner_started') != self.started
+                or ack.get('readbacks') != {n: 0 for n in self.hold_names}):
+            raise Refused(f'robot_set_motor_enable: release not confirmed by the bound owner: {str(ack)[:400]}')
+        # Releasing lets gravity move the arm (2026-10-10: the right shoulder sagged 120 ticks and read
+        # Moving=1 right after a validated 11-pose run, which the stationary status check then refused).
+        # Require fresh torque-zero on all sixteen motors, not a pose hold or settled telemetry.
+        deadline = self.clock() + RELEASE_CONFIRM_S
+        confirmed = False
+        for _ in range(40):
+            state = result(self.robot.call('robot_get_state', {'fresh': True}), 'robot_get_state')
+            motors = state.get('motors', [])
+            confirmed = (state.get('cached') is False and not state.get('enabled_motors')
+                         and len({r.get('name') for r in motors}) == 16 and self._released(motors))
+            if confirmed or self.clock() > deadline:
+                break
+        if not confirmed:
             raise Refused('Fresh all-sixteen release confirmation missing')
+        self.last_marker = None
         self.cleanup = {'release_confirmed': True, 'owner_started': self.started}
 
 
@@ -307,9 +339,12 @@ class GemmaTagObserver:
             if stamp >= earliest and stamp > after and (self.last is None or
                     (frame['seq'] > self.last['seq'] and stamp > self.last['captured_at'])):
                 break
-            # Only wait out a valid cached capture from before this bracket.
-            # Do not slide the first encoder sample forward or accept an old frame.
-            if stamp >= earliest or attempt == FRAME_READ_ATTEMPTS - 1:
+            # Wait out a capture from before this bracket, and one inside the bracket that is not yet
+            # past the movement cutoff or the previous observation's frame: camera stamps are the
+            # robot's clock while `after` is this process's clock (2026-10-10: a 16-tick step was
+            # refused here live with a frame 0.1 s inside the bracket). The first encoder sample is
+            # never slid forward and every intermediate read must stay stationary against it.
+            if attempt == FRAME_READ_ATTEMPTS - 1:
                 raise Refused('Camera observation lacks a stationary encoder bracket: camera frame did not advance')
             # Waiting cannot hide a STOP, restart or foreign write that returned to the same pose.
             # status() validates the owner marker and its own complete telemetry snapshot.

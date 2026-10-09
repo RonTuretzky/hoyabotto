@@ -30,6 +30,9 @@ class Owner:
         self.calls = []
         self.stopped = self.no_motion = self.missing_tag = self.ambiguous = False
         self.after_move = None
+        self.shortfall = 0
+        self.sag_reads = 0
+        self.sag_on_release = 0
         self.phase = 'idle'
         self.lease = 15
         self.mount = dict(arm=arm, body='fixed_gripper_housing', source='fixture confirmation')
@@ -53,8 +56,14 @@ class Owner:
                     owner_started=self.started, owner_status_time=self.now, readbacks=readbacks)
 
     def rows(self):
-        return {n: dict(Present_Position=q, Present_Velocity=0, Present_Load=0, Moving=0, Status=0,
-                        Torque_Enable=int(n in self.enabled), captured_at=self.now-.001) for n, q in self.q.items()}
+        out = {n: dict(Present_Position=q, Present_Velocity=0, Present_Load=0, Moving=0, Status=0,
+                       Torque_Enable=int(n in self.enabled), captured_at=self.now-.001) for n, q in self.q.items()}
+        if self.sag_reads > 0 and 'right_arm_shoulder_lift' not in self.enabled:
+            # Gravity: a released shoulder keeps moving for a few reads after torque-off.
+            self.sag_reads -= 1
+            self.q['right_arm_shoulder_lift'] += 40
+            out['right_arm_shoulder_lift'].update(Present_Position=self.q['right_arm_shoulder_lift'], Moving=1, Present_Velocity=25)
+        return out
 
     def call(self, name, args, request_id=None):
         self.now += .02
@@ -100,6 +109,7 @@ class Owner:
                 self.enabled.update(args['names'])
             else:
                 self.enabled.difference_update(args['names'])
+                self.sag_reads = self.sag_on_release
             r = self.ack({n: int(args['enabled']) for n in args['names']})
         elif name == 'robot_move_motor_targets':
             self.command += 1
@@ -107,7 +117,9 @@ class Owner:
             assert not self.stopped
             assert set(args['positions']) <= self.enabled
             if not self.no_motion:
-                self.q.update(args['positions'])
+                for n, goal in args['positions'].items():   # shortfall: stop a few ticks short, like the pickup owner
+                    short = min(self.shortfall, abs(goal-self.q[n]))
+                    self.q[n] = goal - short if goal > self.q[n] else goal + short
             r = self.ack({n: self.q[n] for n in args['positions']})
             if self.after_move:
                 self.after_move(self)
@@ -508,12 +520,23 @@ def test_invalid_frame_progression_is_not_waited_out(frame_rig, bad):
     assert len(reads['tags']) == 2 and observer.last is None and not owner.writes
 
 
-def test_frame_inside_bracket_but_before_movement_cutoff_is_not_retried(frame_rig):
+def test_frame_inside_bracket_but_before_movement_cutoff_is_waited_out(frame_rig):
+    # Camera stamps (robot clock) can trail the movement cutoff (this process's clock) by a few
+    # reads; the observer keeps reading inside its deadline, pinned to the same first encoder sample.
+    owner, _, observer = frame_rig
+    reads = cached_camera(owner, cached_reads=0)
+    observation = observer.observe(after=owner.now + .1)
+    assert 1 < len(reads['tags']) <= FRAME_READ_ATTEMPTS and not owner.writes
+    assert observation.captured_at > reads['states'][0]['result']['motors'][0]['captured_at']
+    assert observer.capture['before'] is reads['states'][0] or observer.capture['before'] == reads['states'][0]
+
+
+def test_frames_never_past_the_cutoff_exhaust_attempts_without_writes(frame_rig):
     owner, _, observer = frame_rig
     reads = cached_camera(owner, cached_reads=0)
     with pytest.raises(Refused, match='camera frame did not advance'):
-        observer.observe(after=owner.now + .5)
-    assert len(reads['tags']) == 1 and not owner.writes
+        observer.observe(after=owner.now + 5)
+    assert len(reads['tags']) == FRAME_READ_ATTEMPTS and observer.last is None and not owner.writes
 
 
 @pytest.mark.parametrize('expiry', ['already_expired', 'tag_reply', 'encoder_reply', 'encoder_catchup'])
@@ -683,3 +706,142 @@ def test_stop_without_immediate_confirmation_waits_for_fresh_torque_zero(rig):
     transport.finish(failed=True)
     assert transport.cleanup['release_confirmed'] is True and transport.cleanup['stop']['release_confirmed'] is False
     assert not owner.enabled
+
+
+def _synthetic_fk(owner, arm, monkeypatch):
+    """Same encoder-to-FK substitute as the registration test; sampler, mover and fitter stay real."""
+    def assemble(captures, directory):
+        samples = []
+        for capture in captures:
+            s = copy.deepcopy(capture['sample'])
+            a, b = (s['joint_ticks'][f'{arm}_arm_{n}']-2000 for n in ('shoulder_pan', 'wrist_flex'))
+            pose = np.eye(4)
+            pose[:3, :3] = cv2.Rodrigues(np.array([0., b, 0.])*np.pi/2048)[0] @ cv2.Rodrigues(np.array([0., 0., a])*np.pi/2048)[0]
+            pose[:3, 3] = [.2+a*.0003, .02+b*.0003, .3]
+            s['base_from_gripper'] = pose.tolist()
+            samples.append(s)
+        binding = dict(arm=arm, gripper_tag_id=owner.tag_id, gripper_tag_mount=owner.mount,
+                       camera_id='oak-test', stream_id='one', camera_calibration_sha256='K',
+                       tag_geometry_sha256='geometry', robot_model_sha256='model',
+                       motor_calibration_sha256='motors', encoder_mapping_source='synthetic known FK')
+        return dict(schema=1, samples=samples, binding=binding)
+    monkeypatch.setattr('carton.servo.tag_calibration.assemble_dataset', assemble)
+
+
+def test_held_start_registration_sends_no_enable_and_still_releases(rig, tmp_path, monkeypatch):
+    owner, cfg = rig
+    six = [f'right_arm_{n}' for n in ARM_JOINTS]
+    owner.enabled.update(six)          # operator just positioned the arm; owner reports holding
+    owner.lease = 118
+    _synthetic_fk(owner, 'right', monkeypatch)
+    r = run_calibration(owner, cfg, 'registration', tmp_path/'held', clock=owner.clock, held_start=True)
+    assert r['status'] == 'REGISTRATION_VALIDATED' and r['held_start'] is True
+    assert r['residuals']['train']['count'] == 8 and r['residuals']['validation']['count'] == 3
+    enables = [a for n, a in owner.calls if n == 'robot_set_motor_enable']
+    assert enables == [{'names': six, 'enabled': False}], enables   # one release, never an enable
+    assert not owner.enabled and not owner.stopped and r['cleanup']['release_confirmed']
+    assert set(owner.q.values()) == {2000}
+
+
+def test_held_start_failure_still_stops_and_releases(rig, tmp_path, monkeypatch):
+    owner, cfg = rig
+    owner.enabled.update(f'right_arm_{n}' for n in ARM_JOINTS)
+    owner.lease = 118
+    owner.no_motion = True
+    _synthetic_fk(owner, 'right', monkeypatch)
+    with pytest.raises(Refused):
+        run_calibration(owner, cfg, 'registration', tmp_path/'held-fail', clock=owner.clock, held_start=True)
+    assert owner.stopped and not owner.enabled
+    assert json.loads((tmp_path/'held-fail/failure.json').read_text())['automatic_retry'] is False
+
+
+@pytest.mark.parametrize('bad', ['released', 'partial', 'other_arm', 'extra', 'lease', 'moving'])
+def test_held_start_needs_exactly_the_six_arm_motors_holding(rig, tmp_path, bad):
+    owner, cfg = rig
+    six = [f'right_arm_{n}' for n in ARM_JOINTS]
+    owner.lease = 118
+    if bad == 'partial':owner.enabled.update(six[:3])
+    if bad == 'other_arm':owner.enabled.update(f'left_arm_{n}' for n in ARM_JOINTS)
+    if bad == 'extra':owner.enabled.update(six+['head_motor_1'])
+    if bad == 'lease':owner.enabled.update(six); owner.lease = 6
+    if bad == 'moving':owner.enabled.update(six); owner.phase = 'moving'
+    with pytest.raises(Refused):
+        run_calibration(owner, cfg, 'registration', tmp_path/'bad', clock=owner.clock, held_start=True)
+    assert not owner.writes
+    assert not any(n == 'robot_stop' for n, _ in owner.calls)
+
+
+def test_held_motors_without_held_start_are_still_refused(rig, tmp_path):
+    owner, cfg = rig
+    owner.enabled.update(f'right_arm_{n}' for n in ARM_JOINTS)
+    with pytest.raises(Refused):
+        run_calibration(owner, cfg, 'registration', tmp_path/'plain', clock=owner.clock)
+    assert not owner.writes and not any(n == 'robot_stop' for n, _ in owner.calls)
+    with pytest.raises(Refused):
+        GemmaTransport(owner, 'right', ['shoulder_pan', 'wrist_flex'], held_start=True)
+
+
+def test_wrapper_accepts_only_a_boolean_held_start(rig, tmp_path):
+    owner, cfg = rig
+    path = tmp_path/'config.json'
+    path.write_text(json.dumps(dict(cfg, output_root=str(tmp_path/'runs'))))
+    wrapped = CalibrationRobot(owner, path)
+    assert not wrapped.call('robot_calibrate_tags', {'mode': 'registration', 'held_start': 'yes'})['ok']
+    assert not wrapped.call('robot_calibrate_tags', {'held_start': True})['ok']
+    assert not owner.writes
+
+
+@pytest.mark.parametrize('shortfall', [6, 12])
+def test_registration_tolerates_the_owners_constant_endpoint_shortfall(rig, tmp_path, monkeypatch, shortfall):
+    """2026-10-10 live trace: 32-tick steps moved 26 (pan) and 17-20 (wrist); an 18-tick catch-up moved 4.
+    Requested travel grows with the shortfall (about 1.3x at 12 ticks), so the budget is the 2000 cap."""
+    owner, cfg = rig
+    owner.shortfall = shortfall
+    cfg['limits'] = {'settle_ticks': 16, 'step_ticks': 32, 'max_path_ticks': 2000}
+    _synthetic_fk(owner, 'right', monkeypatch)
+    r = run_calibration(owner, cfg, 'registration', tmp_path/'short', clock=owner.clock)
+    assert r['status'] == 'REGISTRATION_VALIDATED' and r['residuals']['validation']['count'] == 3
+    assert all(abs(v-2000) <= 16 for v in owner.q.values()) and not owner.enabled
+
+
+def test_wrong_way_motion_still_refuses_even_near_the_target(rig, tmp_path, monkeypatch):
+    owner, cfg = rig
+    cfg['limits'] = {'settle_ticks': 16, 'step_ticks': 32}
+    def backwards(o):
+        o.q['right_arm_shoulder_pan'] += 8
+    owner.after_move = backwards
+    _synthetic_fk(owner, 'right', monkeypatch)
+    with pytest.raises(Refused):
+        run_calibration(owner, cfg, 'registration', tmp_path/'back', clock=owner.clock)
+    assert owner.stopped and not owner.enabled
+
+
+def test_limits_cap_settle_at_sixteen():
+    Limits(settle_ticks=16)
+    with pytest.raises(Refused):
+        Limits(settle_ticks=17)
+
+
+def test_release_tolerates_gravity_motion_after_torque_off(rig, tmp_path, monkeypatch):
+    """2026-10-10: a validated 11-pose run was refused at release because the sagging shoulder read Moving=1."""
+    owner, cfg = rig
+    owner.sag_on_release = 3
+    _synthetic_fk(owner, 'right', monkeypatch)
+    r = run_calibration(owner, cfg, 'registration', tmp_path/'sag', clock=owner.clock)
+    assert r['status'] == 'REGISTRATION_VALIDATED' and r['cleanup']['release_confirmed'] and not owner.stopped
+    assert not owner.enabled and owner.sag_reads < 3   # the release read saw the sag (Moving=1) and still confirmed torque-zero
+
+
+def test_release_that_leaves_torque_on_is_refused(rig, tmp_path, monkeypatch):
+    owner, cfg = rig
+    original = owner.call
+    def sticky(name, args, request_id=None):
+        payload = original(name, args, request_id)
+        if name == 'robot_set_motor_enable' and not args['enabled']:
+            owner.enabled.add('right_arm_gripper')   # torque stays on after the release reply
+        return payload
+    owner.call = sticky
+    _synthetic_fk(owner, 'right', monkeypatch)
+    with pytest.raises(Refused, match='release'):
+        run_calibration(owner, cfg, 'registration', tmp_path/'sticky', clock=owner.clock)
+    assert owner.stopped

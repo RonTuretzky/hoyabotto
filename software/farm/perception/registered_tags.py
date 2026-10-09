@@ -254,7 +254,21 @@ def read_registered_tags(robot, config, registration, *, clock=time.time, state=
     if gripper_tag_for_arm(config['arm'], registration['binding'].get('gripper_tag_id')) != tag_id:
         raise ValueError('Installed registration belongs to a different gripper tag')
     before = robot.call('robot_get_state', {'fresh': True})
-    payload = robot.call('robot_get_tags', {'cameras': [config.get('camera', 'oak')], 'tag_ids': [1, tag_id, 3]})
+    # The OAK publishes a frame about 0.4-0.5 s after capture (2026-10-10), so the first tag read
+    # usually returns a capture from BEFORE the encoder sample above. Read again until the frame
+    # is inside the bracket; the encoder sample is never slid forward and stationary_sample()
+    # still checks the whole bracket. Eight reads or three seconds, whichever comes first.
+    try:
+        bracket_start = max(r['captured_at'] for r in before['result']['motors'])
+    except (KeyError, TypeError, ValueError):
+        bracket_start = float('-inf')
+    deadline = clock() + 3
+    camera = config.get('camera', 'oak')
+    for _ in range(8):
+        payload = robot.call('robot_get_tags', {'cameras': [camera], 'tag_ids': [1, tag_id, 3]})
+        stamp = ((payload.get('result') or {}).get('observations', {}).get(camera, {}).get('frame', {}) or {}).get('captured_at')
+        if payload.get('ok') is not True or type(stamp) not in (int, float) or stamp >= bracket_start or clock() > deadline:
+            break
     after = robot.call('robot_get_state', {'fresh': True})
     if payload.get('ok') is not True:
         reason = ((payload.get('result') or {}).get('observations', {})

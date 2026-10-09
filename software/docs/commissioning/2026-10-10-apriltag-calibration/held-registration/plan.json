@@ -1,0 +1,85 @@
+{
+  "poses": [
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": -80,
+        "right_arm_wrist_flex": -80
+      }
+    },
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": -80,
+        "right_arm_wrist_flex": 0
+      }
+    },
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": -80,
+        "right_arm_wrist_flex": 80
+      }
+    },
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": 0,
+        "right_arm_wrist_flex": 80
+      }
+    },
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": 80,
+        "right_arm_wrist_flex": 80
+      }
+    },
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": 80,
+        "right_arm_wrist_flex": 0
+      }
+    },
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": 80,
+        "right_arm_wrist_flex": -80
+      }
+    },
+    {
+      "split": "train",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": 0,
+        "right_arm_wrist_flex": -80
+      }
+    },
+    {
+      "split": "validation",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": -40,
+        "right_arm_wrist_flex": -40
+      }
+    },
+    {
+      "split": "validation",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": -40,
+        "right_arm_wrist_flex": 40
+      }
+    },
+    {
+      "split": "validation",
+      "offset_ticks": {
+        "right_arm_shoulder_pan": 40,
+        "right_arm_wrist_flex": 40
+      }
+    }
+  ],
+  "planned_path_ticks": 1040,
+  "collision_checked": false,
+  "step_ticks": 32,
+  "radius_ticks": 80
+}

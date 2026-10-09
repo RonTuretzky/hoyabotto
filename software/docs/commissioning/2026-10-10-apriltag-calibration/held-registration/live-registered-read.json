@@ -1,0 +1,163 @@
+{
+ "ok": true,
+ "result": {
+  "status": "REGISTERED_TAG_ESTIMATES",
+  "arm": "right",
+  "frame": {
+   "camera_id": "oak-1944301091DA1C2E00",
+   "seq": 169602,
+   "stream_id": "3b0d8d0d41c64aa9b6ce92d56462b95f",
+   "sha256": "786b9ce217e46e4674d5d108a72101d11d730a16d7c93b30f8efb9b3fe6c4886",
+   "captured_at": 1791566605.57206,
+   "received_at": null,
+   "timestamp_basis": "capture",
+   "age_s_on_observer_clock": 0.45021772384643555,
+   "clock_basis": "cross_host_wall_clocks_must_be_synchronized",
+   "capture_age_within_limit": true,
+   "clock_synchronization_verified": false,
+   "new_since_last_call": true
+  },
+  "camera_frame": "CAM_A_optical",
+  "registration_sha256": "ad326ade0d8f80b0cfeff022d92d1620ebf34f37410195f141722d85357d40b8",
+  "tags": [
+   {
+    "tag_id": 1,
+    "center_arm_base_mm": [
+     818.7608238350823,
+     300.48587717840604,
+     70.63914395941507
+    ],
+    "arm_base_from_tag": [
+     [
+      -0.047768549885522545,
+      0.9803030455321193,
+      0.19163534267518112,
+      0.8187608238350823
+     ],
+     [
+      0.9986113920889367,
+      0.051136264729316705,
+      -0.012663728507710265,
+      0.300485877178406
+     ],
+     [
+      -0.022213807238433896,
+      0.19076430837530245,
+      -0.9813844941805766,
+      0.07063914395941506
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "orientation_ambiguous": false,
+    "coarse_position_only": true,
+    "reprojection_rms_px": 0.2865386635975139,
+    "position_std_mm_camera_axes": [
+     1.3078820208322446,
+     1.5964206864921218,
+     7.308706306976679
+    ],
+    "position_std_mm_arm_base_axes": [
+     6.133139004401672,
+     1.3130219779055985,
+     4.282158510440842
+    ]
+   },
+   {
+    "tag_id": 2,
+    "center_arm_base_mm": [
+     384.82380000032055,
+     20.489114273788452,
+     33.290055662538954
+    ],
+    "arm_base_from_tag": [
+     [
+      -0.9899152375537519,
+      -0.08920693454898573,
+      -0.11004519656586775,
+      0.38482380000032057
+     ],
+     [
+      -0.06327396037530865,
+      0.9734589986608307,
+      -0.2199408644719394,
+      0.020489114273788453
+     ],
+     [
+      0.12674473715809392,
+      -0.21075981769452176,
+      -0.9692863719500538,
+      0.03329005566253895
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "orientation_ambiguous": false,
+    "coarse_position_only": true,
+    "reprojection_rms_px": 1.348195034429712,
+    "position_std_mm_camera_axes": [
+     0.9980340473323713,
+     0.7287311323493295,
+     3.599232318200375
+    ],
+    "position_std_mm_arm_base_axes": [
+     3.015855430158383,
+     0.9995935539854638,
+     2.094522154211503
+    ]
+   }
+  ],
+  "transform_translation_units": "metres",
+  "point_units": "millimetres",
+  "current_gripper_consistency": {
+   "position_mm": 0.5651644401073793,
+   "orientation_degrees": 0.3476280134980482
+  },
+  "binding_events": [],
+  "binding_state": {
+   "schema": 1,
+   "registration_sha256": "ad326ade0d8f80b0cfeff022d92d1620ebf34f37410195f141722d85357d40b8",
+   "verified_stream_id": "3b0d8d0d41c64aa9b6ce92d56462b95f",
+   "anchor_corners_px_reference": [
+    [
+     408.47119140624994,
+     228.5569152832031
+    ],
+    [
+     354.233642578125,
+     230.00117492675784
+    ],
+    [
+     348.0700378417969,
+     261.30340576171875
+    ],
+    [
+     405.4724731445312,
+     258.69116210937494
+    ]
+   ],
+   "anchor_center_camera_mm_reference": [
+    -143.86599390722077,
+    -178.11879634294658,
+    823.9280503421617
+   ],
+   "anchor_source": "registration",
+   "events": []
+  },
+  "camera_stream_reverified": false,
+  "re_anchored": false,
+  "motor_writes": 0,
+  "robot_motion_target": false,
+  "physical_grasp_validated": false,
+  "note": "Marker poses only. Contact offsets, collision clearance and physical accuracy require separate validation."
+ },
+ "motor_writes": 0
+}

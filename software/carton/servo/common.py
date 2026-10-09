@@ -91,7 +91,11 @@ class Limits:
             raise Refused("Cannot relax the connected Mac's existing health limits")
         if self.max_seconds > 300 or self.max_steps > 200 or self.frame_age_s > 2 or self.status_age_s > 2:
             raise Refused("Experiment duration or freshness limit is too permissive")
-        if (self.frame_skew_s > .3 or self.settle_ticks > 5 or self.max_path_ticks > 2000
+        # settle_ticks: the pickup-profile owner's position controller stops 8-17 ticks short of a
+        # goal under gravity load (2026-10-10, right pan/elbow; its own endpoint tolerance is 57).
+        # Calibration samples use measured encoders, so a 16-tick (1.4 degree) endpoint tolerance
+        # only makes the grid poses less regular; the serial transport's reviewed tolerance is 11/24.
+        if (self.frame_skew_s > .3 or self.settle_ticks > 16 or self.max_path_ticks > 2000
                 or self.command_timeout_s > 5 or self.tolerance_px > 4 or self.model_error_px > 6
                 or self.return_error_px > 4 or self.condition_max > 50):
             raise Refused("Local control or evidence limit is too permissive")

@@ -385,10 +385,12 @@ with tempfile.TemporaryDirectory() as tmp:
     assert failure['cleanup']['stop']['release_confirmed'] is True and len(rig.steps) == 3
     checks.append('tag lost: STOP soft release (2 s ramp) confirmed')
 
-    # 5. Obstacle 8 ticks short of a step. If the stalled servo reads stationary, the owner reports
-    # endpoint_settled (inside its 57-tick tolerance) and the mover's 5-tick check refuses; if it keeps
-    # Moving=1, the owner faults at its settle deadline. Either way: one STOP, confirmed release, no retry.
-    for stationary, reason in ((True, 'misses calibration tolerance'), (False, 'failed to settle')):
+    # 5. Obstacle 8 ticks short of a step. If the stalled servo reads stationary, the owner's small-move
+    # check (f789d13) reports completed:false with closure_outcome settled_short and the mover refuses
+    # on that missing completion (before f789d13 the owner said endpoint_settled inside its 57-tick
+    # tolerance and the mover's own 5-tick check refused instead); if it keeps Moving=1, the owner
+    # faults at its settle deadline. Either way: one STOP, confirmed release, no retry.
+    for stationary, reason in ((True, 'settled_short'), (False, 'failed to settle')):
         def obstacle(rig):
             rig.bus.blocked['right_arm_shoulder_pan'] = REST['right_arm_shoulder_pan']-40
             rig.bus.stall_reads_stationary = stationary

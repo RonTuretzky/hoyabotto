@@ -134,7 +134,8 @@ class CalibrationRobot:
         if name in (STATUS, RUN, REGISTERED):
             try:
                 cfg = self.settings()
-                if not isinstance(args, dict) or set(args) != ({'mode'} if name == RUN else set()):
+                if (not isinstance(args, dict) or set(args) - ({'mode', 'held_start'} if name == RUN else set())
+                        or (name == RUN and ('mode' not in args or type(args.get('held_start', False)) is not bool))):
                     raise Refused('Unexpected calibration arguments')
                 if name == STATUS:
                     return {'ok': True, 'result': readiness(self.robot, cfg, clock=self.clock), 'motor_writes': 0}
@@ -148,7 +149,8 @@ class CalibrationRobot:
                 if args['mode'] not in ('local_model', 'registration'):
                     raise Refused('Unknown calibration mode')
                 output = Path(cfg['output_root'])/f'{time.time_ns()}-{args["mode"]}'
-                outcome = run_calibration(self.robot, cfg, args['mode'], output, clock=self.clock)
+                outcome = run_calibration(self.robot, cfg, args['mode'], output, clock=self.clock,
+                                          held_start=args.get('held_start', False))
                 if outcome.get('status') == 'REGISTRATION_VALIDATED':
                     atomic_json(self.registration_path, outcome)
                     self.binding_state_path.unlink(missing_ok=True)

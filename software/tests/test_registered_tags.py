@@ -277,3 +277,42 @@ def test_read_rejects_receipt_only_timestamps_before_using_fk():
     with pytest.raises(ValueError,match='capture timestamp'):
         read_registered_tags(owner,dict(arm='right',camera='oak'),{'binding':{'arm':'right'}},clock=owner.clock)
     assert not owner.writes
+
+
+@pytest.mark.parametrize('stale_reads', [1, 3])
+def test_read_waits_for_a_frame_captured_inside_the_encoder_bracket(monkeypatch, stale_reads):
+    """2026-10-10 live: the OAK publishes ~0.45 s after capture, so the first tag read is from before the
+    encoder sample and was refused as 'not between coherent owner samples'. The read now re-reads."""
+    owner, args = fixture('right')
+    reg, base_from_gripper = args[3], args[6]
+    monkeypatch.setattr('farm.perception.registered_tags.assemble_dataset', lambda captures, model: {
+        'binding': {'robot_model_sha256': 'model'}, 'samples': [{'base_from_gripper': base_from_gripper.tolist()}]})
+    original = owner.call
+    tag_reads = []
+    def call(name, args, request_id=None):
+        r = original(name, args, request_id)
+        if name == 'robot_get_tags':
+            if len(tag_reads) < stale_reads:
+                r['result']['observations']['oak']['frame']['captured_at'] -= .5   # published late: capture precedes the bracket
+            tag_reads.append(r['result']['observations']['oak']['frame']['captured_at'])
+        return r
+    owner.call = call
+    result = read_registered_tags(owner, {'arm': 'right', 'camera': 'oak', 'model_directory': 'fake'}, reg, clock=owner.clock)
+    assert result['ok'] and len(tag_reads) == stale_reads + 1 and not owner.writes
+    assert [n for n, _ in owner.calls if n == 'robot_get_state'][-2:] == ['robot_get_state', 'robot_get_state']
+
+
+def test_read_gives_up_waiting_after_eight_frames_without_motion(monkeypatch):
+    owner, args = fixture('right')
+    reg = args[3]
+    original = owner.call
+    def call(name, args, request_id=None):
+        r = original(name, args, request_id)
+        if name == 'robot_get_tags':
+            r['result']['observations']['oak']['frame']['captured_at'] -= .5
+        return r
+    owner.call = call
+    reads_before = len([n for n, _ in owner.calls if n == 'robot_get_tags'])   # fixture() itself read once
+    with pytest.raises(ValueError, match='coherent owner samples'):
+        read_registered_tags(owner, {'arm': 'right', 'camera': 'oak', 'model_directory': 'fake'}, reg, clock=owner.clock)
+    assert len([n for n, _ in owner.calls if n == 'robot_get_tags']) - reads_before == 8 and not owner.writes

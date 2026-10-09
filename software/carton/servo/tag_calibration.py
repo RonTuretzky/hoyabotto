@@ -163,14 +163,24 @@ def _move_to(experiment, targets):
             step = max(-experiment.limits.step_ticks, min(experiment.limits.step_ticks, delta))
             before = q[joint]
             _, measured = _step(experiment, joint, step)
-            if (measured[joint]-before) * (1 if step > 0 else -1) < max(2, abs(step)*.4):
+            moved = (measured[joint]-before) * (1 if step > 0 else -1)
+            # The owner's controller stops a constant few ticks short of each goal (6 on the pan, 12-15
+            # on the loaded wrist, 2026-10-10), so a small catch-up step may barely move: accept it when
+            # the joint now sits inside the settle tolerance of its target. Wrong-way motion still refuses.
+            converged = abs(round(target-measured[joint])) <= max(experiment.limits.settle_ticks, minimum-1)
+            if moved < -1 or (not converged and moved < max(2, abs(step)*.4)):
                 raise Refused('Registration step produced insufficient or wrong-way motion')
         else:
             raise Refused('Registration waypoint did not converge')
 
 
-def run_calibration(robot, config, mode, output, *, clock=time.time):
-    """Explicit execution entrypoint; there is no automatic startup/resume path."""
+def run_calibration(robot, config, mode, output, *, clock=time.time, held_start=False):
+    """Explicit execution entrypoint; there is no automatic startup/resume path.
+
+    held_start: start from the selected arm already held by the owner (its six motors enabled,
+    phase holding) after the operator positioned it; used when the released arm cannot keep the
+    gripper tag in view. The run sends no enable and releases (or STOPs on failure) as usual.
+    """
     if mode not in ('local_model', 'registration'):
         raise Refused('Unknown calibration mode')
     tag_id = gripper_tag_for_arm(config['arm'], config.get('gripper_tag_id'))
@@ -178,7 +188,7 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
     if output.exists():
         raise Refused('Choose a new evidence directory')
     limits = Limits(**config.get('limits', {}))
-    transport = GemmaTransport(robot, config['arm'], config['joints'], limits, execute=True, clock=clock)
+    transport = GemmaTransport(robot, config['arm'], config['joints'], limits, execute=True, held_start=held_start, clock=clock)
     with motion_lock(config['lock_file']):
         trace = Trace(output)
         outcome = None
@@ -205,7 +215,7 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
                         if not bounds['min_ticks'] <= goal <= bounds['max_ticks']:
                             raise Refused(f'Registration grid leaves commandable range for {joint}')
                 atomic_json(output/'plan.json', plan)
-            fingerprint = digest({'settings': settings, 'tags': observer.identity, 'mode': mode})
+            fingerprint = digest({'settings': settings, 'tags': observer.identity, 'mode': mode, 'held_start': held_start})
             experiment = Experiment(settings, transport, observer, trace, fingerprint, clock)
             transport.enable()
             if mode == 'local_model':
@@ -238,7 +248,7 @@ def run_calibration(robot, config, mode, output, *, clock=time.time):
             if 'motor_writes' in outcome:
                 outcome['fitter_motor_writes'] = outcome.pop('motor_writes')
             outcome.update(gripper_tag_id=tag_id, calibration_commands_sent=transport.commands_sent, commanded_path_ticks=transport.path_ticks,
-                           cleanup=transport.cleanup, output=str(output))
+                           cleanup=transport.cleanup, output=str(output), held_start=held_start)
             atomic_json(output/'result.json', outcome)
             return outcome
         except BaseException as exc:

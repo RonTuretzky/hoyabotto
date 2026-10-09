@@ -16,17 +16,21 @@ def main():
     p.add_argument('command', choices=['status', 'registered', 'paddle_target', 'local_model', 'registration'])
     p.add_argument('--pilot-root', type=Path, required=True)
     p.add_argument('--execute', action='store_true', help='Explicitly enable and move the configured positioning joints')
+    p.add_argument('--from-held', action='store_true',
+                   help='Start from the selected arm already held (its six motors enabled) after the operator positioned it')
     args = p.parse_args()
     read_only = args.command in ('status', 'registered', 'paddle_target')
     if not read_only and not args.execute:
         p.error('Movement requires --execute; use status for a read-only check')
+    if args.from_held and (read_only or args.command != 'registration'):
+        p.error('--from-held applies to registration --execute only')
     sys.path.insert(0, str(args.pilot_root.resolve()))
     raw = importlib.import_module('chat_server').Robot(args.pilot_root/'.private/robot.json')
     robot = CalibrationRobot(TagRobot(raw))
     robot.catalog()
     name = {'status':'robot_calibration_status', 'registered':'robot_get_registered_tags',
             'paddle_target':'robot_get_paddle_target'}.get(args.command, 'robot_calibrate_tags')
-    result = robot.call(name, {} if read_only else {'mode': args.command})
+    result = robot.call(name, {} if read_only else dict({'mode': args.command}, **({'held_start': True} if args.from_held else {})))
     result.pop('images', None)
     print(json.dumps(result, indent=2, allow_nan=False))
     return 0 if result['ok'] else 1

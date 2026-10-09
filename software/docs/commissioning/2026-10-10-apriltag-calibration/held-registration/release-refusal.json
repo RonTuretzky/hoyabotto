@@ -1,0 +1,17 @@
+{
+  "error": "Unsettled, stale or faulty motor telemetry: right_arm_shoulder_lift",
+  "calibration_commands_sent": 40,
+  "write_attempted": true,
+  "cleanup": {
+    "release_confirmed": true,
+    "stop": {
+      "stop_requested": true,
+      "release_confirmed": true,
+      "release": "torque eases off over about 2 s, then off",
+      "owner_phase": "idle"
+    },
+    "owner_started": 1791551739.406972
+  },
+  "automatic_retry": false,
+  "physical_registration_validated": false
+}

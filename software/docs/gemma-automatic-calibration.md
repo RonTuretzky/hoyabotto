@@ -32,12 +32,24 @@ registers, controller limits or STOP state.
   poses and a labelled planner proposal. See
   [Paddle target (read-only)](#paddle-target-read-only).
 
+Registration may also start from an arm the operator has just positioned and left
+holding (`robot_calibrate_tags(mode="registration", held_start=true)`, CLI
+`registration --execute --from-held`): exactly the six motors of the selected arm
+must be enabled and the owner `holding`; no enable is sent, and the run still
+releases or STOPs at the end. This is for arms that sag out of the camera view
+when released (the right arm, 2026-10-10). Position with the pilot's ordinary
+move tool and hand over within the owner's idle-hold lease.
+
 Both execution modes are explicit tool calls for the current user-requested
 calibration. Merely constructing the adapter, opening the chat, reading status,
 or restarting the local chat cannot start or resume a calibration.
 
 The default registration grid uses exactly two configured positioning axes,
-96 ticks to either side of the observed start and 16-tick observed transitions.
+96 ticks to either side of the observed start and 16-tick observed transitions
+(`limits.trust_ticks` / `limits.step_ticks`; the real owner's controller stops a
+few ticks short of each goal, so the 2026-10-10 configuration used trust 80, step
+32, `settle_ticks` 16 (the cap), `frame_age_s` 2.0 and `max_path_ticks` 2000; see
+commissioning/2026-10-10-apriltag-calibration/README.md).
 Its planned total joint travel including return is 1248 ticks, under the
 existing 1500-tick budget. It is a local grid, not a collision-checked trajectory.
 The operator must supervise a cleared workspace. All grid endpoints must fit

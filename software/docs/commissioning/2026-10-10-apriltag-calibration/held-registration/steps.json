@@ -1,0 +1,247 @@
+{
+ "source": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/tag-calibration-runs/1791566173290517000-registration",
+ "steps": [
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -32,
+   "measured": -25,
+   "duration_s": 0.88
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -32,
+   "measured": -26,
+   "duration_s": 0.75
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -29,
+   "measured": -22,
+   "duration_s": 0.69
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -19,
+   "duration_s": 0.87
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -20,
+   "duration_s": 0.7
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -19,
+   "duration_s": 0.63
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -22,
+   "measured": -10,
+   "duration_s": 0.61
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 32,
+   "measured": 31,
+   "duration_s": 1.1
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 32,
+   "measured": 30,
+   "duration_s": 0.79
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 32,
+   "measured": 32,
+   "duration_s": 0.86
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 32,
+   "measured": 32,
+   "duration_s": 0.8
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 23,
+   "measured": 22,
+   "duration_s": 0.79
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 32,
+   "measured": 31,
+   "duration_s": 1.2
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 32,
+   "measured": 35,
+   "duration_s": 1.16
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 32,
+   "measured": 29,
+   "duration_s": 0.74
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 32,
+   "measured": 28,
+   "duration_s": 0.8
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 29,
+   "measured": 23,
+   "duration_s": 0.86
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -20,
+   "duration_s": 0.88
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -20,
+   "duration_s": 0.62
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -20,
+   "duration_s": 0.68
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -19,
+   "measured": -7,
+   "duration_s": 0.73
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -20,
+   "duration_s": 0.68
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -19,
+   "duration_s": 0.63
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -18,
+   "duration_s": 0.72
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -19,
+   "duration_s": 0.72
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -32,
+   "measured": -28,
+   "duration_s": 0.84
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -32,
+   "measured": -28,
+   "duration_s": 0.86
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -18,
+   "measured": -14,
+   "duration_s": 0.67
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -32,
+   "measured": -25,
+   "duration_s": 0.77
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -19,
+   "measured": -14,
+   "duration_s": 0.71
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 24,
+   "measured": 23,
+   "duration_s": 0.91
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 32,
+   "measured": 31,
+   "duration_s": 0.81
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 32,
+   "measured": 32,
+   "duration_s": 0.9
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": 18,
+   "measured": 17,
+   "duration_s": 0.61
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 32,
+   "measured": 29,
+   "duration_s": 1.06
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 32,
+   "measured": 29,
+   "duration_s": 0.79
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": 17,
+   "measured": 14,
+   "duration_s": 0.71
+  },
+  {
+   "joint": "right_arm_shoulder_pan",
+   "requested": -32,
+   "measured": -27,
+   "duration_s": 0.87
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -32,
+   "measured": -21,
+   "duration_s": 0.9
+  },
+  {
+   "joint": "right_arm_wrist_flex",
+   "requested": -18,
+   "measured": -6,
+   "duration_s": 0.66
+  }
+ ],
+ "poses": 11,
+ "frames": 52
+}

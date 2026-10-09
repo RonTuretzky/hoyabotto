@@ -2241,3 +2241,23 @@ Follow-up phone frame 473339 (camera-direction-review-4) now gives a usable side
 view of the right-arm mount and arm/gripper profile after the owner repositioned
 the phone. Suitable for qualitative direction observation alongside OAK; no
 direction probe, path-clearance validation or absolute-zero calibration yet.
+
+
+### 2026-10-10 JST (01:50-02:45): right-arm camera-to-arm AprilTag registration validated
+
+- Table and carton moved about a metre away by the owner; the right arm was repositioned with the pilot's
+  `robot_move_joint_targets` (shoulder_lift 3238 -> 3118, elbow 1849 -> 1352; lower ticks raise the arm on
+  both). The released right arm does not hold a raised pose: elbow sags to about 1880, shoulder_lift to
+  3236-3238, beyond its commandable 3230, pan drifts tens of ticks. Every raised pose is therefore a held
+  pose; the registration got a `held_start` option.
+- `robot_calibrate_tags registration` completed all eleven poses on the fifth attempt and the fit passed:
+  train RMS 1.47 mm, held-out RMS 0.84 mm / max 1.06 mm / 0.31 deg. Installed in the pilot's
+  `.private/tag-registration.json`; `robot_get_registered_tags` answers live (tag 2 repeatable to 0.3 mm,
+  observed-vs-FK consistency 0.57 mm / 0.35 deg). Details, numbers and the fixes in
+  `docs/commissioning/2026-10-10-apriltag-calibration/README.md`.
+- Owner behaviour measured: each `robot_move_motor_targets` step lands 3-7 ticks short on the pan, 11-14 on
+  the wrist, 13-17 on the loaded elbow (the owner reports endpoint_settled; its tolerance is 57). OAK frames
+  arrive 0.37-0.51 s after capture, encoder rows 0.13-0.16 s; owner loop about 0.04 s; RTT 0.045 s median;
+  robot clock about 0.10 s behind the chat Mac.
+- Not done: tag-2-to-jaw offset (`gripper_from_tool`), workspace bounds, any pilot use of registered
+  coordinates. The head must not move (2085/2623) or the fit is invalid. All 16 motors released at 02:45.

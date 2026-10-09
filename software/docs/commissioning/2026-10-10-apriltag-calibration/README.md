@@ -75,3 +75,59 @@ unvalidated. The candidate shoulder mapping is outside the pinned URDF range.
 The fitter still requires eight fitting poses and three distinct held-out poses.
 Neither the stationary collector nor this reporting correction makes the pilot
 ready for registered Cartesian motion.
+
+## Result, 02:40 JST: right-arm camera-to-arm registration validated
+
+The automatic registration (`robot_calibrate_tags mode=registration`) ran to all eleven poses on
+the real robot and the fit passed. It is installed as the pilot's `.private/tag-registration.json`
+and `robot_get_registered_tags` answers live. Evidence in `held-registration/`.
+
+| | train (8 poses) | held-out (3 poses) |
+|---|---|---|
+| position RMS | 1.47 mm | 0.84 mm |
+| position max | 1.86 mm | 1.06 mm |
+| orientation max | 0.29 deg | 0.31 deg |
+
+Live re-read while the arm was held (`live-registered-read.json`): gripper tag 2 at
+(385, 21, 33) mm in the right arm base, repeatable to 0.3 mm over three reads, observed-versus-FK
+gripper consistency 0.57 mm / 0.35 deg. Table tag 1 at (819, 301, 71) mm (the desk was moved about
+a metre away for this). Frames: SO-101 URDF right arm base (+x forward, +y the arm's left, +z up),
+camera `CAM_A_optical`. Rotation excitation singular values 0.79 / 0.76 / 0.05 rad, position extent
+11 x 93 x 35 mm: good about two axes, as the two-axis grid implies.
+
+### How it was made to work (each run refused on a different thing)
+
+1. **The released arm sags out of the OAK view.** Lifting the hand with the pilot's own
+   `robot_move_joint_targets` (elbow -300 ticks, confirmed direction: fewer ticks lifts the hand) put
+   tag 2 in view; releasing let the forearm fall back past the start (elbow 1335 -> 1881). So the
+   registration now accepts a **held start** (`GemmaTransport(held_start=True)`,
+   `run_calibration(held_start=True)`, CLI `calibrate_gemma_tags.py registration --execute --from-held`,
+   tool argument `held_start: true`): exactly the six motors of the arm must already be holding; no
+   enable is sent; the run still releases (or STOPs) at the end. `held_registration.py` is the driver:
+   pan 2000, wrist_flex 1780, shoulder_lift 3100, elbow 1335 (shoulder_lift must be below 3184 or the
+   candidate degrees exceed the URDF's +/-100 and FK refuses), then the registration.
+2. **Camera stamps trail the movement cutoff.** OAK frames arrive 0.37-0.51 s after capture, encoder
+   rows 0.13-0.16 s; a frame inside the encoder bracket but before the local-clock movement cutoff
+   was refused at once ("camera frame did not advance"). The observer now keeps reading inside its
+   deadline instead; `frame_age_s` is 2.0 in the config. The same wait was added to
+   `read_registered_tags`, which single-read a pre-bracket frame every time.
+3. **The owner's position controller stops short.** Every command landed 3-7 ticks short on the pan and
+   11-14 on the wrist (`steps.json`), and 13-17 on the loaded elbow; the owner's own endpoint tolerance
+   is 57. The Limits cap on `settle_ticks` went from 5 to 16 (config: settle 16, step 32, trust 80,
+   max_path_ticks 2000; requested travel is about 1.5x the planned grid because of the shortfall), and
+   `_move_to` accepts a catch-up step that ends inside the tolerance (wrong-way motion still refuses).
+4. **Release confirmation on a sagging arm.** After the eleventh pose the normal release read the
+   shoulder as Moving=1 (gravity) and refused; `finish()` now requires fresh torque-zero on all sixteen
+   motors, not settled telemetry. That run's eleven poses were fitted offline with the same
+   `assemble_dataset`/`fit_registration` (`registration-result.json`, `release-refusal.json`).
+
+Also fixed: `test_tag_registration_contract.py` expected the pre-f789d13 owner wording for an
+obstructed step (now `settled_short`). 269 tests pass across the tag suites.
+
+### What this does and does not give
+
+- Gives: fresh tag centres and poses in the right arm base frame while head, cart, desk tag and
+  gripper tag stay fixed; a measured OAK camera pose (`base_from_camera`) for the simulator.
+- Does not give: the jaw contact offset from tag 2 (`gripper_from_tool`), workspace bounds,
+  collision clearance, or Cartesian motion. `robot_get_arm_pose` still says
+  NEEDS_GEOMETRIC_CONFIGURATION for those. Moving the head or the OAK invalidates the fit.
