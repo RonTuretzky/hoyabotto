@@ -30,7 +30,8 @@ CAPTIONS = [
     (776, 805, 'Left end wall: 21 and 28', '28 is the one nearer the robot.'),
     (806, 826, 'Right end wall: 22', 'Toward the far side of the middle.'),
     (827, 855, 'Inside floor: 25 at the centre, 24 to its right', 'Both arrows point away from the robot.'),
-    (856, 900, 'Flaps: 11 left, 12 right, 13 far, 14 near', 'On the outside of each flap, 90 mm above the fold line.'),
+    (856, 877, 'Flaps: 11 left, 12 right, 13 far, 14 near', 'Outside face of each flap; black square 73 mm above the fold line. Seen from the robot side.'),
+    (878, 900, 'Camera now BEHIND the box, looking back at the robot', "So the robot's LEFT is on the RIGHT of this picture: 13 sits toward the robot's left, 14 toward its right."),
     # step 5
     (901, 934, 'Step 5: point the head camera', 'Head pan 0 (straight ahead). Start from level...'),
     (935, 990, '...and tilt the head 58 degrees down', 'The orange cone is what the head camera (OAK-D Lite) sees.'),
@@ -60,6 +61,7 @@ LABELS = [
     ('larm', 'left arm', ORANGE, 500, 570, (-140, -30)), ('rarm', 'right arm', ORANGE, 500, 570, (40, -30)),
     ('tape', 'tape', BLUE, 590, 630, (30, -40)), ('gap', '10 mm: near wall to table edge', ORANGE, 640, 690, (-120, 60)),
     *[('tag_' + n, f'ID {i}', PINK, a, b, (20, -60)) for n, (i, a, b) in TAG_IDS.items()],
+    ('farL', "robot's LEFT end", ORANGE, 880, 900, (-60, 20)), ('farR', "robot's RIGHT end", ORANGE, 880, 900, (-60, 20)),
     ('head', 'head camera (OAK-D Lite)', ORANGE, 906, 1020, (30, -60)),
     ('conefloor', 'what it sees', ORANGE, 965, 1020, (40, 40)),
     ('t40', '40: 12 cm left, 25 cm out', PINK, 1045, 1140, (-300, 40)), ('t41', '41: 12 cm right, 25 cm out', PINK, 1053, 1140, (40, 40)),

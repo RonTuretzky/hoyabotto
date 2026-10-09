@@ -321,6 +321,7 @@ A = {   # label anchors: (object or None, local/world point)
     **{f't{tid}': (None, (sx, Y0 + out, 0.0)) for tid, (sx, out) in {40: (-0.12, 0.25), 41: (0.12, 0.25), 42: (-0.12, 0.40), 43: (0.12, 0.40)}.items()},
     'baseline': (None, (0.0, Y0, 0.0)),
     **{'tag_' + n: (o, (0, 0, 0)) for n, o in tags.items()},
+    'farL': (RIG, (-L / 2 + 0.004, W / 2, H + 0.145)), 'farR': (RIG, (L / 2 - 0.004, W / 2, H + 0.145)),
 }
 
 
