@@ -414,6 +414,31 @@ class DeployTests(unittest.TestCase):
         self.assertEqual(kwargs["cwd"], self.process.cwd)
         self.assertFalse(kwargs.get("shell", False))
 
+    def test_macos_snapshot_preserves_original_venv_launcher(self):
+        local = object.__new__(deploy.LocalRuntime)
+        launcher = self.root / '.venv/bin/python'
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text('fake interpreter')
+        launcher.chmod(0o755)
+        proc = Mock(pid=100)
+        proc.create_time.return_value = 123
+        proc.cmdline.return_value = ['/framework/Python', self.process.argv[-1]]
+        proc.cwd.return_value = self.process.cwd
+        proc.environ.return_value = {'__PYVENV_LAUNCHER__': str(launcher), 'SECRET': 'never-copy-this'}
+        with patch.object(deploy.sys, 'platform', 'darwin'), patch.object(local, '_logs', return_value=(self.process.stdout, self.process.stderr)):
+            snapshot = local._snapshot(proc)
+        self.assertEqual(snapshot.argv, (str(launcher), self.process.argv[-1]))
+        self.assertNotIn('never-copy-this', repr(snapshot))
+
+    def test_macos_snapshot_refuses_missing_original_launcher(self):
+        local = object.__new__(deploy.LocalRuntime)
+        proc = Mock(pid=100)
+        proc.cmdline.return_value = ['/framework/Python', self.process.argv[-1]]
+        proc.environ.return_value = {'__PYVENV_LAUNCHER__': '/nonexistent/offline/python'}
+        with patch.object(deploy.sys, 'platform', 'darwin'), patch.object(local, '_logs', return_value=(self.process.stdout, self.process.stderr)):
+            with self.assertRaisesRegex(deploy.DeployError, 'launcher path'):
+                local._snapshot(proc)
+
     def test_local_stop_rechecks_identity_before_term(self):
         local = object.__new__(deploy.LocalRuntime)
         with patch.object(local, "_same", side_effect=deploy.DeployError("changed")) as same:

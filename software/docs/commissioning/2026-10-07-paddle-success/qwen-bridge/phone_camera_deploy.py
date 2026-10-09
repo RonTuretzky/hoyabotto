@@ -2,7 +2,8 @@
 
 Call deploy_phone_camera(ROOT, dry_run=False) from the phone-only dispatch before
 any motor/API/camera setup code. The default backend requires psutil and lsof.
-No config, environment of another process, token, certificate or PID file is read.
+No config, token, certificate or PID file is read. On macOS only the Python
+launcher path is retained from the process environment; other values are ignored.
 Only the explicit source whitelist is copied. See Runtime for the fake/backend
 contract. An optional healthcheck receives the exact candidate Process and must
 return True (never credential-bearing output); listener ownership is also checked.
@@ -360,7 +361,18 @@ class LocalRuntime:
 
     def _snapshot(self, proc) -> Process:
         stdout, stderr = self._logs(proc.pid)
-        return Process(proc.pid, proc.create_time(), tuple(proc.cmdline()), proc.cwd(), stdout, stderr)
+        argv = list(proc.cmdline())
+        if sys.platform == 'darwin':
+            # macOS reports Python.app's underlying binary in argv[0], even
+            # when launched via a venv. Reusing it loses the live environment.
+            # The kernel's original launch environment retains this one path.
+            launcher = proc.environ().get('__PYVENV_LAUNCHER__')
+            if launcher:
+                path = Path(launcher)
+                if not path.is_absolute() or not PYTHON_NAME.fullmatch(path.name) or not path.is_file() or not os.access(path, os.X_OK):
+                    raise DeployError('original Python launcher path is unavailable')
+                argv[0] = str(path)
+        return Process(proc.pid, proc.create_time(), tuple(argv), proc.cwd(), stdout, stderr)
 
     def processes(self, server: Path) -> list[Process]:
         result = []
