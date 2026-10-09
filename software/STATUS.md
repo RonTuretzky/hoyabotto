@@ -1,3 +1,31 @@
+## Fold policy retrained under the robot's conditions — 10 October 2026, 02:40 JST
+
+Why: the 9 Oct refit model (25k steps, 8xH200, ~$109) folds both short flaps in 30/30 plain-simulator starts but,
+run through the real owner code in simulation (`fold_policy_runner --transport sim-owner-stream`), faults every start
+("Stream following error exceeds 96 ticks", all motors released) or pushes the carton 36-370 mm. Run 5's tick log
+(`/tmp/fold-run3/ticks.jsonl`) shows the real arm joints never exceed **74-91 ticks/s** (Goal_Velocity 100,
+Acceleration 5 at enable): the model's motion is ~3x too fast for the servos. The 40-tick step rule is not the
+binding limit; the servo speed setting is.
+
+Also measured and now used: policy tick 0.27 s from the chat Mac (3.5-4 Hz), head frame age 0.2 s, wrist frames
+0.4 s at ~5 FPS, owner loop 0.041 s; the OAK pose from the validated right-arm tag registration
+(`pilot/.private/tag-registration.json`) is 39 mm left, 13 mm back and 52 mm lower than the model's head camera,
+view direction 5.3 deg off (`tools/front_camera_from_registration.py`, `config/front-camera-measured-20261010.json`).
+
+Pipeline (`baf7264`): teacher capped at 80 ticks/s arm / 36 ticks/s jaw, recorded every 0.05 s, dataset at 4 Hz
+with the camera delays and per-episode visual jitter, measured head pose; evaluation under the same limits
+(`eval_refit_fold_policy --dt .25 --max-speed-ticks-s 80 --step-clamp --camera-lag ... --visual-jitter 1`). A
+capped fold takes **~4 min** of robot time (wrist flex/roll reorientations are 1700-2000 ticks each); a policy
+trained this slow still runs if the owner later raises Goal_Velocity. The teacher's start-up tag check refuses any
+start-pose jitter (3 mm tested), so there is none.
+
+Local checks before paying: 2/2 capped demos fold and hold (242 s, 221 s), the replay folds under the robot limits
+(carton 1.1 mm), a 30-step training smoke loads in the evaluator and the owner rig at 4 Hz, 107 tests pass.
+Cloud: job `6ac92666095c57808930800d` on 8xH200 ($40/h, 5 h cap), 240 episodes, 25k steps; model
+`RonTuretzky/act_carton_dcm_refit_20261010_v4`. Watcher/launcher/verification in
+`.context/station-refit-2026-10-09/training/` (`launch-v10-robot-conditions.py`, `watch-cloud-v10.py`,
+`robot-conditions-verification.json`). No motor was used.
+
 ## Final desk scene refit — 9 October 2026, 18:34 JST capture
 
 **Current handoff: [station refit](docs/handoff-2026-10-09-station-refit.md). Scene review before training.**
