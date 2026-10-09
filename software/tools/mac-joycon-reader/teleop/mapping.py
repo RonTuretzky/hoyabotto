@@ -10,9 +10,11 @@ class Mapping:
         self.layer = 0
         self.previous_menu = False
         self.wheelbase_m = self.wheel_limit_m_s = None
+        self.arm_rate = 80.
 
     def update_robot_status(self,state):
         manual=state.get('teleop') or {}
+        self.arm_rate = 300. if manual.get('speed_profile')=='demo' else 80.
         width,limit=manual.get('wheelbase_m'),manual.get('wheel_limit_m_s')
         valid=all(type(v) in (int,float) and math.isfinite(v) and v>0 for v in (width,limit))
         self.wheelbase_m=width if valid else None
@@ -70,7 +72,7 @@ class Mapping:
             xjoint,yjoint=LAYERS[self.layer]
             for side in ('left','right') if scope=='both' else (scope,):
                 for axis,joint in (('x',xjoint),('y',yjoint)):
-                    out['rates'][side+'_arm_'+joint]=d['axes'][side+axis]*80 if d['deadman'][side] else 0.
+                    out['rates'][side+'_arm_'+joint]=d['axes'][side+axis]*(80. if joint=='gripper' else self.arm_rate) if d['deadman'][side] else 0.
         elif scope=='head':
             for axis,joint in (('x','head_motor_1'),('y','head_motor_2')):
                 out['rates'][joint]=d['axes']['left'+axis]*60 if d['deadman']['left'] else 0.

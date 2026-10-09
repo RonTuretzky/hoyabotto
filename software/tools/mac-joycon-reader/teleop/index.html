@@ -59,6 +59,7 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
     <div>
       <select id="scope" aria-label="Components"><option value="left">Left arm + gripper</option><option value="right">Right arm + gripper</option><option value="both">Both arms + grippers</option><option value="head">Head joints</option><option value="drive">Drive base</option></select>
       <button id="arm" disabled>Start practice</button>
+      <label id="speedPicker" hidden>Arm speed <select id="speedProfile"><option value="normal">Normal · about 7°/s</option><option value="demo">Demo · up to 26°/s</option></select></label>
       <p id="startHelp" class="hint">Release buttons and center the sticks to start.</p>
     </div>
     <div class="guide">
@@ -113,6 +114,7 @@ $('gyroEnabled').onchange=()=>action({op:'gyro',enabled:$('gyroEnabled').checked
 $('stop').onclick=()=>action({op:'stop'});
 $('arm').onclick=()=>action({op:latest.simulation?'practice':'arm',scope:$('scope').value});
 $('scope').onchange=()=>draw(latest);
+$('speedProfile').onchange=()=>action({op:'speed_profile',profile:$('speedProfile').value});
 document.querySelectorAll('[data-layer]').forEach(b=>b.onclick=()=>action({op:'layer',layer:+b.dataset.layer}));
 $('viewChoice').onchange=()=>call('/view',{view:$('viewChoice').value}).catch(e=>$('error').textContent=e.message);
 function draw(s){
@@ -120,6 +122,9 @@ function draw(s){
   const upstream=s.control_mode==='upstream',cart=upstream||s.control_mode==='cartesian',d=s.controller||{},a=d.axes||{},dead=d.deadman||{},r=s.robot||{};
   const physicalUpstream=upstream&&!s.simulation;
   const busy=s.busy||pending>0,locked=s.armed||busy,unavailable=!connected||!!s.reader_error||!Object.keys(d).length;
+  $('speedPicker').hidden=!r.teleop?.speed_profiles;
+  $('speedProfile').disabled=locked||!connected;
+  $('speedProfile').value=s.speed_profile||'normal';
   const physicalReady=!physicalUpstream||(r.ok===true&&r.teleop?.available===true&&!r.teleop?.active&&r.phase==='idle'&&!(r.enabled_motors||[]).length&&r.status_age_s>=0&&r.status_age_s<=.25);
   const canStart=physicalReady&&!unavailable&&!locked&&d.ready&&d.neutral&&!(s.preview&&!s.simulation);
   $('title').textContent=s.simulation?'Joy-Con practice':'Joy-Con controls';
@@ -198,7 +203,7 @@ function draw(s){
     $('extraHelp').innerHTML+='<p><b>Physical hold-to-run:</b> hold either small rail SL / SR button on the matching Joy-Con. Head requires the left rail; driving requires both rails. Release to stop that component. The existing motor speed limits still apply.</p>';
     $('gyroStatus').textContent=d.gyro_available?(gyro?'Tilt while holding the matching rail button. Release it to recenter.':'Gyro is off.'):$('gyroStatus').textContent;
   }
-  $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':'Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.';
+  $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':(s.speed_profile==='demo'?'Arm: up to 26°/s':'Arm: about 7°/s')+' · Grip: unchanged · Head: 60 ticks/s · Wheels: 2 cm/s.';
   $('ikStatus').textContent=(s.control_info?.warnings||[]).join(' · ');
   $('scenePanel').hidden=!r.simulator;
   $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':r.simulator.read_only?'Read-only MuJoCo preview · Model geometry unvalidated · Base remains stationary':'Live simulation · Solid practice box')):'';
@@ -233,7 +238,7 @@ async function refreshFrame(){
 async function refresh(){
   if(inflight)return;inflight=true;
   try{await call('/heartbeat',{focused:document.hasFocus()&&!document.hidden});const s=await call('/state');connected=true;draw(s)}
-  catch(e){connected=false;$('state').textContent='Connection lost';$('error').textContent=e.message;for(const id of ['arm','scope','gyroEnabled','backendChoice','referenceFrame'])$(id).disabled=true;document.querySelectorAll('[data-layer]').forEach(b=>b.disabled=true)}
+  catch(e){connected=false;$('state').textContent='Connection lost';$('error').textContent=e.message;for(const id of ['arm','scope','speedProfile','gyroEnabled','backendChoice','referenceFrame'])$(id).disabled=true;document.querySelectorAll('[data-layer]').forEach(b=>b.disabled=true)}
   finally{inflight=false}
 }
 window.addEventListener('blur',()=>call('/heartbeat',{focused:false}).catch(()=>{}));

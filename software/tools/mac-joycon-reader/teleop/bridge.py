@@ -49,6 +49,7 @@ class Bridge:
         self.input_backend=input_backend;self.preview3d=preview3d
         self.frame=None;self.decoded=None;self.reader_error='Waiting for controller input'
         self.generation=0;self.armed=False;self.busy=False;self.scope='left';self.session=None;self.identity=None
+        self.speed_profile='normal'
         self.reason='Disarmed — test both triggers, then release them and center the sticks'
         if getattr(self.mapping,'mode',None)=='cartesian':self.reason='Disarmed — test upper L/R buttons, release all buttons and center the sticks'
         if getattr(self.mapping,'mode',None)=='upstream' and getattr(robot,'supports_upstream',False):self.reason='Disarmed — check SL or SR on each Joy-Con, release all controls and center sticks'
@@ -96,7 +97,7 @@ class Bridge:
             d=self.decoded or {}
             state=dict(self.robot_state)
             if self.preview3d:state['simulator']=self.preview3d.info()
-            return dict(preview=self.robot.preview,simulation=self.robot.simulation,armed=self.armed,busy=self.busy or bool(self.release_pending),scope=self.scope,layer=self.mapping.layer,reason=self.reason,
+            return dict(preview=self.robot.preview,simulation=self.robot.simulation,armed=self.armed,busy=self.busy or bool(self.release_pending),scope=self.scope,speed_profile=self.speed_profile,layer=self.mapping.layer,reason=self.reason,
                         control_mode=getattr(self.mapping,'mode','joint'),input_backend=self.input_backend,control_info=getattr(self.mapping,'info',{})|{'gyro_enabled':getattr(self.mapping,'gyro_enabled',False)},reference_frame=getattr(self.mapping,'reference_frame','robot'),
                         controller=d,reader_error=self.reader_error,robot=state,rtt_ms=self.rtt,
                         checked_triggers=sorted(self.mapping.checked),input_age_s=round(time.time()-self.frame['timestamp'],3) if self.frame else None)
@@ -149,6 +150,11 @@ class Bridge:
             threading.Thread(target=self.finish_release,args=(session,generation,reason),daemon=True).start();return
         with self.lock:
             if self.busy or self.release_pending:raise ValueError('Wait for the current operation')
+            if op=='speed_profile':
+                if self.armed:raise ValueError('Stop before changing arm speed')
+                if b.get('profile') not in ('normal','demo'):raise ValueError('Unknown speed profile')
+                if b['profile'] not in (self.robot_state.get('teleop') or {}).get('speed_profiles',{}):raise ValueError('Robot owner does not support this speed profile')
+                self.speed_profile=b['profile'];return
             if op=='reference_frame':
                 if self.armed:raise ValueError('Stop practice before changing the movement frame')
                 if getattr(self.mapping,'mode',None)!='cartesian' or b.get('frame') not in ('robot','hand'):raise ValueError('Unknown hand-space frame')
@@ -177,7 +183,9 @@ class Bridge:
             if hasattr(self.mapping,'prepare_start'):self.mapping.prepare_start(d)
             self.busy=True;generation=self.generation;self.scope=scope;self.identity=d['identity'];self.reason='Starting local practice…' if self.robot.simulation else 'Arming at measured positions…'
         try:
-            session=self.robot.call('claim',{'scope':scope},timeout=6)
+            claim={'scope':scope}
+            if self.speed_profile!='normal':claim['speed_profile']=self.speed_profile
+            session=self.robot.call('claim',claim,timeout=6)
             with self.lock:
                 self.session=session;self.sequence=0
                 if generation!=self.generation:raise ValueError('STOP cancelled arm')

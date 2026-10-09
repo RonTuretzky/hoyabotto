@@ -174,6 +174,26 @@ class HardwareAdapterTests(unittest.TestCase):
         self.assertEqual((command['linear'],command['angular']),(0.,0.))
         self.assertLess(max(map(abs,command['rates'].values())),.01)
 
+    def test_demo_profile_through_bridge_api_owner_and_restoration(self):
+        self.bridge.robot_state=self.robot.state
+        self.bridge.action({'op':'speed_profile','profile':'demo'})
+        self.start()
+        self.assertEqual(self.plant.bus.r['right_arm_wrist_roll']['Goal_Velocity'],300)
+        self.assertEqual(self.plant.bus.r['right_arm_gripper']['Goal_Velocity'],200)
+        self.assertEqual(self.plant.bus.r['head_motor_1']['Goal_Velocity'],100)
+        with self.assertRaisesRegex(ValueError,'Stop before'):
+            self.bridge.action({'op':'speed_profile','profile':'normal'})
+        self.robot.dead={'left':True,'right':True}
+        q=self.robot.state['motors']['right_arm_wrist_roll']['Present_Position']
+        command=self.robot.encode_upstream_command({'positions':{'right_arm_wrist_roll':self.ref.from_ticks('right_arm_wrist_roll',q+40)},'linear':0,'angular':0},{})
+        self.assertEqual(command['rates']['right_arm_wrist_roll'],300)
+        self.bridge.release('Test stop')
+        self.assertTrue(all(r['Torque_Enable']==0 for r in self.plant.bus.r.values()))
+        self.assertEqual(self.plant.bus.r['right_arm_wrist_roll']['Goal_Velocity'],0)
+        self.bridge.action({'op':'speed_profile','profile':'normal'})
+        self.start()
+        self.assertEqual(self.plant.bus.r['right_arm_wrist_roll']['Goal_Velocity'],100)
+
     def test_stale_feedback_and_input_disconnect_stop_real_owner_path(self):
         self.start();self.rails(True);self.c['buttons']['Right Shoulder']['pressed']=True;self.tick(3)
         self.robot.received-=1;self.feed();self.bridge.step()

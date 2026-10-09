@@ -1,3 +1,27 @@
+## Arm demo speed and illuminated carton tags — 9 October 2026, 22:2x JST
+
+- Explicit normal/demo profiles added for Joy-Con and pilot/chat owner commands.
+  Demo uses 300 ticks/s (26.37 degrees/s) on the five positioning joints per arm;
+  normal owner speed is 100 ticks/s (8.79 degrees/s), Joy-Con normal80 (7.03 degrees/s).
+  Choose before enabling. Head, gripper, base, acceleration, torque, load, travel,
+  tracking, camera, deadman/watchdog and STOP rules remain unchanged. Policy streaming
+  requires normal. Release restores the original registers. No faster physical wave
+  has been executed or validated. Deployment verification will be recorded separately.
+- Validation: 64 Joy-Con tests and all28 isolated fake-hardware server test files
+  passed, including pilot/client/owner waypoints, speed selection before torque-on,
+  unchanged gripper/head caps, loaded-contact and tracking stops, and restoration.
+- After the user illuminated the box front, four fresh OAK frames (seq20470/20482/
+  20494/20506) accepted IDs14,26,27 in4/4 (margins79.88–87.11), ID10 in3/4
+  (39.62–40.45). Before illumination ID10 was rejected at20.17. No thresholds changed.
+  Phone and both wrists still accepted zero; the phone-facing panel remains dark.
+  OAK front lighting has visible glare around ID10. Diffuse/angle it and illuminate
+  the phone-facing short flap12 and wall22 next. The pilot's existing sense-tags path
+  can use accepted IDs for panel identification now. It still reports pixel-only,
+  depth_used:false and metric_pose_available:false; precise claw targeting needs
+  physical camera-to-arm, printed-size, hinge and pad-offset calibration.
+- Evidence: seville-v2 .context/demo-speed/lit-box/ (four API receipts and annotated
+  camera frames). Read-only capture; no motor command or camera change was sent.
+
 ## Joy-Con server deployed; real input and read-only 3D preview — 9 October 2026
 
 - The admin-only bootstrap succeeded without changing owner PID 95469 or its

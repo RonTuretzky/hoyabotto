@@ -9,6 +9,13 @@ from wheel_pulse_executor import WheelPulseExecutor, WHEELS, WHEELBASE_M, WHEEL_
 
 INPUT_TTL = .45
 MAX_RATE = 100.0
+SPEED_PROFILES = {'normal': 100.0, 'demo': 300.0}
+
+
+def position_rate_limit(name, profile='normal'):
+    if profile not in SPEED_PROFILES:
+        raise ValueError('Unknown manual speed profile')
+    return SPEED_PROFILES[profile] if '_arm_' in name and not name.endswith('gripper') else MAX_RATE
 JOINTS = ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper')
 SCOPES = {a: [a+'_arm_'+j for j in JOINTS] for a in ('left', 'right')}
 SCOPES['both'] = SCOPES['left'] + SCOPES['right']
@@ -21,13 +28,13 @@ def finite(v, bound):
     return type(v) in (int, float) and math.isfinite(v) and abs(v) <= bound
 
 
-def validate_input(c, scope):
+def validate_input(c, scope, speed_profile='normal'):
     if set(c) != {'token', 'sequence', 'session_started', 'received', 'expires', 'rates', 'deadman', 'linear', 'angular'}:
         raise ValueError('Invalid teleop input fields')
     if type(c['sequence']) is not int or c['sequence'] < 1:
         raise ValueError('Invalid sequence')
     rates, dead = c['rates'], c['deadman']
-    if not isinstance(rates, dict) or not set(rates) <= set(SCOPES[scope]) or any(not finite(v, MAX_RATE) for v in rates.values()):
+    if not isinstance(rates, dict) or not set(rates) <= set(SCOPES[scope]) or any(not finite(v, position_rate_limit(n, speed_profile)) for n,v in rates.items()):
         raise ValueError('Invalid joint rates or scope')
     if not isinstance(dead, dict) or set(dead) != {'left', 'right'} or any(type(v) is not bool for v in dead.values()):
         raise ValueError('Two boolean deadman values required')
@@ -52,6 +59,7 @@ class ManualTeleop:
         self.wheel = None
         self.sequence = 0
         self.last_reason = 'Not armed'
+        self.speed_profile = 'normal'
         self.snapshot()
 
     def snapshot(self):
@@ -60,6 +68,8 @@ class ManualTeleop:
             'scope': getattr(self, 'scope', None), 'sequence': self.sequence,
             'reason': self.last_reason, 'input_timeout_s': INPUT_TTL,
             'position_rate_limit_ticks_s': MAX_RATE, 'wheel_limit_m_s': MAX_WHEEL_M_S,
+            'speed_profiles': SPEED_PROFILES, 'speed_profile': self.speed_profile,
+            'position_rate_limits_ticks_s': {n: position_rate_limit(n, self.speed_profile) for n in SCOPES['wholebody']},
             'wheelbase_m': WHEELBASE_M, 'wheel_radius_m': WHEEL_RADIUS_M,
             'head_motors': [n for n in SCOPES['head'] if n in self.o.ranges],
             'upstream_reference_id':getattr(getattr(self.o,'upstream_reference',None),'reference_id',None),
@@ -73,6 +83,9 @@ class ManualTeleop:
         if scope not in SCOPES or not isinstance(token, str) or not 20 <= len(token) <= 128:
             raise ValueError('Known scope and unique session token required')
         mode=c.get('control_mode','joint')
+        speed_profile = c.get('speed_profile', 'normal')
+        if not isinstance(speed_profile, str) or speed_profile not in SPEED_PROFILES:
+            raise ValueError('Unknown manual speed profile')
         if mode not in ('joint','upstream'):raise ValueError('Unknown manual control mode')
         if mode=='upstream':
             reference=getattr(o,'upstream_reference',None)
@@ -95,13 +108,14 @@ class ManualTeleop:
             raise ValueError('Both wheels required')
         # An explicit arm action primes measured positions, never a remembered pose.
         try:
-            if names: o.enable(names, True, manual=True)
+            if names: o.enable(names, True, manual=True, speed_profile=speed_profile)
         except Exception:
             o.release_all('Manual enable failed')
             raise
         self.active = True
         self.token, self.scope, self.names = token, scope, names
         self.control_mode=mode
+        self.speed_profile=speed_profile
         self.sequence = 0
         self.received = self.last_tick = o.clock()
         self.expires = self.received + INPUT_TTL
@@ -119,7 +133,7 @@ class ManualTeleop:
             return  # old mailboxes can never reactivate a released session
         if c.get('sequence', 0) <= self.sequence:
             return
-        validate_input(c, self.scope)
+        validate_input(c, self.scope, self.speed_profile)
         now = self.o.clock()
         if not finite(c['received'], 1e12) or not finite(c['expires'], 1e12) or not c['received'] <= now <= c['expires'] <= c['received'] + INPUT_TTL + .001:
             raise RuntimeError('Expired manual input')

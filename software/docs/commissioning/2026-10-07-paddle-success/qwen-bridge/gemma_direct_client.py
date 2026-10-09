@@ -97,9 +97,12 @@ class DirectJointClient:
             except (OSError,ValueError,KeyError,TypeError):pass
             self.sleep(.02)
         result['release_reason']='Fresh same-session all16 torque-zero readback not observed';return result
-    def set_motor_enable(self,names,enabled):
+    def set_motor_enable(self,names,enabled,speed_profile='normal'):
         if type(enabled) is not bool or not isinstance(names,list) or not names or len(set(names))!=len(names) or any(not isinstance(n,str) for n in names):raise ValueError('Distinct motor names and boolean enabled required')
-        return self._command({'op':'enable_motors','names':names,'enabled':enabled})
+        if speed_profile not in ('normal','demo'):raise ValueError('Unknown arm speed profile')
+        command={'op':'enable_motors','names':names,'enabled':enabled}
+        if speed_profile!='normal':command['speed_profile']=speed_profile
+        return self._command(command)
     def execute(self,positions,duration_s,wait=True,replace=False):
         if type(duration_s) not in (int,float) or not math.isfinite(duration_s) or not 0<duration_s<=25:raise ValueError('Duration must be finite in (0,25]')
         if not isinstance(positions,dict) or not positions or any(type(q) is not int for q in positions.values()):raise ValueError('Nonempty integer encoder targets required')

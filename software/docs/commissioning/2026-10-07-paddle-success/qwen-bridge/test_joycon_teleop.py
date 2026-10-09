@@ -172,3 +172,118 @@ assert not r.o.teleop.active and not r.o.enabled
 assert {'head_move','stream'}<=set(r.o.state['capabilities']) and not (r.o.engine and r.o.engine.active)
 assert all(row['Torque_Enable']==0 for row in r.b.r.values())
 print('Current head/stream scope, head torque cap, competing-controller refusals and manual STOP: passed')
+
+# Explicit demo profile accelerates only positioning joints; defaults and all
+# release/following/watchdog guards remain independent of the selected rate.
+r=Rig();n=SCOPES['left'][0];old=dict(r.b.r[n])
+r.o.command(dict(id=1,session_started=r.o.started,op='teleop_claim',scope='left',token=r.token,speed_profile='demo'))
+r.scope='left';r.send()
+assert r.b.r[n]['Goal_Velocity']==300
+assert r.b.r['left_arm_gripper']['Goal_Velocity']==200
+assert r.o.state['teleop']['position_rate_limits_ticks_s'][n]==300
+assert r.o.state['teleop']['position_rate_limits_ticks_s']['head_motor_1']==100
+for _ in range(3):r.send({n:300},left=True);r.step()
+assert r.o.goals[n]>2030
+for bad in ({n:301},{'left_arm_gripper':101}):
+ before=list(r.b.writes)
+ try:r.send(bad,left=True)
+ except ValueError:pass
+ else:raise AssertionError('Demo profile exceeded its scoped limit')
+ assert r.b.writes==before
+r.send();r.step();assert r.o.goals[n]==r.b.r[n]['Present_Position']
+r.fault(.46)
+assert r.b.r[n]['Goal_Velocity']==old['Goal_Velocity'] and r.b.r[n]['Acceleration']==old['Acceleration']
+# Normal re-arm cannot inherit the previous fast profile.
+r.claim('left');assert r.b.r[n]['Goal_Velocity']==100
+try:r.send({n:300},left=True)
+except ValueError:pass
+else:raise AssertionError('Demo profile leaked into normal re-arm')
+r.o.release_all('test')
+# Invalid profile and failed register write must never enable a motor.
+for profile in ('turbo',None,{},True):
+ r=Rig()
+ try:r.o.teleop.claim(dict(scope='left',token=r.token,speed_profile=profile))
+ except ValueError:pass
+ else:raise AssertionError('Invalid profile accepted')
+ assert not r.b.writes
+r=Rig();write=r.o.write
+r.o.write=lambda n,f,v: None if f=='Goal_Velocity' and v==300 else write(n,f,v)
+try:r.o.teleop.claim(dict(scope='left',token=r.token,speed_profile='demo'))
+except RuntimeError as e:assert 'readback mismatch' in str(e)
+else:raise AssertionError('Missing speed write accepted')
+assert not any(f=='Torque_Enable' and v==1 for _,f,v in r.b.writes)
+assert not r.o.enabled and not r.o.teleop.active
+# Tracking error is still fatal at the demo speed.
+r=Rig();r.o.teleop.claim(dict(scope='left',token=r.token,speed_profile='demo'));r.scope='left';r.send({})
+r.o.teleop.targets[n]+=81
+try:r.o.teleop.tick()
+except RuntimeError as e:r.o.release_all(str(e))
+else:raise AssertionError('Demo bypassed following error')
+assert not r.o.enabled
+print('Manual demo speed, scoped caps, normal re-arm, register readback and restoration: passed')
+
+# Pilot/client path shares the selected owner profile without changing contact,
+# head, streaming, restoration or normal-session behavior. Fake servos only.
+from gemma_direct_client import DirectJointClient
+import math
+for profile, interval in [('normal', .4), ('demo', 40/300)]:
+    r=Rig(head=True);n=SCOPES['right'][1]
+    client=DirectJointClient(Path(tempfile.gettempdir())/'unused-speed-test', {})
+    cid=[100]
+    def deliver(command):
+        cid[0]+=1
+        r.o.command(dict(command,id=cid[0],session_started=r.o.started))
+        return dict(r.o.state)
+    client._command=deliver
+    client.set_motor_enable(SCOPES['right'],True,speed_profile=profile)
+    assert r.o.state['arm_speed_profiles'][n]==profile
+    assert r.b.r[n]['Goal_Velocity']==(300 if profile=='demo' else 100)
+    assert r.b.r[SCOPES['right'][-1]]['Goal_Velocity']==200
+    before=list(r.b.writes)
+    try:client.set_motor_enable(SCOPES['right'],True,speed_profile='demo' if profile=='normal' else 'normal')
+    except ValueError as e:assert 'Release the arm' in str(e)
+    else:raise AssertionError('Pilot changed speed while enabled')
+    assert r.b.writes==before
+    if profile=='demo':
+        try:deliver(dict(op='stream_targets',targets={n:2040}))
+        except ValueError as e:assert 'requires normal' in str(e)
+        else:raise AssertionError('Demo changed trained policy speed')
+        assert r.b.writes==before
+    deliver(dict(op='direct_joint',waypoints=[{n:2200},{n:2000}],duration_s=.1))
+    assert math.isclose(r.o.engine.interval,interval)
+    for _ in range(300):
+        r.step()
+        if not r.o.engine.active:break
+    assert r.o.state['closure_outcome']=='endpoint_settled' and r.b.r[n]['Present_Position']==2000
+    assert r.o.state['stop_count']==0
+    deliver(dict(op='direct_joint',positions={SCOPES['right'][-1]:1900},duration_s=.1))
+    assert r.o.engine.interval==1.5
+    deliver(dict(op='halt'))
+    client.set_motor_enable(SCOPES['head'],True,speed_profile=profile)
+    assert all(r.b.r[h]['Goal_Velocity']==100 for h in SCOPES['head'])
+    deliver(dict(op='stop'))
+    assert not r.o.arm_speed_profiles and not r.o.enabled
+    assert all(row['Goal_Velocity']==0 and row['Acceleration']==0 and row['Torque_Enable']==0 for row in r.b.r.values())
+    client.set_motor_enable(SCOPES['right'],True)
+    assert r.b.r[n]['Goal_Velocity']==100
+    deliver(dict(op='stop'))
+
+# A demo path still halts on loaded contact and fails on tracking error.
+for load in (400,0):
+    r=Rig();n=SCOPES['left'][1]
+    r.o.enable(SCOPES['left'],True,speed_profile='demo')
+    r.o.command(dict(id=200,session_started=r.o.started,op='direct_joint',waypoints=[{n:2280},{n:2000}],duration_s=.1))
+    r.b.r[n]['Present_Load']=load
+    failure=None
+    for _ in range(100):
+        r.t+=.05
+        try:r.o.poll()
+        except RuntimeError as e:failure=str(e);r.o.release_all(failure);break
+        if not r.o.engine.active:break
+    if load:
+        assert failure is None and r.o.state['closure_outcome']=='contact_halt', (failure,r.o.state)
+        assert r.o.engine.leg==0
+        r.o.release_all('test contact')
+    else:assert failure and 'following error' in failure
+    assert not r.o.enabled and not r.o.arm_speed_profiles
+print('Pilot demo: client/owner paths, normal timing, faster waypoints, no hot switching, unchanged gripper/head, stream refusal, contact/tracking and restoration passed')

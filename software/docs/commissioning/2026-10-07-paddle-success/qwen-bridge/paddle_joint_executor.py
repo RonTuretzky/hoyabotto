@@ -67,7 +67,10 @@ class PaddleJointExecutor:
   for p in legs:
    self.leg_steps.append(max(1,max(math.ceil(max(abs(t-origin[n]),abs(t-current[n]) if p is legs[0] else 0)/step) for n,t in p.items())));origin=p
   self.steps=sum(self.leg_steps)
-  self.interval=1.5 if self.contact else max(.4,float(duration)/self.steps)
+  rates=getattr(self,'position_rate_limits',{})
+  rate=min(rates.get(n,100.) for n in self.joints)
+  if not math.isfinite(rate) or not 0<rate<=300:raise ValueError('Invalid owner position rate')
+  self.interval=1.5 if self.contact else max(STEP/rate,float(duration)/self.steps)
   base=self.steps*self.interval+3
   if base>(55 if self.contact else 80 if path else 28):raise ValueError('Pickup motion exceeds API completion deadline; shorten it or its duration')
   self.duration=base-3;self.deadline=base+(0 if self.contact else CORRECTION_BUDGET_S)
