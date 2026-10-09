@@ -91,6 +91,7 @@ PRESETS = {
                                  'open_deg': FLAP_OPEN_DEG, 'stiffness': FLAP_STIFFNESS, 'frictionloss': FLAP_FRICTIONLOSS,
                                  'damping': FLAP_DAMPING, 'range': FLAP_RANGE_DEG, 'mass': FLAP_MASS_KG, 'target': True}}},
     'real': {'box_forward_m': 0.355, 'box_left_m': 0.015, 'box_size_m': (0.17, 0.39, 0.07), 'hollow': True,
+             'lean_jitter_deg': (-12.0, 15.0),
              'phone': (0.05, -0.62, 1.05),   # the real phone stands on the robot's right, looking at the right wall
              'plastic': 'default',
              'flaps': {'right': dict(REAL_FLAP, open_deg=-11.0, target=True),
@@ -190,6 +191,14 @@ def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_s
     (None: exactly where asked).
     """
     spec = PRESETS[preset or DEFAULT_PRESET]
+    flaps = {side: dict(flap) for side, flap in spec['flaps'].items()}
+    if spec.get('lean_jitter_deg') and seed is not None:
+        # the real right flap's lean changed from attempt to attempt (11 deg out in the morning, 5-15 and 25-40 deg in
+        # after folds): each seed draws the target flap's starting lean (its crease rest angle) from this range
+        rng = np.random.RandomState(int(seed) + 7919)
+        for flap in flaps.values():
+            if flap.get('target'):
+                flap['open_deg'] = float(rng.uniform(*spec['lean_jitter_deg']))
     box_forward_m = spec['box_forward_m'] if box_forward_m is None else box_forward_m
     box_left_m = spec['box_left_m'] if box_left_m is None else box_left_m
     box_size_m = spec['box_size_m'] if box_size_m is None else box_size_m
@@ -284,7 +293,7 @@ def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_s
     contact = root.find('contact')
     if contact is None:
         contact = ET.SubElement(root, 'contact')
-    chains = [_add_flap(box, contact, side, flap, (depth, width, height)) for side, flap in spec['flaps'].items()]
+    chains = [_add_flap(box, contact, side, flap, (depth, width, height)) for side, flap in flaps.items()]
     # Different flaps never collide: at the far corner an inward-leaning far flap would cut through the folding right
     # flap's far end (real board gives way there; the robot folded the right flap past flat on 9 October with the far
     # flap leaning in). A flap folded on top of another one is credited by SimRobot instead (crease 'covered').
