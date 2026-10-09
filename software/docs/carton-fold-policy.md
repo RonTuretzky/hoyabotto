@@ -35,6 +35,7 @@ the policy slides it more but stays within the table and never presses the robot
 | dataset | `tools/fold_demos_to_lerobot.py` | renders `top` (overhead) and `front` at 240×320; state = joints, action = next commanded target; seed % 10 held out. 272 episodes, 150,360 frames |
 | train | `python -m farm.learning.train --policy act --batch-size 16 --steps 30000 -- --policy.chunk_size=30 --policy.n_action_steps=10` | M4 Max MPS, 174 min, final loss 0.037 |
 | evaluate | `tools/eval_fold_policy.py --temporal-ensemble .01` | `--replay` checks the harness; `--videos N` writes presentation MP4s |
+| refit to measurements | `tools/refit_fold_policy.py` | one command: re-render with measured cameras, dataset, HF Jobs training (`--launch` only), evaluation, checkpoint pick; [auto-refit.md](auto-refit.md) |
 
 Artifacts (local, not in git): demos `…/Hackatuson/output/fold-demos/batch-01`, dataset
 `…/fold-datasets/both-shorts-v1`, checkpoints `…/fold-train/act-both-shorts-v1/checkpoints/025000`,
