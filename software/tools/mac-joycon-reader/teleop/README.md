@@ -1,3 +1,30 @@
+## Guided practice course
+
+The operator screen can switch between **Practice simulator** and **Live robot**
+while stopped. Practice uses the same input reader and the maker's checksum-verified
+SO-101 frames/meshes in a two-wheel 0.4 kit layout; it never calls the live transport.
+The local launcher starts in Practice. Its three-card tutorial introduces wrists,
+sticks, height, jaws, driving, head controls and Stop before the exercises.
+
+The five-step box course covers wrist movement and return, an open-jaw approach
+to the R handle, nearby closure, a 4 cm lift, and release over P. Milestones use
+rendered gripper/box positions. Grasping is deliberately a proximity-and-jaw
+attachment, not a force/friction model. The course is for practicing controls,
+not proving a physical grasp or safe real trajectory. It offers repeat, box reset
+and free practice. Over-shoulder is the default camera; orbit, front, side and top
+are also available. Labels and checkmarks accompany color cues.
+
+Practice permits background input, but controller loss and Stop end the virtual
+session. Live control retains its focus, rail, telemetry, calibration and sole-owner
+gates. A virtual session must stop before switching to Live. Current robot pose
+is captured afresh when explicitly arming; simulated positions are never sent.
+
+The current local mesh cache is `.context/joycon-readiness/so101-model`. It is
+verified against `software/farm/kinematics/so101-assets.json`. On a new checkout,
+use `farm.kinematics.assets.fetch_model` to create that cache (or set
+`XLEROBOT_SO101_MODEL` to an already verified model directory). The assembled
+mounting and encoder zeroes remain preview assumptions.
+
 > **Live update, 9 October:** the corrected server is deployed with matching native
 > calibration and released startup. This Mac's operator screen now has an optional
 > `--readback-preview` MuJoCo panel. It illustrates existing encoder feedback,

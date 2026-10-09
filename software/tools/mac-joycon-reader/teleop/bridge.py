@@ -126,6 +126,13 @@ class Bridge:
         self.finish_release(session,generation,reason)
     def action(self,b):
         op=b.get('op')
+        if op=='lesson':
+            if not self.robot.simulation or not hasattr(self.robot,'lesson_action'):raise ValueError('Lessons are practice-only')
+            action=b.get('action')
+            if action=='free':self.robot.lesson_action(action);return
+            self.release('Resetting virtual practice lesson')
+            self.robot.lesson_action(action);self.mapping.reset()
+            self.action({'op':'practice','scope':'wholebody'});return
         if op=='control_target':
             target=b.get('target')
             with self.lock:

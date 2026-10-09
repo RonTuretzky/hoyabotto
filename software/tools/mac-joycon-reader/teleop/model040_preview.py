@@ -23,12 +23,12 @@ from farm.kinematics.assets import verified_model
 DEFAULT_SO101=SOFTWARE.parent/'.context/joycon-readiness/so101-model'
 
 
-def scene040(path, so101_directory):
+def scene040(path, so101_directory, workshop=False):
     _,manifest=verified_model(so101_directory)
     urdf=ET.parse(Path(so101_directory)/manifest['urdf']).getroot()
     for mesh in urdf.iter('mesh'):
         mesh.set('filename',str((Path(so101_directory)/mesh.get('filename')).resolve()))
-    ET.SubElement(ET.SubElement(urdf,'mujoco'),'compiler',discardvisual='false')
+    ET.SubElement(ET.SubElement(urdf,'mujoco'),'compiler',discardvisual='false',fusestatic='false')
     with tempfile.TemporaryDirectory() as directory:
         source=Path(directory)/'arm.urdf';converted=Path(directory)/'arm.xml'
         ET.ElementTree(urdf).write(source)
@@ -55,7 +55,7 @@ def scene040(path, so101_directory):
     for mesh in list(asset):
         if mesh.tag=='mesh' and mesh.get('name') not in used:asset.remove(mesh)
     for mesh in arm.find('asset'):asset.append(copy.deepcopy(mesh))
-    for side,sign in (('left',1),('right',-1)):
+    for side,sign in (('left',-1),('right',1)):
         mount=ET.SubElement(chassis,'body',name=side+'_so101_mount',pos=f'0 {sign*.11} .41',euler='0 0 3.141592653589793')
         for child in arm.find('worldbody'):
             item=copy.deepcopy(child)
@@ -68,6 +68,8 @@ def scene040(path, so101_directory):
             for node in item.iter():
                 if node.get('name'):node.set('name',side+'_'+node.get('name'))
             mount.append(item)
+        tip=mount.find(".//body[@name='"+side+"_gripper_frame_link']")
+        if tip is not None:ET.SubElement(tip,'site',name=side+'_tool_tip',size='.004',rgba='1 1 1 1')
     # This renderer is kinematic only: no controllers, tendons, sensors or physics.
     for name in ('actuator','tendon','sensor','keyframe','contact'):
         child=root.find(name)
@@ -77,14 +79,17 @@ def scene040(path, so101_directory):
     ET.SubElement(root.find('worldbody'),'geom',name='preview_floor',type='plane',size='6 6 .1',rgba='.28 .32 .37 1',contype='0',conaffinity='0')
     visual=ET.SubElement(root,'visual');ET.SubElement(visual,'global',offwidth='960',offheight='640')
     ET.SubElement(visual,'headlight',ambient='.6 .6 .6',diffuse='.7 .7 .7')
+    if workshop:
+        from practice_scene040 import add_workshop
+        add_workshop(root,SOFTWARE.parent/'.context/joycon-readiness/workshop-art')
     return ET.tostring(root,encoding='unicode'),manifest
 
 
 class Model040PreviewBus(MujocoBus):
-    def __init__(self,model_path=None,*,render=True,forward_arms=True):
+    def __init__(self,model_path=None,*,render=True,forward_arms=True,workshop=False):
         path=Path(model_path or DEFAULT_MODEL).resolve()
         directory=Path(os.environ.get('XLEROBOT_SO101_MODEL',DEFAULT_SO101)).resolve()
-        xml,self.arm_manifest=scene040(path,directory)
+        xml,self.arm_manifest=scene040(path,directory,workshop)
         self.model=mujoco.MjModel.from_xml_string(xml);self.data=mujoco.MjData(self.model)
         self.model_sha256=hashlib.sha256(xml.encode()).hexdigest();self.map={}
         for side in ('left','right'):
@@ -97,8 +102,32 @@ class Model040PreviewBus(MujocoBus):
         self.chassis=self.model.body('chassis').id
         self.render_enabled=render;self.renderer=None;self.latest_jpeg=None
         self.frame_lock=threading.Lock();self.render_error=None;self.frame_sequence=0;self.last_render=0.
-        self.view='orbit';self.pending_view=None;self.render_interval=.1
+        self.view='shoulder';self.pending_view=None;self.render_interval=.1
         mujoco.mj_forward(self.model,self.data)
+
+    def set_view(self,view):
+        if view not in ('shoulder','orbit','front','side','top'):raise ValueError('Unknown camera view')
+        with self.frame_lock:self.pending_view=view
+
+    def render_frame(self,force=False):
+        if self.view!='shoulder' and self.pending_view!='shoulder':return super().render_frame(force)
+        if not self.render_enabled or not force and time.monotonic()-self.last_render<self.render_interval:return
+        import io
+        from PIL import Image
+        if self.renderer is None:
+            self.renderer=mujoco.Renderer(self.model,height=640,width=960)
+            self.camera=mujoco.MjvCamera();self.option=mujoco.MjvOption();self.option.geomgroup[3]=0
+        with self.frame_lock:
+            if self.pending_view:self.view=self.pending_view;self.pending_view=None
+        if self.view!='shoulder':return super().render_frame(force)
+        chassis=self.data.xpos[self.chassis]
+        q=self.data.xquat[self.chassis];yaw=math.atan2(2*(q[0]*q[3]+q[1]*q[2]),1-2*(q[2]*q[2]+q[3]*q[3]))
+        self.camera.lookat[:]=[chassis[0]-.42*math.cos(yaw),chassis[1]-.42*math.sin(yaw),.91]
+        self.camera.distance=1.05;self.camera.azimuth=205+math.degrees(yaw);self.camera.elevation=-26
+        self.renderer.update_scene(self.data,camera=self.camera,scene_option=self.option)
+        out=io.BytesIO();Image.fromarray(self.renderer.render()).save(out,format='JPEG',quality=86)
+        with self.frame_lock:self.latest_jpeg=out.getvalue();self.frame_sequence+=1
+        self.last_render=time.monotonic()
 
     def pose_ticks(self,reference,name,ticks):
         c=reference.calibration[name]

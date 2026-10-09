@@ -1,3 +1,29 @@
+## Guided local box practice ready — 9 October 2026
+
+The user confirmed the gyro-driven practice mode works and requested guided
+exercises, a box, a short tutorial, better scenery and an over-shoulder viewpoint.
+
+- Current operator screen: `127.0.0.1:64684`, starts in Practice. A three-card
+  tutorial precedes a five-step course: wrists, approach, grip, lift and placement.
+  It includes repeat/reset/free-practice controls and labeled R/P targets.
+- Updated the local 0.4 kit-layout renderer to maker SO-101 meshes/joint frames,
+  two driven wheels and a schematic OAK. It uses a common IKEA cart shell and
+  assumed mounting/zeroes; physical geometry is not certified. The old SO-100
+  arm visuals are excluded from this model. Camera defaults over the shoulder.
+- Workshop scenery includes a tabletop, cardboard box/handle, placement marker,
+  directional lighting, floor and backdrop. Grasp is a proximity/closure proxy.
+  Closing from far away cannot attach; lift/placement milestones use rendered
+  coordinates. No physical force/friction or carton folding success is claimed.
+- Verification: 65 local tests passed; targeted lesson tests and JavaScript syntax
+  checks passed after the final small rendering changes. Actual HID gyro input
+  changed the virtual wrists and distinct rendered frames in the preceding run.
+- Final paired-API readback: physical owner idle, all 16 motors released, manual
+  session inactive, teleop available with the expected calibration fingerprint.
+  Practice makes no calls to the physical transport. Controllers were asleep at
+  the final UI readback: wake each with a button, then begin the tutorial/course.
+- Physical direction, load/contact, driving and stopping tests are still attended
+  commissioning checks. They were not performed by this practice exercise work.
+
 ## Joy-Con server deployed; real input and read-only 3D preview — 9 October 2026
 
 - The admin-only bootstrap succeeded without changing owner PID 95469 or its

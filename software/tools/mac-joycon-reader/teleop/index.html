@@ -36,6 +36,9 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
 #base{width:100%;max-width:360px;border:1px solid #667887;border-radius:8px}#joints{max-width:540px;margin:12px 0}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{text-align:left;padding:7px;border-bottom:1px solid #3b4d5d}.table-scroll{overflow:auto}
 @media(max-width:780px){body{padding:0 14px 24px}.workspace{grid-template-columns:1fr}.controls{gap:14px}.scene-toolbar h2{font-size:14px}.guide dl{grid-template-columns:55px 1fr}header{padding:12px 0}h1{font-size:21px}}
 @media(prefers-reduced-motion:reduce){#gyroEnabled:before{transition:none}}
+
+.coach{margin:0 0 16px;padding:18px 22px}.coach-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.coach-head h2{margin:0}.coach-grid{display:grid;grid-template-columns:240px 1fr;gap:24px;margin-top:14px}.course-steps{list-style:none;padding:0;margin:0}.course-steps li{padding:8px 10px;margin:3px 0;border:1px solid #41515d;border-radius:7px;font-size:13px}.course-steps li.current{border:2px solid #f7e0a8;font-weight:700}.course-steps li.done:before{content:'✓ ';font-weight:bold}.course-task h3{margin:0 0 8px;font-size:22px}.course-task p{margin:8px 0}.course-metrics{font-variant-numeric:tabular-nums;display:flex;gap:18px}.course-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.course-buttons button{padding:8px 13px;font-size:13px}.tutorial{color:#edf1f4;background:#19242e;border:1px solid #81909a;border-radius:18px;max-width:620px;padding:28px}.tutorial::backdrop{background:#071018d9}.tutorial h2{font-size:26px;margin:12px 0}.tutorial p,.tutorial li{font-size:16px;line-height:1.6}.tutorial .tour-nav{display:flex;gap:10px;justify-content:space-between;margin-top:22px}.tutorial .eyebrow{text-transform:uppercase;font-size:12px;letter-spacing:.12em;color:#c4cdd3}.tutorial .notice{border-left:3px solid #f7e0a8;padding:10px 14px;background:#253340}.tutorial #tourNext{background:#f7e0a8;color:#151e25}.scene-toolbar h2{letter-spacing:.02em}@media(max-width:780px){.coach-grid{grid-template-columns:1fr}.course-steps{display:flex;flex-wrap:wrap;gap:4px}.course-steps li{flex:1;font-size:11px}}
+
 </style>
 </head>
 <body>
@@ -44,7 +47,9 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
   <div><h1 id="title">Joy-Con practice</h1><p id="connection">Local simulation · No robot connected</p></div>
   <button class="stop" id="stop" title="Stop and release all controls (Escape)">■ Stop</button>
 </header>
+<dialog id="tutorial" class="tutorial"><div class="eyebrow" id="tourCount">Quick tutorial · 1 of 3</div><h2 id="tourTitle"></h2><div id="tourBody"></div><p class="notice">Practice only. The box grip is simplified; real friction and contact forces are not modeled.</p><div class="tour-nav"><button id="tourBack">Back</button><button id="tourSkip">Skip tour</button><button id="tourNext">Next →</button></div></dialog>
 <main>
+<section id="coachPanel" class="card coach" hidden><div class="coach-head"><h2>Box piloting course</h2><button id="tourOpen">Quick tutorial</button></div><div class="coach-grid"><ol class="course-steps" id="courseSteps"></ol><div class="course-task"><h3 id="lessonTitle">Ready for a practice run?</h3><p id="lessonInstruction">Learn the controls, then approach, pick up and place the small box.</p><p id="lessonControls" class="hint"></p><p id="lessonNote" role="status"></p><div class="course-metrics"><span id="lessonDistance"></span><span id="lessonGrip"></span></div><div class="course-buttons"><button id="courseBegin">Begin course</button><button id="courseReset">Reset box</button><button id="courseFree">Free practice</button></div></div></div></section>
 <div class="workspace">
   <section class="card controls" aria-label="Practice controls">
     <div><div id="state" class="status" role="status">Connecting…</div><p id="reason" class="hint"></p><div id="error" role="alert"></div></div>
@@ -71,8 +76,8 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
     </div>
   </section>
   <section id="scenePanel" class="card" hidden aria-label="Robot simulation">
-    <div class="row scene-toolbar"><h2>Simulator</h2><select id="viewChoice" aria-label="Camera view"><option value="orbit">Orbit view</option><option value="front">Front view</option><option value="side">Side view</option><option value="top">Top view</option></select></div>
-    <img id="sceneImage" alt="Live local MuJoCo simulation of the XLeRobot beside a workbench">
+    <div class="row scene-toolbar"><h2>Simulator</h2><select id="viewChoice" aria-label="Camera view"><option value="shoulder">Over-shoulder view</option><option value="orbit">Orbit view</option><option value="front">Front view</option><option value="side">Side view</option><option value="top">Top view</option></select></div>
+    <img id="sceneImage" alt="SO-101 kit-layout practice scene, viewed over the shoulder toward a box on a workbench">
     <p id="sceneStatus">Waiting for simulator frames…</p>
   </section>
 </div>
@@ -82,7 +87,7 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
     <label id="backendPicker" hidden>Controller reader<select id="backendChoice"><option value="apple">Mac buttons + sticks</option><option value="hid">Independent Joy-Cons + gyro</option></select></label>
     <label id="referencePicker" hidden>Stick directions<select id="referenceFrame"><option value="robot">Robot forward / sideways</option><option value="hand">Relative to each gripper</option></select></label>
   </div>
-  <p class="hint">Stop before changing settings. Leaving this window stops control.</p>
+  <p id="settingsNotice" class="hint">Stop before changing settings. Leaving this window stops live control.</p>
   <details class="diagnostics">
     <summary>Diagnostics</summary>
     <p id="backendInfo"></p><p id="axesReadback"></p><p id="gyroReadback"></p><p id="health"></p><p id="stopReason"></p>
@@ -98,7 +103,7 @@ const token=location.hash.slice(1)||sessionStorage.getItem('joycon-session');
 if(location.hash)sessionStorage.setItem('joycon-session',token);
 history.replaceState(null,'',location.pathname);
 const $=id=>document.getElementById(id);
-let latest={},inflight=false,pending=0,frameInflight=false,frameURL=null,connected=false;
+let latest={},inflight=false,pending=0,frameInflight=false,frameURL=null,connected=false,tourStep=0,tourOpened=false;
 async function call(path,body){
   const r=await fetch(path,{method:body?'POST':'GET',headers:{'X-Teleop-Token':token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
   const v=await r.json();if(!r.ok)throw Error(v.error||'Request failed');return v;
@@ -108,6 +113,20 @@ async function action(body){
   try{await call('/action',body)}catch(e){$('error').textContent=e.message}
   finally{pending--;await refresh()}
 }
+const tours=[
+ ['Hands and wrists','<p>Set both Joy-Cons down for a few seconds, then pick them up comfortably.</p><ul><li><b>Tilt:</b> bend and roll the matching wrist.</li><li><b>Sticks:</b> move each hand in the direction its Joy-Con points.</li><li><b>L / R:</b> raise that hand. Click its stick to lower it.</li></ul>'],
+ ['Meet the practice box','<p>You are looking over the robot’s shoulder. Its left hand is on your left.</p><ul><li><b>R:</b> the small handle on the box is your right-hand target.</li><li><b>ZR:</b> tap to toggle the right jaw. Open before approaching; close when aligned.</li><li><b>P:</b> lift the box, move over the placement marker, lower and release.</li></ul>'],
+ ['Practice at your pace','<p>The course checks five small skills and gives you the next cue.</p><ul><li><b>− / Escape / Stop:</b> end practice.</li><li><b>Head:</b> left D-pad turns and tilts it.</li><li><b>Drive:</b> hold +; Y / A goes forward / backward, X / B turns.</li><li><b>Live robot:</b> Stop first, switch the control target, then Arm controls with rail SL / SR held only when you want motion.</li></ul><p>Release buttons and center the sticks before beginning.</p>']
+];
+function showTour(){tourStep=0;drawTour();$('tutorial').showModal();tourOpened=true}
+function drawTour(){$('tourCount').textContent=`Quick tutorial · ${tourStep+1} of 3`;$('tourTitle').textContent=tours[tourStep][0];$('tourBody').innerHTML=tours[tourStep][1];$('tourBack').disabled=tourStep===0;$('tourNext').textContent=tourStep===2?'Begin exercises':'Next →'}
+$('tourOpen').onclick=showTour;$('tourBack').onclick=()=>{tourStep=Math.max(0,tourStep-1);drawTour()};
+$('tourSkip').onclick=()=>{sessionStorage.setItem('box-tour-v1','seen');$('tutorial').close()};
+$('tourNext').onclick=()=>{if(tourStep<2){tourStep++;drawTour()}else{sessionStorage.setItem('box-tour-v1','seen');$('tutorial').close();action({op:'lesson',action:'start'})}};
+$('courseBegin').onclick=()=>action({op:'lesson',action:'repeat'});
+$('courseReset').onclick=()=>action({op:'lesson',action:'reset_box'});
+$('courseFree').onclick=()=>action({op:'lesson',action:'free'});
+
 $('backendChoice').onchange=()=>action({op:'input_backend',backend:$('backendChoice').value});
 $('referenceFrame').onchange=()=>action({op:'reference_frame',frame:$('referenceFrame').value});
 $('controlTarget').onchange=()=>action({op:'control_target',target:$('controlTarget').value});
@@ -119,10 +138,24 @@ document.querySelectorAll('[data-layer]').forEach(b=>b.onclick=()=>action({op:'l
 $('viewChoice').onchange=()=>call('/view',{view:$('viewChoice').value}).catch(e=>$('error').textContent=e.message);
 function draw(s){
   latest=s;
+  $('settingsNotice').textContent=s.background_practice?'Stop before changing settings. This mode moves only the local simulator.':'Stop before changing settings. Leaving this window stops control.';
   $('targetPanel').style.display=s.practice_available?'block':'none';
   $('controlTarget').value=s.control_target||'robot';$('controlTarget').disabled=s.armed||s.busy||pending>0;
   const upstream=s.control_mode==='upstream',cart=upstream||s.control_mode==='cartesian',d=s.controller||{},a=d.axes||{},dead=d.deadman||{},r=s.robot||{};
   const physicalUpstream=upstream&&!s.simulation;
+  const lesson=r.lesson;
+  $('coachPanel').hidden=!s.simulation||!lesson;
+  if(s.simulation&&lesson){
+    if(!tourOpened&&!sessionStorage.getItem('box-tour-v1'))showTour();
+    const names=['Wrists','Approach','Grip','Lift','Place'];
+    $('courseSteps').replaceChildren(...names.map((name,i)=>{const li=document.createElement('li');li.textContent=`${i+1}. ${name}`;li.className=lesson.complete||i<lesson.step?'done':i===lesson.step&&lesson.active?'current':'';return li}));
+    $('lessonTitle').textContent=lesson.active?lesson.title:'Ready for a practice run?';
+    $('lessonInstruction').textContent=lesson.active?lesson.instruction:'Learn the controls, then approach, pick up and place the box.';
+    $('lessonControls').textContent=lesson.controls;$('lessonNote').textContent=lesson.note;
+    $('lessonDistance').textContent=`Tip to R: ${lesson.distance_cm} cm`;$('lessonGrip').textContent=lesson.box_held?'Box attached':'Box on table';
+    $('courseBegin').textContent=lesson.active?'Repeat course':'Begin course';
+    for(const id of ['courseBegin','courseReset','courseFree'])$(id).disabled=s.busy||pending>0||!!s.reader_error;
+  }else if($('tutorial').open)$('tutorial').close();
   const busy=s.busy||pending>0,locked=s.armed||busy,unavailable=!connected||!!s.reader_error||!Object.keys(d).length;
   const physicalReady=!physicalUpstream||(r.ok===true&&r.teleop?.available===true&&!r.teleop?.active&&r.phase==='idle'&&!(r.enabled_motors||[]).length&&r.status_age_s>=0&&r.status_age_s<=.25);
   const canStart=physicalReady&&!unavailable&&!locked&&d.ready&&d.neutral&&!(s.preview&&!s.simulation);

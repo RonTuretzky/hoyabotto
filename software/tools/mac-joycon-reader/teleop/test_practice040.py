@@ -1,6 +1,7 @@
 """Real gyro frames move only the local SO-101 model; live transport is forbidden."""
 import copy
 import time
+import threading
 import unittest
 from unittest.mock import patch
 from bridge import Bridge
@@ -25,6 +26,10 @@ class Practice040Tests(unittest.TestCase):
                 frame=original_frame()
                 def feed():
                     frame['sequence']+=1;frame['timestamp']=time.time();b.ui_seen=time.monotonic();b.receive(frame)
+                stop_feed=threading.Event()
+                def stream():
+                    while not stop_feed.is_set():feed();stop_feed.wait(.01)
+                feeder=threading.Thread(target=stream,daemon=True);feeder.start()
                 feed();b.action({'op':'practice','scope':'wholebody'})
                 before=b.robot.positions['left_arm_wrist_roll']
                 frame['controllers'][0]['independent_motion']['left']['windows_attitude']['roll']+=.4
@@ -33,6 +38,7 @@ class Practice040Tests(unittest.TestCase):
                 self.assertTrue(b.snapshot()['simulation'])
                 self.assertEqual(b.robot.bus.model.njnt,16)
                 with self.assertRaisesRegex(ValueError,'Stop controls'):b.action({'op':'control_target','target':'robot'})
+                stop_feed.set();feeder.join(timeout=1)
                 b.release('test stopped practice')
                 b.action({'op':'control_target','target':'robot'})
                 self.assertIs(b.robot,live)
@@ -40,7 +46,9 @@ class Practice040Tests(unittest.TestCase):
                 b.ui_seen=0;feed();b.ui_seen=0
                 with self.assertRaisesRegex(ValueError,'lost focus'):b.valid()
                 self.assertIsNone(b.proc)
-            finally:b.close()
+            finally:
+                if 'stop_feed' in locals():stop_feed.set();feeder.join(timeout=1)
+                b.close()
 
 
 if __name__=='__main__':unittest.main()
