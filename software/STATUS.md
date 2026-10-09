@@ -2027,3 +2027,20 @@ chat code against `farm.sim.sim_robot.SimRobot`; supervisors Claude Opus 5.5 and
   4/4, about 12 decisions / 2.2 min; DeepSeek Flash 8/8, 1.1 min), the flap ending at 106-125 deg; 2 of those count
   as pushed (a scan descent landed on the flap edge and moved it 17 deg). Seeds 8-11: Opus 3/4 (a stuck gripper open
   left a ~3 cm gap and the scan missed an upright flap).
+
+
+### 2026-10-09 JST: clock correction verified; geometry checks remain
+
+- Owner completed local clock correction. Twenty read-only API pairs now give
+  robot-minus-chat offset -5.8 ms (uncertainty 22.4 ms), median RTT 57.8 ms.
+  Owner ages are 38.7–118.8 ms; oldest row 139.6 ms. Link verdict is
+  LINK_FITS_REGISTRATION without changing freshness limits. Independent Apple
+  time query succeeded at -0.730 ms +/-16.094 ms after two IPv6 timeouts.
+- OAK frame 55927 accepts table tag 1 and fixed-housing tag 2. Preflight reports
+  READY_FOR_LOCAL_PROBES, but physical registration remains false; this does
+  not establish path clearance or completed arm calibration.
+- Right shoulder_lift remains 3212 ticks / candidate 102.42 degrees, outside
+  the model's +/-100 degrees. Check zero/direction and resting-pose convention
+  before fitting camera-to-arm registration. No motor writes or restart.
+- Evidence: .context/tag-remount-check/clock-geometry/after-sync/, also copied
+  to the simulation owner's calibration-preflight-20261009/clock-geometry/after-sync/.
