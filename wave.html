@@ -99,7 +99,9 @@ async function load() {
     const s = await emojiFetch('/api/state');
     online = true; armed = s.armed; catalog = s.catalog;
     picked = picked.filter(key => catalog.some(g => g.key === key));
-    $('connection').textContent = s.armed ? 'Show is open · Join the queue' : 'Show is paused · You can join the queue while the host gets ready';
+    $('connection').textContent = s.robot === 'waiting: robot connection is reconnecting'
+      ? 'Robot is reconnecting · Your place in the queue is saved'
+      : s.armed ? 'Show is open · Join the queue' : 'Show is paused · You can join the queue while the host gets ready';
   } catch (e) {
     online = false; $('connection').textContent = e.message;
   }
@@ -140,7 +142,10 @@ function showTicket(t) {
   $('t-emoji').textContent = t.emojis.join('');
   if (t.state === 'queued') {
     $('t-title').textContent = `You're #${t.position} in line, ${t.name}`;
-    $('t-text').textContent = armed ? 'Watch the screen: your name appears when the robot starts.' : 'The host is getting ready. Your place in the queue is saved.';
+    $('t-text').textContent = t.waiting_reason
+      ? (t.waiting_reason.includes('reconnecting') || t.waiting_reason.includes('checking robot')
+        ? 'Connecting to the robot. Your place in the queue is saved.' : 'The robot is finishing another task. Your place in the queue is saved.')
+      : armed ? 'Watch the screen: your name appears when the robot starts.' : 'The host is getting ready. Your place in the queue is saved.';
   } else if (t.state === 'performing') {
     $('t-title').textContent = `It's your turn, ${t.name}!`;
     $('t-text').textContent = 'Look at the robot 👀';
