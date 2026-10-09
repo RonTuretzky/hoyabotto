@@ -87,12 +87,20 @@ class RobotClient:
             return json.loads(e.read() or b'{}')
 
     def restart_owner(self, log=print, wait_s=300):
+        """Full restart; if the owner cannot start (e.g. a dead board also carries the wheels), restart without the
+        wheels so the arm on the working board still performs."""
+        if self._restart(log, wait_s, 'restart'):
+            return True
+        log('full restart failed; restarting without the wheels so a single working arm can still perform')
+        return self._restart(log, wait_s, 'restart-no-wheels')
+
+    def _restart(self, log, wait_s, mode):
         """Restart the robot Mac's hardware owner and API on the version it already runs (motors come up released;
         the deploy refuses while any motor is held). True once the owner reports motion_ready again."""
         try:
             record = self.admin('/admin/deploy')['deploy']
             head = record.get('head') or record['record']['head']
-            started = self.admin('/admin/deploy', {'ref': head, 'mode': 'restart'})
+            started = self.admin('/admin/deploy', {'ref': head, 'mode': mode})
         except (OSError, ValueError, KeyError) as e:
             log(f'robot restart could not start: {type(e).__name__}: {e}')
             return False
@@ -100,7 +108,7 @@ class RobotClient:
             log(f"robot restart refused: {started.get('error') or started}")
             return False
         job_id = started['job']['id']
-        log(f'robot restart job {job_id} started on {head[:7]}')
+        log(f'robot {mode} job {job_id} started on {head[:7]}')
         deadline = time.time() + wait_s
         state = 'running'
         while time.time() < deadline and state == 'running':
