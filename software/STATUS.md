@@ -1,3 +1,30 @@
+## Clear-table baseline and OAK frontend verification — 9 October 2026, 20:54–21:00 JST
+
+- After the owner cleared the table, six fresh scene frames accepted the tabletop plane (depth sequences
+  96760, 96766, 96770, 96775, 96779, 96784; captured 20:54:35.952–38.352 JST). Median fitted downward
+  tilt 35.95° (35.62–36.43°), roll 0.095°, lens 462.6 mm above tabletop (461.0–466.5 mm). Residual RMS
+  3.1–3.4 mm, 52.65–55.53% inliers and 16.32–17.54% image coverage. Tabletop height 700 mm is an input;
+  the resulting 700 mm table check is not an independent height measurement.
+- All 16 positions and torque flags were unchanged across the bracketing readbacks. Head ticks
+  2094/2621, head torque off; twelve arm joints were already enabled in both snapshots. These reads
+  sent no motion or enable command. Evidence and hashed baseline:
+  `.context/table-plane-clear-20261009/{README.md,baseline.json,summary.json}` plus source snapshots.
+  Saved depth PNGs are separately fetched neighboring frames, not the exact scene-fit sequences.
+- This baseline is saved evidence only: runtime still refits each frame and may refuse an occluded
+  table. Factory distortion coefficients are still skipped by the enum mismatch; RGB/depth registration
+  and camera-to-arm mapping remain unverified. Heading/forward/left offsets remain model-derived.
+  Head, camera mount, cart, table or projection changes invalidate this baseline.
+- Frontend snapshot sequence 99555 decoded to 640×360; all five frames in a one-second MJPEG check
+  also decoded to 640×360. Chrome's actual OAK image reported natural size 640×360, `object-fit:contain`,
+  no transform and a 1100-pixel-wide lightbox image element. Its 16:9 content is proportionally enlarged
+  to 1100×618.75 CSS pixels, so it loses sharpness but is not stretched by CSS. Server routes forward
+  the camera JPEG without resizing. Camera source remains selected 1080p → 640×360 preview, not verified
+  full native sensor FOV. The bare table occupies the bottom of the raw view, with room floor above it.
+  Evidence: `.context/oak-frontend-20261009/`. No camera-mode switch or restart was performed.
+- At the owner's request, the paired-mTLS client/config-path handoff was delivered to the Conductor
+  Robot Emojis Service conversation. Local chat port 1241 and remote hardware API were distinguished;
+  no verified SSH alias/key was available and no secrets were sent.
+
 ## Current depth and carton-tag verification — 9 October 2026, 20:36 JST
 
 - Follow-up table-plane diagnosis at 20:49: fresh OAK RGB sequence 93988 shows carton panels and
