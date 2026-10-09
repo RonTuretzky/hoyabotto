@@ -18,8 +18,9 @@ pure guess. Nothing about this mapping has been checked against the physical rob
 ``mapping_validated`` stays False until a human compares the render with a photo and writes a
 joint map with ``validated: true``.
 
-A joint map (``{'validated': bool, 'joints': {motor: {'zero_tick': int, 'sign': 1|-1}}}``)
-replaces the midpoint/sign of any listed motor. For a gripper it gives the opening angle from the
+A joint map (``{'validated': bool, 'joints': {motor: {'zero_tick': int, 'sign': 1|-1}}, 'head_optical_offset_m':
+[forward, left, up]}``) replaces the midpoint/sign of any listed motor and, optionally, the head camera's optical
+centre offset from the camera link (``HEAD_OPTICAL_OFFSET_M``, the OAK slot cradle's design value). For a gripper it gives the opening angle from the
 model's closed jaw: ``sign * (tick - zero_tick)`` in degrees.
 
 ``claw_positions`` poses the same model and reports where each gripper tip is, by forward
@@ -145,6 +146,15 @@ HEAD_JOINTS = {'pan': 'head_pan_joint', 'tilt': 'head_tilt_joint'}
 CAMERAS_BY_NAME = {'oak': HEAD_SITE}
 CAMERA_FRAME = (FRAME + " rotation columns are the camera's optical x (image right), y (image down) and z (out of "
                 "the lens) axes in that frame; a camera point [x, y, z] in metres sits at position_m + rotation @ [x, y, z].")
+# Optical centre of the head camera relative to the model's head_camera_link origin, in that link's frame (metres:
+# +x out of the lens/forward, +y left, +z up at zero head). 2026-10-09: the OAK-D Lite sits in the slot cradle on the
+# stock tilt link (software/parts/head/design_slot_cradle.json, branch RonTuretzky/oak-camera-3d-print-mount). In that
+# CAD frame (X tilt axis, +Y front, axis at Z 8.33) the stock connector's bar is at Z -21.3, 30 mm from the axis, which
+# is where the model's camera link sits (25 mm ahead of and 30 mm ABOVE the tilt axis): CAD -Z is the model's up. The
+# centre RGB lens (row Z -32.06, front face Y 30.75 minus a ~3 mm recess) is then 40.4 mm above and ~28 mm ahead of the
+# axis, on its centre line: ~3 mm ahead of and ~10 mm above the camera link origin. DESIGN values, not measured; the
+# optical axis is the link's forward (no built-in tilt). A joint map's 'head_optical_offset_m' overrides it.
+HEAD_OPTICAL_OFFSET_M = (0.003, 0.0, 0.0104)
 HEAD_SIGN_NOTE = ('head zero = midpoint of each head motor\'s saved range, camera level and forward; head_motor_2 '
                   'ticks above the midpoint tilt the camera DOWN, head_motor_1 ticks above pan it LEFT (sign +1, '
                   'unvalidated; a joint map sign of -1 flips either)')
@@ -192,7 +202,20 @@ def _check_joint_map(joint_map):
                                  or not 0 <= zero <= TICKS_PER_TURN - 1):
             raise ValueError(f'joint_map {motor}: zero_tick must be an encoder tick 0..4095')
         out[motor] = (None if zero is None else float(zero), int(sign))
+    head_optical_offset(joint_map)  # validate
     return out
+
+
+def head_optical_offset(joint_map=None):
+    """(forward, left, up) metres of the head camera's optical centre from the head_camera_link origin: the joint map's
+    'head_optical_offset_m' when given (a .private override like the zero ticks), else HEAD_OPTICAL_OFFSET_M."""
+    value = (joint_map or {}).get('head_optical_offset_m') if isinstance(joint_map, dict) else None
+    if value is None:
+        return tuple(HEAD_OPTICAL_OFFSET_M)
+    if (not isinstance(value, (list, tuple)) or len(value) != 3
+            or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or abs(v) > 0.25 for v in value)):
+        raise ValueError('joint_map head_optical_offset_m must be [forward, left, up] metres, each within 0.25')
+    return tuple(float(v) for v in value)
 
 
 def motor_angles(positions_ticks, ranges, joint_map=None, jaw_range_deg=None):
@@ -376,13 +399,17 @@ class _Twin:
         self.axes = np.array([FORWARD, LEFT, UP])
         self.head_site = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_SITE, HEAD_SITE)  # -1: no head camera body
 
-    def camera(self):
+    def camera(self, offset=(0.0, 0.0, 0.0)):
         """The OAK optical frame in the robot frame for the pose set by ``pose``; None if the model lacks the
-        head camera body or the robot frame is undefined."""
+        head camera body or the robot frame is undefined. ``offset``: the optical centre from the camera link origin,
+        (forward, left, up) in the link frame (see HEAD_OPTICAL_OFFSET_M)."""
         if self.origin is None or self.head_site < 0:
             return None
-        rotation = self.axes @ self.data.site_xmat[self.head_site].reshape(3, 3)
-        position = self.axes @ (self.data.site_xpos[self.head_site] - self.origin)
+        xmat = self.data.site_xmat[self.head_site].reshape(3, 3)
+        forward, left, up = offset
+        lens = self.data.site_xpos[self.head_site] + xmat @ self.np.array([-left, -up, forward])  # site axes: -y, -z, +x
+        rotation = self.axes @ xmat
+        position = self.axes @ (lens - self.origin)
         return {'position_m': [float(v) for v in position],
                 'rotation': [[float(v) for v in row] for row in rotation],
                 'site': f'{HEAD_CAMERA_BODY}/{HEAD_SITE}', 'frame': CAMERA_FRAME}
@@ -506,7 +533,7 @@ def _work(path, positions, ranges, joint_map, views, size):
         images = None
     else:
         images = twin.render(model_deg, views, size)
-    return angles, unmapped, images, twin.claws(), twin.camera()
+    return angles, unmapped, images, twin.claws(), twin.camera(head_optical_offset(joint_map))
 
 
 def _mapping_fields(joint_map):
@@ -610,7 +637,9 @@ def camera_pose(positions_ticks, ranges, *, joint_map=None, camera='oak'):
                            f'{", ".join(ARMS)}: no camera pose in the robot frame')
     pose.update(_mapping_fields(joint_map), camera=camera, unmapped=list(unmapped), model=model_id,
                 head_angles_deg={'pan': angles.get('head_motor_1'), 'tilt': angles.get('head_motor_2')},
-                head_sign_note=HEAD_SIGN_NOTE)
+                head_sign_note=HEAD_SIGN_NOTE, head_optical_offset_m=list(head_optical_offset(joint_map)),
+                head_optical_offset_source=('joint_map' if isinstance(joint_map, dict) and joint_map.get('head_optical_offset_m') is not None
+                                            else 'cradle design (HEAD_OPTICAL_OFFSET_M)'))
     return pose
 
 

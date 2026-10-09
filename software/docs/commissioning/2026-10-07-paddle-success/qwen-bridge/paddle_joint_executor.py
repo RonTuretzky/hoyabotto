@@ -33,6 +33,7 @@ CONTACT_HALT_LOAD=350  # a joint loaded this much AND lagging >= CONTACT_PUSH_TI
 CONTACT_PUSH_TICKS=50  # lag behind the command that, together with CONTACT_LOAD, means blocked (normal ramps lag 25-40)
 def tolerance(n):return 30 if n.endswith('gripper') else 57
 class PaddleJointExecutor:
+ PREFIXES=('right_arm_','left_arm_')  # joints this executor drives (head_joint_executor.HeadJointExecutor: the head)
  def __init__(self,joints,ranges,write,clock=time.monotonic,wall=time.time):
   self.joints=list(joints);self.ranges=ranges;self.write=write;self.clock=clock;self.wall=wall
   self.active=False;self.samples=[];self.diagnostics={}
@@ -42,7 +43,7 @@ class PaddleJointExecutor:
   if not isinstance(legs,list) or not 1<=len(legs)<=MAX_WAYPOINTS:raise ValueError(f'Pickup path needs 1..{MAX_WAYPOINTS} waypoints')
   for p in legs:
    if not isinstance(p,dict) or not p or set(p)!=set(self.joints):raise ValueError('Pickup command joints must match the executor joints')
-   if any(not n.startswith(('right_arm_','left_arm_')) or type(t) is not int for n,t in p.items()):raise ValueError('Integer arm-joint target required')
+   if any(not n.startswith(self.PREFIXES) or type(t) is not int for n,t in p.items()):raise ValueError('Integer arm-joint target required' if self.PREFIXES==PaddleJointExecutor.PREFIXES else 'Integer head-motor target required')
   if type(duration) not in (int,float) or not math.isfinite(duration) or not 0<duration<=(60 if path else 25):raise ValueError('Finite duration (0,25] required (paths: (0,60])')
   goals={}
   for n in self.joints:

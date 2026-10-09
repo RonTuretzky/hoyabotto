@@ -257,16 +257,18 @@ def _load_tool(name):
 
 # ------------------------------------------------------------------------------------------- servo bus
 class FakeBus:
-    """The registers HardwareOwner reads and writes, for the twelve arm motors, backed by a plant."""
-    def __init__(self, plant, calibration: dict):
+    """The registers HardwareOwner reads and writes, for the twelve arm motors (plus `extra`, e.g. the head), backed by
+    a plant."""
+    def __init__(self, plant, calibration: dict, extra: tuple = ()):
         self.plant = plant
-        self.motors = {n: C(id=i + 1, model="sts3215") for i, n in enumerate(OWNER_JOINTS)}
+        names = (*OWNER_JOINTS, *extra)
+        self.motors = {n: C(id=i + 1, model="sts3215") for i, n in enumerate(names)}
         self.port = "fake-bus"
         self.r = {n: dict(Torque_Enable=0, Operating_Mode=0, Homing_Offset=calibration[n]["homing_offset"],
                           Min_Position_Limit=calibration[n]["range_min"], Max_Position_Limit=calibration[n]["range_max"],
                           Goal_Position=plant.ticks(n), Lock=1, Torque_Limit=1000, Goal_Velocity=0, Goal_Time=0,
                           Acceleration=0, P_Coefficient=16, I_Coefficient=0, D_Coefficient=32, Status=0)
-                  for n in OWNER_JOINTS}
+                  for n in names}
         self.writes = 0
 
     def read(self, f, n, **kw):
@@ -351,7 +353,8 @@ class FakeOwner:
     """The deployed API + DirectJointClient + HardwareOwner, on a fake bus and a virtual clock."""
     def __init__(self, plant, calibration: dict, workdir: Path, *, clock: VirtualClock | None = None,
                  owner_period_s: float = 0.05, rtt_s: float = 0.0, soft_release_s: float = 2.0,
-                 camera_publisher: Callable[["FakeOwner", list], None] | None = None, stream: bool = False):
+                 camera_publisher: Callable[["FakeOwner", list], None] | None = None, stream: bool = False,
+                 head: bool = False):
         self.workdir = Path(workdir)
         self.session = self.workdir / "work/gemma-hardware-session"
         self.session.mkdir(parents=True, exist_ok=False)
@@ -364,14 +367,18 @@ class FakeOwner:
         self.tools, self.atomic = tools, atomic
         self.clock = clock or VirtualClock()
         self.plant, self.period, self.rtt = plant, owner_period_s, rtt_s
-        self.bus = FakeBus(plant, calibration)
+        # Head motors are on the bus when the plant has them (read-only unless the owner runs the --head scope).
+        heads = tuple(n for n in HEAD_AND_WHEELS[:2] if n in getattr(plant, "q", {}))
+        if head and not heads:
+            raise ValueError("--head scope needs a plant with head_motor_1/head_motor_2")
+        self.bus = FakeBus(plant, calibration, heads)
         self.phone = {"fresh": True, "seq": 0}
         self.owner = HardwareOwner(
             [self.bus], {n: C(range_min=calibration[n]["range_min"], range_max=calibration[n]["range_max"],
-                              homing_offset=calibration[n]["homing_offset"]) for n in OWNER_JOINTS},
+                              homing_offset=calibration[n]["homing_offset"]) for n in (*OWNER_JOINTS, *heads)},
             self.bus.telemetry, clock=self.clock, wall=self.clock, position_scope=list(OWNER_JOINTS),
             paddle_profile=True, camera_metadata=self._phone_metadata, wheels=False,
-            soft_release_s=soft_release_s, sleep=self._advance_only, stream=stream)
+            soft_release_s=soft_release_s, sleep=self._advance_only, stream=stream, head=head)
         self.owner.inspect()
         self.owner.writer = lambda: atomic(self.session / "status.json", self.owner.state)
         atomic(self.session / "status.json", self.owner.state)
@@ -465,7 +472,8 @@ class FakeOwner:
         return [a for n, a, _ in self.calls if n == "robot_move_joint_targets"]
 
     # --- camera files the API reads
-    def publish_oak(self, rgb):
+    def publish_oak(self, rgb, extra: dict | None = None):
+        """An OAK manifest as the API reads it; `extra` adds fields (intrinsics, width, height, coordinate_frame ...)."""
         import cv2
         folder = self.tools.OAK_RECTIFIED_DIR
         folder.mkdir(parents=True, exist_ok=True)
@@ -477,7 +485,7 @@ class FakeOwner:
         (folder / name).write_bytes(data)
         manifest = {"camera_id": "oak-sim", "stream_id": "oak-sim-stream", "seq": seq, "image": name,
                     "sha256": hashlib.sha256(data).hexdigest(), "captured_at": self.clock(),
-                    "projection": "rectified_pinhole"}
+                    "projection": "rectified_pinhole", **(extra or {})}
         tmp = folder / "oak.json.tmp"
         tmp.write_text(json.dumps(manifest))
         tmp.replace(folder / "oak.json")
@@ -759,3 +767,178 @@ class ReplayPolicy:
     def act(self, state, images, task=None):
         self.k += 1
         return self.ctrl[min(self.k, len(self.ctrl) - 1)].astype(np.float32)
+
+
+# ------------------------------------------------------------------------------------- head OAK (auto head pose)
+@dataclass
+class HeadMapping:
+    """A fake robot's TRUE head tick -> model angle mapping (tools/auto_head_pose.py must not rely on it).
+
+    tilt = (head_motor_2 - tilt_zero_tick) * tilt_deg_per_tick; pan = (head_motor_1 - pan_zero_tick) * pan_deg_per_tick
+    (model convention: tilt positive looks down, pan positive looks to the robot's left)."""
+    tilt_zero_tick: float
+    pan_zero_tick: float
+    tilt_deg_per_tick: float = 360 / TICKS_PER_REV
+    pan_deg_per_tick: float = 360 / TICKS_PER_REV
+
+    def angles(self, ticks):
+        return ((ticks["head_motor_2"] - self.tilt_zero_tick) * self.tilt_deg_per_tick,
+                (ticks["head_motor_1"] - self.pan_zero_tick) * self.pan_deg_per_tick)
+
+    def ticks_for(self, tilt_deg, pan_deg):
+        return {"head_motor_1": int(round(self.pan_zero_tick + pan_deg / self.pan_deg_per_tick)),
+                "head_motor_2": int(round(self.tilt_zero_tick + tilt_deg / self.tilt_deg_per_tick))}
+
+
+class HeadOakSim:
+    """The head OAK of a fake robot: renders what it sees for given arm and head ticks. Simulation only.
+
+    The camera is the XLeRobot model head (carton/xlerobot_cameras.head_camera_model) at the angles `mapping` gives,
+    plus an optional lens offset from the camera link; arm joints come from the joint maps. `scene_xml`: render the
+    fold training scene with MuJoCo (its 'front' camera moved to the head pose); without it, a synthetic image of the
+    tags only (warped tag36h11 images on grey). carton: 'away' (default), 'nominal' (the training spot of
+    carton.head_pose.nominal_carton_pose; needs `station`) or 'scene' (where the scene put it; MuJoCo only)."""
+    def __init__(self, arm_maps, mapping: HeadMapping, *, width=640, height=360, fovy_deg=39.2, scene_xml=None,
+                 base_spacing_m=.22, optical_offset=(0., 0., 0.), carton="away", station=None):
+        self.maps, self.mapping, self.width, self.height, self.fovy = arm_maps, mapping, width, height, fovy_deg
+        self.fy = height / 2 / math.tan(math.radians(fovy_deg) / 2)
+        if carton not in ("away", "nominal", "scene") or (carton == "nominal" and station is None):
+            raise ValueError("carton: 'away', 'nominal' (with station) or 'scene'")
+        self.base_spacing, self.offset, self.carton, self.station = base_spacing_m, optical_offset, carton, station
+        self.scene_xml = scene_xml
+        self._model = None
+        self.renders = 0
+
+    def intrinsics(self):
+        return {"fx": self.fy, "fy": self.fy, "cx": self.width / 2, "cy": self.height / 2,
+                "width": self.width, "height": self.height}
+
+    def manifest_extras(self):
+        return {"width": self.width, "height": self.height,
+                "intrinsics": [[self.fy, 0, self.width / 2], [0, self.fy, self.height / 2], [0, 0, 1]],
+                "coordinate_frame": "CAM_A_optical", "rgb_pipeline": f"simulated head OAK {self.width}x{self.height}"}
+
+    def camera_pose(self, head_ticks):
+        """(position, rotation_cv) of the lens in arm_base for these head ticks (the TRUE pose)."""
+        from carton.xlerobot_cameras import head_camera_model, model_dir_to_arm_base, model_to_arm_base
+        tilt, pan = self.mapping.angles(head_ticks)
+        position, r = head_camera_model(math.radians(tilt), math.radians(pan))
+        lens = model_to_arm_base(position + r @ np.asarray(self.offset, float))
+        forward, up = model_dir_to_arm_base(r[:, 0]), model_dir_to_arm_base(r[:, 2])
+        return lens, np.column_stack((np.cross(forward, up), -up, forward))
+
+    def _joint_rad(self, ticks):
+        return {side: self.maps[side].ticks_to_rad(ticks)[:5] for side in ARMS}
+
+    def render(self, ticks):
+        self.renders += 1
+        position, rotation = self.camera_pose(ticks)
+        if self.scene_xml is not None:
+            return self._render_mujoco(ticks, position, rotation)
+        return self._render_synthetic(ticks, position, rotation)
+
+    def _render_mujoco(self, ticks, position, rotation):
+        import mujoco
+        if self._model is None:
+            self._model = mujoco.MjModel.from_xml_path(str(self.scene_xml))
+            self._data = mujoco.MjData(self._model)
+            self._renderer = mujoco.Renderer(self._model, self.height, self.width)
+        m, d = self._model, self._data
+        mujoco.mj_resetData(m, d)
+        for side, q in self._joint_rad(ticks).items():
+            for suffix, v in zip(SUFFIXES[:5], q):
+                d.qpos[m.jnt_qposadr[m.joint(f"{side}_{suffix}").id]] = v
+        mujoco.mj_forward(m, d)
+        origin = (d.body("left_base_link").xpos + d.body("right_base_link").xpos) / 2
+        if self.carton != "scene":
+            from carton import head_pose
+            adr = m.jnt_qposadr[m.joint("carton_free").id]
+            centre = (origin + head_pose.nominal_carton_pose(self.station)[1] if self.carton == "nominal"
+                      else [0., 2.5, .001])
+            d.qpos[adr:adr + 7] = [*centre, 1., 0., 0., 0.]
+            mujoco.mj_forward(m, d)
+        cid = m.camera("front").id
+        m.cam_pos[cid] = origin + position
+        quat = np.zeros(4)
+        mujoco.mju_mat2Quat(quat, np.column_stack((rotation[:, 0], -rotation[:, 1], -rotation[:, 2])).ravel())
+        m.cam_quat[cid] = quat
+        m.cam_fovy[cid] = self.fovy
+        mujoco.mj_forward(m, d)
+        self._renderer.update_scene(d, camera="front")
+        return self._renderer.render().copy()
+
+    def close(self):
+        if self._model is not None:
+            self._renderer.close()
+            self._model = None
+
+    def _render_synthetic(self, ticks, position, rotation):
+        import cv2
+        from carton import head_pose
+        from carton.servo.tag_kit import marker_grid
+        mounts = head_pose.gripper_tag_mounts(self._joint_rad(ticks), self.base_spacing)
+        if self.carton == "nominal":
+            mounts.update(head_pose.box_tag_mounts(self.station))
+        image = np.full((self.height, self.width, 3), 140, np.uint8)
+        r_cb = rotation.T
+        for tag_id in sorted(mounts, key=lambda i: -float((r_cb @ (mounts[i][0] - position))[2])):   # far first
+            centre, u, v, size = mounts[tag_id]
+            if np.cross(u, v) @ (position - centre) <= 0:
+                continue                      # printed side faces away from the camera
+            half = size / 2 * 10 / 8          # black square plus one white cell on each side
+            outer = np.array([centre - half * u + half * v, centre + half * u + half * v,
+                              centre + half * u - half * v, centre - half * u - half * v])
+            cam = (outer - position) @ r_cb.T
+            if (cam[:, 2] <= .02).any():
+                continue
+            pix = cam[:, :2] / cam[:, 2:] * self.fy + [self.width / 2, self.height / 2]
+            n = 240
+            grid = np.pad(np.asarray(marker_grid(tag_id)), 1, constant_values=255).astype(np.uint8)
+            tag = cv2.resize(grid, (n, n), interpolation=cv2.INTER_NEAREST)
+            # Image coordinate x is the centre of pixel x: the tag image's outer edge is at -0.5.
+            h = cv2.getPerspectiveTransform(np.float32([[-.5, -.5], [n - .5, -.5], [n - .5, n - .5], [-.5, n - .5]]),
+                                            np.float32(pix))
+            warped = cv2.warpPerspective(tag, h, (self.width, self.height), flags=cv2.INTER_LINEAR, borderValue=0)
+            mask = cv2.warpPerspective(np.full_like(tag, 255), h, (self.width, self.height), flags=cv2.INTER_LINEAR,
+                                       borderValue=0).astype(float)[..., None] / 255
+            image = (image * (1 - mask) + warped[..., None] * mask).round().astype(np.uint8)
+        return image
+
+    def publisher(self, plant):
+        """camera_publisher for FakeOwner: the OAK frame from the plant's current arm and head ticks."""
+        def publish(owner, names):
+            if "oak" in names:
+                owner.publish_oak(self.render({n: plant.ticks(n) for n in plant.q}), self.manifest_extras())
+            if "phone" in names:
+                owner.publish_phone(np.zeros((24, 32, 3), np.uint8))
+        return publish
+
+
+def build_head_rig(workdir: Path, sim_factory, mapping: HeadMapping, start_head: dict, *, arm_ticks=None,
+                   head=True, rate_ticks_s=200.0, owner_period_s=0.05):
+    """The deployed owner (--head scope unless head=False) over a kinematic plant whose head carries a simulated OAK.
+
+    Arm maps: zero tick 2047, sign +1 (the owner-accepted feetech_degrees_v1 maps) over the saved calibration ranges in
+    profiles/fold-joint-maps. `sim_factory(arm_maps, mapping) -> HeadOakSim`. Arms start at `arm_ticks` (default: the
+    measurement pose of carton.head_pose) and stay released, i.e. still."""
+    from carton import head_pose
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=False)
+    saved = json.loads((SOFTWARE / "profiles/fold-joint-maps/calibration-2026-10-08.json").read_text())
+    ranges = {n: (saved[n]["range_min"], saved[n]["range_max"]) for n in OWNER_JOINTS}
+    calibration = fake_calibration(ranges)
+    for n in HEAD_AND_WHEELS[:2]:
+        calibration[n].update(range_min=saved[n]["range_min"], range_max=saved[n]["range_max"])
+    maps, map_paths = write_joint_maps(workdir / "joint-maps", calibration, {n: (2047.0, 1) for n in OWNER_JOINTS},
+                                       evidence="SIMULATION ONLY: fake head-pose rig")
+    arm_ticks = dict(arm_ticks or head_pose.measurement_pose_ticks(maps))
+    for n in OWNER_JOINTS:
+        arm_ticks.setdefault(n, (ranges[n][0] + ranges[n][1]) // 2)
+    plant = KinematicPlant({**arm_ticks, **start_head}, rate_ticks_s)
+    sim = sim_factory(maps, mapping)
+    clock = VirtualClock()
+    fake = FakeOwner(plant, calibration, workdir / "robot", clock=clock, owner_period_s=owner_period_s,
+                     camera_publisher=sim.publisher(plant), head=head)
+    rig = SimRig(clock, fake.sleep, None, None, maps, plant, fake, calibration)
+    rig.map_paths, rig.sim = map_paths, sim
+    return rig

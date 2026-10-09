@@ -49,7 +49,7 @@ def pregrasp_ticks():
 
 @pytest.fixture(scope='module')
 def world():
-    return sim_cameras.StaticWorld(seed=0)
+    return sim_cameras.StaticWorld(seed=0, preset='near7')   # the 8 October scene these views were checked on
 
 
 @pytest.fixture(scope='module')
@@ -270,7 +270,7 @@ def test_clip_argument_errors(cams):
 
 
 def test_clip_without_frames_is_unavailable():
-    world = sim_cameras.StaticWorld(seed=None)
+    world = sim_cameras.StaticWorld(seed=None, preset='near7')
     with sim_cameras.SimCameras(world) as cams:
         with pytest.raises(sim_cameras.ClipUnavailable):
             cams.clip({'camera': 'oak'})

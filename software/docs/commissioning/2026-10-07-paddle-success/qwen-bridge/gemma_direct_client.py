@@ -35,7 +35,7 @@ class DirectJointClient:
                 supported_motors=state.get('supported_motors',[]),enabled_motors=state.get('enabled_motors',[]),
                 operator_armed=state.get('operator_armed') is True,local_operator_gate=state.get('operator_armed') is True,
                 motor_owner_active=state.get('hardware_server') is True and 0<=state['status_age_s']<=1)
-            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),base_drive_supported=state.get('base_drive_supported') is True,base_drive_limits=state.get('base_drive_limits'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}),last_stop=state.get('last_stop'),stop_count=state.get('stop_count',0),release_errors=state.get('release_errors',[]))
+            result.update(pickup_required_enabled_motors=state.get('pickup_required_enabled_motors',[]),pickup_motion_segments_used=state.get('pickup_motion_segments_used',0),pickup_motion_segment_budget=state.get('pickup_motion_segment_budget'),pickup_idle_hold_seconds=state.get('pickup_idle_hold_seconds'),camera_pause_active=state.get('camera_pause_active',False),camera_supervision_required=state.get('camera_supervision_required',False),execution_profile=state.get('execution_profile','legacy-direct'),base_drive_supported=state.get('base_drive_supported') is True,base_drive_limits=state.get('base_drive_limits'),head_supported=state.get('head_supported') is True,head_motors=state.get('head_motors') or [],head_move_limits=state.get('head_move_limits'),read_only=state.get('read_only') is True,calibration_mismatches=state.get('calibration_mismatches',{}),last_stop=state.get('last_stop'),stop_count=state.get('stop_count',0),release_errors=state.get('release_errors',[]))
             if state.get('read_only') is True:result['blockers'].append('READ_ONLY_OWNER: calibration mismatch blocks activation')
             if state.get('control_mode')!='direct_joint' or state.get('hardware_server') is not True:result['blockers'].append('HARDWARE_OWNER_PROTOCOL_UNAVAILABLE')
             if not 0<=state['status_age_s']<=1:result['blockers'].append('OWNER_STATUS_STALE')
@@ -59,7 +59,7 @@ class DirectJointClient:
                     if state.get('ranges',{}).get(name)!=[lo,hi]:issues.append('SAVED_RANGE_MISMATCH')
                     q=row.get('Present_Position')
                     if type(q) not in (int,float) or not math.isfinite(q) or not lo<=q<=hi:issues.append('CURRENT_POSITION_OUTSIDE_SAVED_RANGE')
-                for field,valid in [('Status',lambda x:x==0),*([('Present_Temperature',lambda x:x<=SOFTWARE_TEMPERATURE_LIMIT_C)] if state.get('execution_profile')!='paddle-success-v1' else []),('Present_Load',lambda x:abs(x)<=(800 if state.get('execution_profile')=='paddle-success-v1' and not name.endswith('gripper') else 500))]:
+                for field,valid in [('Status',lambda x:x==0),*([('Present_Temperature',lambda x:x<=SOFTWARE_TEMPERATURE_LIMIT_C)] if state.get('execution_profile')!='paddle-success-v1' else []),('Present_Load',lambda x:abs(x)<=(800 if state.get('execution_profile')=='paddle-success-v1' and not name.endswith('gripper') and not name.startswith('head_motor_') else 500))]:
                     v=row.get(field)
                     if type(v) not in (int,float) or not math.isfinite(v) or not valid(v):issues.append('UNSAFE_OR_INVALID_'+field)
                 if type(row.get('Torque_Enable')) is not int or row['Torque_Enable'] not in (0,1):issues.append('INVALID_TORQUE_TELEMETRY')
@@ -108,6 +108,12 @@ class DirectJointClient:
         if type(duration_s) not in (int,float) or not math.isfinite(duration_s) or not 0<duration_s<=60:raise ValueError('Path duration must be finite in (0,60]')
         if not isinstance(waypoints,list) or not waypoints or any(not isinstance(w,dict) or not w or any(type(q) is not int for q in w.values()) for w in waypoints):raise ValueError('Nonempty list of integer waypoint targets required')
         return self._command({'op':'direct_joint','waypoints':waypoints,'duration_s':duration_s,'replace':replace is True},wait=wait)
+    def move_head(self,positions,duration_s):
+        """Head move (owner started with --head): pan head_motor_1 / tilt head_motor_2, at most 200 ticks per joint,
+        duration_s >= 1 s per 100 ticks; waits for measured completion like an arm move."""
+        if type(duration_s) not in (int,float) or not math.isfinite(duration_s) or not 0<duration_s<=25:raise ValueError('Duration must be finite in (0,25]')
+        if not isinstance(positions,dict) or not positions or any(type(q) is not int for q in positions.values()):raise ValueError('Nonempty integer encoder targets required')
+        return self._command({'op':'head_move','positions':dict(positions),'duration_s':duration_s})
     def halt(self):
         """Stop the running motion and hold where the arm is (wheels brake and release); unlike stop, nothing is released."""
         return self._command({'op':'halt'})
@@ -184,7 +190,7 @@ class DirectJointClient:
             'waypoint':d.get('leg'),'waypoints':d.get('legs'),'elapsed_s':d.get('elapsed_s'),'final_targets':d.get('final_targets'),
             'joints':{n:{k:v.get(k) for k in ('current_ticks','goal_ticks','target_ticks','following_error_ticks')} for n,v in (d.get('joints') or {}).items()},
             'base_drive_phase':state.get('base_drive_phase'),'enabled_motors':state.get('enabled_motors'),'lease_remaining_s':state.get('lease_remaining'),
-            'last_stop':state.get('last_stop'),'positions':{n:r.get('Present_Position') for n,r in state.get('rows',{}).items() if n.startswith(('right_arm_','left_arm_'))}}
+            'last_stop':state.get('last_stop'),'positions':{n:r.get('Present_Position') for n,r in state.get('rows',{}).items() if n.startswith(('right_arm_','left_arm_','head_motor_'))}}
     def drive_base(self,linear_m_s,angular_rad_s,duration_s):
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in (linear_m_s,angular_rad_s,duration_s)) or not 0<duration_s<=3:raise ValueError('Finite linear_m_s, angular_rad_s and duration_s in (0,3] required')
         return self._command({'op':'base_pulse','linear_m_s':linear_m_s,'angular_rad_s':angular_rad_s,'duration_s':duration_s})
@@ -202,8 +208,16 @@ class DirectJointClient:
             if not set(names)<=set(state.get('supported_motors',[])):raise ValueError('Unknown motor names')
             if not request['enabled']:return
             readonly=sorted(set(names)-set(state.get('commandable_motors',state.get('supported_motors',[]))))
-            if readonly:raise ValueError('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: '+', '.join(readonly)+
-                                         '. The head cannot be moved (aim cameras by moving the arm instead); the wheels move only through robot_move_base, which needs no enable. Enable only arm joints.')
+            if readonly:
+                head=[n for n in readonly if n.startswith('head_motor_')]
+                why=[]
+                if head:why.append('the running owner was started without --head, so the head stays read-only (redeploy with --head; capabilities.head_supported says which)' if state.get('head_supported') is not True
+                                   else 'the head motors were demoted to read-only (saved calibration differs from hardware: see scope_reduced)')
+                if any(n.startswith('base_') for n in readonly):why.append('the wheels move only through robot_move_base, which needs no enable')
+                arms=[n for n in readonly if '_arm_' in n]
+                if arms:why.append('those arm joints are outside the owner scope (calibration mismatch or single-arm owner)')
+                raise ValueError('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: '+', '.join(readonly)+'. '+'; '.join(why)+
+                                 '. With --head the head motors (head_motor_1 pan, head_motor_2 tilt) enable here and move only through robot_move_head.')
             for n in names:
                 if n not in state.get('supportsselectedjoints',[]):
                     row=state.get('rows',{}).get(n,{})
@@ -212,15 +226,27 @@ class DirectJointClient:
                     if type(q) not in (int,float) or not math.isfinite(q):raise ValueError('Wheel current encoder missing: '+n)
                     bounds=state.get('wheel_hold_ranges',{}).get(n) or row.get('firmware_position_limits')
                     if bounds is not None and (not isinstance(bounds,list) or len(bounds)!=2 or not bounds[0]<bounds[1] or not bounds[0]<=q<=bounds[1]):raise ValueError('Wheel current position/actual firmware limits invalid: '+n)
+        elif request['op']=='head_move':
+            names=list(request['positions'])
+            if state.get('head_supported') is not True:raise ValueError('UNSUPPORTED_OWNER_SCOPE: the running owner was started without --head; the head is read-only')
+            if not set(names)<=set(state.get('head_motors') or []):raise ValueError('robot_move_head moves head motors only: '+', '.join(state.get('head_motors') or []))
+            for n in names:
+                c=self.calibration[n]
+                if not c['range_min']+40<=request['positions'][n]<=c['range_max']-40:raise ValueError('Target outside saved range plus 40-tick margin: '+n)
+                if state['rows'][n].get('Torque_Enable')!=1:raise ValueError('Requested motor is released; explicitly enable it first: '+n)
+            from head_joint_executor import HeadJointExecutor
+            dry=HeadJointExecutor(names,{n:state['ranges'][n] for n in names},lambda _:None)
+            dry.start(dict(request,id=1,session_started=state['started']),{n:state['rows'][n]['Present_Position'] for n in names},session_started=state['started'],held_goals=state.get('goals'))
         else:
             targets=request.get('waypoints') or [request['positions']];names=list(targets[0])
+            if any(n.startswith('head_motor_') for n in names):raise ValueError('Head motors move only through robot_move_head, never with arm targets')
             if any(set(t)!=set(names) for t in targets):raise ValueError('Every waypoint must name the same joints')
             if not set(names)<=set(state.get('supportsselectedjoints',[])):raise ValueError('Unsupported position motor or wheel target')
             for n in names:
                 c=self.calibration[n]
                 if any(not c['range_min']+4<=t[n]<=c['range_max']-4 for t in targets):raise ValueError('Target outside saved range plus4tickmargin: '+n)
                 if state['rows'][n].get('Torque_Enable')!=1:raise ValueError('Requested motor is released; explicitly enable it first: '+n)
-        if request['op']!='enable_motors' and state.get('execution_profile')=='paddle-success-v1':
+        if request['op'] not in ('enable_motors','head_move') and state.get('execution_profile')=='paddle-success-v1':
             arms={n.split('_arm_')[0] for n in names};required=[m for m in state.get('supportsselectedjoints',[]) if m.split('_arm_')[0] in arms]
             if not set(required)<=set(state.get('enabled_motors',[])):raise ValueError('Pickup requires all six joints of the commanded arm explicitly enabled: '+json.dumps(sorted(set(required)-set(state.get('enabled_motors',[])))))
             from paddle_joint_executor import PaddleJointExecutor
@@ -326,7 +352,7 @@ class DirectJointClient:
                 if generation!=self.cancel_generation:raise RuntimeError('STOP interrupted dispatch')
                 if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:raise RuntimeError('Another writer changed command file')
                 atomic_json(command_file,command);dispatched=True
-                deadline=self.clock()+(request['duration_s']+10 if request['op']=='base_pulse' else 90 if state.get('execution_profile')=='paddle-success-v1' and request['op'] in ('direct_joint','gripper_target') else 60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
+                deadline=self.clock()+(request['duration_s']+10 if request['op']=='base_pulse' else 90 if state.get('execution_profile')=='paddle-success-v1' and request['op'] in ('direct_joint','gripper_target','head_move') else 60 if request['op']=='gripper_target' else 30 if request['op']=='direct_joint' else 5)
                 while self.clock()<deadline:
                     if generation!=self.cancel_generation:raise RuntimeError('STOP cancelled goal; no automatic resume')
                     current=self.status()
