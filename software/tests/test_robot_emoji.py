@@ -213,3 +213,59 @@ def test_operator_routes_need_token_off_loopback(web):
     assert h.operator_ok({'token': 'secret-token'})
     h.headers = {'X-Operator-Token': 'secret-token'}
     assert h.operator_ok({})
+
+
+@pytest.fixture
+def public_web():
+    robot = fake()
+    show = S.Show(robot, G.load())
+    show.start()
+    server = S.serve(show, '127.0.0.1', 0, 'secret-token', public_only=True)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield show, robot, f'http://127.0.0.1:{server.server_port}'
+    show.close()
+    server.shutdown()
+    server.server_close()
+
+
+def test_public_listener_never_authorizes_operator(public_web):
+    show, robot, base = public_web
+    for action in ('arm', 'stop', 'remove'):
+        assert post(base + '/api/operator/' + action, {'armed': True}, {'X-Operator-Token': 'secret-token'})[0] == 403
+    with pytest.raises(urllib.error.HTTPError) as err:
+        urllib.request.urlopen(base + '/operator?token=secret-token')
+    assert err.value.code == 403
+    state = get(base + '/api/state?token=secret-token')
+    assert 'log' not in state and 'robot_api' not in state
+    assert show.armed is False and robot.calls == []
+
+
+def test_public_queue_and_cors(public_web):
+    show, robot, base = public_web
+    headers = {'Origin': 'https://hoyabotto.com', 'CF-Connecting-IP': '203.0.113.1'}
+    req = urllib.request.Request(base + '/api/requests', method='OPTIONS', headers={
+        'Origin': headers['Origin'], 'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type'})
+    with urllib.request.urlopen(req) as response:
+        assert response.headers['Access-Control-Allow-Origin'] == headers['Origin']
+        assert 'POST' in response.headers['Access-Control-Allow-Methods']
+        assert 'Access-Control-Allow-Credentials' not in response.headers
+    status, ticket = post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']}, headers)
+    assert status == 201 and get(base + '/api/requests/' + ticket['id'])['state'] == 'queued'
+    assert post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']}, headers)[0] == 429
+    assert post(base + '/api/requests', {'name': 'Bob', 'gestures': ['wave']}, {
+        **headers, 'CF-Connecting-IP': '203.0.113.2'})[0] == 201
+    assert len(show.queue) == 2 and robot.calls == []
+
+
+def test_public_rejects_unrelated_origin(public_web):
+    show, robot, base = public_web
+    assert post(base + '/api/requests', {'name': 'Ada', 'gestures': ['wave']}, {'Origin': 'https://example.com'})[0] == 403
+    assert not show.queue and robot.calls == []
+
+
+def test_private_listener_rejects_tunnel_loopback_privilege(web):
+    show, robot, base = web
+    assert post(base + '/api/operator/arm', {'armed': True}, {'CF-Connecting-IP': '203.0.113.1'})[0] == 403
+    assert post(base + '/api/operator/arm', {'armed': True}, {'Origin': 'https://hoyabotto.com'})[0] == 403
+    assert post(base + '/api/operator/arm', {'armed': True}, {'Origin': base})[0] == 200

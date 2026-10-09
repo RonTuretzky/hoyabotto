@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Robot screen</title>
+<title>Hoya Botto · Live screen</title>
 <style>
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -26,6 +26,7 @@
   footer .next { display: flex; gap: 1.6vw; overflow: hidden; white-space: nowrap; }
   footer .pill { background: rgba(255,255,255,.1); border-radius: 99px; padding: .6vh 1.6vw; }
   footer .url { margin-left: auto; opacity: .55; font-size: 2.4vh; white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { .emojis span { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -40,9 +41,11 @@
   <div class="next" id="next"></div>
   <span class="url" id="url"></span>
 </footer>
+<script src="emoji-config.js"></script>
+<script src="emoji-api.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-$('url').textContent = location.host;
+$('url').textContent = window.ROBOT_EMOJI_API ? 'hoyabotto.com/wave.html' : location.host;
 const PHASES = { enable: 'Getting ready…', raise: 'Raising the arm…', motion: 'Here we go!', return: 'Going back to rest…', release: 'All done' };
 
 function setEmojis(list) {
@@ -75,7 +78,13 @@ function render(s) {
 }
 
 async function tick() {
-  try { const r = await fetch('/api/state'); if (r.ok) render(await r.json()); } catch (e) {}
+  try { render(await emojiFetch('/api/state')); } catch (e) {
+    $('stage').className = 'stage idle';
+    $('hello').textContent = 'Show offline';
+    $('name').textContent = 'We’ll be back soon';
+    $('phase').textContent = 'Reconnecting…';
+    $('next').replaceChildren();
+  }
   setTimeout(tick, 700);
 }
 tick();

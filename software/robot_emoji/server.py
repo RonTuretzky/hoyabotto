@@ -32,6 +32,7 @@ MAX_GESTURES = 3
 QUEUE_MAX = 30
 BUSY_RETRY_S = 3
 THANKS_S = 4
+SITE_ORIGINS = ('https://hoyabotto.com', 'https://www.hoyabotto.com', 'https://ronturetzky.github.io')
 
 
 def clean_name(raw):
@@ -215,7 +216,9 @@ class Show:
             self.lock.notify_all()
 
 
-def make_handler(show, token):
+def make_handler(show, token, public_only=False, allowed_origins=SITE_ORIGINS):
+    submissions = {}
+    submissions_lock = threading.Lock()
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -226,11 +229,28 @@ def make_handler(show, token):
             self.send_header('Content-Type', kind)
             self.send_header('Content-Length', str(len(data)))
             self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Referrer-Policy', 'no-referrer')
+            origin = self.headers.get('Origin')
+            if public_only and origin in allowed_origins:
+                self.send_header('Access-Control-Allow-Origin', origin)
+                self.send_header('Vary', 'Origin')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.end_headers()
             self.wfile.write(data)
 
         def operator_ok(self, query):
-            if self.client_address[0] in ('127.0.0.1', '::1'):
+            # A tunnel connects over loopback too. Its dedicated listener must NEVER
+            # authorize operator actions, even with a correct operator token.
+            if public_only:
+                return False
+            forwarded = any(self.headers.get(h) for h in ('CF-Connecting-IP', 'X-Forwarded-For', 'Forwarded'))
+            origin = self.headers.get('Origin')
+            if origin:
+                local_origins = (f'http://localhost:{self.server.server_port}', f'http://127.0.0.1:{self.server.server_port}')
+                forwarded = forwarded or origin not in local_origins
+            if self.client_address[0] in ('127.0.0.1', '::1') and not forwarded:
                 return True
             given = self.headers.get('X-Operator-Token') or query.get('token', '')
             return hmac.compare_digest(given.encode(), token.encode())
@@ -244,10 +264,21 @@ def make_handler(show, token):
                 raise ValueError('JSON object required')
             return data
 
+        def do_OPTIONS(self):
+            if public_only and self.headers.get('Origin') in allowed_origins:
+                return self.send(200, {'ok': True})
+            return self.send(403, {'error': 'Origin not allowed'})
+
         def do_GET(self):
             url = urlsplit(self.path)
             query = {k: v[-1] for k, v in parse_qs(url.query).items()}
+            if url.path == '/emoji-config.js':
+                return self.send(200, b'window.ROBOT_EMOJI_API = "";\n', 'application/javascript')
+            if url.path == '/emoji-api.js':
+                return self.send(200, (STATIC / 'emoji-api.js').read_bytes(), 'application/javascript')
             if url.path in PAGES:
+                if url.path == '/operator' and public_only:
+                    return self.send(403, {'error': 'Operator controls are local only'})
                 return self.send(200, (STATIC / PAGES[url.path]).read_bytes(), 'text/html; charset=utf-8')
             if url.path == '/api/state':
                 state = show.snapshot()
@@ -265,8 +296,23 @@ def make_handler(show, token):
             url = urlsplit(self.path)
             query = {k: v[-1] for k, v in parse_qs(url.query).items()}
             try:
+                if public_only and self.headers.get('Origin') not in (None, *allowed_origins):
+                    return self.send(403, {'error': 'Origin not allowed'})
                 if url.path == '/api/requests':
                     data = self.body()
+                    if public_only:
+                        # Only trust Cloudflare's visitor header on the tunnel's loopback listener.
+                        peer = self.headers.get('CF-Connecting-IP') or self.client_address[0]
+                        with submissions_lock:
+                            now = time.monotonic()
+                            for key in list(submissions):
+                                if now - submissions[key] >= 30:
+                                    del submissions[key]
+                            if peer in submissions:
+                                return self.send(429, {'error': 'Please wait 30 seconds before sending another request'})
+                            result = show.submit(data.get('name'), data.get('gestures'))
+                            submissions[peer] = now
+                        return self.send(201, result)
                     return self.send(201, show.submit(data.get('name'), data.get('gestures')))
                 if url.path.startswith('/api/operator/'):
                     if not self.operator_ok(query):
@@ -286,8 +332,8 @@ def make_handler(show, token):
     return Handler
 
 
-def serve(show, host, port, token):
-    server = ThreadingHTTPServer((host, port), make_handler(show, token))
+def serve(show, host, port, token, public_only=False):
+    server = ThreadingHTTPServer((host, port), make_handler(show, token, public_only=public_only))
     server.daemon_threads = True
     return server
 
@@ -296,6 +342,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--host', default='127.0.0.1')
     ap.add_argument('--port', type=int, default=8790)
+    ap.add_argument('--public-port', type=int, help='separate visitor-only loopback listener for an HTTPS tunnel')
     ap.add_argument('--fake', action='store_true', help='simulated robot, no API calls')
     ap.add_argument('--gestures', default=str(G.DEFAULT_PATH))
     ap.add_argument('--robot-config', help='robot.json with the paired client certificate (default: $XLEROBOT_ADMIN_CONFIG or the chat Mac path)')
@@ -313,6 +360,11 @@ def main(argv=None):
     show.start()
     token = a.token or secrets.token_urlsafe(9)
     server = serve(show, a.host, a.port, token)
+    public_server = None
+    if a.public_port:
+        public_server = serve(show, '127.0.0.1', a.public_port, token, public_only=True)
+        threading.Thread(target=public_server.serve_forever, name='emoji-public-http', daemon=True).start()
+        print(f'public visitor API http://127.0.0.1:{a.public_port}/ (no operator controls)')
     shown = 'localhost' if a.host in ('127.0.0.1', '0.0.0.0') else a.host
     print(f'kiosk     http://{shown}:{a.port}/\nscreen    http://{shown}:{a.port}/screen\n'
           f'operator  http://{shown}:{a.port}/operator?token={token}\n'
@@ -325,6 +377,9 @@ def main(argv=None):
     finally:
         show.close()
         server.server_close()
+        if public_server:
+            public_server.shutdown()
+            public_server.server_close()
 
 
 if __name__ == '__main__':

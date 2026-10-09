@@ -23,6 +23,48 @@ python3 -m robot_emoji --host 0.0.0.0   # phones on the same network can reach t
 
 Operator actions are accepted from this Mac or with the token printed at startup (`/operator?token=…`).
 
+## hoyabotto.com integration
+
+Visitors use **https://hoyabotto.com/wave.html**; the big display uses
+**https://hoyabotto.com/screen.html**. The homepage has a small Wave link. GitHub Pages continues serving
+the presentation and all static pages from the existing repository's `gh-pages` branch.
+
+The visitor pages call a separate HTTPS endpoint that tunnels to the **public-only listener on 8791**.
+Both listeners share the same queue and performer. Operator controls stay at
+**http://127.0.0.1:8790/operator** on this Mac. The public listener always rejects operator actions,
+including from a tunnel's loopback connection and even with a valid operator token. It never returns
+operator logs or robot connection metadata. CORS allows the Hoya Botto site origins; public submissions
+are limited to one per visitor IP per 30 seconds, and the queue remains capped at 30.
+
+```sh
+cd software
+python3 -m robot_emoji --public-port 8791
+# In a separate terminal (expose ONLY 8791, never the operator port):
+cloudflared tunnel --url http://127.0.0.1:8791
+```
+
+Export pages into a checkout of the **existing** `gh-pages` branch, using the HTTPS origin printed by
+cloudflared (or a named tunnel's stable HTTPS origin):
+
+```sh
+python3 -m robot_emoji.publish_site /path/to/gh-pages-checkout --api-url https://YOUR-VISITOR-ENDPOINT
+```
+
+The exporter copies only `wave.html`, `screen.html`, `emoji-api.js`, and `emoji-config.js`, then adds the
+homepage link once. Commit those assets and the homepage on `gh-pages` and push to publish. The config
+contains only the public URL, no certificate or operator token. Never copy software or runtime logs to Pages.
+The presentation's slide contents stay intact; its file hash changes because the link is appended.
+
+The October 9 demo uses a Cloudflare **Quick Tunnel**. Keep this Mac and the two processes running.
+The endpoint expires when cloudflared stops and changes on a new start. After restarting, re-export and
+publish with the new URL. For a permanent endpoint, use a named Cloudflare Tunnel to the same visitor port;
+the website architecture needs no Workers or Cloudflare Pages. Queue state is in memory and resets when
+the service restarts. Offline pages show a reconnecting message and disable new submissions.
+
+Test the public form with the show paused, verify the ticket on the display, then remove the test request
+locally. Do not arm the real robot just to smoke-test website integration. A successful queue submission
+does not validate a physical wave.
+
 ## What one performance does
 
 1. **Check.** `robot_get_motion` and `robot_get_state` are read. If anyone else holds a motor, or anything is

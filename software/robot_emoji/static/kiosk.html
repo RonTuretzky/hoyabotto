@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wave at the robot</title>
+<title>Wave at Hoya Botto</title>
 <style>
   :root { --ink: #1d1b2f; --soft: #6b6880; --accent: #ff7a45; --bg: #fff8f0; }
   * { box-sizing: border-box; }
@@ -34,19 +34,27 @@
   .ticket h1 { font-size: 34px; }
   .ticket p { font-size: 20px; color: var(--soft); }
   .hidden { display: none; }
+  nav { display: flex; justify-content: space-between; margin-bottom: 28px; font-size: 14px; }
+  a { color: var(--ink); }
+  .status { padding: 12px 16px; border: 1px solid #eadfd3; border-radius: 12px; margin-bottom: 24px; }
+  .note { color: var(--soft); font-size: 14px; line-height: 1.5; }
+  button:focus-visible, a:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 </style>
 </head>
 <body>
 <main>
+  <nav><a href="https://hoyabotto.com/">← Hoya Botto</a><a href="screen.html" id="screen-link">Watch the screen ↗</a></nav>
+  <div class="status" id="connection" role="status">Connecting to the show…</div>
   <section id="form">
-    <h1>Say hi to the robot 🤖</h1>
+    <h1>Say hi to Hoya Botto 🤖</h1>
     <p class="lead">Pick an emoji, type your name, and the robot will do it while your name is on the screen.</p>
     <h2>1 · Pick <span id="max"></span></h2>
     <div class="grid" id="grid"></div>
     <h2>2 · Your name</h2>
-    <input id="name" maxlength="24" autocomplete="off" placeholder="Your name">
+    <input id="name" maxlength="24" autocomplete="off" placeholder="Your name" aria-label="Your name">
+    <p class="note">Use a first name or nickname. It will appear in the public queue and on the big screen. A host starts each show.</p>
     <button class="go" id="go" disabled>Send to the robot</button>
-    <div class="msg" id="msg"></div>
+    <div class="msg" id="msg" role="alert"></div>
   </section>
   <section id="ticket" class="ticket hidden">
     <div class="big" id="t-emoji"></div>
@@ -55,16 +63,21 @@
     <button class="go" id="again">Make another</button>
   </section>
 </main>
+<script src="emoji-config.js"></script>
+<script src="emoji-api.js"></script>
 <script>
 const MAX = 3;
-let catalog = [], picked = [], ticket = null, poll = null;
+let catalog = [], picked = [], ticket = null, poll = null, online = false, submitting = false, armed = false;
 const $ = id => document.getElementById(id);
+if (!window.ROBOT_EMOJI_API) $('screen-link').href = '/screen';
 $('max').textContent = MAX === 1 ? 'an emoji' : `up to ${MAX} emojis`;
 
 function render() {
   $('grid').replaceChildren(...catalog.map(g => {
     const b = document.createElement('button');
     b.className = 'emoji' + (picked.includes(g.key) ? ' on' : '');
+    b.setAttribute('aria-pressed', String(picked.includes(g.key)));
+    b.setAttribute('aria-label', g.label);
     const big = document.createElement('span'); big.className = 'big'; big.textContent = g.emoji;
     const label = document.createElement('span'); label.className = 'label'; label.textContent = g.label;
     const order = document.createElement('span'); order.className = 'order'; order.textContent = picked.indexOf(g.key) + 1;
@@ -77,52 +90,70 @@ function render() {
     return b;
   }));
   if (catalog.length === 1 && picked.length === 0) { picked = [catalog[0].key]; return render(); }
-  $('go').disabled = !(picked.length && $('name').value.trim());
+  $('go').disabled = !online || submitting || !(picked.length && $('name').value.trim());
 }
 
 async function load() {
-  const r = await fetch('/api/state'); const s = await r.json();
-  catalog = s.catalog; render();
+  try {
+    const s = await emojiFetch('/api/state');
+    online = true; armed = s.armed; catalog = s.catalog;
+    $('connection').textContent = s.armed ? 'Show is open · Join the queue' : 'Show is paused · You can join the queue while the host gets ready';
+  } catch (e) {
+    online = false; $('connection').textContent = e.message;
+  }
+  render();
+  setTimeout(load, 5000);
 }
 
 $('name').oninput = render;
 $('name').onkeydown = e => { if (e.key === 'Enter' && !$('go').disabled) $('go').click(); };
 $('go').onclick = async () => {
-  $('go').disabled = true; $('msg').textContent = '';
+  submitting = true; render(); $('msg').textContent = '';
   try {
-    const r = await fetch('/api/requests', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const body = await emojiFetch('/api/requests', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: $('name').value, gestures: picked }) });
-    const body = await r.json();
-    if (!r.ok) throw new Error(body.error || 'Something went wrong');
     ticket = body; showTicket(body);
-    poll = setInterval(async () => {
-      const r = await fetch('/api/requests/' + ticket.id);
-      if (r.ok) showTicket(await r.json());
-    }, 1500);
-  } catch (e) { $('msg').textContent = e.message; render(); }
+    pollTicket();
+  } catch (e) { $('msg').textContent = e.message; }
+  finally { submitting = false; render(); }
 };
+
+async function pollTicket() {
+  if (!ticket) return;
+  const rid = ticket.id;
+  try {
+    const t = await emojiFetch('/api/requests/' + rid);
+    if (!ticket || ticket.id !== rid) return;
+    showTicket(t);
+    if (t.state !== 'queued' && t.state !== 'performing') return;
+  } catch (e) {
+    if (!ticket || ticket.id !== rid) return;
+    $('t-text').textContent = e.message + ' Your request may already be queued; this page will reconnect.';
+  }
+  poll = setTimeout(pollTicket, 1500);
+}
 
 function showTicket(t) {
   $('form').classList.add('hidden'); $('ticket').classList.remove('hidden');
   $('t-emoji').textContent = t.emojis.join('');
   if (t.state === 'queued') {
     $('t-title').textContent = `You're #${t.position} in line, ${t.name}`;
-    $('t-text').textContent = 'Watch the screen: your name appears when the robot starts.';
+    $('t-text').textContent = armed ? 'Watch the screen: your name appears when the robot starts.' : 'The host is getting ready. Your place in the queue is saved.';
   } else if (t.state === 'performing') {
     $('t-title').textContent = `It's your turn, ${t.name}!`;
     $('t-text').textContent = 'Look at the robot 👀';
   } else if (t.state === 'done') {
     $('t-title').textContent = `Done! Thanks, ${t.name} 🎉`; $('t-text').textContent = '';
-    clearInterval(poll);
+    clearTimeout(poll);
   } else {
     $('t-title').textContent = 'The robot could not do this one';
     $('t-text').textContent = 'Sorry! A person is checking the robot. You can try again later.';
-    clearInterval(poll);
+    clearTimeout(poll);
   }
 }
 
 $('again').onclick = () => {
-  clearInterval(poll); ticket = null; picked = []; $('name').value = '';
+  clearTimeout(poll); ticket = null; picked = []; $('name').value = '';
   $('ticket').classList.add('hidden'); $('form').classList.remove('hidden'); render(); $('name').focus();
 };
 load();

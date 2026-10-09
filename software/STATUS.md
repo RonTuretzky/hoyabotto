@@ -1328,3 +1328,24 @@ Robot Mac now runs main af4b887 (owner restarted 17:30 JST with motors released;
 - Owner (`gemma_hardware_owner.read_telemetry`, commit 470c648, owner approval 18:4x JST): one dropped (-6) or corrupt (-7) servo reply is retried once even while powered; a second failure, port-busy (-1) or any other code stops the owner as before. Reason: at 18:05 a single -6 on left_arm_wrist_roll released all motors mid-task.
 - Base odometry now uses the upstream dual-wheel hardware (5-inch walker wheels, radius 0.0635 m) and the 0.45 m wheel spacing from upstream's MJCF; 0.02 m/s is 205 ticks/s. The 4 October 50 cm drive was encoder-only and did not detect the earlier 0.05 m assumption. Track width is still not tape-measured.
 - The supervisor chat defaults: Claude provider -> `claude-opus-5-5` (it had been running `sonnet`); the 17:4x session's failure was reading wrist-camera "above the jaws" as world-up and climbing to 100 cm.
+
+
+### 2026-10-09 JST: hoyabotto.com visitor emoji integration
+
+The visitor kiosk (`/wave.html`) and live display (`/screen.html`) are published from the existing
+`gh-pages` branch. The homepage keeps its slide content with a small Wave link appended. The
+chat-Mac service shares one queue between local operator port 8790 and visitor-only port 8791.
+The public listener rejects all operator actions, including loopback/tunnel requests with a valid
+token, and omits logs/robot connection metadata. Exact site-origin CORS and a 30-second visitor
+submission interval are enforced. The startup health read returned ok/motion_ready/owner_active
+all true; the show starts PAUSED. No real motor enable, path, or STOP was sent for this integration.
+The wave remains unverified on hardware. Tests: 18 robot-emoji tests passed.
+
+This demonstration uses a Quick Tunnel and requires the chat Mac/service/tunnel to stay running.
+Its public URL changes after a tunnel restart; re-export with `robot_emoji.publish_site` and publish
+`emoji-config.js`, or use a named tunnel for a persistent HTTPS origin. See docs/robot-emoji.md.
+
+Live Chrome verification: a `Website test` wave submitted on hoyabotto.com received a queue
+ticket and appeared on the public display. The request was removed locally afterwards; fresh
+state remained paused with no current performance. All five deployed visitor/config/homepage
+assets matched local SHA-256 expectations. Pages deployment: 5acefdc, build status built.
