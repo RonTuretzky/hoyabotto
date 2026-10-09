@@ -381,7 +381,7 @@ def test_claw_positions_fast_and_thread_safe():
 # ---------------------------------------------------------------- head camera pose (kinematics only)
 
 POSE_KEYS = {'position_m', 'rotation', 'frame', 'site', 'camera', 'head_angles_deg', 'head_sign_note', 'mapping',
-             'mapping_validated', 'unmapped', 'model'}
+             'mapping_validated', 'unmapped', 'model', 'head_optical_offset_m', 'head_optical_offset_source'}
 
 
 def _axes(pose):
@@ -434,6 +434,31 @@ def test_camera_pose_tilt_down_and_pan_left_signs():
     flipped = twin.camera_pose(_ticks(head_motor_2=20), RANGES,
                                joint_map={'validated': True, 'joints': {'head_motor_2': {'sign': -1}}})
     assert _axes(flipped)[2][2] == pytest.approx(_axes(up)[2][2]) and flipped['mapping_validated'] is True
+
+
+@render
+def test_head_optical_offset_moves_the_lens_in_the_camera_link_frame():
+    """The OAK slot cradle puts the lens below and slightly ahead of the stock camera link origin; a joint map's
+    head_optical_offset_m overrides the design value, and the offset turns with the head."""
+    import numpy as np
+    assert twin.head_optical_offset() == pytest.approx(twin.HEAD_OPTICAL_OFFSET_M)
+    zero = {'joints': {}, 'head_optical_offset_m': [0, 0, 0]}
+    stock = twin.camera_pose(NEUTRAL, RANGES, joint_map=zero)
+    cradle = twin.camera_pose(NEUTRAL, RANGES)
+    assert cradle['head_optical_offset_source'].startswith('cradle') and stock['head_optical_offset_source'] == 'joint_map'
+    delta = np.array(cradle['position_m']) - np.array(stock['position_m'])
+    assert delta == pytest.approx(twin.HEAD_OPTICAL_OFFSET_M, abs=1e-9)   # level and forward: link frame = robot frame
+    assert cradle['rotation'] == stock['rotation']                           # an offset never turns the view
+    custom = twin.camera_pose(NEUTRAL, RANGES, joint_map={'joints': {}, 'head_optical_offset_m': [0.01, 0.02, -0.03]})
+    assert np.array(custom['position_m']) - np.array(stock['position_m']) == pytest.approx([0.01, 0.02, -0.03], abs=1e-9)
+    # panned 90 deg left, the link's forward offset points to the robot's left
+    pan = _ticks(head_motor_1=90)
+    d = np.array(twin.camera_pose(pan, RANGES, joint_map={'joints': {}, 'head_optical_offset_m': [0.05, 0, 0]})['position_m']) \
+        - np.array(twin.camera_pose(pan, RANGES, joint_map=zero)['position_m'])
+    assert d == pytest.approx([0.0, 0.05, 0.0], abs=1e-6)
+    for bad in ([0, 0], [0, 0, 1.0], [0, 0, float('nan')], 'x', [True, 0, 0]):
+        with pytest.raises(ValueError, match='head_optical_offset_m'):
+            twin.camera_pose(NEUTRAL, RANGES, joint_map={'joints': {}, 'head_optical_offset_m': bad})
 
 
 @render

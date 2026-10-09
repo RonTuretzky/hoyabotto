@@ -340,9 +340,15 @@ def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_s
     # at the OAK's optical centre: the slot cradle's offset from the camera link origin (link frame: x out of the lens,
     # y left, z up), as the twin's camera_pose uses it. The stock USB head camera (mesh tophead6 on the tilt link) was
     # removed on 9 October for the OAK; its mesh would sit right under the lens and block the view, so it goes too.
+    # The vendored camera-frame marker sites (1 cm translucent boxes at the camera link origin) would sit in front of
+    # the lens now that it is offset: they go to the never-drawn group 4.
     for body in world.iter('body'):
         for geom in [g for g in body.findall('geom') if g.get('mesh') == STOCK_HEAD_CAMERA_MESH]:
             body.remove(geom)
+    for body in head.iter('body'):
+        for site in body.findall('site'):
+            if site.get('name') in ('head_camera_rgb_optical_frame', 'head_camera_depth_optical_frame'):
+                site.set('group', '4')
     lens = ' '.join(f'{v:.4f}' for v in twin.HEAD_OPTICAL_OFFSET_M)
     ET.SubElement(head, 'camera', name='oak', pos=lens, xyaxes=OAK_CAMERA_XYAXES, fovy=f'{OAK_FOVY_DEG:.4f}')
     tilt = math.radians(WRIST_TILT_DEG)

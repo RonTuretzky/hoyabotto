@@ -80,7 +80,7 @@ def perturb(true, tilt_error_deg=TILT_ERROR_DEG, height_error_m=HEIGHT_ERROR_M, 
     return {**true, 'position_m': position, 'rotation': rot.tolist()}
 
 
-@pytest.mark.parametrize('tilt', [25.0, 40.0, 55.0])
+@pytest.mark.parametrize('tilt', [27.0, 40.0, 55.0])   # 27: at 25 the box top centre sits on the bottom image row with the OAK cradle's lens offset
 def test_sim_table_plane_recovers_the_true_camera_pose_and_the_box_top(world, cams, tilt):
     depth, manifest, true, box = capture(world, cams, tilt)
     wrong = perturb(true)
