@@ -125,7 +125,8 @@ GRIPPER_CLOSED_OFFSET = {'left': 82, 'right': 79}
 # - roll_offset_deg: the physical wrist_roll sits this far from the twin's mapping, so the unrolled jaws open to the
 #   robot's left and right as on the real robot (the twin has them opening up and down);
 # - plastic (optional): overrides for box_scene.PLASTIC, e.g. a crease that is harder to set than the default;
-# - lean_jitter_deg (optional): [lo, hi] range of the target flap's starting lean (default: the preset's).
+# - lean_jitter_deg (optional): [lo, hi] range of the target flap's starting lean (default: the preset's);
+# - crease_stiffness_scale (optional): multiplies the target crease's spring and friction.
 FIDELITY = {'meet_jitter_ticks': {'left': (0, 4), 'right': (-4, 10)},
             'right_grip_sticks': {'p_close': 0.5, 'p_open': 0.4, 'p_reopen': 0.7, 'close_band': (1520, 1610),
                                   'open_band': (1500, 1950)},
@@ -862,6 +863,11 @@ class SimRobot:
         flap_joint = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, 'flap_hinge')
         self.flap_qadr = int(model.jnt_qposadr[flap_joint]) if flap_joint >= 0 else None
         self.flap_spring0 = float(model.qpos_spring[self.flap_qadr]) if self.flap_qadr is not None else None
+        scale = self.fidelity.get('crease_stiffness_scale')
+        if scale and flap_joint >= 0:
+            # a stiffer crease (the 9 October arc met a contact halt at 80 deg once): spring and friction scaled together
+            model.jnt_stiffness[flap_joint] *= float(scale)
+            model.dof_frictionloss[model.jnt_dofadr[flap_joint]] *= float(scale)
         self.flap_panel = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, 'box_flap')
         self.all_box_bodies = {i for i in range(model.nbody) if model.body(i).name == 'box' or model.body(i).name.startswith('box_')}
         # other hinged flaps (e.g. the far flap): one folded over the target flap holds its crease down
