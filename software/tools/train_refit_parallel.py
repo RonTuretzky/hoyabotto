@@ -83,6 +83,8 @@ def main():
     ap.add_argument('--camera-lag', nargs='*', default=[], metavar='KEY=SECONDS')
     ap.add_argument('--visual-jitter', type=float, default=0.)
     ap.add_argument('--front-camera-pose', type=Path, help='measured head camera pose JSON (tools/front_camera_from_registration.py)')
+    ap.add_argument('--station', nargs='*', default=[], metavar='FLAG',
+                    help='record_refit_fold_demos station flags, e.g. --base-spacing 0.29 --base-height 0.077')
     args = ap.parse_args()
     if args.front_camera_pose is not None and not args.front_camera_pose.is_file():
         raise SystemExit(f'Missing {args.front_camera_pose}')
@@ -117,6 +119,7 @@ def main():
     robot_conditions = dict(arm_cap_ticks_s=args.arm_cap_ticks_s, jaw_cap_ticks_s=args.jaw_cap_ticks_s,
                             sample_dt=args.sample_dt, max_time=args.max_time, fps=args.fps,
                             camera_lag=list(args.camera_lag), visual_jitter=args.visual_jitter,
+                            station=list(args.station),
                             front_camera_pose=json.loads(args.front_camera_pose.read_text()) if args.front_camera_pose else None)
     status = dict(hardware_commands=False, physical_registration_verified=False,
                   dataset_repo=args.dataset_repo, model_repo=args.model_repo,
@@ -217,6 +220,7 @@ def main():
                         '--teacher-position','-.5','-.7','.75','--clearance','.002']
         if args.front_camera_pose:
             station_args += ['--front-camera-pose', str(args.front_camera_pose)]
+        station_args += list(args.station)
         recorder_args = ['--sample-dt', str(args.sample_dt), '--max-time', str(args.max_time)]
         if args.arm_cap_ticks_s:
             recorder_args += ['--arm-cap-ticks-s', str(args.arm_cap_ticks_s)]

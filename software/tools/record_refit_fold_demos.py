@@ -25,9 +25,10 @@ from carton.folding_station_measured import look_at_axes, words
 from carton.folding_refit_preview import configure_scene
 from carton.refit_camera_contract import load_contract, save_contract
 _station = station_module.FoldingStation
+GEOMETRY = {geometry!r}   # base_spacing, base_height (above the desk top), base_to_table_edge: measured or model
 def refit_station(*args, **kwargs):
-    return _station(BASE_PLANE_Z-.7, .18, .01, base_spacing=.22, table_size=(.5,.48),
-        table_marker_xy=(-.20,.27))
+    return _station(GEOMETRY['base_height'], GEOMETRY['base_to_table_edge'], .01,
+        base_spacing=GEOMETRY['base_spacing'], table_size=(.5,.48), table_marker_xy=(-.20,.27))
 station_module.FoldingStation = refit_station
 _init = sim_module.FoldingSimulation.__init__
 def refit_init(self, source, out, **kwargs):
@@ -38,7 +39,7 @@ def refit_init(self, source, out, **kwargs):
     seed = int(_sys.argv[_sys.argv.index('--seed')+1]) if '--seed' in _sys.argv else 0
     jitter = {start_jitter_m!r}
     rng = np.random.default_rng(seed + 7919)
-    kwargs['initial_arm_targets'] = {{s:(np.r_[sign*.16,st.base_y+.12,st.base_height+.36]
+    kwargs['initial_arm_targets'] = {{s:(np.r_[sign*(st.base_spacing/2+.05),st.base_y+.12,st.base_height+.36]
         + (rng.uniform(-jitter, jitter, 3) if jitter else 0.)).tolist()
         for s,sign in [('left',-1),('right',1)]}}
     kwargs['initial_right_roll'] = None
@@ -95,7 +96,17 @@ def main(argv=None):
                     help='uniform +/- jitter of each arm\'s initial Cartesian target (m), seeded per trial')
     ap.add_argument('--front-camera-pose', type=Path,
                     help='JSON {pos:[3], xyaxes:[6], source:...}: measured head camera pose replacing the model one')
+    ap.add_argument('--base-spacing', type=float, default=.22,
+                    help='distance between the two arm base origins (m); model 0.22, tape-measure the robot')
+    ap.add_argument('--base-height', type=float, default=None,
+                    help='arm base plate above the desk top (m); default: model mount 729.1 mm minus a 700 mm desk')
+    ap.add_argument('--base-to-table-edge', type=float, default=.18,
+                    help='arm base origins behind the desk\'s near edge (m); pan axes are 38.8 mm ahead of the bases')
     args = ap.parse_args(argv[:split])
+    if not .1 <= args.base_spacing <= .5 or not 0 <= args.base_to_table_edge <= .5:
+        ap.error('--base-spacing must be 0.1..0.5 m and --base-to-table-edge 0..0.5 m')
+    if args.base_height is not None and not -.05 <= args.base_height <= .3:
+        ap.error('--base-height must be within -0.05..0.3 m')
     if args.start_jitter_m < 0 or args.start_jitter_m > .03:
         ap.error('--start-jitter-m must be within 0..0.03')
     front_pose = json.loads(args.front_camera_pose.read_text()) if args.front_camera_pose else None
@@ -108,10 +119,14 @@ def main(argv=None):
                 recorder.BASE_ARGS[recorder.BASE_ARGS.index(flag)+1] = str(value)
             else:
                 recorder.BASE_ARGS += [flag, str(value)]
+    from carton.xlerobot_cameras import BASE_PLANE_Z
+    geometry = dict(base_spacing=float(args.base_spacing),
+                    base_height=float(BASE_PLANE_Z - .7 if args.base_height is None else args.base_height),
+                    base_to_table_edge=float(args.base_to_table_edge))
     recorder.TRIAL = PRELUDE.format(upstream=str(args.upstream.resolve()),
                                    teacher_position=args.teacher_position,
                                    start_jitter_m=float(args.start_jitter_m),
-                                   front_pose=front_pose) + recorder.TRIAL
+                                   front_pose=front_pose, geometry=geometry) + recorder.TRIAL
     recorder.main(argv[split+1:])
 
 if __name__ == '__main__':
