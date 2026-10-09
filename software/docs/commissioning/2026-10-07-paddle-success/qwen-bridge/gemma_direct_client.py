@@ -398,11 +398,13 @@ class DirectJointClient:
                                 return {'accepted':True,'completed':False,'halted':True,'endpoint_reached':False,'closure_outcome':current['closure_outcome'],'holding':True,'command_id':command_id,'readbacks':measured,
                                     'settle_residual_ticks':current.get('settle_residual_ticks'),'contact':current.get('contact'),'contact_note':current.get('contact_note'),'mode':'direct_joint'}
                             if current.get('execution_profile')=='paddle-success-v1' and current.get('closure_outcome')=='settled_short':
-                                # At rest short of target after bounded corrections: holding, not a success and not a STOP.
+                                # At rest outside endpoint tolerance: holding, not a success and not a STOP.
+                                # A small move may finish short without any corrective writes.
                                 if any(abs(q-final[n])>96+57 for n,q in measured.items()):raise RuntimeError('Pickup settled_short contradicts measured endpoint')
                                 return {'accepted':True,'completed':False,'endpoint_reached':False,'closure_outcome':'settled_short','holding':True,'command_id':command_id,'owner_started':started,'readbacks':measured,
                                     'settle_residual_ticks':current.get('settle_residual_ticks'),'execution_profile':current.get('execution_profile'),'grasp_verified':False,'owner_status_time':current['time'],
-                                    'reason':'Joint came to rest short of its target after bounded goal corrections; motors are holding at the measured position. Re-plan from fresh readbacks or STOP.',
+                                    'small_move_completion_tolerances_ticks':current.get('small_move_completion_tolerances_ticks',{}),
+                                    'reason':'Joint came to rest outside its endpoint tolerance; motors remain enabled with the last commanded goals. Inspect fresh readbacks and cameras before another motion, or STOP.',
                                     'motor_writes':'canonical owner only','mode':'direct_joint'}
                             if current.get('execution_profile')=='paddle-success-v1' and current.get('closure_outcome')=='stationary_closure_unverified' and all(n.endswith('gripper') for n in final):
                                 # The jaws stopped on something before the target (a possible grasp): holding, not a failure.

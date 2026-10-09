@@ -1,3 +1,39 @@
+## AprilTag calibration: short lift exposed completion-reporting mismatch — 10 October 2026
+
+- Tags and stationary sampling work. Five observations before/after the lift
+  attempt varied by at most 0.252/0.207 mm respectively at unchanged encoder
+  poses. This is repeatability at one pose, not absolute accuracy or registration.
+- One shoulder positioning RPC requested 3216→3200 ticks. The owner reported
+  endpoint success at 3214 (2 ticks travelled; 14 ticks short). The calibration
+  transport rejected it, sent STOP, and independently confirmed release. After
+  release the shoulder read 3216 again. No successful lift/direction check.
+- The pickup executor's 57-tick settling band exceeds the entire 16-tick test.
+  A local reporting-only fix now requires 1–5 tick residuals for single arm-joint
+  moves of 3–57 ticks. It evaluates after the existing motion ends, so it does not
+  tighten the control loop, add corrections, or enlarge travel. Short results
+  report `settled_short`. This owner change is NOT deployed; do not retry the
+  probe or enlarge its delta based on passing offline tests.
+- Earlier lift attempt A enabled the arm but timed out preparing cameras before
+  a position command; STOP/release confirmed. Attempt B refused an identical
+  cached phone frame before any motor write. Exact cached phone frames now wait
+  boundedly for a newer sample; mutated/replayed frames remain hard refusals.
+- The installed recorder's short-buffer polling repair fixed the observed OAK
+  losses. A later camera-only 30 s validation decoded all three videos with no
+  >1 s gaps. Attempt C's 120 s recording has OAK921/wrist610 source frames and
+  zero such gaps, but phone295 frames and two gaps. Sidecars omit gap locations,
+  so coverage of the 6.19 s enabled interval cannot be established independently;
+  the whole-recording gate remains failed. Do not claim phone continuity.
+- Fresh independent readback at robot timestamp1791562188.744 confirms all16
+  torque-off, owner idle, unchanged complete pose, motor_writes1431, stop_count3,
+  owner generation1791551739.406972, and pilot idle. No subsequent motion.
+- Remaining: safe measurable direction/zero checks, 8 fitting +3 distinct held-out
+  poses, camera-to-arm/tag-to-gripper fit and registered pilot integration. The
+  candidate shoulder angle remains outside the URDF range. No fold or training.
+- Evidence: `.context/tag-direction-probe/live-lift-20261010-{a,b,c}/`,
+  `lift-{baseline,c}-stationary/`, `completion-diagnosis/` and
+  `immediate-reads-recording-validation-c/`; collector/recorder evidence is also
+  archived in `software/docs/commissioning/2026-10-10-apriltag-calibration/`.
+
 ## AprilTag live integration: timing passes; recorder gaps block motion — 10 October 2026, 00:35 JST
 
 - Deployed API-only at2df18b4 and phone-only at09da8a6. API PID17264→25266;

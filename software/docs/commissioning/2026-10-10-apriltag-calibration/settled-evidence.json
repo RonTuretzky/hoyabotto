@@ -1,0 +1,121 @@
+{
+  "stationary_capture": {
+    "schema": 1,
+    "status": "SETTLED_POSE_CAPTURED",
+    "arm": "right",
+    "metric_camera": "oak",
+    "requested_samples": 5,
+    "interval_s": 1.0,
+    "motor_writes": 0,
+    "stop_sent": false,
+    "lease_renewed": false,
+    "physical_mapping_validated": false,
+    "calibration_ready": false,
+    "required_diverse_poses": {
+      "train": 8,
+      "validation": 3
+    },
+    "output": ".context/tag-direction-probe/slow-stationary-live-20261010-a",
+    "accepted_samples": 5,
+    "distinct_calibration_poses": 1,
+    "encoder_same": true,
+    "elapsed_s": 8.33069445900037,
+    "raw_calls": 72,
+    "journaled_calls": 82,
+    "response_bytes": 6397929,
+    "complete_motor_pose": {
+      "left_arm_shoulder_pan": 1946,
+      "left_arm_shoulder_lift": 1425,
+      "left_arm_elbow_flex": 3124,
+      "left_arm_wrist_flex": 2399,
+      "left_arm_wrist_roll": 1930,
+      "left_arm_gripper": 1984,
+      "head_motor_1": 2085,
+      "head_motor_2": 2623,
+      "right_arm_shoulder_pan": 2019,
+      "right_arm_shoulder_lift": 3216,
+      "right_arm_elbow_flex": 1325,
+      "right_arm_wrist_flex": 1765,
+      "right_arm_wrist_roll": 3362,
+      "right_arm_gripper": 1728,
+      "base_left_wheel": 728,
+      "base_right_wheel": 806
+    },
+    "owner_markers": {
+      "started": 1791551739.406972,
+      "accepted": 1791554301495407000,
+      "completed": 1791559573123506000,
+      "motor_writes": 1114,
+      "stop_count": 1,
+      "last_stop": {
+        "time": 1791559573.128375,
+        "reason": "Operator STOP",
+        "command_id": 1791554301495407000,
+        "released": true,
+        "release_errors": []
+      },
+      "generation": null,
+      "owner_generation": null
+    },
+    "owner_markers_unchanged": true,
+    "raw_calibration_ranges_sha256": "622f05dd510f49ddffccea86e910b68dce2c428dcd5e5eb4f24bd5f809a19ce5",
+    "commandable_ranges_sha256": "139698af280a8950e8c138223ebb0944b686898fe4ac699faeeb1f207bba786c",
+    "complete_pose_reads": 54,
+    "owner_marker_reads": 38,
+    "stationary_scope": "Exact equality at every complete telemetry read; owner markers pinned throughout dwell",
+    "seq": [
+      110180,
+      110196,
+      110214,
+      110235,
+      110252
+    ],
+    "position_mean_mm": [
+      139.27226051962825,
+      115.8728028961854,
+      479.36461838396724
+    ],
+    "position_std_mm": [
+      0.060276373694705024,
+      0.051345224674382836,
+      0.21874540549251656
+    ],
+    "position_peak_to_peak_mm": [
+      0.15685601767816593,
+      0.13834411125387192,
+      0.5821565597051972
+    ],
+    "pairwise_position_mm_max": 0.6185864235563755,
+    "pairwise_rotation_deg_max": 0.15195090387231971,
+    "pairwise_rotation_deg_median": 0.08578659776346664,
+    "reprojection_rms_px": [
+      1.3307738479580933,
+      1.3216631246951924,
+      1.3510846809457853,
+      1.298921311655198,
+      1.320606625815706
+    ],
+    "variation_scope": "Observed tag-estimation repeatability at one unchanged encoder pose; not accuracy"
+  },
+  "recorder": {
+    "original_sha256": "1fa0b33e921044c496987f596fd573604c6bc81daa17878dc8005e60c56776c3",
+    "installed_sha256": "a176ac0f62c6be5477e5be469d8df762ee18001ed85393b7d2186242065cf6b8",
+    "offline_tests": 19,
+    "deployed_to_local_pilot": true,
+    "live_validation": {
+      "duration_s": 30,
+      "source_samples": {
+        "oak": 234,
+        "phone": 90,
+        "right_wrist": 163
+      },
+      "gaps_over_1_s": {
+        "oak": 0,
+        "phone": 0,
+        "right_wrist": 0
+      },
+      "all_videos_decoded": true
+    },
+    "evidence": ".context/tag-direction-probe/parallel-fixes/pilot-recorder-validation/"
+  }
+}

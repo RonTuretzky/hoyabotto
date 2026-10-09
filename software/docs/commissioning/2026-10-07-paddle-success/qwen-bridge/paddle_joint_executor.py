@@ -32,6 +32,19 @@ CONTACT_LOAD=600     # settle corrections stop pushing a joint loaded this much 
 CONTACT_HALT_LOAD=350  # a joint loaded this much AND lagging >= CONTACT_PUSH_TICKS is blocked: halt and hold (real contacts on 2026-10-08 peaked at 300-400 and only tripped the 96-tick following-error release)
 CONTACT_PUSH_TICKS=50  # lag behind the command that, together with CONTACT_LOAD, means blocked (normal ramps lag 25-40)
 def tolerance(n):return 30 if n.endswith('gripper') else 57
+def small_move_tolerances(positions,start,*,waypoints=False):
+ """Completion reporting only. Never change ramp, dwell, or corrective writes.
+
+ The pickup's 57-tick settling band can encompass an entire diagnostic move.
+ Require measured travel for short, single-joint arm moves before calling their
+ endpoint reached. Paths, head motions and gripper contact keep their contracts.
+ """
+ if waypoints or len(positions)!=1:return {}
+ n,target=next(iter(positions.items()));origin=start.get(n)
+ if (not n.startswith(('right_arm_','left_arm_')) or n.endswith('gripper')
+     or type(origin) is not int or type(target) is not int):return {}
+ distance=abs(target-origin)
+ return {n:max(1,min(5,distance//10))} if 2<distance<=57 else {}
 class PaddleJointExecutor:
  PREFIXES=('right_arm_','left_arm_')  # joints this executor drives (head_joint_executor.HeadJointExecutor: the head)
  def __init__(self,joints,ranges,write,clock=time.monotonic,wall=time.time):
@@ -75,6 +88,7 @@ class PaddleJointExecutor:
   if base>(55 if self.contact else 80 if path else 28):raise ValueError('Pickup motion exceeds API completion deadline; shorten it or its duration')
   self.duration=base-3;self.deadline=base+(0 if self.contact else CORRECTION_BUDGET_S)
   self.legs=[dict(p) for p in legs];self.leg=0;self.final_target=dict(legs[-1]);self.goal=goals
+  self.completion_tolerances=small_move_tolerances(self.final_target,current,waypoints=path)
   self.bias=dict.fromkeys(self.joints,0);self.corrections=dict.fromkeys(self.joints,0)
   self.exhausted={n:n.endswith('gripper') for n in self.joints} # grippers get no corrections
   self.stable=dict.fromkeys(self.joints,0);self.still=dict.fromkeys(self.joints,0);self.last_q={n:current[n] for n in self.joints}
@@ -106,7 +120,10 @@ class PaddleJointExecutor:
  def finish(self,current,outcome):
   self.active=False
   residual={n:current[n]-self.final_target[n] for n in self.joints}
-  return {'completed':self.command_id,'phase':'holding','direct_actual_positions':current,'grasp_verified':False,'closure_outcome':outcome,'endpoint_reached':outcome=='endpoint_settled','settle_residual_ticks':residual,'possible_contact_joints':sorted(self.possible_contact),'contact':None,'direct_settle_diagnostics':self.diagnostics}
+  # Check only AFTER the existing controller ends. Tightening its settling test
+  # would trigger overdrive corrections and enlarge the physical motion envelope.
+  if outcome=='endpoint_settled' and any(abs(residual[n])>tol for n,tol in self.completion_tolerances.items()):outcome='settled_short'
+  return {'completed':self.command_id,'phase':'holding','direct_actual_positions':current,'grasp_verified':False,'closure_outcome':outcome,'endpoint_reached':outcome=='endpoint_settled','settle_residual_ticks':residual,'small_move_completion_tolerances_ticks':self.completion_tolerances,'possible_contact_joints':sorted(self.possible_contact),'contact':None,'direct_settle_diagnostics':self.diagnostics}
  def tick(self,current,telemetry_at,rows=None):
   now=self.clock();rows=rows or {}
   if not 0<=self.wall()-telemetry_at<=1.0 or not 0<=now-self.last_tick<=1.0:raise RuntimeError('Pickup telemetry/watchdog expired')

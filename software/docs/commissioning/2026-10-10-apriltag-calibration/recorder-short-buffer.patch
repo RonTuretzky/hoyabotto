@@ -1,0 +1,59 @@
+--- a/recorder.py
++++ b/recorder.py
+@@ -2,8 +2,9 @@
+ pinch attempt and what followed.
+ 
+ One background thread per active recording pulls frames from the robot's camera buffers (robot_get_clip bursts of up to
+-12 frames per camera every ~1.5 s; robot_get_cameras snapshots for a camera whose clip call fails) and keeps them in
+-memory with wall-clock timestamps. arm() starts a recording (the first burst reaches 4 s back, so the moments BEFORE the
++12 frames per camera, polling sooner than 1.5 s when the byte-limited buffer is short; robot_get_cameras snapshots for
++a camera whose clip call fails) and keeps them in memory with wall-clock timestamps. arm() starts a recording (the first
++burst requests up to 4 s back, limited by available buffer history, so the moments BEFORE the
+ trigger are included); motion keeps it going (begin_motion/end_motion around each motion call, touch() after one) until
+ post_s after the last motion, or max_s in all. Then each camera becomes
+     ROOT/recordings/<YYYYmmdd-HHMMSS>-<label>-<camera>.mp4   (8 fps, real-time: frames are repeated to keep time honest)
+@@ -28,8 +29,9 @@
+ 
+ CAMERAS = ('oak', 'phone', 'left_wrist', 'right_wrist')
+ FPS = 8.0            # output video rate (and the clip request rate)
+-BURST_S = 1.5        # robot_get_clip pull cadence per camera
+-CLIP_MAX_S = 4.0     # the robot keeps about 4.5 s of frames; a clip reaches at most this far back
++BURST_S = 1.5        # maximum normal robot_get_clip pull interval per camera
++CLIP_MIN_POLL_S = 0.125  # no benefit polling faster than the robot's 8 Hz ring sampler
++CLIP_MAX_S = 4.0     # requested history limit; the ring's byte cap can retain much less
+ CLIP_WIDTH = 640     # frames are requested at this width (wrist 640x480, oak/phone 640x360)
+ KEEP = 40            # newest videos kept in ROOT/recordings (older videos and their sidecars are deleted)
+ MAX_S = 180.0        # a recording never runs longer than this
+@@ -171,8 +173,8 @@
+         return t + (self.offset or 0.0) if robot_clock else t
+ 
+     def pull_clip(self, cam, st):
+-        """One robot_get_clip burst reaching back over the time since the last good pull (4 s, the robot's buffer, the
+-        first time: the pre-roll). Three failures in a row switch this camera to snapshots."""
++        """One robot_get_clip burst reaching back over the time since the last good pull (up to 4 s the first time:
++        available pre-roll). Three failures in a row switch this camera to snapshots."""
+         started = self.clock()
+         reach = CLIP_MAX_S if st['last_ok'] is None else min(CLIP_MAX_S, max(1.0, started - st['last_ok'] + 0.5))
+         try:
+@@ -184,8 +186,20 @@
+             st['next_pull'] = self.clock() + 0.3 * st['errors']  # retry soon: the next burst still reaches back over the gap
+             if st['errors'] >= 3: st['mode'] = 'snapshot'  # the clip tool is missing or this camera has no buffer
+             return
+-        back = self.clock(); st['errors'] = 0; st['last_ok'] = started; st['next_pull'] = started + self.burst_s
++        back = self.clock(); st['errors'] = 0; st['last_ok'] = started
+         res = r.get('result') if isinstance(r.get('result'), dict) else {}
++        # The server stores ORIGINAL JPEGs under a 1.56 MiB/camera cap, before max_width downscaling.
++        # Large OAK images can leave only a few frames: a fixed 1.5 s poll loses evicted history even
++        # when seconds=4. Use the full buffer span (not the selected burst's span/count, which is
++        # capped at 12 and may cover a shorter request). Half a window leaves overlap for latency.
++        # Subtracting ages also avoids depending on robot/local clock alignment or stale-feed age.
++        buffer = res.get('buffer')
++        interval = self.burst_s
++        if isinstance(buffer, dict):
++            oldest, newest = buffer.get('oldest_age_s'), buffer.get('newest_age_s')
++            if type(oldest) in (int, float) and type(newest) in (int, float) and 0 <= newest <= oldest < float('inf'):
++                interval = min(interval, max(CLIP_MIN_POLL_S, (oldest - newest) / 2))
++        st['next_pull'] = started + interval
+         num = (int, float)
+         def stamp(f):  # the robot's time for a frame: capture time, else (the phone) the robot's receipt time
+             return f['captured_at'] if isinstance(f.get('captured_at'), num) else f['received_at'] if isinstance(f.get('received_at'), num) else None
