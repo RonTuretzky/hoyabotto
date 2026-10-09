@@ -130,9 +130,9 @@ def main(argv=None) -> int:
     with dai.Device(matches[0], speed) as device:
         pipeline = dai.Pipeline()
         if args.wide:
-            # Explicit full-field path: the 1080p sensor mode (full-width binned readout) scaled by the ISP to
-            # 640x360 and taken from the `isp` output, which is never cropped. The Camera node's `video` output
-            # is a crop of its ISP image when the two sizes differ, which is impossible to verify remotely.
+            # Preserve the selected 1080p field in the preview. This is not the native 13MP sensor field:
+            # matching 16:9 output adds no preview crop, but does not recover the full sensor's vertical FOV.
+            # The Camera node's `video` output can add another crop when its size differs from the ISP image.
             rgb = pipeline.create(dai.node.ColorCamera)
             rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
             rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
@@ -144,7 +144,7 @@ def main(argv=None) -> int:
             rgb.setInterleaved(False)
             rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
             rgb.setFps(10)
-            rgb_out, rgb_pipeline = rgb.preview, "ColorCamera 1080p, preview 640x360 (full field, no crop)"
+            rgb_out, rgb_pipeline = rgb.preview, "ColorCamera 1080p, preview 640x360 (selected 1080p field; no additional preview crop)"
         else:
             rgb = pipeline.create(dai.node.Camera)
             rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
@@ -187,7 +187,9 @@ def main(argv=None) -> int:
                     "usb_speed": str(device.getUsbSpeed()), "alignment": "CAM_A RGB",
                     "stereo_size": [640, 400], "extended_disparity": True,
                     "left_right_check": True, "subpixel": False, "fps": 15,
-                    "rgb_undistortion": "disabled; wide ISP preview" if args.wide else "factory calibration", "rgb_pipeline": rgb_pipeline, "calibrated_lens_position": lens_position,
+                    "rgb_undistortion": "disabled; 1080p ISP preview" if args.wide else "factory calibration", "rgb_pipeline": rgb_pipeline, "calibrated_lens_position": lens_position,
+                    "rgb_sensor_mode": "1080p" if args.wide else "Camera node 640x360",
+                    "full_sensor_fov_verified": False,
                     "intrinsics": calibration.getCameraIntrinsics(dai.CameraBoardSocket.CAM_A, 640, 360),
                     **({"distortion_coefficients": calibration.getDistortionCoefficients(dai.CameraBoardSocket.CAM_A),
                         "distortion_model": distortion_model,

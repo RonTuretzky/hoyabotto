@@ -1,3 +1,30 @@
+## Quiet sensor display, DSML handling and OAK FOV correction — 9 October 2026
+
+- User reiterated that routine sensing should not appear in the chat. The live `chat.html` now hides
+  `SENSE:` decisions, Sensors worker cards, and successful routine read-tool cards. IDs still advance;
+  full readings remain in model context/history/logs. Errors, STOP, motion tools, eyes reports and final
+  answers remain visible. Chrome readback confirmed zero sensor/`SENSE:` cards and both STOP buttons.
+- DSML is DeepSeek tool-call markup. A full-width/double-bar closing-parameter fragment had slipped past
+  the ASCII-only rejection regex and appeared as a final answer. The guarded patch recognizes those
+  tag variants and re-asks for a valid decision; it does not execute DSML. Three markup variants passed
+  fake-supervisor checks with zero motion calls; normal prose/STOP/invalid-argument checks passed.
+  Reproduction/rollback source: `tools/install_pilot_quiet_sensing.py`, content-addressed private backups.
+- One deployment precheck failed while the pilot was active, but a subsequent shell command ran the old
+  chat-only restart helper before the patch had applied. Hardware owner was not restarted. The helper
+  was tightened to require idle and a fresh all-16 torque-off readback. The source patch was then applied;
+  HTML verified directly, and parser activation used the corrected helper after release.
+- OAK verification: live raw publisher reports 1080p → 640×360, with factory K implying approximately
+  64.7° horizontal / 39.2° vertical in a pinhole calculation. Luxonis lists the native IMX214 4208×3120
+  field as 69° / 54°. **The current feed is not verified as maximally wide.** The old `full field, no crop`
+  label only described the selected 1080p preview. Corrected repository comments/metadata explicitly
+  say selected 1080p field and `full_sensor_fov_verified:false`. No sensor-mode switch or OAK restart
+  was performed for this verification; the running publisher still has the older label.
+- Draft actual-pad vision prompt and installer remain uninstalled; the quiet-display patch does not
+  claim to fix wrist registration or grasp positioning. Earlier loop diagnostics showed small opening
+  1374→1577 succeeds; +1 cm/+5 mm along-jaws refinements were accepted without a close or verified pinch.
+  The independent 2 fps four-camera recorder finalized 660 frames per view at
+  `.context/flash-loop/continuous-20261009-195136/` when the user prioritized the prompt request.
+
 ## Flash/v8b live attempt: three missed pinches, controller stop — 9 October 2026, 18:46–18:56 JST
 
 The user explicitly requested the best recipe live and to accelerate toward the attempt. Flash/v8b was
