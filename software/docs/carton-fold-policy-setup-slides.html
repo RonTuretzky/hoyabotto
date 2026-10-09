@@ -577,8 +577,8 @@
 <pre><code>python tools/auto_head_pose.py --pilot-root "$PILOT" --execute --operator &lt;you&gt; --out head-pose.json</code></pre></li>
       <li>It writes <code>head-pose.json</code>: the camera's measured position and angle, the head ticks and the lens numbers (read from the OAK itself).</li>
     </ol></div>
-    <div><div class="panel risk"><b>Today's limit</b><p>Your head can only tilt about <b>36°</b> down (servo range ends at 2625 ticks; level is 2211). The policy trained at 58°.
-      The tool stops at the limit and records the real angle; step 7 then re-films the training at that angle. Nothing is forced past the limit.</p></div>
+    <div><div class="panel"><b>If 58° is out of reach</b><p>The tilt servo's saved range ends at 2625 ticks (level reads 2211). Whether that reaches 58° down is <b>being measured</b>, not assumed.
+      If it falls short, the tool stops at the limit and records the real angle, and step 7 re-films the training at that angle. Nothing is forced past the limit.</p></div>
       <div class="panel"><b>Wrist cameras</b><p>They ride on the grippers, so there is nothing to point. Their lenses are measured in step 6.</p></div></div></div></div>
   <div class="footer"><span>Step 5 · head camera</span><span class="pg"></span></div>
 </section>
