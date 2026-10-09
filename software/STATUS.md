@@ -1,3 +1,18 @@
+## Replacement calibration tags checked — 9 October 2026, 22:46 JST
+
+- User reports replacing table tag1 and right-gripper tag2. Three distinct OAK
+  frames (38899/38904/38907, 1040x780) accept table1 with hamming0,
+  margin39.8–40.8 and shortest edge63.5–63.7px. No camera accepted tag2.
+- OAK close-up shows the hand marker with a red/white/black cable crossing its
+  lower-left black border/pattern. This is a likely decoding blocker; verify after
+  rerouting without unplugging. Fixed-housing attachment/rigidity is not verified
+  from this image. Do not infer hand-eye registration from tag visibility alone.
+- Read-only preflight remains blocked on tag1/tag2 co-visibility, confirmed fixed
+  mount and telemetry clock agreement. Geometry still lacks validated joint mapping,
+  tool offset and workspace bounds. Fresh uncached state confirms all16 torque-off;
+  no motor write or camera configuration change was made. Evidence including raw
+  receipts, annotated images, close-up and manifest: seville-v2 .context/tag-remount-check/.
+
 ## Camera-to-arm preflight and demo deployment readback — 9 October 2026
 
 - Read-only preflight still blocks right-arm registration: table tag1 and fixed right-gripper
