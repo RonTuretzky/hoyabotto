@@ -3,14 +3,34 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
 
-from farm.oak_camera import depth_stats, patch_stats, save_capture
+from farm.oak_camera import apply_stream_profile, depth_stats, patch_stats, save_capture
 
 
 class OakDepthTests(unittest.TestCase):
+    def test_restart_loads_commissioned_camera_view(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            profile = dict(schema='xlerobot-oak-stream-profile/1', sensor_mode='13MP',
+                           device_id='reviewed-device', isp_denominator=4, fps=10,
+                           config_sha256='a'*64)
+            path = Path(tmp) / 'oak-profile.json'
+            path.write_text(json.dumps(profile))
+            args = SimpleNamespace(mode='stream', output=Path(tmp), full_sensor=False,
+                                   ignore_profile=False, device=None, wide=True, usb2=True,
+                                   isp_denominator=4, fps=5)
+            self.assertEqual(apply_stream_profile(args), profile)
+            self.assertTrue(args.full_sensor)
+            self.assertEqual((args.fps, args.device), (10, 'reviewed-device'))
+            # A corrupt profile must fail, never silently revert to a different view.
+            args.full_sensor = False
+            path.write_text('{}')
+            with self.assertRaises(ValueError):
+                apply_stream_profile(args)
+
     def test_missing_depth_is_not_zero_distance(self):
         stats = depth_stats(np.zeros((4, 4), dtype=np.uint16))
         self.assertIsNone(stats["median_mm"])

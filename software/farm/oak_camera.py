@@ -100,6 +100,26 @@ class StreamWriter:
         return record
 
 
+def apply_stream_profile(args):
+    """Load a locally commissioned stream profile; explicit trials may override it."""
+    path = args.output / 'oak-profile.json'
+    if args.mode != 'stream' or args.full_sensor or args.ignore_profile or not path.exists():
+        return None
+    profile = json.loads(path.read_text())
+    if (profile.get('schema') != 'xlerobot-oak-stream-profile/1' or
+            profile.get('sensor_mode') != '13MP' or
+            profile.get('isp_denominator') != 4 or profile.get('fps') != 10 or
+            not isinstance(profile.get('device_id'), str) or not profile['device_id'] or
+            len(profile.get('config_sha256', '')) != 64):
+        raise ValueError('Invalid commissioned OAK profile; refusing a different camera view')
+    if args.device and args.device != profile['device_id']:
+        raise ValueError('Requested device differs from commissioned OAK profile')
+    args.device = profile['device_id']
+    args.full_sensor, args.wide, args.usb2 = True, True, True
+    args.isp_denominator, args.fps = profile['isp_denominator'], profile['fps']
+    return profile
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["list", "capture", "preview", "stream"])
@@ -111,7 +131,14 @@ def main(argv=None) -> int:
     parser.add_argument("--wide", action="store_true", help="Full lens field of view: skip the factory undistortion warp, "
                         "which crops the wide-angle edges (images then carry the factory distortion)")
     parser.add_argument("--capture-seconds", type=float, default=2, help="Stream duration before saving a capture")
+    parser.add_argument("--full-sensor", action="store_true", help="IMX214 4208x3120 direct ISP field; camera commissioning")
+    parser.add_argument("--isp-denominator", type=int, choices=(4, 8), default=4)
+    parser.add_argument("--fps", type=int, choices=(5, 10), default=5)
+    parser.add_argument("--ignore-profile", action="store_true", help="Explicit commissioning/rollback override of saved stream profile")
     args = parser.parse_args(argv)
+    profile = apply_stream_profile(args)
+    width, height = ((4208//args.isp_denominator)//16*16, 3120//args.isp_denominator) if args.full_sensor else (640, 360)
+    rgb_fps = args.fps if args.full_sensor else (10 if args.wide else 15)
     if args.timeout <= 0 or args.seconds <= 0 or args.capture_seconds <= 0:
         parser.error("Timeout and duration must be positive")
     import depthai as dai
@@ -129,10 +156,17 @@ def main(argv=None) -> int:
     speed = dai.UsbSpeed.HIGH if args.usb2 else dai.UsbSpeed.SUPER
     with dai.Device(matches[0], speed) as device:
         pipeline = dai.Pipeline()
-        if args.wide:
-            # Preserve the selected 1080p field in the preview. This is not the native 13MP sensor field:
-            # matching 16:9 output adds no preview crop, but does not recover the full sensor's vertical FOV.
-            # The Camera node's `video` output can add another crop when its size differs from the ISP image.
+        if args.full_sensor:
+            rgb = pipeline.create(dai.node.ColorCamera)
+            rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
+            rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_13_MP)
+            rgb.setIspScale(1, args.isp_denominator)
+            # Direct ISP output avoids the auto video crop (max 3840x2160 before scaling).
+            rgb.setFps(rgb_fps)
+            rgb_out, rgb_pipeline = rgb.isp, f"ColorCamera 13MP direct ISP 1/{args.isp_denominator}"
+        elif args.wide:
+            # Preserve the selected 1080p field. This sensor mode crops the native 13MP
+            # image vertically; a matching 16:9 preview adds no further crop.
             rgb = pipeline.create(dai.node.ColorCamera)
             rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
             rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
@@ -155,6 +189,16 @@ def main(argv=None) -> int:
             rgb_out, rgb_pipeline = rgb.video, "Camera node 640x360 with the factory undistortion mesh"
         # Keep autofocus from changing the calibrated RGB/depth geometry.
         calibration = device.readCalibration2()
+        default_k, default_w, default_h = calibration.getDefaultIntrinsics(dai.CameraBoardSocket.CAM_A)
+        if args.full_sensor:
+            if (default_w, default_h) != (3840,2160):
+                raise RuntimeError("Full-sensor ROI transform requires this unit's reviewed 3840x2160 calibration")
+            native_k = np.asarray(default_k,dtype=float).copy()
+            native_k[0,2] += (4208-3840)/2
+            native_k[1,2] += (3120-2160)/2
+            # Runtime calibration only. Never flash EEPROM. Documented centered 4K sensor ROI to 13MP.
+            calibration.setCameraIntrinsics(dai.CameraBoardSocket.CAM_A,native_k.tolist(),4208,3120)
+            pipeline.setCalibrationData(calibration)
         lens_position = calibration.getLensPosition(dai.CameraBoardSocket.CAM_A)
         if lens_position:
             rgb.initialControl.setManualFocus(lens_position)
@@ -175,7 +219,7 @@ def main(argv=None) -> int:
         sync = pipeline.create(dai.node.Sync)
         sync.setSyncThreshold(timedelta(milliseconds=33))
         stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
-        stereo.setOutputSize(640, 360)
+        stereo.setOutputSize(width, height)
         left.out.link(stereo.left)
         right.out.link(stereo.right)
         rgb_out.link(sync.inputs["rgb"])
@@ -186,15 +230,24 @@ def main(argv=None) -> int:
         metadata = {"device_id": device.getMxId(), "depthai_version": dai.__version__,
                     "usb_speed": str(device.getUsbSpeed()), "alignment": "CAM_A RGB",
                     "stereo_size": [640, 400], "extended_disparity": True,
-                    "left_right_check": True, "subpixel": False, "fps": 15,
-                    "rgb_undistortion": "disabled; 1080p ISP preview" if args.wide else "factory calibration", "rgb_pipeline": rgb_pipeline, "calibrated_lens_position": lens_position,
-                    "rgb_sensor_mode": "1080p" if args.wide else "Camera node 640x360",
-                    "full_sensor_fov_verified": False,
-                    "intrinsics": calibration.getCameraIntrinsics(dai.CameraBoardSocket.CAM_A, 640, 360),
+                    "left_right_check": True, "subpixel": False, "fps": rgb_fps, "rgb_fps": rgb_fps, "mono_fps": 15,
+                    "rgb_undistortion": "disabled; wide ISP preview" if args.wide else "factory calibration", "rgb_pipeline": rgb_pipeline, "calibrated_lens_position": lens_position,
+                    "intrinsics": calibration.getCameraIntrinsics(dai.CameraBoardSocket.CAM_A, width, height),
                     **({"distortion_coefficients": calibration.getDistortionCoefficients(dai.CameraBoardSocket.CAM_A),
                         "distortion_model": distortion_model,
-                        "projection": "camera_pinhole_with_factory_distortion"} if args.wide else {"projection": "rectified_pinhole"}),
+                        "projection": "camera_pinhole_with_factory_distortion"} if args.wide or args.full_sensor else {"projection": "rectified_pinhole"}),
                     "coordinate_frame": "CAM_A_optical"}
+        metadata.update(factory_intrinsics=default_k, factory_calibration_size=[default_w, default_h],
+                        rgb_depth_registration_verified=False, full_sensor_fov_verified=False)
+        if args.full_sensor:
+            metadata.update(rgb_sensor_mode="13MP", rgb_sensor_size=[4208,3120],
+                            isp_size=list(rgb.getIspSize()), isp_scale=[1,args.isp_denominator],
+                            rgb_undistortion="disabled; direct ISP", output_size=[width,height],
+                            rgb_crop_xywh=[(4208//args.isp_denominator-width)//2,0,width,height],
+                            intrinsics_provenance="factory 3840x2160 centered ROI expanded by (+184,+480) to native 4208x3120, SDK scales/crops to output; physical validation pending")
+        metadata["config_sha256"] = hashlib.sha256(json.dumps(metadata,sort_keys=True).encode()).hexdigest()
+        if profile and metadata['config_sha256'] != profile['config_sha256']:
+            raise RuntimeError('Camera calibration/configuration differs from commissioned profile')
         print(json.dumps(metadata), flush=True)
         device.startPipeline(pipeline)
         queue = device.getOutputQueue("rgbd", maxSize=2, blocking=False)
@@ -227,6 +280,9 @@ def main(argv=None) -> int:
                 frames += 1
                 color = msg["rgb"].getCvFrame()
                 depth = msg["depth"].getFrame()
+                if args.full_sensor:
+                    x=(color.shape[1]-width)//2
+                    color=np.ascontiguousarray(color[:,x:x+width])
                 if color.shape[:2] != depth.shape:
                     raise RuntimeError(f"RGB {color.shape} and aligned depth {depth.shape} shapes differ; refusing pixel measurements")
                 frame_meta = {**metadata, "rgb_device_timestamp_s": msg["rgb"].getTimestampDevice().total_seconds(),
@@ -234,6 +290,11 @@ def main(argv=None) -> int:
                 max_sync_skew = max(max_sync_skew, abs(frame_meta["rgb_device_timestamp_s"] - frame_meta["depth_device_timestamp_s"]))
                 frame_meta.update(received_frames=frames, elapsed_s=now-start, max_sync_skew_s=max_sync_skew)
                 if writer is not None:
+                    writer.metadata.update(rgb_device_timestamp_s=frame_meta["rgb_device_timestamp_s"],
+                        depth_device_timestamp_s=frame_meta["depth_device_timestamp_s"],
+                        rgb_device_seq=msg["rgb"].getSequenceNum(), depth_device_seq=msg["depth"].getSequenceNum(),
+                        rgb_exposure_us=msg["rgb"].getExposureTime().total_seconds()*1e6,
+                        rgb_iso=msg["rgb"].getSensitivity(), rgb_lens_position=msg["rgb"].getLensPosition())
                     # SDK timestamps share dai.Clock.now(); account for USB/queue
                     # delay instead of pretending the frame was just captured.
                     wall, host_clock = time.time(), dai.Clock.now()

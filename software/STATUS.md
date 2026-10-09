@@ -1,3 +1,57 @@
+## Selected OAK view and training handoff — 9 October 2026, 21:45 JST
+
+- Live OAK now uses IMX214 13MP (4208×3120), ISP 1/4, centered crop from 1052×780
+  to 1040×780, manual focus 79, requested 10 fps RGB / 15 fps stereo, USB2.
+  This preserves full native height and 98.86% of native width. A 60-second 10 fps
+  trial delivered 9.700913 RGB/depth pairs/s; 18 of 603 RGB sequence intervals were
+  not published (~2.99%). Sampled pair skew max 32.923 ms. No owner/API restart or
+  motor command was sent by the camera trial. Later Joy-Con deployments are separate.
+- First 1052×780 trial failed the stereo width-multiple-of-16 constraint and rolled back.
+  1040×780 passed both 5 fps and 10 fps trials. Runtime-only factory K correction
+  expands the calibrated 3840×2160 ROI by (+184,+480) before scaling/cropping; no
+  EEPROM writes. 237 natural-feature inliers support the old-to-new pixel transform
+  with median 0.408 px / p95 1.308 px error; this does not validate absolute extrinsics.
+- Frozen policy contract: 320×240 RGB, square-pixel fx=fy=289.70562748477136,
+  principal point (160,120), 45° VFOV. Shared remap validates camera/config/focus/K/D
+  and uses all 14 distortion terms. A 52.2° crop crosses a factory rational-model pole;
+  wider rectification requires physical lens calibration. See
+  [contract](config/oak-policy-camera-20261009.json) and [handoff](docs/oak-selected-2026-10-09.md).
+- Training thread acknowledged old job 6ac8daa0fee2c9007017836a CANCELED. Final contract,
+  helper, raw/policy previews and test evidence delivered to agreed server-evidence/
+  oak-selected-20261009. Training must validate exact simulator sampling and integrate
+  the same preprocessing before restart. No new training job is claimed here.
+- Head at capture 2085/2623; camera-to-arm, depth/RGB registration, physical base placement
+  and wrist calibration remain unverified. ACT inputs are RGB cameras plus joints;
+  depth/tags remain observer evidence, not direct ACT inputs. No verified live fold.
+- Final readback at 21:45 JST: selected OAK hash unchanged and all four cameras fresh.
+  Remote Joy-Con HEAD 6523472 already preserves the full-sensor capture implementation;
+  selected-profile persistence is the remaining integration change. The user requested
+  reconciling both branches onto main. Preserve Joy-Con dispatch and the sole motor owner.
+- Requested independent session-review agents could not start due account restrictions;
+  the explicitly labeled primary review is saved in .context/session-review/primary-review.md.
+
+## Tag viewpoints and training calibration contract — 9 October 2026, 21:19 JST
+
+- Six spaced raw captures per OAK/phone/wrist viewpoint: all 24 frame sequences and hashes distinct;
+  zero accepted tags. Phone is the best angle: IDs 12/22 decode in 6/6 original frames but margins
+  15.61–16.39 and 13.41–14.25 fall below the 20 base/30 observer thresholds. Tag edges 43/55px are
+  already large enough. OAK sees untagged carton interiors; left wrist is oblique/blurred, right has
+  no decoded markers. Improve diffuse illumination/exposure and retest; thresholds unchanged.
+- All 16 positions and torque flags unchanged during read-only capture. Head motors already enabled
+  at 1919/2622; arms/wheels off. Head pan differs from the old clear-table baseline 2094/2621, so do
+  not reuse its pose unchanged. No motion/enable/release/restart or camera-mode switch was sent.
+- Frozen training `cloud-release-v5` expects rectified 640×360 OAK, principal-centered 4:3 crop
+  x91.544..537.964/y25.185..360, then 320×240 (VFOV36.682°), with a model 35.145°/−5.132°head.
+  Physical runner still lacks that preprocessing. Wrist 90°VFOV and physical extrinsics are unverified.
+  ACT takes OAK+two wrists RGB and joint state, not phone/depth/tag-pose tensors.
+- Concrete calibration plan: independently measured camera-to-arm reference; verified joint/base/tag
+  mounts and real-pad offsets; per-camera projection; heldout validation and persistent calibration
+  with invalidation on geometry changes. Carton observer currently remains pixel-only.
+- [Full findings](docs/tag-angles-and-calibration-2026-10-09.md); raw evidence/contact sheet:
+  `.context/tag-angle-check-20261009/capture-20261009-211938/`. Copy and request deposited at
+  las-vegas-v1 `.context/station-refit-2026-10-09/server-evidence/oak-calibration-request-20261009-211938/`.
+  Native Conductor chat attachment failed; no direct message delivery or training-agent reply claimed.
+
 ## OAK sensor coverage and AprilTag recheck — 9 October 2026, 21:08 JST
 
 - Luxonis's IMX214 mode table explicitly describes 1080p as a 4K crop followed by binning;

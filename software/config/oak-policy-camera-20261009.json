@@ -1,0 +1,156 @@
+{
+  "schema": "xlerobot-oak-policy-camera/1",
+  "source": {
+    "camera_id": "oak-1944301091DA1C2E00",
+    "rgb_sensor_mode": "13MP",
+    "calibrated_lens_position": 79,
+    "config_sha256": "a0f85c4e3814322178f172ceb1408066fd6904d6999685e27138222e1d2acfed",
+    "intrinsics": [
+      [
+        757.3411254882812,
+        0.0,
+        512.130615234375
+      ],
+      [
+        0.0,
+        757.4607543945312,
+        408.88897705078125
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "distortion_coefficients": [
+      -4.6401896476745605,
+      16.705299377441406,
+      -7.162407564464957e-05,
+      -0.00028249737806618214,
+      -22.244977951049805,
+      -4.718361854553223,
+      16.918954849243164,
+      -22.367332458496094,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.007052261848002672,
+      0.00018638990877661854
+    ],
+    "size_wh": [
+      1040,
+      780
+    ],
+    "color_order": "caller-preserved RGB or BGR",
+    "distortion_model": "OpenCV perspective rational + thin prism + tilted sensor (all 14 terms)",
+    "sensor_size_wh": [
+      4208,
+      3120
+    ],
+    "factory_calibration_size_wh": [
+      3840,
+      2160
+    ],
+    "native_principal_point_offset": [
+      184,
+      480
+    ],
+    "isp_scale": [
+      1,
+      4
+    ],
+    "isp_crop_xywh": [
+      6,
+      0,
+      1040,
+      780
+    ],
+    "rgb_fps": 10,
+    "stereo_fps": 15,
+    "usb_speed": "HIGH",
+    "depthai_version": "2.33.0.0"
+  },
+  "policy": {
+    "size_wh": [
+      320,
+      240
+    ],
+    "color_order": "RGB",
+    "rectification_rotation": [
+      [
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "intrinsics": [
+      [
+        289.70562748477136,
+        0,
+        160
+      ],
+      [
+        0,
+        289.70562748477136,
+        120
+      ],
+      [
+        0,
+        0,
+        1
+      ]
+    ],
+    "distortion_coefficients": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "vertical_fov_deg": 45,
+    "sampling": "OpenCV initUndistortRectifyMap(K_source,D_source,I,K_policy,(320,240),CV_32FC1); remap INTER_LINEAR. Pixel centers use integer coordinates. No subsequent aspect resize/crop.",
+    "rationale": "45deg is a stable useful centered field with the factory rational distortion model. A 52.2deg largest centered crop crosses a rational denominator zero at normalized radius about 0.718. A full-sensor checkerboard calibration is needed to use those additional rectified corner rays reliably.",
+    "square_pixel_virtual_camera": true
+  },
+  "head": {
+    "observed_ticks": {
+      "head_motor_1": 2085,
+      "head_motor_2": 2623
+    },
+    "physical_camera_to_arm_transform_verified": false,
+    "warning": "Ticks pin this optical view; model tilt/pan and camera/cart-to-arm transforms are not physically validated. Do not inherit prior 1919/2622 or box-only translation."
+  },
+  "verification": {
+    "60s_5fps_trial": "passed",
+    "60s_10fps_trial": "passed;9.7009 synchronized pairs/s",
+    "cross_mode_natural_feature_inliers": 237,
+    "cross_mode_documented_transform_median_px": 0.4084,
+    "rgb_depth_registration_verified": false,
+    "policy_runtime_integrated": false,
+    "training_renderer_integrated": false
+  },
+  "capture_source_ref": "RonTuretzky/oak-commissioning-20261009",
+  "capture_source_sha": "5b39627",
+  "physical_task_completed": false,
+  "contract_sha256": "8cda81a5a74bca6fd373ac9cfec51ef2665fdf4a9bbf79fea1864953008da869"
+}
