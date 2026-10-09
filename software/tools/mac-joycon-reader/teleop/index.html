@@ -39,6 +39,7 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
 </style>
 </head>
 <body>
+<div id="targetPanel" style="padding:12px 24px;display:none"><label>Control target <select id="controlTarget"><option value="practice">Practice simulator — no robot motion</option><option value="robot">Live robot — rail hold-to-run</option></select></label></div>
 <header>
   <div><h1 id="title">Joy-Con practice</h1><p id="connection">Local simulation · No robot connected</p></div>
   <button class="stop" id="stop" title="Stop and release all controls (Escape)">■ Stop</button>
@@ -109,6 +110,7 @@ async function action(body){
 }
 $('backendChoice').onchange=()=>action({op:'input_backend',backend:$('backendChoice').value});
 $('referenceFrame').onchange=()=>action({op:'reference_frame',frame:$('referenceFrame').value});
+$('controlTarget').onchange=()=>action({op:'control_target',target:$('controlTarget').value});
 $('gyroEnabled').onchange=()=>action({op:'gyro',enabled:$('gyroEnabled').checked});
 $('stop').onclick=()=>action({op:'stop'});
 $('arm').onclick=()=>action({op:latest.simulation?'practice':'arm',scope:$('scope').value});
@@ -117,6 +119,8 @@ document.querySelectorAll('[data-layer]').forEach(b=>b.onclick=()=>action({op:'l
 $('viewChoice').onchange=()=>call('/view',{view:$('viewChoice').value}).catch(e=>$('error').textContent=e.message);
 function draw(s){
   latest=s;
+  $('targetPanel').style.display=s.practice_available?'block':'none';
+  $('controlTarget').value=s.control_target||'robot';$('controlTarget').disabled=s.armed||s.busy||pending>0;
   const upstream=s.control_mode==='upstream',cart=upstream||s.control_mode==='cartesian',d=s.controller||{},a=d.axes||{},dead=d.deadman||{},r=s.robot||{};
   const physicalUpstream=upstream&&!s.simulation;
   const busy=s.busy||pending>0,locked=s.armed||busy,unavailable=!connected||!!s.reader_error||!Object.keys(d).length;
@@ -140,7 +144,7 @@ function draw(s){
   $('check').textContent=s.reader_error||(unavailable?'Wake both Joy-Cons with a button press.':!d.ready?`Press and release ${buttons} once.`:s.armed?`Hold ${buttons.replace(' and ',' / ')} to move. Release to stop.`:'Both controllers checked.');
   $('arm').disabled=!canStart;
   $('arm').textContent=s.armed?(s.simulation?'Practice running':'Controls armed'):s.simulation?'Start practice':'Arm controls';
-  $('startHelp').textContent=!connected?'Waiting for the local controller connection.':busy?'Finishing the current action…':s.armed?'Release shoulders to stop moving. Escape ends control.':unavailable?'Connect both controllers to continue.':!d.ready?`First, press and release ${buttons}.`:!d.neutral?'Release all buttons and center both sticks.':s.preview&&!s.simulation?'Input preview only.':s.simulation?'Moves the simulator. Leaving this window stops control.':'Keep the robot visible. Leaving this window stops control.';
+  $('startHelp').textContent=!connected?'Waiting for the local controller connection.':busy?'Finishing the current action…':s.armed?'Release shoulders to stop moving. Escape ends control.':unavailable?'Connect both controllers to continue.':!d.ready?`First, press and release ${buttons}.`:!d.neutral?'Release all buttons and center both sticks.':s.preview&&!s.simulation?'Input preview only.':s.simulation?(s.background_practice?'Moves only the simulator. Stop or controller loss ends practice.':'Moves the simulator. Leaving this window stops control.'):'Keep the robot visible. Leaving this window stops control.';
   $('scope').hidden=cart;$('scope').disabled=locked||cart;$('layers').hidden=cart;
   if(cart){
     if(!$('scope').querySelector('[value="wholebody"]'))$('scope').replaceChildren(new Option('Whole robot','wholebody'));
@@ -201,7 +205,7 @@ function draw(s){
   $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':'Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.';
   $('ikStatus').textContent=(s.control_info?.warnings||[]).join(' · ');
   $('scenePanel').hidden=!r.simulator;
-  $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':r.simulator.read_only?'Read-only MuJoCo preview · Model geometry unvalidated · Base remains stationary':'Live simulation · Solid practice box')):'';
+  $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':r.simulator.kinematic_practice?'0.4 SO-101 kinematic practice · No robot motion':r.simulator.read_only?(r.simulator.model_hardware||'Read-only MuJoCo preview')+' · Joint mapping unvalidated · Base stationary':'Live simulation · Solid practice box')):'';
   $('health').textContent=`Input age: ${s.input_age_s??'—'} s · ${s.simulation?'Local control loop':'Network round trip'}: ${s.rtt_ms??'—'} ms`;
   $('backendInfo').textContent='Input: '+(s.input_backend==='hid'?'Independent Nintendo HID':'Apple GameController')+' · Held: '+(Object.entries(d.buttons||{}).filter(([k,v])=>v).map(([k])=>k.replace('Button ','')).join(', ')||'none');
   $('axesReadback').textContent=['left','right'].map(side=>`${side} stick: X ${(a[side+'x']||0).toFixed(2)} / Y ${(a[side+'y']||0).toFixed(2)}`).join(' · ');

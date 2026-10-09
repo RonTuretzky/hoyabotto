@@ -44,9 +44,11 @@ class Robot:
         return out['result']
 
 class Bridge:
-    def __init__(self,robot,reader,*,start=True,mapping=None,input_backend='apple',preview3d=None):
+    def __init__(self,robot,reader,*,start=True,mapping=None,input_backend='apple',preview3d=None,practice_factory=None):
         self.robot=robot;self.reader=reader;self.mapping=mapping or Mapping();self.lock=threading.RLock()
         self.input_backend=input_backend;self.preview3d=preview3d
+        self.live_robot=robot;self.live_mapping=self.mapping;self.practice_factory=practice_factory
+        self.practice_robot=None;self.practice_mapping=None;self.control_target="robot"
         self.frame=None;self.decoded=None;self.reader_error='Waiting for controller input'
         self.generation=0;self.armed=False;self.busy=False;self.scope='left';self.session=None;self.identity=None
         self.reason='Disarmed — test both triggers, then release them and center the sticks'
@@ -89,14 +91,14 @@ class Bridge:
         if not self.frame or not self.decoded:raise ValueError(self.reader_error or 'Controller unavailable')
         if not 0<=time.time()-self.frame['timestamp']<=.2:raise ValueError('Controller input timed out')
         if self.decoded['stop']:raise ValueError('Minus / Options STOP')
-        if time.monotonic()-self.ui_seen>.8:raise ValueError('Operator screen lost focus or stopped responding')
+        if not getattr(self.robot,'allow_background_input',False) and time.monotonic()-self.ui_seen>.8:raise ValueError('Operator screen lost focus or stopped responding')
         return self.decoded
     def snapshot(self):
         with self.lock:
             d=self.decoded or {}
             state=dict(self.robot_state)
-            if self.preview3d:state['simulator']=self.preview3d.info()
-            return dict(preview=self.robot.preview,simulation=self.robot.simulation,armed=self.armed,busy=self.busy or bool(self.release_pending),scope=self.scope,layer=self.mapping.layer,reason=self.reason,
+            if self.preview3d and not self.robot.simulation:state['simulator']=self.preview3d.info()
+            return dict(background_practice=getattr(self.robot,'allow_background_input',False),practice_available=self.practice_factory is not None,control_target=self.control_target,preview=self.robot.preview,simulation=self.robot.simulation,armed=self.armed,busy=self.busy or bool(self.release_pending),scope=self.scope,layer=self.mapping.layer,reason=self.reason,
                         control_mode=getattr(self.mapping,'mode','joint'),input_backend=self.input_backend,control_info=getattr(self.mapping,'info',{})|{'gyro_enabled':getattr(self.mapping,'gyro_enabled',False)},reference_frame=getattr(self.mapping,'reference_frame','robot'),
                         controller=d,reader_error=self.reader_error,robot=state,rtt_ms=self.rtt,
                         checked_triggers=sorted(self.mapping.checked),input_age_s=round(time.time()-self.frame['timestamp'],3) if self.frame else None)
@@ -124,6 +126,23 @@ class Bridge:
         self.finish_release(session,generation,reason)
     def action(self,b):
         op=b.get('op')
+        if op=='control_target':
+            target=b.get('target')
+            with self.lock:
+                if not self.practice_factory or target not in ('robot','practice'):raise ValueError('Unknown control target')
+                if self.armed or self.busy or self.release_pending:raise ValueError('Stop controls before changing target')
+                self.busy=True;self.generation+=1
+            try:
+                if target=='practice' and self.practice_robot is None:
+                    self.practice_robot=self.practice_factory();self.practice_mapping=self.practice_robot.make_mapping()
+                with self.lock:
+                    self.robot=self.practice_robot if target=='practice' else self.live_robot
+                    self.mapping=self.practice_mapping if target=='practice' else self.live_mapping
+                    self.mapping.reset();self.decoded=None;self.robot_state={};self.control_target=target
+                    self.reason='Practice stopped — Start practice to animate; no physical robot commands' if target=='practice' else 'Disarmed — live robot requires rail hold-to-run'
+            finally:
+                with self.lock:self.busy=False
+            return
         if op=='input_backend':
             with self.lock:
                 if not self.robot.simulation:raise ValueError('Reader selection is simulation-only')
@@ -215,7 +234,7 @@ class Bridge:
             with self.lock:
                 if self.armed and self.generation==generation:
                     self.session=result;self.robot_state=result.get('status',self.robot_state)
-                    if self.preview3d:self.preview3d.update(self.robot_state)
+                    if self.preview3d and not self.robot.simulation:self.preview3d.update(self.robot_state)
                     self.rtt=round((time.monotonic()-started)*1000,1)
         except Exception as e:
             with self.lock:
@@ -228,9 +247,11 @@ class Bridge:
             if self.armed:self.step()
             elif not self.busy and not self.release_pending and time.monotonic()-last_status>1:
                 try:
-                    state=self.robot.call('status',timeout=2)
-                    with self.lock:self.robot_state=state
-                    if self.preview3d:self.preview3d.update(state)
+                    with self.lock:robot=self.robot;generation=self.generation
+                    state=robot.call('status',timeout=2)
+                    with self.lock:
+                        if robot is self.robot and generation==self.generation:self.robot_state=state
+                    if self.preview3d and robot is self.robot and not robot.simulation:self.preview3d.update(state)
                 except Exception as e:
                     with self.lock:self.robot_state={'error':str(e)}
                 last_status=time.monotonic()
@@ -240,7 +261,8 @@ class Bridge:
         self.stop_reader()
         if self.worker:self.worker.join(timeout=3)
         if self.preview3d:self.preview3d.close()
-        if hasattr(self.robot,'close'):self.robot.close()
+        if self.practice_robot:self.practice_robot.close()
+        if hasattr(self.live_robot,'close'):self.live_robot.close()
 
 
 def main():
@@ -253,10 +275,12 @@ def main():
     ap.add_argument('--connect-robot',action='store_true',help='Explicitly connect to the robot. Default is a local input preview with no network access.')
     ap.add_argument('--config',default=os.environ.get('XLEROBOT_ADMIN_CONFIG',DEFAULT_CONFIG))
     ap.add_argument('--reader',type=Path,default=Path(__file__).resolve().parents[1]/'.build/release/MacJoyConReader')
+    ap.add_argument('--start-in-practice',action='store_true',help='Start the physical-capable screen in virtual practice; never arms the robot')
     ap.add_argument('--readback-preview',action='store_true',help='Read-only MuJoCo model view of physical encoder feedback')
     ap.add_argument('--ui-session-file',type=Path,help='Private local UI token file for a stable operator-screen restart')
     ap.add_argument('--no-browser',action='store_true');ap.add_argument('--port',type=int,default=0)
     a=ap.parse_args()
+    if a.start_in_practice and not (a.connect_robot and a.control_mode=='upstream'):ap.error('Practice selector requires the physical-capable upstream screen')
     if a.readback_preview and not (a.connect_robot and a.control_mode=='upstream'):ap.error('Readback preview requires the physical upstream adapter')
     if a.connect_robot and MOTOR_CONTROL_LOCK.exists():ap.error('Motor control disabled for this installation (MOTOR_CONTROL_DISABLED)')
     if a.connect_robot and a.simulator=='mujoco':ap.error('MuJoCo practice cannot be combined with a robot connection')
@@ -302,11 +326,16 @@ def main():
     if a.readback_preview:
         from readback_preview import ReadbackPreview
         preview3d=ReadbackPreview(reference,a.model)
-    try:bridge=Bridge(robot,a.reader,mapping=mapping,input_backend=backend,preview3d=preview3d)
+    practice_factory=None
+    if a.connect_robot and a.control_mode=='upstream':
+        from practice040 import Practice040
+        practice_factory=Practice040
+    try:bridge=Bridge(robot,a.reader,mapping=mapping,input_backend=backend,preview3d=preview3d,practice_factory=practice_factory)
     except Exception:
         if preview3d:preview3d.close()
         if hasattr(robot,'close'):robot.close()
         raise
+    if a.start_in_practice:bridge.action({'op':'control_target','target':'practice'})
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def send(self,code,value,kind='application/json'):
@@ -318,7 +347,7 @@ def main():
             if self.path=='/':return self.send(200,Path(__file__).with_name('index.html').read_bytes(),'text/html; charset=utf-8')
             if not self.authorized():return self.send(403,{'error':'Local session required'})
             if self.path=='/state':return self.send(200,bridge.snapshot())
-            viewer=preview3d or robot
+            viewer=bridge.robot if bridge.robot.simulation else preview3d or bridge.robot
             if self.path=='/frame.jpg' and hasattr(viewer,'frame'):
                 frame=viewer.frame()
                 if frame is None:return self.send(503,{'error':'Waiting for simulator renderer'})
@@ -333,7 +362,10 @@ def main():
                 if self.path=='/heartbeat':
                     if b.get('focused') is True:bridge.ui_seen=time.monotonic()
                     else:bridge.ui_seen=0
-                elif self.path=='/view' and hasattr(preview3d or robot,'set_view'):(preview3d or robot).set_view(b.get('view'))
+                elif self.path=='/view':
+                    viewer=bridge.robot if bridge.robot.simulation else preview3d or bridge.robot
+                    if not hasattr(viewer,'set_view'):raise ValueError('No 3D view available')
+                    viewer.set_view(b.get('view'))
                 elif self.path=='/action':bridge.action(b)
                 else:raise ValueError('Unknown route')
                 self.send(200,{'ok':True})

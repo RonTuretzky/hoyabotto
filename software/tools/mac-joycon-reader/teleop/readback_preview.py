@@ -8,14 +8,14 @@ import math
 import threading
 import time
 import mujoco
-from mujoco_simulator import MujocoBus
+from model040_preview import Model040PreviewBus
 from upstream import to_model
 
 
 class ReadbackPreview:
     def __init__(self,reference,model_path=None):
         self.reference=reference
-        self.bus=MujocoBus(model_path,render=True,forward_arms=True)
+        self.bus=Model040PreviewBus(model_path,render=True,forward_arms=True)
         self.bus.render_interval=.1
         self.lock=threading.Lock();self.state=None;self.received=None
         self.stopping=threading.Event();self.error=None
@@ -29,11 +29,11 @@ class ReadbackPreview:
     def info(self):
         with self.lock:
             age=None if self.received is None else time.monotonic()-self.received
-        return dict(engine=self.bus.engine,read_only=True,physics=False,
+        return dict(engine=self.bus.engine,model_hardware='0.4 kit layout · two SO-101 arms · two drive wheels · schematic OAK',arm_revision=self.bus.arm_manifest['revision'],read_only=True,physics=False,
                     frame_sequence=self.bus.frame_sequence,
                     frame_age_s=None if not self.bus.last_render else time.monotonic()-self.bus.last_render,
                     feedback_age_s=age,render_error=self.error,
-                    limitations='Upstream logical model preview; physical geometry and joint zeroes unvalidated. Base travel is not reconstructed.')
+                    limitations='Maker SO-101 joint frames/meshes with a two-wheel cart layout. Mounting and encoder zeroes are unvalidated preview assumptions. Base travel is not reconstructed.')
 
     def run(self):
         try:
@@ -44,12 +44,13 @@ class ReadbackPreview:
                         positions={}
                         for name in self.bus.map:
                             ticks=state['motors'][name]['Present_Position']
-                            q=to_model(name,self.reference.from_ticks(name,ticks))
+                            q=self.bus.pose_ticks(self.reference,name,ticks)
                             if not math.isfinite(q):raise ValueError('Nonfinite preview feedback')
                             positions[name]=q
                         for name,q in positions.items():
                             aid,qadr,_,_,_=self.bus.map[name]
-                            self.bus.data.qpos[qadr]=q;self.bus.data.ctrl[aid]=q
+                            self.bus.data.qpos[qadr]=q
+                            if aid is not None:self.bus.data.ctrl[aid]=q
                         self.bus.data.qvel[:]=0
                         mujoco.mj_forward(self.bus.model,self.bus.data)
                         self.error=None
