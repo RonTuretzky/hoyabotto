@@ -60,7 +60,7 @@ MOTION_TOOLS = ('robot_move_joint_targets', 'robot_move_head', 'robot_set_grippe
 IMPLEMENTED_TOOLS = ('robot_list_motors', 'robot_set_motor_enable', 'robot_get_state', 'robot_get_cameras',
                      'robot_get_clip', 'robot_get_capabilities', 'robot_get_depth', 'robot_stop',
                      'robot_move_joint_targets', 'robot_move_path', 'robot_get_motion', 'robot_halt_motion',
-                     'robot_set_gripper', 'robot_move_base')
+                     'robot_set_gripper', 'robot_move_base', 'robot_move_head')
 CAMERA_TOOLS = ('robot_get_cameras', 'robot_get_clip', 'robot_get_depth')
 
 # Pickup-profile constants (paddle_joint_executor.py / paddle_segments.py / gemma_robot_tools.py).
@@ -112,7 +112,32 @@ FOLDED_DEG = {'shoulder_pan': 0.0, 'shoulder_lift': -78.0, 'elbow_flex': 82.0, '
 # 1378 (a 3 mm flap is about 25 ticks). Below it the jaws press together; the model's jaw range (-21.5..100 deg) then
 # spans ticks 1355..2738 (the saved open end is 2821, 7 deg more). Applied as a twin joint map (grippers only).
 GRIPPER_CLOSED_OFFSET_TICKS = 82
+# Per arm (9 October): the right gripper's empty pads meet at 1344-1349 (saved range_min 1269 + 79) with ~150 load.
+GRIPPER_CLOSED_OFFSET = {'left': 82, 'right': 79}
+# Fidelity options that make the sim at least as hard as the real robot on 9 October (SimRobot(fidelity={...}) overrides):
+# - meet_jitter_ticks: per closing call the reported meeting point moves by U(lo, hi) ticks (real empty closes read
+#   1355-1359 on the left, 1344-1360 on the right);
+# - right_grip_sticks: the right gripper sticks mid-travel (a close from above 1700 stops at 1520-1610 with probability
+#   p_close; an open stops at 1500-1950 with probability p_open; resending an open after an open stall leaves the jaw
+#   stuck with probability p_reopen, which trips the 1 s no-progress guard and releases everything, as twice on 9 Oct);
+# - lift_bias_deg: the physical shoulder_lift sits this many degrees from what its ticks say (the arm model reads a few
+#   cm high near the box: a claw the model put at 73-75 cm met nothing below the 77 cm rim); positive = claw lower;
+# - roll_offset_deg: the physical wrist_roll sits this far from the twin's mapping, so the unrolled jaws open to the
+#   robot's left and right as on the real robot (the twin has them opening up and down);
+# - plastic (optional): overrides for box_scene.PLASTIC, e.g. a crease that is harder to set than the default;
+# - lean_jitter_deg (optional): [lo, hi] range of the target flap's starting lean (default: the preset's);
+# - crease_stiffness_scale (optional): multiplies the target crease's spring and friction.
+FIDELITY = {'meet_jitter_ticks': {'left': (0, 4), 'right': (-4, 10)},
+            'right_grip_sticks': {'p_close': 0.5, 'p_open': 0.4, 'p_reopen': 0.7, 'close_band': (1520, 1610),
+                                  'open_band': (1500, 1950)},
+            'lift_bias_deg': {'left': 5.0, 'right': 5.0},
+            'roll_offset_deg': {'left': 90.0, 'right': 90.0},
+            'head_tilt_deg': 45.0}
+PAD_Y_M = -0.035               # jaw frame (Fixed_Jaw: the jaw runs along -y from the hinge at -0.024 to the tip at -0.106):
+                               # contacts beyond this are the jaws' gripping length (a flap edge entering the jaws at pitch -35
+                               # meets them about 5 cm from the tip); nearer the hinge it is the gripper body and camera mount
 FLAP_FOLDED_DEG = 75.0         # score()['flap_folded'] threshold (farm.sim.box_scene.FLAP_FOLDED_DEG)
+FOLD_PUSH_ALLOWANCE_DEG = 10.0 # score()['fold_by_pinch']: at most this much of the flap's turn may happen under a non-pad contact
 PRESENT_VOLTAGE = 120
 PRESENT_TEMPERATURE = 35
 RANGE_SEMANTICS = ('raw_calibration_ranges and motor range are saved hardware limits, not command targets; use '
@@ -129,9 +154,30 @@ CONTACT_NOTE = (f'Load >= {CONTACT_HALT_LOAD} on a joint lagging >= {CONTACT_PUS
                 'where it is; nothing was released.')
 GRIPPER_NOTE = ('The jaw stopped before the target and is holding (often an object between the jaws). Look at the '
                 'wrist camera before the next step.')
-READ_ONLY_MESSAGE = ('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: {names}. The head '
-                     'cannot be moved (aim cameras by moving the arm instead); the wheels move only through '
-                     'robot_move_base, which needs no enable. Enable only arm joints.')
+READ_ONLY_MESSAGE = ('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: {names}. the wheels move '
+                     'only through robot_move_base, which needs no enable. With --head the head motors (head_motor_1 pan, '
+                     'head_motor_2 tilt) enable here and move only through robot_move_head.')
+# Head (the OAK-D Lite on the two-servo head): the real owner's --head scope (qwen-bridge/head_joint_executor.py,
+# gemma_robot_tools.move_head, 9 October). Enable/release like any motor, never part of an arm's six-joint rule; move only
+# through robot_move_head: <= 200 ticks per joint per move, duration_s >= 1 s per 100 ticks of the longest travel
+# (default: that minimum, at least 1 s), targets 40 ticks inside the saved range, joints within 2 ticks dropped.
+HEAD_MAX_TICKS = 200
+HEAD_TICKS_PER_S = 100
+HEAD_LIMITS = {'max_ticks_per_move': HEAD_MAX_TICKS, 'min_duration_s_per_100_ticks': 100 / HEAD_TICKS_PER_S, 'margin_ticks': MARGIN,
+               'max_duration_s': 25, 'load_limit': 500, 'tool': 'robot_move_head'}
+HEAD_ENABLE_NOTE = ('Head motors (head_motor_1 pan, head_motor_2 tilt; the OAK camera rides on the head) can be enabled when '
+                    'robot_get_capabilities.head_supported is true; they are not part of any arm six-joint rule and move only '
+                    'through robot_move_head. Wheels are read-only (robot_move_base needs no enable).')
+HEAD_TOOL_DESCRIPTION = ('Aim the head (and the OAK camera on it): absolute encoder targets for head_motor_1 (pan) and/or head_motor_2 '
+                         '(tilt), already enabled with robot_set_motor_enable. Needs capabilities.head_supported (owner started with '
+                         '--head). Each joint moves at most 200 ticks per call (about 18 degrees; 4096 ticks per turn), targets stay 40 '
+                         'ticks inside the saved range, and duration_s must be at least 1 s per 100 ticks of the longest travel '
+                         '(default: that minimum, at least 1 s). The owner applies the arm guards (ramp, 96-tick following error, '
+                         'contact halt, watchdog, phone-feed gate, idle lease) and waits for measured completion. Joints already '
+                         'within 2 ticks of their target are dropped. Not allowed while another motion runs.')
+HEAD_POLICY = ('robot_set_motor_enable accepts head_motor_1 (pan) / head_motor_2 (tilt); robot_move_head moves them (<=200 ticks '
+               'per joint per call, duration_s >= 1 s per 100 ticks, 40-tick range margin); the OAK camera is on the head, so its '
+               'view direction follows the head pose')
 ODOMETRY_NOTE = 'wheel encoder estimate only; slip and floor contact unverified'
 
 
@@ -302,13 +348,14 @@ def _scene_with_actuators(xml):
     return ET.tostring(root, encoding='unicode')
 
 
-def build_scene(seed=0):
-    """The box scene from farm.sim.box_scene when present, else the private fallback."""
+def build_scene(seed=0, preset=None, lean_jitter_deg=None):
+    """The box scene from farm.sim.box_scene when present (``preset``: a box_scene.PRESETS key, default the real
+    9 October carton), else the private fallback."""
     try:
         from farm.sim.box_scene import build_scene_xml
     except ImportError:
         return _fallback_scene_xml(seed=seed), 'fallback'
-    return build_scene_xml(seed=seed), 'box_scene'
+    return build_scene_xml(seed=seed, preset=preset, lean_jitter_deg=lean_jitter_deg), 'box_scene'
 
 
 # ---------------------------------------------------------------- world
@@ -529,6 +576,8 @@ class _ArmMotion:
         return want
 
     def finish(self, current, outcome):
+        if getattr(self, 'stalled', False) and outcome == 'endpoint_settled':
+            outcome = 'settled_short'   # the jaw stuck mid-travel (SimRobot.FIDELITY right_grip_sticks)
         self.active = False
         self.outcome = outcome
         self.robot.last_completed = self.command_id
@@ -678,6 +727,17 @@ class _BasePulse:
                 self.done.set()
 
 
+class _HeadMotion:
+    """A robot_move_head ramp: ticks go linearly from start to target over duration (sim seconds from t0)."""
+
+    def __init__(self, command_id, start, target, duration, t0):
+        self.command_id, self.start, self.target, self.duration, self.t0 = command_id, start, target, duration, t0
+        self.active = True
+        self.outcome = None
+        self.result = None
+        self.done = threading.Event()
+
+
 # ---------------------------------------------------------------- the robot
 
 class SimRobot:
@@ -685,7 +745,7 @@ class SimRobot:
     time; False fast-forwards them. Idle time and wait=false motions always run at 1x so monitoring works like on the
     real robot. ``calibration``: {motor: (min_ticks, max_ticks)} (default: the saved real sample)."""
 
-    def __init__(self, scene_xml=None, seed=0, real_time=True, calibration=None):
+    def __init__(self, scene_xml=None, seed=0, real_time=True, calibration=None, preset=None, fidelity=None):
         if sys.platform == 'darwin':
             import os
             os.environ.setdefault('MUJOCO_GL', 'cgl')
@@ -696,6 +756,21 @@ class SimRobot:
         self.seed = seed
         self.calibration = load_calibration(calibration)
         self._given_xml = scene_xml
+        try:
+            from farm.sim import box_scene as _bs
+            self.preset = preset or _bs.DEFAULT_PRESET
+            plastic = _bs.PRESETS.get(self.preset, {}).get('plastic')
+            self.plastic = dict(_bs.PLASTIC) if plastic == 'default' else (dict(plastic) if isinstance(plastic, dict) else None)
+        except ImportError:
+            self.preset, self.plastic = preset, None
+        # Fidelity: the real-robot difficulties (FIDELITY); the 'near7' preset keeps the 8 October behaviour.
+        base = {} if self.preset == 'near7' else json.loads(json.dumps(FIDELITY))
+        if fidelity is not None:
+            base.update(fidelity)
+        self.fidelity = base
+        if self.plastic is not None and isinstance(base.get('plastic'), dict):
+            self.plastic.update(base['plastic'])   # e.g. a stiffer crease: {'rate_per_s': 0.3, 'full_set_deg': 112}
+        self.rng = random.Random(1000003 * (int(seed) if isinstance(seed, int) else 0) + 17)
         self.world = World()
         self.lock = self.world.lock
         self._command_lock = threading.Lock()
@@ -716,7 +791,7 @@ class SimRobot:
         if self._given_xml is not None:
             xml, self.scene_source = self._given_xml, 'given'
         else:
-            xml, self.scene_source = build_scene(seed)
+            xml, self.scene_source = build_scene(seed, self.preset, self.fidelity.get('lean_jitter_deg'))
         model = mj.MjModel.from_xml_string(_scene_with_actuators(xml))
         data = mj.MjData(model)
         self.motors = {}
@@ -728,7 +803,7 @@ class SimRobot:
             if offset is None:
                 jaw_deg[joint] = tuple(float(v) for v in np.degrees(model.jnt_range[jid]))
         ranges = {n: self.calibration[n] for n in twin.JOINT_TABLE}
-        self.joint_map = {'validated': False, 'joints': {n: {'zero_tick': ranges[n][0] + GRIPPER_CLOSED_OFFSET_TICKS, 'sign': 1}
+        self.joint_map = {'validated': False, 'joints': {n: {'zero_tick': ranges[n][0] + GRIPPER_CLOSED_OFFSET.get(n.split('_arm_')[0], GRIPPER_CLOSED_OFFSET_TICKS), 'sign': 1}
                                                          for n in twin.JOINT_TABLE if n.endswith('gripper')}}
         # Motors in the owner's bus order (the calibration's order: left arm, head, right arm), as robot_get_state lists them.
         for motor in [n for n in self.calibration if n in twin.JOINT_TABLE]:
@@ -749,8 +824,20 @@ class SimRobot:
                 # drives each joint to both stops), so the model limits follow it. The gripper keeps the model's jaw stops.
                 model.jnt_range[jid] = sorted((q_lo, q_hi))
                 model.jnt_limited[jid] = 1
+            bias = (self.fidelity.get('lift_bias_deg') or {}).get(motor.split('_arm_')[0], 0.0) if motor.endswith('_arm_shoulder_lift') else 0.0
+            roll = (self.fidelity.get('roll_offset_deg') or {}).get(motor.split('_arm_')[0], 0.0) if motor.endswith('_arm_wrist_roll') else 0.0
+            if roll:
+                # the real jaws at the normal wrist_roll (about 2047-2120) open to the robot's left and right (their
+                # pads are vertical planes parallel to a side flap; 8-9 October wrist images and pinches); the twin's
+                # mapping has them opening up and down in the arm's plane, i.e. 90 degrees off
+                a += math.radians(roll)
+            if bias:
+                # the physical joint sits bias degrees from the angle its ticks say, toward a LOWER claw (the lift's
+                # positive direction raises the arm on both sides: checked in the tests)
+                a += math.radians(bias) * (1 if b > 0 else -1)
             self.motors[motor] = _Motor(motor, joint, int(model.jnt_qposadr[jid]), int(model.jnt_dofadr[jid]), aid if aid >= 0 else None,
                                         a, b, lo, hi, KP_GRIP if grip else KP_ARM, KV_GRIP if grip else KV_ARM)
+            self.motors[motor].a0 = a
         self.arm_motors = [n for n in self.motors if '_arm_' in n]
         self.position_names = list(self.motors)
         self.wheel_ticks = {}
@@ -775,6 +862,17 @@ class SimRobot:
         self.box_bodies = self.flap_bodies | ({self.box_body} if self.box_body >= 0 else set())
         flap_joint = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, 'flap_hinge')
         self.flap_qadr = int(model.jnt_qposadr[flap_joint]) if flap_joint >= 0 else None
+        self.flap_spring0 = float(model.qpos_spring[self.flap_qadr]) if self.flap_qadr is not None else None
+        scale = self.fidelity.get('crease_stiffness_scale')
+        if scale and flap_joint >= 0:
+            # a stiffer crease (the 9 October arc met a contact halt at 80 deg once): spring and friction scaled together
+            model.jnt_stiffness[flap_joint] *= float(scale)
+            model.dof_frictionloss[model.jnt_dofadr[flap_joint]] *= float(scale)
+        self.flap_panel = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, 'box_flap')
+        self.all_box_bodies = {i for i in range(model.nbody) if model.body(i).name == 'box' or model.body(i).name.startswith('box_')}
+        # other hinged flaps (e.g. the far flap): one folded over the target flap holds its crease down
+        self.other_flap_qadr = {model.joint(j).name: int(model.jnt_qposadr[j]) for j in range(model.njnt)
+                                if model.joint(j).name.endswith('flap_hinge') and model.joint(j).name != 'flap_hinge'}
         self.table_body = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, 'table')
         self.scene_geoms = [g for g in range(model.ngeom) if model.geom_bodyid[g] == 0 and model.geom_type[g] != mj.mjtGeom.mjGEOM_PLANE
                             and 'floor' not in (mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, g) or '')]
@@ -784,13 +882,20 @@ class SimRobot:
         self.jaw_bodies = {arm: (mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, fixed), mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, moving))
                            for arm, (fixed, moving) in (('left_arm', ('Fixed_Jaw', 'Moving_Jaw')), ('right_arm', ('Fixed_Jaw_2', 'Moving_Jaw_2')))}
         self.tip_sites = {arm: mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site) for arm, (_, _, _, site) in twin.ARMS.items()}
-        # Head joints never move (read-only motors): freeze them. Wheels do not spin (fixed base).
+        # Head joints move only kinematically (robot_move_head ramps their qpos); otherwise frozen, enabled or released
+        # (no head sag). Wheels do not spin (fixed base).
         for joint in ('head_pan_joint', 'head_tilt_joint', 'left_wheel_joint', 'right_wheel_joint'):
             jid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, joint)
             if jid >= 0:
                 model.dof_frictionloss[model.jnt_dofadr[jid]] = 50.0
                 model.dof_damping[model.jnt_dofadr[jid]] = 50.0
         self.head_ticks = {n: int(sample_rows.get(n, {}).get('Present_Position', (self.calibration[n][0] + self.calibration[n][1]) // 2)) for n in HEAD_NAMES}
+        tilt = self.fidelity.get('head_tilt_deg')
+        if tilt is not None and 'head_motor_2' in self.calibration:
+            # the real OAK looks down into the open box (9 October: its table-plane fit landed on the box floor);
+            # head_motor_2 above its midpoint tilts the head down (twin convention)
+            lo, hi = self.calibration['head_motor_2']
+            self.head_ticks['head_motor_2'] = int((lo + hi) // 2 + float(tilt) * 4096 / 360)
         self.world.model, self.world.data = model, data
         self._reset_state()
 
@@ -815,6 +920,7 @@ class SimRobot:
         mj.mj_forward(model, data)
         self.motion = None
         self.base = None
+        self.head_motion = None
         self.last_motion = None
         self.last_stop = None
         self.stop_count = 0
@@ -823,6 +929,13 @@ class SimRobot:
         self.last_completed = None
         self.last_rejected = None
         self.flap_pinched_ever = False
+        if self.flap_qadr is not None:
+            model.qpos_spring[self.flap_qadr] = self.flap_spring0
+        self.crease = {'yield_s': 0.0, 'press_s': 0.0, 'last_t': None, 'prev_deg': None, 'deg_by_pinch': 0.0, 'deg_by_push': 0.0,
+                       'deg_free': 0.0, 'illegal_s': 0.0, 'illegal_ever': False, 'pad_press_s': 0.0, 'max_deg': None,
+                       'max_deg_pinched': None, 'pressed_set': False, 'held_over_95_s': 0.0}
+        self.grip_stick_at = {}     # name -> (kind, tick): stick when the jaw passes that tick
+        self.grip_stuck = {}        # name -> (kind, q, tick): frozen jaw
         self.counts = {'faults': 0, 'refusals': 0, 'moves': 0, 'gripper_closes': 0, 'base_pulses': 0, 'calls': 0, 'sim_resets': 0}
         self._bad_seen = sum(int(data.warning[w].number) for w in self._bad_warnings)
         self.wall_started = time.monotonic()
@@ -836,6 +949,9 @@ class SimRobot:
         self.sim_started = float(data.time)
 
     def _set_passive(self, motor):
+        if motor.name in HEAD_NAMES:   # the head stays frozen where it is (see _load_model)
+            motor.force = 0.0
+            return
         self.model.dof_damping[motor.dadr] = RELEASED_DAMPING
         self.model.dof_frictionloss[motor.dadr] = RELEASED_FRICTION
         if motor.actuator is not None:
@@ -843,6 +959,8 @@ class SimRobot:
         motor.force = 0.0
 
     def _set_active(self, motor):
+        if motor.name in HEAD_NAMES:
+            return
         self.model.dof_damping[motor.dadr] = ENABLED_DAMPING
         self.model.dof_frictionloss[motor.dadr] = ENABLED_FRICTION
 
@@ -896,6 +1014,10 @@ class SimRobot:
                 self.motors[n].goal = self.motion.goal[n]
         if self.base is not None and self.base.active:
             self.base.step(self, dt, now)
+        if self.grip_stick_at or self.grip_stuck:
+            self._grip_stick_step()
+        if self.head_motion is not None and self.head_motion.active:
+            self._head_step(now)
         for n in self.arm_motors:
             motor = self.motors[n]
             if motor.actuator is None:
@@ -924,6 +1046,8 @@ class SimRobot:
         rows = self._poll_rows()
         if not self.flap_pinched_ever and self.flap_bodies:
             self.flap_pinched_ever = any(all(self._box_touching_jaw(arm, bodies=self.flap_bodies)) for arm in self.jaw_bodies)
+        if self.flap_qadr is not None:
+            self._crease_poll(now)
         try:
             if self.motion is not None and self.motion.active:
                 self.motion.poll(now, rows)
@@ -950,6 +1074,8 @@ class SimRobot:
 
     def _release_all(self, reason, record=True):
         """Owner fault / STOP: every motor released, the running motion cancelled (never resumed)."""
+        self.grip_stick_at.clear()
+        self.grip_stuck.clear()
         for motor in self.motors.values():
             if motor.enabled:
                 motor.enabled = False
@@ -964,6 +1090,7 @@ class SimRobot:
             self.base.active = False
             self.base.result = None
             self.base.done.set()
+        self._cancel_head_motion(None)
         if record:
             self.last_stop = {'time': time.time(), 'reason': reason, 'command_id': self.motion.command_id if self.motion else None, 'released': True, 'release_errors': []}
             self.stop_count += 1
@@ -1034,6 +1161,162 @@ class SimRobot:
             return fixed or moving
         return fixed, moving
 
+    # ---------------------------------------------------------------- real-robot fidelity: sticky gripper, crease
+
+    def _grip_call(self, arm, name, current, position):
+        """Start of a robot_set_gripper call (the tool, not its 300-tick parts): per-close meeting-point jitter and the
+        right gripper's mid-travel sticking (FIDELITY). Called under the lock."""
+        closing = position < current
+        sticks = self.fidelity.get('right_grip_sticks') if arm == 'right' else None
+        self.grip_stick_at.pop(name, None)
+        stuck = self.grip_stuck.pop(name, None)
+        if stuck is not None and not closing and stuck[0] in ('open', 'reopen') and sticks and self.rng.random() < sticks['p_reopen']:
+            self.grip_stuck[name] = ('reopen', stuck[1], stuck[2])   # a resent open: the jaw does not move at all
+        elif sticks:
+            if closing and current > 1700 and position < sticks['close_band'][0] and self.rng.random() < sticks['p_close']:
+                self.grip_stick_at[name] = ('close', self.rng.uniform(*sticks['close_band']))
+            elif not closing:
+                lo, hi = max(sticks['open_band'][0], current + 60), min(sticks['open_band'][1], position - 30)
+                if lo < hi and self.rng.random() < sticks['p_open']:
+                    self.grip_stick_at[name] = ('open', self.rng.uniform(lo, hi))
+        jitter = (self.fidelity.get('meet_jitter_ticks') or {}).get(arm)
+        if closing and jitter:
+            motor = self.motors[name]
+            motor.a = motor.a0 - self.rng.uniform(*jitter) * motor.b
+
+    def _grip_stick_step(self):
+        """Every physics step: a jaw passing its stick tick freezes there; a frozen jaw stays put. An opening move whose
+        jaw froze has its goal capped 25 ticks past the jaw, so it ends 'settled_short' (as the real opens did); a resent
+        open on a jaw still stuck is not capped and trips the no-progress guard."""
+        data = self.data
+        motion = self.motion if self.motion is not None and self.motion.active else None
+        for name, (kind, tick) in list(self.grip_stick_at.items()):
+            motor = self.motors[name]
+            t = motor.q_to_tick(float(data.qpos[motor.qadr]))
+            if (kind == 'close' and t <= tick) or (kind == 'open' and t >= tick):
+                del self.grip_stick_at[name]
+                self.grip_stuck[name] = (kind, float(data.qpos[motor.qadr]), int(round(t)))
+        for name, (kind, q, tick) in self.grip_stuck.items():
+            motor = self.motors[name]
+            data.qpos[motor.qadr] = q
+            data.qvel[motor.dadr] = 0.0
+            if kind == 'open' and motion is not None and name in motion.joints and not motion.contact:
+                cap = tick + 25
+                motion.stalled = True
+                for leg in motion.legs:
+                    leg[name] = min(leg[name], cap)
+                motion.targets[name] = min(motion.targets[name], cap)
+                motion.goal[name] = min(motion.goal[name], cap)
+                motor.goal = motion.goal[name]
+
+    def _flap_contacts(self):
+        """Robot contacts on the target flap: {'pinched' (the INNER pad faces of both jaws of one arm touch it: the flap is
+        between the pads), 'pads' (some contact on a jaw's distal pad region), 'illegal' (a contact that is not allowed by
+        the owner's 9 October rule: any robot geom other than the jaw pads, and the outer faces or tips of the pads while
+        no arm pinches the flap, i.e. pushing with a claw; a pad's inner face is always allowed (closing on the flap), and
+        while an arm pinches every pad contact of either arm is, which covers pressing the crease with the other claw's
+        pads), 'illegal_geoms', 'crease_force' (N, robot contacts
+        on the crease panel within PLASTIC press_zone_m of the hinge)}. Pads = jaw-body contacts beyond PAD_Y_M along the
+        jaw (Fixed_Jaw frame); inner = the contact normal points from the jaw toward the other jaw."""
+        np, mj = self.np, self.mj
+        model, data = self.model, self.data
+        zone = (self.plastic or {}).get('press_zone_m', 0.05)
+        out = {'pinched': False, 'pads': False, 'illegal': False, 'illegal_geoms': set(), 'crease_force': 0.0}
+        inner = {arm: [False, False] for arm in self.jaw_bodies}
+        hits = []
+        f6 = np.zeros(6)
+        for i in range(data.ncon):
+            con = data.contact[i]
+            b1, b2 = int(model.geom_bodyid[con.geom1]), int(model.geom_bodyid[con.geom2])
+            if b1 in self.flap_bodies and b2 not in self.all_box_bodies and b2 != 0:
+                flap_body, other, og, sign = b1, b2, con.geom2, -1.0   # frame normal points geom1 -> geom2 (flap -> robot)
+            elif b2 in self.flap_bodies and b1 not in self.all_box_bodies and b1 != 0:
+                flap_body, other, og, sign = b2, b1, con.geom1, 1.0
+            else:
+                continue
+            pad = face = False
+            jaw = None
+            for arm, (fixed, moving) in self.jaw_bodies.items():
+                if other in (fixed, moving):
+                    rot = data.xmat[fixed].reshape(3, 3)
+                    local = rot.T @ (np.asarray(con.pos) - data.xpos[fixed])
+                    pad = bool(local[1] < PAD_Y_M)
+                    jaw = (arm, other)
+                    if pad:
+                        n = rot.T @ (sign * np.asarray(con.frame[:3]))   # jaw -> flap, fixed jaw frame
+                        # the pads close along x: the fixed pad's inner face looks toward -x, the moving pad's toward +x
+                        face = bool((other == fixed and n[0] < -0.5) or (other == moving and n[0] > 0.5))
+                        if face:
+                            inner[arm][0 if other == fixed else 1] = True
+            hits.append((pad, face, jaw, mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, og) or model.body(other).name))
+            if flap_body == self.flap_panel:
+                rot = data.xmat[flap_body].reshape(3, 3)
+                local = rot.T @ (np.asarray(con.pos) - data.xpos[flap_body])
+                if 0.0 <= local[2] < zone:
+                    mj.mj_contactForce(model, data, i, f6)
+                    out['crease_force'] += abs(float(f6[0]))
+        out['pinched'] = any(all(v) for v in inner.values())
+        facing = {jaw for pad, face, jaw, _ in hits if face}   # a jaw closing on the flap with its face: its pad edges too
+        # an arm whose gripper is moving (closing on the flap, or opening to let it go) grips or releases with its pads
+        motion = self.motion if self.motion is not None and self.motion.active else None
+        gripping = {arm for arm in self.jaw_bodies if motion is not None and f"{arm.split('_')[0]}_arm_gripper" in motion.joints}
+        for pad, face, jaw, name in hits:
+            out['pads'] |= pad
+            if not (face or (pad and (out['pinched'] or jaw in facing or (jaw is not None and jaw[0] in gripping)))):
+                out['illegal'] = True
+                out['illegal_geoms'].add(name)
+        return out
+
+    def _crease_poll(self, now):
+        """10 Hz: fold accounting (how much of the flap's inward turn happened while the pads held it vs while another
+        robot part touched it) and the crease plasticity (box_scene.PLASTIC)."""
+        c = self.crease
+        model, data = self.model, self.data
+        th = math.degrees(float(data.qpos[self.flap_qadr]))
+        dt = 0.0 if c['last_t'] is None else max(0.0, now - c['last_t'])
+        c['last_t'] = now
+        info = self._flap_contacts()
+        prev, c['prev_deg'] = c['prev_deg'], th
+        if prev is not None and th > prev:
+            key = 'deg_by_push' if info['illegal'] else 'deg_by_pinch' if (info['pinched'] or info['pads']) else 'deg_free'
+            c[key] += th - prev
+        if info['illegal']:
+            c['illegal_s'] += dt
+            c['illegal_ever'] = True
+            c.setdefault('illegal_geoms', set()).update(info['illegal_geoms'])
+        c['max_deg'] = th if c['max_deg'] is None else max(c['max_deg'], th)
+        if info['pinched']:
+            c['max_deg_pinched'] = th if c['max_deg_pinched'] is None else max(c['max_deg_pinched'], th)
+        P = self.plastic
+        if not P:
+            return
+        th0 = math.degrees(float(model.qpos_spring[self.flap_qadr]))
+        loaded = abs(th - th0) > P['yield_deg']
+        c['yield_s'] = c['yield_s'] + dt if loaded else 0.0
+        if loaded and th > 95.0:
+            c['held_over_95_s'] += dt
+        new = th0
+        if c['yield_s'] > P['delay_s']:
+            if th > th0:
+                f = min(1.0, max(0.0, (th - P['start_set_deg']) / (P['full_set_deg'] - P['start_set_deg'])))
+                target = th - P['springback_deg'] * (1.0 - f)
+            else:
+                target = th + P['springback_deg']
+            if (target - th0) * (th - th0) > 0:
+                new += (target - th0) * (1.0 - math.exp(-P['rate_per_s'] * dt))
+        covered = th >= P['press_min_deg'] and any(math.degrees(float(data.qpos[q])) >= P['cover_deg'] for q in self.other_flap_qadr.values())
+        if covered:
+            c['covered'] = True
+        pressing = covered or (th >= P['press_min_deg'] and info['crease_force'] >= P['press_force_n'])
+        c['press_s'] = c['press_s'] + dt if pressing else 0.0
+        if c['press_s'] > P['press_s']:
+            target = th - P['press_springback_deg']
+            if target > new:
+                new += (target - new) * (1.0 - math.exp(-P['press_rate_per_s'] * dt))
+                c['pressed_set'] = True
+        if new != th0:
+            model.qpos_spring[self.flap_qadr] = math.radians(new)
+
     # ---------------------------------------------------------------- public: catalog, get, call, score
 
     def catalog(self):
@@ -1045,7 +1328,7 @@ class SimRobot:
             raw_tools = []
         by_name = {t['function']['name']: t for t in raw_tools if t.get('type') == 'function'}
         for name in IMPLEMENTED_TOOLS:
-            tool = by_name.get(name) or _minimal_tool(name)
+            tool = self._head_tool() if name == 'robot_move_head' else (by_name.get(name) or _minimal_tool(name))
             tools.append(self._patch_schema(json.loads(json.dumps(tool))))
         return {'tools': tools, 'metadata': {'ok': True, 'stop_tool': 'robot_stop', 'simulated': True, 'execution_profile': EXECUTION_PROFILE,
                                              'scene': self.scene_source, 'model': twin.VENDORED_ID}}
@@ -1066,6 +1349,10 @@ class SimRobot:
                         full = f'{arm}_arm_{key}'
                         if full in cal and (obj.get('description') or '').startswith('Selected arm') and full in obj.get('properties', {}):
                             spec['minimum'], spec['maximum'] = cal[full][0] + 4, cal[full][1] - 4
+        if name == 'robot_set_motor_enable':
+            desc = tool['function']['description']
+            tool['function']['description'] = (desc.replace('Head and wheels are read-only.', HEAD_ENABLE_NOTE)
+                                               if 'Head and wheels are read-only.' in desc else desc + ' ' + HEAD_ENABLE_NOTE)
         if name == 'robot_move_joint_targets':
             patch_targets(params['properties']['positions'])
             for clause in params.get('allOf', []):
@@ -1159,8 +1446,19 @@ class SimRobot:
         rot = self.data.xmat[self.box_body].reshape(3, 3)
         upright = rot[2, 2] > math.cos(math.radians(10))
         resting = upright and self.box_start is not None and abs(float(self.data.xpos[self.box_body][2] - self.box_start[2])) < 0.01
+        folded = bool(angle >= FLAP_FOLDED_DEG and resting and not touched)
+        c = self.crease
+        rest = math.degrees(float(self.model.qpos_spring[self.flap_qadr]))
+        # fold_by_pinch: folded, and the flap turned at most FOLD_PUSH_ALLOWANCE_DEG while a robot part other than the
+        # jaw pads touched it (the owner's rule of 9 October: no pushing with the claw body, wrist camera or arm)
         return {'flap_angle_deg': round(angle, 1), 'flap_pinched_now': pinched, 'flap_pinched_ever': bool(self.flap_pinched_ever or pinched),
-                'flap_folded': bool(angle >= FLAP_FOLDED_DEG and resting and not touched)}
+                'flap_folded': folded, 'fold_by_pinch': bool(folded and c['deg_by_push'] <= FOLD_PUSH_ALLOWANCE_DEG),
+                'flap_rest_deg': round(rest, 1), 'flap_deg_by_pinch': round(c['deg_by_pinch'], 1), 'flap_deg_by_push': round(c['deg_by_push'], 1),
+                'flap_deg_free': round(c['deg_free'], 1), 'illegal_contact_s': round(c['illegal_s'], 1),
+                'illegal_contact_geoms': sorted(c.get('illegal_geoms', ())), 'flap_max_deg': None if c['max_deg'] is None else round(c['max_deg'], 1),
+                'flap_max_deg_pinched': None if c['max_deg_pinched'] is None else round(c['max_deg_pinched'], 1),
+                'crease_pressed': bool(c['pressed_set']), 'crease_covered': bool(c.get('covered')), 'held_over_95_s': round(c['held_over_95_s'], 1),
+                'other_flaps_deg': {n: round(math.degrees(float(self.data.qpos[q])), 1) for n, q in self.other_flap_qadr.items()}}
 
     def snapshot(self):
         """Positions/ranges for the twin renderer (render_twin(positions, ranges)) plus the box pose in the robot frame."""
@@ -1190,7 +1488,7 @@ class SimRobot:
         return sorted(n for n, m in self.motors.items() if m.enabled)
 
     def _phase(self):
-        if self.motion is not None and self.motion.active or self.base is not None and self.base.active:
+        if self.motion is not None and self.motion.active or self.base is not None and self.base.active or self._head_moving():
             return 'moving'
         return 'holding' if any(m.enabled for m in self.motors.values()) else 'idle'
 
@@ -1274,7 +1572,9 @@ class SimRobot:
         if name == 'robot_get_state':
             return self._state(), None
         if name == 'robot_get_capabilities':
-            return self._capabilities(), None
+            return dict(self._capabilities(), **self._head_capabilities()), None
+        if name == 'robot_move_head':
+            return self._move_head(args['positions'], args.get('duration_s')), None
         if name == 'robot_list_motors':
             with self.lock:
                 ready = self._readiness()
@@ -1426,6 +1726,8 @@ class SimRobot:
                 for n in names:
                     motor = self.motors.get(n)
                     if motor is not None and motor.enabled:
+                        if n in HEAD_NAMES:
+                            self._cancel_head_motion('released')
                         if self.motion is not None and self.motion.active and n in self.motion.joints:
                             self.motion.halt({j: self.motors[j].present for j in self.motion.joints})
                         motor.enabled = False
@@ -1436,7 +1738,7 @@ class SimRobot:
             ready = self._readiness()
             if not ready['available_to_accept_authorized_command']:
                 return self._busy_result(ready)
-            readonly = sorted(set(names) - set(self.arm_motors))
+            readonly = sorted(set(names) - set(self.arm_motors) - set(HEAD_NAMES))
             if readonly:
                 raise ValueError(READ_ONLY_MESSAGE.format(names=', '.join(readonly)))
             faults = {n: ready['joint_blockers'][n] for n in names if n in ready['joint_blockers']}
@@ -1460,6 +1762,9 @@ class SimRobot:
             if self.motion is not None and self.motion.active:
                 halted_id = self.motion.command_id
                 self.motion.halt({j: self.motors[j].present for j in self.motion.joints})
+            if self._head_moving():
+                halted_id = self.head_motion.command_id
+                self._cancel_head_motion('halted')
             self.last_completed = command_id
             self._poll_rows()
             positions = {n: self.motors[n].present for n in self.arm_motors}
@@ -1665,6 +1970,9 @@ class SimRobot:
         with self.lock:
             self._poll_rows()
             current = self.motors[name].present
+            self._grip_call(arm, name, current, position)
+            self._poll_rows()
+            current = self.motors[name].present
         if abs(current - position) <= GRIPPER_CLOSE_CHUNK:
             return self._set_gripper_once(arm, position, duration_s)
         generation = self.cancel_generation
@@ -1734,6 +2042,130 @@ class SimRobot:
         if any(type(v) not in (int, float) or not math.isfinite(v) for v in (linear_m_s, angular_rad_s, duration_s)) or not 0 < duration_s <= 3:
             raise ValueError('Finite linear_m_s, angular_rad_s and duration_s in (0,3] required')
         return self._command({'op': 'base_pulse', 'linear_m_s': linear_m_s, 'angular_rad_s': angular_rad_s, 'duration_s': duration_s})
+
+    # ---------------------------------------------------------------- head (robot_move_head)
+
+    def _head_tool(self):
+        """robot_move_head as the real bridge declares it (gemma_robot_tools HEAD_TARGET: raw range +-4 schema bounds)."""
+        positions = {'type': 'object', 'description': 'Canonical head motor names and integer encoder ticks.', 'minProperties': 1,
+                     'properties': {n: {'type': 'integer', 'minimum': self.calibration[n][0] + 4, 'maximum': self.calibration[n][1] - 4} for n in HEAD_NAMES},
+                     'additionalProperties': False}
+        return {'type': 'function', 'function': {'name': 'robot_move_head', 'description': HEAD_TOOL_DESCRIPTION,
+                                                 'parameters': {'type': 'object', 'properties': {'positions': positions,
+                                                                                                 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}},
+                                                                'required': ['positions'], 'additionalProperties': False}}}
+
+    def _head_capabilities(self):
+        bands = self._commandable()
+        return {'head_supported': True, 'head_motors': list(HEAD_NAMES), 'head_move_limits': dict(HEAD_LIMITS), 'head_policy': HEAD_POLICY,
+                'head_commandable_ranges': {n: bands[n] for n in HEAD_NAMES},
+                'head_convention': 'head_motor_1 above its saved midpoint pans the OAK view LEFT; head_motor_2 above its midpoint tilts it DOWN'}
+
+    def _head_moving(self):
+        return self.head_motion is not None and self.head_motion.active
+
+    def _head_step(self, now):
+        """Physics thread: put the head joints on their linear ramp (kinematic; no load or following error)."""
+        hm = self.head_motion
+        f = 1.0 if hm.duration <= 0 else min(1.0, max(0.0, (now - hm.t0) / hm.duration))
+        for n, target in hm.target.items():
+            motor = self.motors[n]
+            tick = hm.start[n] + (target - hm.start[n]) * f
+            self.data.qpos[motor.qadr] = motor.tick_to_q(tick)
+            self.data.qvel[motor.dadr] = 0.0
+            motor.goal = int(round(tick))
+        if f >= 1.0:
+            hm.active = False
+            hm.outcome = 'endpoint_settled'
+            hm.result = {n: int(t) for n, t in hm.target.items()}
+            hm.done.set()
+
+    def _cancel_head_motion(self, outcome):
+        """Stop a head ramp where it is (STOP/fault: outcome None and the call reports the stop; release/halt: it holds)."""
+        hm = self.head_motion
+        if hm is None or not hm.active:
+            return
+        hm.active = False
+        hm.outcome = outcome or 'stopped'
+        hm.result = None
+        hm.done.set()
+
+    def _move_head(self, positions, duration_s=None):
+        """robot_move_head, in the real order: the bridge's normalize_targets(head=True) (names, commandable bounds), joints
+        within 2 ticks dropped (all dropped: no_op), default duration, then the owner (busy, range, enabled) and
+        head_joint_executor.check_head_request (<=200 ticks, >=1 s per 100 ticks). Blocks until the ramp ends."""
+        if not isinstance(positions, dict) or not positions:
+            raise ValueError('Integer joint target object required')
+        result = {}
+        for key, q in positions.items():
+            if key not in self.motors:
+                raise ValueError('Unknown position joint: ' + str(key) + '; valid canonical names: ' + ', '.join(self.motors))
+            if key not in HEAD_NAMES:
+                raise ValueError('Head tool accepts head motors only: ' + key)
+            if type(q) is not int:
+                raise ValueError('Integer head-motor target required')
+            result[key] = q
+        bands = self._commandable()
+        for n, q in result.items():
+            b = bands[n]
+            if not b['min_ticks'] <= q <= b['max_ticks']:
+                raise ValueError(f"Target out of bounds: {n}={q}; commandable inclusive range [{b['min_ticks']}, {b['max_ticks']}] ticks ({b['margin_ticks']}-tick margin)")
+        with self.lock:
+            self._poll_rows()
+            present = {n: self.motors[n].present for n in HEAD_NAMES}
+        moving = {n: t for n, t in result.items() if abs(t - present[n]) > 2}
+        if not moving:
+            return {'accepted': True, 'completed': True, 'no_op': True, 'endpoint_reached': True, 'motor_writes': 0,
+                    'reason': 'Every requested head joint is already within 2 ticks of its target'}
+        travel = max(abs(t - present[n]) for n, t in moving.items())
+        if duration_s is None:
+            duration_s = max(1.0, round(travel / 100, 2))
+        if type(duration_s) not in (int, float) or not math.isfinite(duration_s) or not 0 < duration_s <= 25:
+            raise ValueError('Duration must be finite in (0,25]')
+        if not self._command_lock.acquire(blocking=False):
+            raise RuntimeError('Hardware command active; STOP remains independently available')
+        try:
+            with self.lock:
+                ready = self._readiness()
+                if not ready['available_to_accept_authorized_command']:
+                    return dict(self._busy_result(ready), head_targets=moving, duration_s=duration_s)
+                self._poll_rows()
+                current = {n: self.motors[n].present for n in moving}
+                for n in moving:
+                    lo, hi = self.calibration[n]
+                    if not lo + MARGIN <= moving[n] <= hi - MARGIN:
+                        raise ValueError('Target outside saved range plus 40-tick margin: ' + n)
+                    if not self.motors[n].enabled:
+                        raise ValueError('Requested motor is released; explicitly enable it first: ' + n)
+                travels = {n: abs(t - current[n]) for n, t in moving.items()}
+                for n, d in travels.items():
+                    if d > HEAD_MAX_TICKS:
+                        raise ValueError(f'Head move: {n} travels {d} ticks; at most {HEAD_MAX_TICKS} per move')
+                need = max(travels.values()) / HEAD_TICKS_PER_S
+                if duration_s + 1e-9 < need:
+                    raise ValueError(f'Head move duration_s must be at least 1 s per 100 ticks: {max(travels.values())} ticks needs {need:.2f} s, got {duration_s}')
+                generation = self.cancel_generation
+                command_id = self._next_command_id()
+                hm = _HeadMotion(command_id, current, dict(moving), float(duration_s), self.world.now())
+                self.head_motion = hm
+            self._wait(hm.done, generation)
+            with self.lock:
+                if hm.result is None:
+                    if hm.outcome in ('halted', 'released'):
+                        self._poll_rows()
+                        return {'accepted': True, 'completed': False, 'halted': True, 'endpoint_reached': False, 'closure_outcome': hm.outcome,
+                                'holding': hm.outcome == 'halted', 'command_id': command_id, 'readbacks': {n: self.motors[n].present for n in moving},
+                                'mode': 'direct_joint', 'head_targets': moving, 'duration_s': duration_s}
+                    raise RuntimeError('Owner stopped: ' + str((self.last_stop or {}).get('reason') or self.error))
+                self._poll_rows()
+                readbacks = {n: self.motors[n].present for n in moving}
+                self.last_completed = command_id
+                self.counts['head_moves'] = self.counts.get('head_moves', 0) + 1
+                done = self._completion(command_id, readbacks, endpoint_reached=True, closure_outcome='endpoint_settled',
+                                        settle_residual_ticks={n: moving[n] - readbacks[n] for n in moving}, duration_s_actual=hm.duration)
+                return dict(done, head_targets=moving, duration_s=duration_s)
+        finally:
+            self._command_lock.release()
 
     # ---------------------------------------------------------------- scripting helpers (tests, bench setup)
 
@@ -1816,7 +2248,16 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   is unmeasured. Settle corrections (up to 3 x 40 ticks, 57 max overdrive) are ported from the real executor.
 - Released joints keep 0.4 N m of gear friction: the folded arms rest; an extended released arm sags over a few seconds.
 - MuJoCo noslip_iterations=5 so a pinched box does not creep out of the soft jaw contacts.
-- The box's flap is 7 cm: a 5 cm panel on the crease hinge (box_scene.FLAP_SEGMENTS_M) plus a 2 cm top strip on a nearly free
+- Default scene (box_scene preset 'real', the 9 October carton): an open box, rim 77 cm, a 16 cm right flap (the target,
+  'flap_hinge') and a 16 cm far flap that leans in (flaps never collide with each other). The crease springs back toward a
+  rest angle that only moves while the crease is loaded (box_scene.PLASTIC): a flap held flat and released returns most of
+  the way, one carried past ~100 deg into the opening and held ~5 s stays down; a crease pressed by a robot contact near the
+  hinge, or covered by the far flap folded past 80 deg, also sets. score() splits the flap's inward turn into degrees moved
+  while the pads pinched it vs while another robot part touched it (fold_by_pinch allows 10 deg of the latter). FIDELITY:
+  per-close meeting-point jitter, the right gripper's mid-travel sticking, a 5 deg shoulder_lift bias (the arm model reads
+  ~3 cm high near the box) and a 90 deg wrist_roll offset (unrolled jaws open left/right). None of the crease numbers is
+  measured beyond the attempts quoted in box_scene. The 'near7' preset is the 8 October scene below, without FIDELITY.
+- near7: the box's flap is 7 cm: a 5 cm panel on the crease hinge (box_scene.FLAP_SEGMENTS_M) plus a 2 cm top strip on a nearly free
   joint that stands in for cardboard crushing between the pads, so a pinch on the top 2 cm can carry the flap round its hinge
   while a deeper pinch locks it to the jaws. The crease folds under about 0.9 N at the edge and stays where it is put (its
   friction beats its spring); none of this is measured on the real carton. Jaw-flap contacts use friction 1.2, 5 mm torsion.
@@ -1829,7 +2270,12 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   command exactly; a box touching a jaw stays with the robot. The pulse blocks for duration + 0.8 s of sim time.
 - Sim time between commands follows wall time (1x); only blocking calls fast-forward when real_time=False, so tick-level
   results differ run to run. Step hooks (camera recording) run at most every 0.5 s of sim time while fast-forwarding.
-- Head motors are frozen at the sample's positions; the fallback scene's cameras are approximate poses.
+- Head motors (robot_move_head, the real owner's --head scope, always on here) move kinematically: their joint angles
+  follow an exact linear ramp in sim time (no load, following error, contact halt or overshoot; no idle lease, as for the
+  arms) and otherwise stay frozen, enabled or released (no sag). They start at the sample's pan and,
+  with FIDELITY, head_tilt_deg 45 down (head_motor_2 at saved midpoint + 512 ticks, which is above its saved range_max: the
+  real OAK looked that far down on 9 October); a move back inside the commandable range is allowed from there. The fallback
+  scene's cameras are approximate poses.
 - score()['moves'] counts accepted robot_move_joint_targets/robot_move_path/opening robot_set_gripper calls,
   'gripper_closes' closing robot_set_gripper calls, 'base_pulses' robot_move_base calls; internal 300-tick parts are not counted.
 """

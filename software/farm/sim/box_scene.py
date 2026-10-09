@@ -6,7 +6,11 @@ sites, the OAK optical site ``HEAD_SITE`` on ``HEAD_CAMERA_BODY``, floor, lights
 - a table (box geom, 0.60 m deep x 0.90 m wide, top at ``table_top_m``) whose near edge is ``TABLE_NEAR_M`` forward
   of the robot origin; four visual legs;
 - a free cardboard box (body ``box``, freejoint ``box_free``, 0.25 kg, friction 1.0, a brown corrugation-striped
-  material) resting on the table's near edge, with an open carton flap: body ``box_flap`` (geom ``flap``, 7 cm tall,
+  material) resting on the table's near edge. ``preset`` picks the box (``PRESETS``): 'real' (the default) is the
+  carton measured on the robot on 9 October, an OPEN box (floor and four walls, rim 77 cm) with a 16 cm right flap
+  (the target: ``flap_hinge``, bodies ``box_flap*``) whose starting lean is drawn per seed, and a 16 cm far flap
+  leaning in; its crease plasticity lives in SimRobot (``PLASTIC``). 'near7' is the 8 October scene described next,
+  a closed box with one open carton flap: body ``box_flap`` (geom ``flap``, 7 cm tall,
   3.5 mm thick, the box's full width, 10 g) on hinge joint ``flap_hinge`` along the near top edge (axis along the box
   width). Angle 0 = vertical, positive = folded inward over the box top, 90 = flat on the top (the joint stops at
   ``FLAP_RANGE_DEG``; the flap and the box are parent and child, so MuJoCo does not collide them and the stop is
@@ -50,7 +54,7 @@ TABLE_NEAR_M = 0.30           # near edge forward of the robot origin
 TABLE_SIZE_M = (0.60, 0.90)   # depth (forward), width (left-right)
 TABLE_THICKNESS_M = 0.03
 FLAP_SEGMENTS_M = (0.05, 0.02)  # bottom up: the flap panel on the crease, then the top strip the pads hold
-FLAP_HEIGHT_M = sum(FLAP_SEGMENTS_M)    # 7 cm, the real carton's open flap is about 8
+FLAP_HEIGHT_M = sum(FLAP_SEGMENTS_M)    # 7 cm (preset 'near7'); the real carton's flaps are 16 cm (preset 'real')
 FLAP_THICKNESS_M = 0.0035
 FLAP_MASS_KG = 0.01
 FLAP_FRICTION = 1.2           # sliding friction of the jaw pads on the flap (priority 1: the flap's contact parameters win)
@@ -66,7 +70,52 @@ FLAP_BEND_FRICTIONLOSS = 0.005
 FLAP_BEND_DAMPING = 0.001
 FLAP_BEND_RANGE_DEG = (-120.0, 120.0)
 FLAP_FOLDED_DEG = 75.0        # robot_frame_of_box / SimRobot.score: folded at or past this angle
+
+# Scene presets. 'near7' is the 8 October bench scene (box top 81 cm, one 7 cm near flap that stays where it is put).
+# 'real' (the default) is the carton measured on the robot on 9 October with the head depth camera (model frame):
+# floor 70, rim 77 (box 7 cm over the table), near face at about 27 cm forward, far rim at 42-44, right wall at
+# -18 left, left wall at +21; the right flap stands 16 cm (free edge about 93 cm at 34 fwd / -21 left), leaning about
+# 3 cm outward; the far flap stands 16 cm leaning 4-6 cm inward; the near flap is folded down and the left flap hangs
+# outward (neither is modelled). The target flap (joint 'flap_hinge', bodies 'box_flap*') is the RIGHT flap.
+# Its crease springs back: a flap carried to 100 deg and released returned to 5-15 deg from vertical on the robot, and
+# 3-6 s holds pressed flat did not set it. SimRobot models that with a moving spring rest angle (PLASTIC below).
+# Flap entries: side ('near', 'far', 'left', 'right' face of the box), segments (bottom panel on the crease, top strip
+# the pads hold), thickness per segment (the top 2 cm is the crushed edge: 2 mm, so a tip pinch reads about 14 ticks
+# above the meeting pads like the real right gripper's 1358-1364), open_deg (rest lean, + = inward), crease spring,
+# friction, damping, range, mass; 'target' marks the scored flap.
+# The real flaps folded from pinches 2-4 cm deep (9 October): the board bends where it leaves the pads. Segments: an
+# 11 cm crease panel, a 3 cm band that bends moderately (the pinch line of a deeper pinch), the 2 cm crushed edge.
+REAL_FLAP = {'segments': (0.11, 0.03, 0.02), 'thickness': (0.0035, 0.0035, 0.002), 'bend_stiffness': (0.03, 0.005),
+             'bend_frictionloss': (0.004, 0.005), 'stiffness': 0.08, 'frictionloss': 0.008,
+             'damping': 0.004, 'range': (-60.0, 114.0), 'mass': 0.015}
+PRESETS = {
+    'near7': {'box_forward_m': 0.42, 'box_left_m': 0.21, 'box_size_m': (0.20, 0.15, 0.11),
+              'phone': (-0.45, 0.55, 1.20), 'plastic': None,
+              'flaps': {'near': {'segments': FLAP_SEGMENTS_M, 'thickness': (FLAP_THICKNESS_M, FLAP_THICKNESS_M),
+                                 'open_deg': FLAP_OPEN_DEG, 'stiffness': FLAP_STIFFNESS, 'frictionloss': FLAP_FRICTIONLOSS,
+                                 'damping': FLAP_DAMPING, 'range': FLAP_RANGE_DEG, 'mass': FLAP_MASS_KG, 'target': True}}},
+    'real': {'box_forward_m': 0.355, 'box_left_m': 0.015, 'box_size_m': (0.17, 0.39, 0.07), 'hollow': True,
+             'lean_jitter_deg': (-12.0, 15.0),
+             'phone': (0.05, -0.62, 1.05),   # the real phone stands on the robot's right, looking at the right wall
+             'plastic': 'default',
+             'flaps': {'right': dict(REAL_FLAP, open_deg=-11.0, target=True),
+                       'far': dict(REAL_FLAP, open_deg=17.0, target=False)}},
+}
+DEFAULT_PRESET = 'real'
+# Crease plasticity (SimRobot, 10 Hz): the spring's rest angle theta0 moves only while the crease is loaded, i.e. the
+# flap is held |theta - theta0| > yield_deg away from it, continuously for more than delay_s. It then creeps toward
+# theta - springback(theta) at rate_per_s: springback is springback_deg up to start_set_deg and falls linearly to 0 at
+# full_set_deg (overfolding breaks the crease). Checks against the 9 October robot attempts (rest about -11):
+# held flat (86 deg) 6 s -> rest about +10 (robot: 5-15 inward); carried to 100 deg, held 3 s -> about +25 (robot:
+# 30-40 inward, with a push sweep); 100 deg for 7 s or 105 deg for 5 s -> about +75, which stays folded.
+# A second contact pressing the crease zone (within press_zone_m of the hinge) with >= press_force_n while the flap is
+# past press_min_deg for press_s sets the crease almost fully (springback press_springback_deg, rate press_rate_per_s).
+# So does another flap folded past cover_deg on top of it (the flaps do not collide in the sim, see build_scene_xml).
+PLASTIC = {'yield_deg': 30.0, 'delay_s': 2.0, 'rate_per_s': 0.5, 'springback_deg': 70.0, 'start_set_deg': 85.0,
+           'full_set_deg': 105.0, 'press_zone_m': 0.05, 'press_force_n': 0.5, 'press_min_deg': 70.0, 'press_s': 2.0,
+           'press_springback_deg': 5.0, 'press_rate_per_s': 1.0, 'cover_deg': 80.0}
 BOX_MASS_KG = 0.25
+BOX_WALL_M = 0.004
 BOX_FRICTION = 1.0
 BOX_JITTER_M = 0.02
 BOX_JITTER_DEG = 5.0
@@ -76,6 +125,7 @@ BOX_JITTER_DEG = 5.0
 OAK_SIZE = (640, 360)
 OAK_FOCAL_PX = 505.0
 OAK_FOVY_DEG = math.degrees(2.0 * math.atan(OAK_SIZE[1] / 2.0 / OAK_FOCAL_PX))
+STOCK_HEAD_CAMERA_MESH = 'tophead6'   # the kit's USB head camera on the tilt link (removed from the robot 2026-10-09)
 OAK_CAMERA_XYAXES = '0 -1 0 0 0 1'   # HEAD_SITE_XYAXES '0 -1 0 0 0 -1' with the y axis flipped (image up, not down)
 WRIST_SIZE = (640, 480)
 WRIST_FOVY_DEG = 70.0
@@ -136,13 +186,29 @@ def box_pose(box_forward_m, box_left_m, table_top_m, box_size_m, seed):
     return centre, yaw
 
 
-def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_size_m=(0.20, 0.15, 0.11),
-                    lamp=True, seed=0, path=None):
+def build_scene_xml(box_forward_m=None, box_left_m=None, table_top_m=0.70, box_size_m=None,
+                    lamp=True, seed=0, path=None, preset=None, lean_jitter_deg=None):
     """MJCF string: the twin's scene plus table, box, lamp, floor and the four cameras. See the module docstring.
 
-    ``box_size_m`` is (forward depth, left-right width, height); the box's near face is at
-    ``box_forward_m - depth/2``. ``seed`` jitters the box (None: exactly where asked).
+    ``preset``: a ``PRESETS`` key (default ``DEFAULT_PRESET``, the real 9 October carton); it supplies the box pose,
+    size, flaps and phone position, and the explicit arguments override it (``lean_jitter_deg``: the range the target
+    flap's starting lean is drawn from per seed). ``box_size_m`` is (forward depth,
+    left-right width, height); the box's near face is at ``box_forward_m - depth/2``. ``seed`` jitters the box
+    (None: exactly where asked).
     """
+    spec = PRESETS[preset or DEFAULT_PRESET]
+    flaps = {side: dict(flap) for side, flap in spec['flaps'].items()}
+    lean_jitter_deg = lean_jitter_deg or spec.get('lean_jitter_deg')
+    if lean_jitter_deg and seed is not None:
+        # the real right flap's lean changed from attempt to attempt (11 deg out in the morning, 5-15 and 25-40 deg in
+        # after folds): each seed draws the target flap's starting lean (its crease rest angle) from this range
+        rng = np.random.RandomState(int(seed) + 7919)
+        for flap in flaps.values():
+            if flap.get('target'):
+                flap['open_deg'] = float(rng.uniform(*lean_jitter_deg))
+    box_forward_m = spec['box_forward_m'] if box_forward_m is None else box_forward_m
+    box_left_m = spec['box_left_m'] if box_left_m is None else box_left_m
+    box_size_m = spec['box_size_m'] if box_size_m is None else box_size_m
     if path is None:
         path, _ = twin.find_model()
     root = ET.fromstring(twin._scene_xml(path))
@@ -209,58 +275,41 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
                   diaginertia=_fmt((BOX_MASS_KG / 12.0 * (width ** 2 + height ** 2),
                                     BOX_MASS_KG / 12.0 * (depth ** 2 + height ** 2),
                                     BOX_MASS_KG / 12.0 * (depth ** 2 + width ** 2))))
-    ET.SubElement(box, 'geom', name='box_body', type='box', size=_fmt((depth / 2.0, width / 2.0, height / 2.0)),
-                  material='scene_cardboard', contype='3', conaffinity='3', condim='4',
-                  friction=f'{BOX_FRICTION} 0.005 0.0001', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
-    # Flap: a plate hinged on the near top edge (the +x face in the box frame faces the robot), its outer face flush
-    # with the near face. Joint axis -y: a positive angle swings the flap's free edge toward -x, i.e. inward over
-    # the top. The body is posed at FLAP_OPEN_DEG and ``ref`` says so, so qpos reads the angle from vertical.
-    # The flap is a chain of panels (FLAP_SEGMENTS_M, bottom up): ``box_flap`` (geom ``flap``) on the crease
-    # ``flap_hinge``, then ``box_flap_1`` (geom ``flap_1``, the top strip) on the bend joint ``flap_bend_1``.
-    # A rigid plate pinched between pads that are not parallel to it is locked to the jaws, and this arm cannot tilt
-    # its jaws past about -60 deg pitch out there, so a rigid flap could never be folded from a pinch: carrying the
-    # pinch along the arc would drag the box instead. Real corrugated board crushes between the pads and turns there.
-    # The nearly free strip joint is that pivot: a pinch on the top 2 cm can carry the flap round the hinge, while a
-    # deeper pinch holds the stiff panel and locks it to the jaws (and drags the box), as stiff board would.
-    open_rad = math.radians(FLAP_OPEN_DEG)
-    flap_width = width - 0.002
+    if spec.get('hollow'):
+        # An open carton (the real one: the depth camera sees its floor at table height): a floor and four 4 mm walls.
+        # ``box_body`` stays as the box's outline (size, top height for robot_frame_of_box) but neither collides nor
+        # renders (group 3), so a flap can fold past flat into the opening and a claw can reach in.
+        ET.SubElement(box, 'geom', name='box_body', type='box', size=_fmt((depth / 2.0, width / 2.0, height / 2.0)),
+                      contype='0', conaffinity='0', group='3', rgba='0 0 0 0', mass='0')
+        wall = BOX_WALL_M / 2.0
+        parts = {'box_floor': ((0.0, 0.0, -height / 2.0 + wall), (depth / 2.0, width / 2.0, wall)),
+                 'box_wall_near': ((depth / 2.0 - wall, 0.0, 0.0), (wall, width / 2.0, height / 2.0)),
+                 'box_wall_far': ((-depth / 2.0 + wall, 0.0, 0.0), (wall, width / 2.0, height / 2.0)),
+                 'box_wall_right': ((0.0, width / 2.0 - wall, 0.0), (depth / 2.0, wall, height / 2.0)),
+                 'box_wall_left': ((0.0, -width / 2.0 + wall, 0.0), (depth / 2.0, wall, height / 2.0))}
+        for name, (pos, half) in parts.items():
+            ET.SubElement(box, 'geom', name=name, type='box', pos=_fmt(pos), size=_fmt(half), mass='0',
+                          material='scene_cardboard', contype='3', conaffinity='3', condim='4',
+                          friction=f'{BOX_FRICTION} 0.005 0.0001', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
+    else:
+        ET.SubElement(box, 'geom', name='box_body', type='box', size=_fmt((depth / 2.0, width / 2.0, height / 2.0)),
+                      material='scene_cardboard', contype='3', conaffinity='3', condim='4',
+                      friction=f'{BOX_FRICTION} 0.005 0.0001', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
+    # Flaps: plates hinged on a top edge of the box (see ``_add_flap``); the preset's target flap is the scored one
+    # (joint ``flap_hinge``, bodies ``box_flap``, ``box_flap_1``, geoms ``flap``, ``flap_1``, site ``box_flap_top``).
     contact = root.find('contact')
     if contact is None:
         contact = ET.SubElement(root, 'contact')
-    parent, chain = box, []
-    for i, length in enumerate(FLAP_SEGMENTS_M):
-        name = 'box_flap' if i == 0 else f'box_flap_{i}'
-        if i == 0:
-            body = ET.SubElement(parent, 'body', name=name,
-                                 pos=_fmt((depth / 2.0 - FLAP_THICKNESS_M / 2.0, 0.0, height / 2.0)),
-                                 quat=_fmt((math.cos(open_rad / 2.0), 0.0, -math.sin(open_rad / 2.0), 0.0)))
-            ET.SubElement(body, 'joint', name='flap_hinge', type='hinge', axis='0 -1 0', pos='0 0 0',
-                          ref=f'{open_rad:.6g}', springref=f'{open_rad:.6g}', stiffness=str(FLAP_STIFFNESS),
-                          damping=str(FLAP_DAMPING), frictionloss=str(FLAP_FRICTIONLOSS), armature='1e-5',
-                          limited='true', range=_fmt([math.radians(v) for v in FLAP_RANGE_DEG]))
-        else:
-            body = ET.SubElement(parent, 'body', name=name, pos=_fmt((0.0, 0.0, FLAP_SEGMENTS_M[i - 1])))
-            ET.SubElement(body, 'joint', name=f'flap_bend_{i}', type='hinge', axis='0 -1 0', pos='0 0 0',
-                          stiffness=str(FLAP_BEND_STIFFNESS), damping=str(FLAP_BEND_DAMPING),
-                          frictionloss=str(FLAP_BEND_FRICTIONLOSS), armature='1e-5', limited='true',
-                          range=_fmt([math.radians(v) for v in FLAP_BEND_RANGE_DEG]))
-        mass = FLAP_MASS_KG * length / FLAP_HEIGHT_M
-        ET.SubElement(body, 'inertial', pos=_fmt((0.0, 0.0, length / 2.0)), mass=f'{mass:.6g}',
-                      diaginertia=_fmt((mass / 12.0 * (flap_width ** 2 + length ** 2),
-                                        mass / 12.0 * (FLAP_THICKNESS_M ** 2 + length ** 2),
-                                        mass / 12.0 * (FLAP_THICKNESS_M ** 2 + flap_width ** 2))))
-        ET.SubElement(body, 'geom', name='flap' if i == 0 else f'flap_{i}', type='box', pos=_fmt((0.0, 0.0, length / 2.0)),
-                      size=_fmt((FLAP_THICKNESS_M / 2.0, flap_width / 2.0, length / 2.0)), material='scene_flap',
-                      contype='3', conaffinity='3', condim='4', friction=f'{FLAP_FRICTION} {FLAP_TORSION_M} 0.0001',
-                      priority='1', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
-        # MuJoCo skips parent-child pairs only; panels further down the chain (and the box) would collide once bent.
-        for other in ['box'] + chain[:-1]:
-            ET.SubElement(contact, 'exclude', body1=other, body2=name)
-        chain.append(name)
-        parent = body
+    chains = [_add_flap(box, contact, side, flap, (depth, width, height)) for side, flap in flaps.items()]
+    # Different flaps never collide: at the far corner an inward-leaning far flap would cut through the folding right
+    # flap's far end (real board gives way there; the robot folded the right flap past flat on 9 October with the far
+    # flap leaning in). A flap folded on top of another one is credited by SimRobot instead (crease 'covered').
+    for i, a in enumerate(chains):
+        for b in chains[i + 1:]:
+            for x in a:
+                for y in b:
+                    ET.SubElement(contact, 'exclude', body1=x, body2=y)
     ET.SubElement(box, 'site', name='box_centre', pos='0 0 0', size='0.003', group='4', rgba='0 0 1 0')
-    ET.SubElement(parent, 'site', name='box_flap_top', size='0.003', group='4', rgba='0 0 1 0',
-                  pos=_fmt((0.0, 0.0, FLAP_SEGMENTS_M[-1])))
 
     # Lamp behind the box: emissive sphere on a stand plus a strong directional light pointing at the robot.
     if lamp:
@@ -288,7 +337,20 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
     head = bodies.get(twin.HEAD_CAMERA_BODY)
     if head is None:
         raise ValueError(f'model has no {twin.HEAD_CAMERA_BODY} body for the oak camera')
-    ET.SubElement(head, 'camera', name='oak', pos='0 0 0', xyaxes=OAK_CAMERA_XYAXES, fovy=f'{OAK_FOVY_DEG:.4f}')
+    # at the OAK's optical centre: the slot cradle's offset from the camera link origin (link frame: x out of the lens,
+    # y left, z up), as the twin's camera_pose uses it. The stock USB head camera (mesh tophead6 on the tilt link) was
+    # removed on 9 October for the OAK; its mesh would sit right under the lens and block the view, so it goes too.
+    # The vendored camera-frame marker sites (1 cm translucent boxes at the camera link origin) would sit in front of
+    # the lens now that it is offset: they go to the never-drawn group 4.
+    for body in world.iter('body'):
+        for geom in [g for g in body.findall('geom') if g.get('mesh') == STOCK_HEAD_CAMERA_MESH]:
+            body.remove(geom)
+    for body in head.iter('body'):
+        for site in body.findall('site'):
+            if site.get('name') in ('head_camera_rgb_optical_frame', 'head_camera_depth_optical_frame'):
+                site.set('group', '4')
+    lens = ' '.join(f'{v:.4f}' for v in getattr(twin, 'HEAD_OPTICAL_OFFSET_M', (0.0, 0.0, 0.0)))
+    ET.SubElement(head, 'camera', name='oak', pos=lens, xyaxes=OAK_CAMERA_XYAXES, fovy=f'{OAK_FOVY_DEG:.4f}')
     tilt = math.radians(WRIST_TILT_DEG)
     wrist_xyaxes = _fmt((-1.0, 0.0, 0.0, 0.0, -math.sin(tilt), math.cos(tilt)))
     for name, body_name in WRIST_BODIES.items():
@@ -297,11 +359,86 @@ def build_scene_xml(box_forward_m=0.42, box_left_m=0.21, table_top_m=0.70, box_s
             raise ValueError(f'model has no {body_name} body for the {name} camera')
         ET.SubElement(body, 'camera', name=name, pos=_fmt(WRIST_CAMERA_POS), xyaxes=wrist_xyaxes,
                       fovy=str(WRIST_FOVY_DEG))
-    phone_pos = robot_to_model(*PHONE_POS_ROBOT)
+    phone_pos = robot_to_model(*spec.get('phone', PHONE_POS_ROBOT))
     phone_target = robot_to_model(box_forward_m, box_left_m, table_top_m + height / 2.0)
     ET.SubElement(world, 'camera', name='phone', pos=_fmt(phone_pos), xyaxes=lookat_xyaxes(phone_pos, phone_target),
                   fovy=str(PHONE_FOVY_DEG))
     return ET.tostring(root, encoding='unicode')
+
+
+FLAP_SIDES = {'near': 0.0, 'right': 0.5 * math.pi, 'far': math.pi, 'left': -0.5 * math.pi}  # yaw of the face's outward normal (box frame: +x faces the robot, +y is the robot's right)
+
+
+def _add_flap(box, contact, side, flap, size):
+    """One hinged flap on the ``side`` top edge of ``box`` (an ET body). The flap body's frame is yawed so its +x
+    points out of that face; the hinge axis is its -y, so a positive angle swings the free edge inward over the box.
+    It is posed at ``open_deg`` and ``ref`` says so, so qpos reads the angle from vertical (90 = flat over the
+    opening, past 90 it dips into the open box; the joint range stands in for the box floor, since parent and child
+    never collide). The flap is a chain of panels (``segments``, bottom up): the crease panel on the hinge, then the
+    top strip on a nearly free bend joint that stands in for cardboard crushing between the pads. A rigid plate
+    pinched between pads that are not parallel to it is locked to the jaws, and this arm cannot tilt its jaws far out
+    there, so a rigid flap could never be folded from a pinch: carrying the pinch along the arc would drag the box.
+    The strip joint is that pivot: a pinch on the top 2 cm can carry the flap round the hinge, while a deeper pinch
+    holds the stiff panel and locks it to the jaws (and drags the box), as stiff board would."""
+    depth, width, height = size
+    target = bool(flap.get('target'))
+    prefix = 'box_flap' if target else f'box_{side}flap'
+    hinge = 'flap_hinge' if target else f'{side}flap_hinge'
+    yaw = FLAP_SIDES[side]
+    half_out = depth / 2.0 if side in ('near', 'far') else width / 2.0
+    span = (width if side in ('near', 'far') else depth) - 0.012   # 6 mm short at each end: corners do not touch
+    segments, thickness = tuple(flap['segments']), tuple(flap['thickness'])
+    total = sum(segments)
+    open_rad = math.radians(flap['open_deg'])
+    t0 = thickness[0]
+    out = np.array([math.cos(yaw), math.sin(yaw), 0.0])
+    pos = out * (half_out - t0 / 2.0) + np.array([0.0, 0.0, height / 2.0])
+    q_yaw = np.array([math.cos(yaw / 2.0), 0.0, 0.0, math.sin(yaw / 2.0)])
+    q_open = np.array([math.cos(open_rad / 2.0), 0.0, -math.sin(open_rad / 2.0), 0.0])
+    w1, x1, y1, z1 = q_yaw
+    w2, x2, y2, z2 = q_open
+    quat = (w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2, w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2)
+    parent, chain = box, []
+    for i, length in enumerate(segments):
+        name = prefix if i == 0 else f'{prefix}_{i}'
+        th = thickness[i]
+        if i == 0:
+            body = ET.SubElement(parent, 'body', name=name, pos=_fmt(pos), quat=_fmt(quat))
+            ET.SubElement(body, 'joint', name=hinge, type='hinge', axis='0 -1 0', pos='0 0 0',
+                          ref=f'{open_rad:.6g}', springref=f'{open_rad:.6g}', stiffness=str(flap['stiffness']),
+                          damping=str(flap['damping']), frictionloss=str(flap['frictionloss']), armature='1e-5',
+                          limited='true', range=_fmt([math.radians(v) for v in flap['range']]))
+        else:
+            body = ET.SubElement(parent, 'body', name=name, pos=_fmt((0.0, 0.0, segments[i - 1])))
+            bend_k = tuple(flap.get('bend_stiffness') or ())
+            bend_f = tuple(flap.get('bend_frictionloss') or ())
+            ET.SubElement(body, 'joint', name=hinge.replace('hinge', f'bend_{i}'), type='hinge', axis='0 -1 0',
+                          pos='0 0 0', stiffness=str(bend_k[i - 1] if i - 1 < len(bend_k) else FLAP_BEND_STIFFNESS),
+                          damping=str(FLAP_BEND_DAMPING),
+                          frictionloss=str(bend_f[i - 1] if i - 1 < len(bend_f) else FLAP_BEND_FRICTIONLOSS),
+                          armature='1e-5', limited='true',
+                          range=_fmt([math.radians(v) for v in FLAP_BEND_RANGE_DEG]))
+        mass = flap['mass'] * length / total
+        # the panels share the outer face (flush with the box face); a thinner strip sits on the outer side
+        x = (t0 - th) / 2.0
+        ET.SubElement(body, 'inertial', pos=_fmt((x, 0.0, length / 2.0)), mass=f'{mass:.6g}',
+                      diaginertia=_fmt((mass / 12.0 * (span ** 2 + length ** 2),
+                                        mass / 12.0 * (th ** 2 + length ** 2),
+                                        mass / 12.0 * (th ** 2 + span ** 2))))
+        geom = name.replace('box_', '', 1)   # flap, flap_1 / rightflap ...
+        ET.SubElement(body, 'geom', name=geom, type='box', pos=_fmt((x, 0.0, length / 2.0)),
+                      size=_fmt((th / 2.0, span / 2.0, length / 2.0)), material='scene_flap',
+                      contype='3', conaffinity='3', condim='4', friction=f'{FLAP_FRICTION} {FLAP_TORSION_M} 0.0001',
+                      priority='1', solref='0.005 1', solimp='0.95 0.99 0.001', group='0')
+        # MuJoCo skips parent-child pairs only; panels further down the chain (and the box) would collide once bent.
+        for other in ['box'] + chain[:-1]:
+            ET.SubElement(contact, 'exclude', body1=other, body2=name)
+        chain.append(name)
+        parent = body
+    ET.SubElement(parent, 'site', name='box_flap_top' if target else f'box_{side}flap_top', size='0.003', group='4',
+                  rgba='0 0 1 0', pos=_fmt((0.0, 0.0, segments[-1])))
+    return chain
 
 
 def colour_arms(model):

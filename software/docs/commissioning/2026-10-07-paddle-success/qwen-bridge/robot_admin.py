@@ -36,7 +36,7 @@ def main():
     lg=sub.add_parser('logs');lg.add_argument('names',nargs='?',default='');lg.add_argument('--lines',type=int,default=80)
     dp=sub.add_parser('deploy');dp.add_argument('ref',nargs='?',default='main');dp.add_argument('--mode',default='restart');dp.add_argument('--no-wait',action='store_true')
     jb=sub.add_parser('job');jb.add_argument('id')
-    wi=sub.add_parser('wrist-ids',help='pin camera IDs after cables moved, e.g. left_wrist=0x12400005a39230 head_camera=0x12130005a39230')
+    wi=sub.add_parser('wrist-ids',help='pin wrist camera IDs after cables moved, e.g. left_wrist=0x12400005a39230 right_wrist=0x12200005a39230 (head_camera=<id> only for a USB head camera; since 2026-10-09 the head camera is the OAK)')
     wi.add_argument('pairs',nargs='+');wi.add_argument('--verified',action='store_true',help='left/right confirmed from the images')
     a=ap.parse_args()
     if a.cmd=='status':return show(request('/admin/deploy'))

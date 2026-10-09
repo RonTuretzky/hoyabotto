@@ -10,8 +10,10 @@ ENV={'right_wrist':'XLEROBOT_RIGHT_WRIST_ID','left_wrist':'XLEROBOT_LEFT_WRIST_I
 WRIST_CAMERA_IDS={'right_wrist':os.environ.get(ENV['right_wrist'],'0x12200005a39230'),
                   'left_wrist':os.environ.get(ENV['left_wrist'],'0x12140005a39230')}
 IDENTITY_VERIFIED={'right_wrist':True,'left_wrist':True}  # False when left/right was auto-assigned
-# The head's own USB camera is the same model as the wrists. Its ID is a port path, so it is a saved setting
-# (work/wrist-cameras.json head_camera_id, set with robot_admin.py wrist-ids), never a hard-coded port.
+# The head's old USB camera was the same model as the wrists. Its ID is a port path, so it is a saved setting
+# (work/wrist-cameras.json head_camera_id, set with robot_admin.py wrist-ids), never a hard-coded port. Since
+# 2026-10-09 the head camera is the OAK (the USB head camera was removed): a saved ID that the Mac no longer lists is
+# dropped by prune_head_camera, quietly; the OAK is never a wrist candidate anyway (NOT_A_WRIST).
 HEAD_CAMERA_ID=os.environ.get('XLEROBOT_HEAD_CAMERA_ID') or None
 NOT_A_WRIST=re.compile(r'iphone|ipad|facetime|desk view|continuity|oak|luxonis|depthai|macbook|built-in|virtual|obs',re.I)
 CONFIG='wrist-cameras.json'
@@ -28,6 +30,16 @@ def configure(root):
         entry=saved.get(name) or {}
         if os.environ.get(ENV[name]) or not isinstance(entry.get('camera_id'),str):continue
         WRIST_CAMERA_IDS[name]=entry['camera_id'];IDENTITY_VERIFIED[name]=entry.get('identity_verified') is True
+
+
+def prune_head_camera(listed):
+    """Forget a saved USB head camera ID the Mac no longer lists (removed for the OAK on 2026-10-09). An ID set by
+    XLEROBOT_HEAD_CAMERA_ID is left alone. Returns the dropped ID, or None."""
+    global HEAD_CAMERA_ID
+    available={d.get('camera_id') for d in listed if isinstance(d,dict)}
+    if HEAD_CAMERA_ID and HEAD_CAMERA_ID not in available and not os.environ.get('XLEROBOT_HEAD_CAMERA_ID'):
+        dropped,HEAD_CAMERA_ID=HEAD_CAMERA_ID,None;return dropped
+    return None
 
 
 def resolve_ids(listed,current=None,verified=None):

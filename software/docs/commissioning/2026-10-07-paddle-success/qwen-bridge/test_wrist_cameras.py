@@ -30,4 +30,11 @@ assert ids=={'right_wrist':R,'left_wrist':'0x12300005a39230'} and ver=={'right_w
 ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':'0x13200005a39230'},{'name':'USB Camera','camera_id':'0x13140005a39230'},{'name':'USB Camera','camera_id':'0x13400005a39230'}],cur,ok)
 assert ids=={'right_wrist':'0x13200005a39230','left_wrist':'0x13140005a39230'} and ver==ok # hub moved to another bus: same port paths, still verified
 ids,ver,miss=resolve_ids([{'name':'USB Camera','camera_id':H}],cur,ok);assert ids=={} and miss==['right_wrist','left_wrist']
+# The old USB head camera is gone (2026-10-09, the OAK is the head camera): its saved ID is dropped once, quietly.
+from wrist_cameras import prune_head_camera
+wrist_cameras.HEAD_CAMERA_ID='0x12130005a39230'
+now=[{'name':'USB2.0_CAM1','camera_id':'0x12400005a39230'},{'name':'USB2.0_CAM1','camera_id':'0x12200005a39230'},{'name':'MacBook Neo Camera','camera_id':'6C70'}]
+assert prune_head_camera(now)=='0x12130005a39230' and wrist_cameras.HEAD_CAMERA_ID is None and prune_head_camera(now) is None
+ids,ver,miss=resolve_ids(now,{'right_wrist':'0x12200005a39230','left_wrist':'0x12400005a39230'},ok);assert miss==[] and ids['left_wrist']=='0x12400005a39230'
+wrist_cameras.HEAD_CAMERA_ID=H;assert prune_head_camera([{'camera_id':H}]) is None and wrist_cameras.HEAD_CAMERA_ID==H  # still connected: kept
 print('Wrist cameras: freshest folder, 1 s staleness, pinned identity, status and ID auto-detection checks passed; no camera access')
