@@ -2,8 +2,9 @@
 
 The policy (LeRobot ACT, tools/record_fold_demos.py -> fold_demos_to_lerobot.py) was trained ONLY in MuJoCo with
 simulated cameras. It reads 12 joint angles in radians (URDF so101_new_calib convention, left arm then right arm,
-shoulder_pan .. gripper) plus `top`/`front` RGB images, and returns 12 absolute joint targets in the same units
-at 10 Hz. The robot's owner speaks raw encoder ticks. This module is the adapter between the two:
+shoulder_pan .. gripper) plus the RGB images its checkpoint names, and returns 12 absolute joint targets in the
+same units at 10 Hz. The demo checkpoint (220 mm robot-model station) reads `front` (head OAK) and `left_wrist`/
+`right_wrist`; the first policy read the simulated `top`/`front` cameras. The robot's owner speaks raw encoder ticks. This module is the adapter between the two:
 
     owner rows (ticks) --per-arm measured zero/sign--> policy radians --ACT--> target radians
         --training envelope, commandable range, per-tick step clamp, 3-tick rule, gripper hold--> target ticks
@@ -35,6 +36,7 @@ import base64
 import hashlib
 import json
 import math
+import os
 import signal
 import sys
 import threading
@@ -52,7 +54,10 @@ ARMS = ("left", "right")
 SUFFIXES = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")
 OWNER_JOINTS = tuple(f"{arm}_arm_{s}" for arm in ARMS for s in SUFFIXES)   # policy order, owner names
 POLICY_JOINTS = tuple(f"{arm}_{s}" for arm in ARMS for s in SUFFIXES)      # dataset / MuJoCo names
-CAMERA_KEYS = ("top", "front")
+CAMERA_KEYS = ("front", "left_wrist", "right_wrist")      # robot-model policy: head OAK + both wrist cameras
+LEGACY_CAMERA_KEYS = ("top", "front")                       # first policy: simulated overhead + front cameras
+# The robot camera behind each policy key of the robot-model policy (same physical cameras as in the simulation).
+DEFAULT_ROBOT_CAMERAS = {"front": "oak", "left_wrist": "left_wrist", "right_wrist": "right_wrist"}
 TASK_TEXT = "fold both short carton flaps and hold them"
 TICKS_PER_REV = 4096          # farm.kinematics.units.JointUnits convention (360/4096 degrees per tick)
 
@@ -67,6 +72,7 @@ OWNER_FRAME_AGE_S = 1.0       # gemma_robot_tools.cameras_strict: images older t
 OWNER_CONTACT_LOAD = 600      # paddle_joint_executor.py CONTACT_LOAD: |Present_Load| treated as contact
 OWNER_CONTACT_LAG = 20        # paddle_joint_executor.py CONTACT_PUSH_TICKS: ... on a joint lagging this far
 OWNER_MAX_DURATION_S = 25.0   # gemma_robot_tools schema / DirectJointClient.execute
+GRIPPER_STREAM_STEP = 10      # gripper_mode 'stream': a closing jaw moves at most this per tick (pickup owner's step)
 
 
 # --------------------------------------------------------------------------------------------- joint mapping
@@ -256,7 +262,9 @@ class RunnerConfig:
     hz: float = 10.0
     max_steps: int = 750
     task: str = TASK_TEXT
-    gripper_mode: str = "hold"                  # 'hold': grippers never move; 'follow': opening may be streamed
+    gripper_mode: str = "hold"                  # 'hold': grippers never move; 'follow': opening may be streamed;
+                                                # 'stream': closing too, <= GRIPPER_STREAM_STEP per tick, only on a
+                                                # transport that streams jaw closures (owner stream mode)
     holding_arms: tuple = ()                    # operator-declared: these grippers never open
     degenerate_state: str = "substitute"        # 'substitute' training mean (within tolerance) | 'refuse'
     abort_on_contact_halt: bool = True
@@ -266,8 +274,8 @@ class RunnerConfig:
 
     def validate(self):
         self.safety.validate()
-        if self.gripper_mode not in ("hold", "follow"):
-            raise Refused("gripper_mode must be 'hold' or 'follow'")
+        if self.gripper_mode not in ("hold", "follow", "stream"):
+            raise Refused("gripper_mode must be 'hold', 'follow' or 'stream'")
         if set(self.holding_arms) - set(ARMS):
             raise Refused("holding_arms must name left/right")
         if self.degenerate_state not in ("substitute", "refuse"):
@@ -403,6 +411,37 @@ class ApiOwnerTransport:
         return _ok(self._call("robot_halt_motion", {}), "robot_halt_motion")
 
 
+class StreamOwnerTransport(ApiOwnerTransport):
+    """The owner's stream mode (on with the pickup profile; qwen-bridge STREAM-MODE.md) through the API.
+
+    One robot_stream_joint_targets call per tick names both arms, jaws included (a jaw moves at most 10 ticks per
+    command, closing too). A refusal answers accepted=false and never releases motors; the runner aborts and holds.
+    Halt is robot_hold_here: every joint held where it is now (also acknowledges a stream contact_halt).
+    """
+    name = "api-stream"
+    streams_gripper_closure = True
+
+    def preflight(self):
+        caps = _ok(self._call("robot_get_capabilities", {}), "robot_get_capabilities")
+        if caps.get("stream_mode") is not True:
+            raise Refused("The owner is not in stream mode (it predates it: redeploy; see qwen-bridge STREAM-MODE.md)")
+        return {"stream_mode": True}
+
+    def send(self, targets, duration_s):
+        if not targets:
+            return []
+        payload = self._call("robot_stream_joint_targets", {"positions": {n: int(q) for n, q in targets.items()}})
+        result = _ok(payload, "robot_stream_joint_targets")
+        if result.get("accepted") is not True:
+            raise Refused(f"Owner did not accept the streamed targets: {str(result)[:400]}")
+        return [{"arm": "both", "command_id": result.get("command_id"), "no_op": result.get("no_op", False),
+                 **{k: result[k] for k in ("skipped_joints", "jaw_contact", "jaw_limited", "jaw_ignored_closing", "phase")
+                    if result.get(k)}}]
+
+    def halt(self):
+        return _ok(self._call("robot_hold_here", {}), "robot_hold_here")
+
+
 class DirectClientOwnerTransport:
     """The owner's own file client (qwen-bridge gemma_direct_client.DirectJointClient), on the robot Mac.
 
@@ -454,13 +493,15 @@ ROBOT_CAMERAS = ("oak", "phone", "left_wrist", "right_wrist")
 class ApiCameras:
     """Policy camera keys -> robot cameras through robot_get_cameras. The mapping must be given explicitly.
 
-    The policy's `top`/`front` are SIMULATED cameras (overhead at 0.85 m, front at 0.38 m / 0.57 m height); no real
-    camera has been shown to match them. The phone feed only carries receipt time (timestamp_basis 'receipt').
+    The robot-model policy's keys are the robot's own cameras (DEFAULT_ROBOT_CAMERAS), rendered in simulation from
+    the model's poses and an assumed lens; the first policy's `top`/`front` match no real camera. The phone feed only
+    carries receipt time (timestamp_basis 'receipt').
     """
     def __init__(self, robot, mapping: dict[str, str]):
-        if set(mapping) != set(CAMERA_KEYS) or any(v not in ROBOT_CAMERAS for v in mapping.values()):
-            raise Refused(f"Map exactly {CAMERA_KEYS} to robot cameras {ROBOT_CAMERAS}; got {mapping}")
+        if not mapping or any(v not in ROBOT_CAMERAS for v in mapping.values()):
+            raise Refused(f"Map each policy camera key to one of the robot cameras {ROBOT_CAMERAS}; got {mapping}")
         self.robot, self.mapping = robot, dict(mapping)
+        self.keys = tuple(mapping)
 
     def frames(self):
         import cv2
@@ -499,16 +540,24 @@ def enable_temporal_ensembling(runner, coeff: float = 0.01):
     return runner
 
 
-def check_policy_spec(policy):
+def policy_camera_keys(policy) -> tuple[str, ...] | None:
+    """The camera keys a checkpoint reads (observation.images.<key>), or None for a stand-in without a spec."""
+    spec_fn = getattr(policy, "input_spec", None)
+    return None if spec_fn is None else tuple(spec_fn().get("camera_names") or ())
+
+
+def check_policy_spec(policy, camera_keys=CAMERA_KEYS):
     spec_fn = getattr(policy, "input_spec", None)
     if spec_fn is None:
         return None
     spec = spec_fn()
     cams = set(spec.get("camera_names") or [])
-    if spec.get("state_dim") != 12 or spec.get("action_dim") != 12 or cams != set(CAMERA_KEYS):
+    if spec.get("state_dim") != 12 or spec.get("action_dim") != 12 or cams != set(camera_keys):
         raise Refused(f"Policy expects state {spec.get('state_dim')}, action {spec.get('action_dim')}, cameras {cams}; "
-                      f"this runner provides 12/12 and {CAMERA_KEYS}")
-    return {k: (list(v) if isinstance(v, tuple) else v) for k, v in spec.items() if k != "cameras"}
+                      f"this runner provides 12/12 and {tuple(camera_keys)}")
+    out = {k: (list(v) if isinstance(v, tuple) else v) for k, v in spec.items() if k != "cameras"}
+    out["cameras"] = {k: list(v) for k, v in (spec.get("cameras") or {}).items()}
+    return out
 
 
 # --------------------------------------------------------------------------------------------------- runner
@@ -561,9 +610,13 @@ class FoldPolicyRunner:
                  clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,
                  stop_requested: Callable[[], bool] | None = None, metadata: dict | None = None):
         config.validate()
+        if config.gripper_mode == "stream" and not getattr(transport, "streams_gripper_closure", False):
+            raise Refused("gripper_mode 'stream' needs a transport that streams jaw closures (owner stream mode); "
+                          f"{getattr(transport, 'name', type(transport).__name__)} does not")
         if set(arm_maps) != set(ARMS):
             raise Refused("Both arms' measured joint maps are required")
         self.policy, self.transport, self.cameras = policy, transport, cameras
+        self.camera_keys = tuple(getattr(cameras, "keys", None) or CAMERA_KEYS)
         self.maps, self.config, self.envelope = arm_maps, config, envelope
         self.clock, self.sleep = clock, sleep
         self.stop_requested = stop_requested or (lambda: False)
@@ -575,7 +628,7 @@ class FoldPolicyRunner:
         self._last_stamp = None
         self._stale_joint_ticks = 0
         self._last_frames: dict[str, tuple] = {}
-        self._stale_frame_ticks = dict.fromkeys(CAMERA_KEYS, 0)
+        self._stale_frame_ticks = dict.fromkeys(self.camera_keys, 0)
         self._loaded = dict.fromkeys(OWNER_JOINTS, 0)
         self._last_sent: dict[str, int] = {}
 
@@ -637,6 +690,10 @@ class FoldPolicyRunner:
                 elif arm in self.config.holding_arms:
                     command = False
                     reasons.append("gripper_holding_object")
+                elif self.config.gripper_mode == "stream":
+                    if abs(target - measured) > GRIPPER_STREAM_STEP:   # the stream owner's jaw limit, both ways
+                        target = measured + int(math.copysign(GRIPPER_STREAM_STEP, target - measured))
+                        reasons.append("gripper_stream_step")
                 elif target < measured - (sc.min_step_ticks - 1):
                     command = False   # the pickup owner only closes a gripper alone and blocking (contact mode)
                     reasons.append("gripper_close_not_streamable")
@@ -715,10 +772,10 @@ class FoldPolicyRunner:
 
     def check_frames(self, frames: dict[str, Frame], snap: OwnerSnapshot, *, now: float) -> dict:
         sc = self.config.safety
-        if set(frames) != set(CAMERA_KEYS):
-            raise Abort(f"Camera source returned {sorted(frames)}, need {CAMERA_KEYS}")
+        if set(frames) != set(self.camera_keys):
+            raise Abort(f"Camera source returned {sorted(frames)}, need {self.camera_keys}")
         out = {}
-        for key in CAMERA_KEYS:
+        for key in self.camera_keys:
             f = frames[key]
             rgb = np.asarray(f.rgb)
             if rgb.ndim != 3 or rgb.shape[-1] != 3 or rgb.dtype != np.uint8:
@@ -745,7 +802,9 @@ class FoldPolicyRunner:
         cfg = self.config
         report = {"execute": cfg.execute, "transport": getattr(self.transport, "name", type(self.transport).__name__),
                   "warnings": []}
-        report["policy_spec"] = check_policy_spec(self.policy)
+        report["policy_spec"] = check_policy_spec(self.policy, self.camera_keys)
+        if hasattr(self.transport, "preflight"):
+            report["transport_preflight"] = self.transport.preflight()
         snap = self.transport.snapshot()
         now = self.clock()
         if not snap.ok:
@@ -796,12 +855,21 @@ class FoldPolicyRunner:
         frames = self.cameras.frames()
         report["frames"] = self.check_frames(frames, snap, now=self.clock())
         self._last_frames.clear()
+        # The policy squeezes every frame to its trained H x W. A different aspect ratio (e.g. the OAK's 16:9 1080p
+        # output against the 4:3 head camera it was rendered with) is a different field of view, not a resize.
+        sizes = ((report["policy_spec"] or {}).get("cameras") or {})
+        for key in self.camera_keys:
+            h, w = sizes.get(f"observation.images.{key}") or (None, None)
+            fh, fw = report["frames"][key]["shape"][:2]
+            if h and abs(fw / fh - w / h) > 0.02 * (w / h):
+                report["warnings"].append(f"camera_aspect: {key} frames are {fw}x{fh} but the policy was trained on "
+                                          f"{w}x{h}; its field of view differs from training (re-render or re-measure)")
         # Warm-up inference (the first pass on a fresh accelerator is slow); run() resets the policy afterwards.
         policy_state, _ = self.condition_state(state) if self.envelope is not None and not report["warnings"] else (
             state.astype(np.float32), None)
         t0 = self.clock()
         try:
-            self.policy.act(policy_state, {key: frames[key].rgb for key in CAMERA_KEYS}, cfg.task)
+            self.policy.act(policy_state, {key: frames[key].rgb for key in self.camera_keys}, cfg.task)
         except Exception as exc:  # noqa: BLE001
             raise Refused(f"Policy warm-up failed: {type(exc).__name__}: {exc}") from exc
         report["warmup_inference_s"] = self.clock() - t0
@@ -830,7 +898,7 @@ class FoldPolicyRunner:
         state = self.state_rad(snap)
         policy_state, notes = self.condition_state(state)
         try:
-            action = self.policy.act(policy_state, {key: frames[key].rgb for key in CAMERA_KEYS}, cfg.task)
+            action = self.policy.act(policy_state, {key: frames[key].rgb for key in self.camera_keys}, cfg.task)
         except Exception as exc:  # noqa: BLE001
             raise Abort(f"Policy error: {type(exc).__name__}: {exc}") from exc
         action = np.asarray(action, dtype=np.float64).reshape(-1)
@@ -851,7 +919,7 @@ class FoldPolicyRunner:
             self.sent_ids.update(a.get("command_id") for a in acks if a.get("command_id") is not None)
         t_end = self.clock()
         if cfg.save_frames_every and k % cfg.save_frames_every == 0:
-            for key in CAMERA_KEYS:
+            for key in self.camera_keys:
                 self.log.frame(k, key, frames[key])
         record = {"k": k, "t": t0, "owner": snap.summary(), "state_ticks": [snap.ticks[n] for n in OWNER_JOINTS],
                   "state_rad": state, "degenerate_state": notes, "frames": frame_info, "action_rad": action,
@@ -932,11 +1000,15 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="Simulation: --transport sim-owner --sim-trial <fold-demos trial dir>. "
                                         "Robot (supervised, see docs/carton-fold-policy-robot.md): --transport api "
-                                        "--pilot-root <pilot> --camera top=<cam> --camera front=<cam>; dry-run unless --execute.")
+                                        "--pilot-root <pilot> (cameras default to front=oak left_wrist=left_wrist right_wrist=right_wrist for "
+                                        "the robot-model policy); dry-run unless --execute.")
     ap.add_argument("--checkpoint", required=True)
-    ap.add_argument("--transport", choices=["sim-owner", "sim-direct", "api", "direct-client"], required=True)
+    ap.add_argument("--transport", choices=["sim-owner", "sim-owner-stream", "sim-direct", "api", "api-stream",
+                                            "direct-client"], required=True,
+                    help="api-stream / sim-owner-stream: the owner's stream mode (qwen-bridge STREAM-MODE.md); "
+                         "sim-owner simulates the owner before stream mode")
     ap.add_argument("--joint-map", action="append", metavar="ARM=PATH", help="measured per-arm joint map (robot)")
-    ap.add_argument("--camera", action="append", metavar="KEY=CAMERA", help="top=oak, front=phone ... (robot)")
+    ap.add_argument("--camera", action="append", metavar="KEY=CAMERA", help="policy key -> robot camera, e.g. front=oak (robot; default for the robot-model policy)")
     ap.add_argument("--sim-trial", type=Path, help="fold-demos trial dir with run/scene.xml and demo.npz")
     ap.add_argument("--pilot-root", type=Path, help="chat pilot checkout with chat_server.Robot and .private/robot.json")
     ap.add_argument("--session", type=Path, help="robot Mac work/gemma-hardware-session (direct-client)")
@@ -944,7 +1016,7 @@ def main(argv=None):
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--execute", action="store_true", help="send targets (default: dry-run, nothing sent)")
     ap.add_argument("--operator", help="name of the person holding STOP (required with --execute on the robot)")
-    ap.add_argument("--gripper-mode", choices=["hold", "follow"], default="hold")
+    ap.add_argument("--gripper-mode", choices=["hold", "follow", "stream"], default="hold")
     ap.add_argument("--holding-arm", action="append", default=[], choices=list(ARMS))
     ap.add_argument("--hz", type=float, default=10.0)
     ap.add_argument("--max-steps", type=int, default=750)
@@ -954,10 +1026,17 @@ def main(argv=None):
     ap.add_argument("--owner-period-s", type=float, default=0.05, help="sim-owner: owner loop period")
     ap.add_argument("--rtt-s", type=float, default=0.0, help="sim-owner: API round trip per call")
     ap.add_argument("--policy-latency-s", type=float, help="sim: virtual inference time per tick (default: measured)")
+    ap.add_argument("--parent-pid", type=int, help="stop (halt, hold) if this parent process exits, e.g. the chat server")
     args = ap.parse_args(argv)
 
     stop = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())
+    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+    if args.parent_pid:
+        orphaned = lambda: os.getppid() != args.parent_pid
+        stopped = lambda: stop.is_set() or orphaned()
+    else:
+        stopped = stop.is_set
     config = RunnerConfig(execute=args.execute, hz=args.hz, max_steps=args.max_steps, gripper_mode=args.gripper_mode,
                           holding_arms=tuple(args.holding_arm), save_frames_every=args.save_frames_every)
     policy = build_policy(args.checkpoint, args.device, args.temporal_ensemble)
@@ -968,11 +1047,13 @@ def main(argv=None):
         from carton import fold_policy_fakes as fakes
         if args.sim_trial is None:
             raise SystemExit("--sim-trial is required for simulation transports")
-        rig = fakes.build_sim_rig(args.sim_trial, args.out.with_name(args.out.name + "-sim"), owner=args.transport == "sim-owner",
-                                  owner_period_s=args.owner_period_s, rtt_s=args.rtt_s)
+        rig = fakes.build_sim_rig(args.sim_trial, args.out.with_name(args.out.name + "-sim"), owner=args.transport.startswith("sim-owner"),
+                                  stream=args.transport == "sim-owner-stream",
+                                  owner_period_s=args.owner_period_s, rtt_s=args.rtt_s,
+                                  camera_keys=policy_camera_keys(policy))
         policy = fakes.LatencyPolicy(policy, rig.sleep, latency_s=args.policy_latency_s)
         runner = FoldPolicyRunner(policy, rig.transport, rig.cameras, rig.arm_maps, config, args.out, envelope=envelope,
-                                  clock=rig.clock, sleep=rig.sleep, stop_requested=stop.is_set, metadata=meta)
+                                  clock=rig.clock, sleep=rig.sleep, stop_requested=stopped, metadata=meta)
         if args.execute:
             rig.enable_all()
         summary = runner.run()
@@ -991,6 +1072,8 @@ def main(argv=None):
         robot = importlib.import_module("chat_server").Robot(args.pilot_root / ".private/robot.json")
         if args.transport == "api":
             transport = ApiOwnerTransport(robot)
+        elif args.transport == "api-stream":
+            transport = StreamOwnerTransport(robot)
         else:
             if args.session is None or args.calibration is None:
                 raise SystemExit("--session and --calibration are required for --transport direct-client")
@@ -998,9 +1081,17 @@ def main(argv=None):
             sys.path.insert(0, str(bridge))
             from gemma_direct_client import DirectJointClient
             transport = DirectClientOwnerTransport(DirectJointClient(args.session, json.loads(args.calibration.read_text())))
-        cameras = ApiCameras(robot, _pairs(args.camera, "camera"))
+        keys = policy_camera_keys(policy) or CAMERA_KEYS
+        if args.camera:
+            mapping = _pairs(args.camera, "camera")
+        elif set(keys) == set(DEFAULT_ROBOT_CAMERAS):
+            mapping = dict(DEFAULT_ROBOT_CAMERAS)
+        else:
+            raise SystemExit(f"--camera KEY=CAMERA is required for this checkpoint's cameras {keys} (robot cameras "
+                             f"{ROBOT_CAMERAS}); only the robot-model policy has a default mapping")
+        cameras = ApiCameras(robot, mapping)
         runner = FoldPolicyRunner(policy, transport, cameras, maps, config, args.out, envelope=envelope,
-                                  stop_requested=stop.is_set, metadata=meta)
+                                  stop_requested=stopped, metadata=meta)
         summary = runner.run()
     print(json.dumps(_clean({k: summary.get(k) for k in ("execute", "steps", "aborted", "end", "effective_hz",
                                                           "commands_sent", "clamp_counts", "simulation")}), indent=1))

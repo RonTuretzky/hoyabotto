@@ -55,7 +55,8 @@ ARM_JOINTS = ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wris
 HEAD_NAMES = ('head_motor_1', 'head_motor_2')
 WHEELS = ('base_left_wheel', 'base_right_wheel')
 MOTION_TOOLS = ('robot_move_joint_targets', 'robot_move_head', 'robot_set_gripper', 'robot_set_motor_enable',
-                'robot_move_motor_targets', 'robot_move_path', 'robot_halt_motion', 'robot_move_base')
+                'robot_move_motor_targets', 'robot_move_path', 'robot_halt_motion', 'robot_move_base',
+                'robot_stream_joint_targets', 'robot_hold_here')   # the last two: owner stream mode, not simulated
 IMPLEMENTED_TOOLS = ('robot_list_motors', 'robot_set_motor_enable', 'robot_get_state', 'robot_get_cameras',
                      'robot_get_clip', 'robot_get_capabilities', 'robot_get_depth', 'robot_stop',
                      'robot_move_joint_targets', 'robot_move_path', 'robot_get_motion', 'robot_halt_motion',

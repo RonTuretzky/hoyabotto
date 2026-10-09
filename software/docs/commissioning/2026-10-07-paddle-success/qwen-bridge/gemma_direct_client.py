@@ -111,6 +111,70 @@ class DirectJointClient:
     def halt(self):
         """Stop the running motion and hold where the arm is (wheels brake and release); unlike stop, nothing is released."""
         return self._command({'op':'halt'})
+    def stream(self,targets,command_id=None):
+        """Stream mode (on with the pickup profile): send one set of arm targets and return once the owner acknowledges it.
+        A refusal, stale status or missing acknowledgement returns accepted False and never sends STOP; an owner
+        fault still shows as owner_stopped / stop_count."""
+        if not isinstance(targets,dict) or not targets or any(not isinstance(n,str) or type(q) is not int for n,q in targets.items()):
+            return {'accepted':False,'motor_writes':0,'reason':'Nonempty object of motor name to integer ticks required'}
+        request={'op':'stream_targets','targets':dict(targets)}
+        if command_id is not None:request['command_id']=command_id
+        def acknowledged(current,cid):
+            if current.get('stream_ack')!=cid:return None
+            result=current.get('stream_result') or {}
+            return {'accepted':True,'command_id':cid,'client_command_id':command_id,'no_op':result.get('no_op',False),
+                'skipped_joints':result.get('skipped_joints',[]),'jaw_limited':result.get('jaw_limited',{}),'jaw_ignored_closing':result.get('jaw_ignored_closing',[]),
+                'jaw_contact':current.get('jaw_contact') or {},'phase':current.get('stream_phase'),'owner_phase':current.get('phase'),
+                'stop_count':current.get('stop_count',0),'goals':current.get('goals'),
+                'positions':{n:r.get('Present_Position') for n,r in current.get('rows',{}).items() if n.startswith(('right_arm_','left_arm_'))}}
+        return self._stream_op(request,acknowledged)
+    def hold_here(self):
+        """Stream mode: hold every enabled joint at its present position (no release, no torque ramp); ends any motion.
+        Like stream(), a refusal or stale status returns accepted False and never sends STOP."""
+        def acknowledged(current,cid):
+            if current.get('completed')!=cid:return None
+            return {'accepted':True,'completed':True,'command_id':cid,'phase':current.get('stream_phase'),'owner_phase':current.get('phase'),
+                'goals':(current.get('hold_here') or {}).get('goals'),'stop_count':current.get('stop_count',0),
+                'note':'Every enabled joint holds where it was measured; nothing was released.'}
+        return self._stream_op({'op':'hold_here'},acknowledged)
+    def _stream_op(self,request,acknowledged,wait_s=1.0):
+        def refuse(reason,**extra):return {'accepted':False,'motor_writes':0,'reason':reason,**extra}
+        try:
+            with self.serialized():
+                if not self.lock.acquire(blocking=False):return refuse('Hardware command active')
+                try:
+                    try:state=self.status()
+                    except (OSError,ValueError,KeyError,TypeError) as exc:return refuse('HARDWARE_OWNER_UNAVAILABLE: '+str(exc))
+                    if state.get('hardware_server') is not True or not 0<=state['status_age_s']<=1:return refuse('OWNER_STATUS_STALE')
+                    if 'stream' not in (state.get('capabilities') or []):return refuse('STREAM_MODE_DISABLED: the running owner predates stream mode (redeploy to install it)')
+                    if state.get('ok') is not True or state.get('operator_armed') is not True:return refuse('OWNER_NOT_HEALTHY_OR_NOT_ARMED')
+                    if state.get('phase') not in ('idle','holding','moving'):return refuse('OWNER_BUSY: '+str(state.get('phase')))
+                    started=state['started'];stops=state.get('stop_count',0);generation=self.cancel_generation
+                    command_file=self.folder/'command.json';old=json.loads(command_file.read_text()) if command_file.exists() else None
+                    # A STOP written but not yet read by the owner must never be overwritten.
+                    if (old or {}).get('op')=='stop' and old.get('session_started')==started and state.get('completed')!=old.get('id') and (state.get('last_rejected') or {}).get('id')!=old.get('id'):return refuse('STOP pending; not dispatching')
+                    command_id=max(time.time_ns(),int((old or {}).get('id',0))+1)
+                    if (json.loads(command_file.read_text()) if command_file.exists() else None)!=old:return refuse('Another writer changed command file')
+                    if generation!=self.cancel_generation:return refuse('STOP interrupted dispatch')
+                    atomic_json(command_file,{**request,'id':command_id,'session_started':started})
+                    deadline=self.clock()+wait_s
+                    while self.clock()<deadline:
+                        try:current=self.status()
+                        except (OSError,ValueError,KeyError,TypeError):self.sleep(.01);continue
+                        if current.get('started')!=started:return refuse('Bound owner restarted',dispatched=True)
+                        last_stop=current.get('last_stop') or {}
+                        if current.get('stop_count',0)>stops or last_stop.get('command_id')==command_id or current.get('ok') is not True:
+                            return refuse('Owner stopped: '+str(last_stop.get('reason') or current.get('error')),dispatched=True,owner_stopped=True,stop_count=current.get('stop_count',0))
+                        if (current.get('last_rejected') or {}).get('id')==command_id:
+                            return refuse('Owner rejected: '+str(current['last_rejected'].get('reason')),dispatched=True,rejected=True)
+                        if 0<=current['status_age_s']<=1:
+                            result=acknowledged(current,command_id)
+                            if result is not None:return result
+                        if generation!=self.cancel_generation:return refuse('STOP sent meanwhile',dispatched=True)
+                        self.sleep(.01)
+                    return refuse(f'Owner did not acknowledge within {wait_s} s; no STOP sent (a stream ends holding on its own after 0.5 s)',dispatched=True)
+                finally:self.lock.release()
+        except RuntimeError as exc:return refuse(str(exc))
     def motion(self):
         """Compact live view of the running or last motion, for monitoring while it moves."""
         state=self.status();d=state.get('direct_settle_diagnostics') or {}

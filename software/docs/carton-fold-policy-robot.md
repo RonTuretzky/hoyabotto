@@ -1,5 +1,14 @@
 # Fold policy on the robot: control path, adapter, blockers and commissioning
 
+> **Updated 9 October 2026:** the current plan, software and blockers are in
+> [carton-fold-policy-chat-mac-handoff.md](carton-fold-policy-chat-mac-handoff.md). Since this page was written:
+> - the runner takes its cameras from the checkpoint (demo model: `front` = head OAK, `left_wrist`, `right_wrist`);
+> - the arm joint maps exist (owner-accepted, `profiles/fold-joint-maps/`) and the jaw map was corrected;
+> - the owner's contact rule is now load ≥ 350, lag ≥ 50 ticks, stalled for 2 samples;
+> - an opt-in owner stream mode addresses §5 item 8.
+>
+> The numbers and line references below are as of 8 October.
+
 **Status, 8 October 2026: software only. No robot command, owner API call, LAN or relay connection or camera was
 used to write this.** The adapter was tested against the deployed robot-server code running on fake servos and
 against the MuJoCo carton simulation. It has never moved a real motor.

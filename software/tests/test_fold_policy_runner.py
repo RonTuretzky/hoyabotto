@@ -27,14 +27,15 @@ CHECKPOINT = Path(os.environ.get("FOLD_POLICY_CHECKPOINT",
 
 class Toward:
     """Scripted stand-in policy: move every joint toward `goal` (radians) by at most `rate` per tick."""
-    def __init__(self, goal, rate=0.08, on_act=None):
+    def __init__(self, goal, rate=0.08, on_act=None, cameras=R.CAMERA_KEYS):
         self.goal, self.rate, self.on_act, self.calls = np.asarray(goal, float), rate, on_act, 0
+        self.cameras = set(cameras)
 
     def reset(self):
         self.calls = 0
 
     def act(self, state, images, task=None):
-        assert set(images) == {"top", "front"} and task == R.TASK_TEXT
+        assert set(images) == self.cameras and task == R.TASK_TEXT
         self.calls += 1
         if self.on_act:
             self.on_act(self.calls)
@@ -162,6 +163,50 @@ def test_grippers_hold_by_default_and_never_stream_a_closure(tmp_path):
     assert not send and "gripper_holding_object" in detail["left_arm_gripper"]["clamps"]
 
 
+def test_stream_gripper_mode_closes_in_small_steps_only_on_a_streaming_transport(tmp_path):
+    with pytest.raises(Refused, match="streams jaw closures"):
+        planner(tmp_path, gripper_mode="stream")             # the deployed owner (ApiOwnerTransport) cannot
+    rig = F.build_kinematic_rig(tmp_path / "rig2")
+    rig.transport.streams_gripper_closure = True             # stands in for the owner's stream mode
+    r = runner(rig, Toward(GOAL), tmp_path, name="stream", gripper_mode="stream")
+    ticks = {n: 2048 for n in R.OWNER_JOINTS}
+    action = np.asarray(rig.arm_maps["left"].ticks_to_rad(ticks) + rig.arm_maps["right"].ticks_to_rad(ticks))
+    gr = R.OWNER_JOINTS.index("right_arm_gripper")
+    action[gr] -= 0.2                                        # right: closing, ~130 ticks
+    send, detail = r.plan_targets(action, snapshot(ticks))
+    assert send["right_arm_gripper"] == 2048 - R.GRIPPER_STREAM_STEP
+    assert "gripper_stream_step" in detail["right_arm_gripper"]["clamps"]
+
+
+def test_stream_transport_refuses_an_owner_without_stream_mode(tmp_path):
+    rig = F.build_kinematic_rig(tmp_path / "rig")
+    rig.transport = R.StreamOwnerTransport(rig.owner, clock=rig.clock)
+    summary = runner(rig, Toward(GOAL), tmp_path, gripper_mode="stream", max_steps=3).run()
+    assert "not in stream mode" in summary["aborted"] and summary["commands_sent"] == 0
+
+
+def test_stream_owner_executes_both_arms_and_jaw_closures_in_one_call_per_tick(tmp_path):
+    rig = F.build_kinematic_rig(tmp_path / "rig", stream=True)
+    rig.enable_all()
+    start = rig.owner.owner.state["stop_count"]
+    goal = np.asarray(rig.arm_maps["left"].ticks_to_rad({n: 2048 for n in R.OWNER_JOINTS})
+                      + rig.arm_maps["right"].ticks_to_rad({n: 2048 for n in R.OWNER_JOINTS}))
+    gr = R.OWNER_JOINTS.index("right_arm_gripper")
+    goal[gr] -= 0.15                                          # close the right jaw ~100 ticks while the arms move
+    goal[R.OWNER_JOINTS.index("left_arm_shoulder_pan")] += 0.3
+    summary = runner(rig, Toward(goal, rate=0.05), tmp_path, execute=True, gripper_mode="stream", max_steps=40).run()
+    assert summary["aborted"] is None and summary["commands_sent"] > 0
+    names = [c[0] for c in rig.owner.calls]
+    assert "robot_move_joint_targets" not in names and "robot_stop" not in names
+    assert names.count("robot_stream_joint_targets") == summary["commands_sent"] and names[-1] == "robot_hold_here"
+    sent = [a for n, a, _ in rig.owner.calls if n == "robot_stream_joint_targets"]
+    assert any("right_arm_gripper" in a["positions"] and any(k.startswith("left_arm_") for k in a["positions"])
+               for a in sent)
+    assert rig.owner.owner.state["stop_count"] == start and rig.owner.faults == []
+    jaw = rig.owner.owner.rows["right_arm_gripper"]["Present_Position"]
+    assert jaw < 2048 - 60                                    # the jaw closed while streaming
+
+
 def test_race_guard_never_commands_a_target_the_moving_joint_will_pass(tmp_path):
     r, rig = planner(tmp_path)
     n = "right_arm_shoulder_pan"
@@ -197,7 +242,7 @@ def test_dry_run_is_the_default_and_sends_nothing(tmp_path):
     assert rig.owner.bus.writes == writes
     log = ticks_log(tmp_path)
     assert len(log) == 12 and all(t["mode"] == "dry-run" and t["acks"] is None for t in log)
-    assert log[0]["send"] and set(log[0]["frames"]) == {"top", "front"} and len(log[0]["frames"]["top"]["sha256"]) == 64
+    assert log[0]["send"] and set(log[0]["frames"]) == set(R.CAMERA_KEYS) and len(log[0]["frames"]["front"]["sha256"]) == 64
     assert (tmp_path / "run/preflight.json").exists() and (tmp_path / "run/summary.json").exists()
 
 
@@ -369,10 +414,73 @@ def test_api_cameras_through_the_real_camera_tool(tmp_path):
     assert frames["front"].timestamp_basis == "receipt"
     assert abs(int(frames["top"].rgb[..., 0].mean()) - 200) < 8 and abs(int(frames["front"].rgb[..., 2].mean()) - 200) < 8
     with pytest.raises(Refused):
-        R.ApiCameras(rig.owner, {"top": "oak"})
+        R.ApiCameras(rig.owner, {"top": "overhead"})     # not a robot camera
     rig.cameras = cams
+    summary = runner(rig, Toward(GOAL, cameras=("top", "front")), tmp_path, max_steps=4).run()
+    assert summary["aborted"] is None
+
+
+def test_robot_model_policy_reads_head_and_wrist_cameras_through_the_real_tool(tmp_path):
+    """Default mapping of the robot-model policy: front <- oak, left/right_wrist <- the wrist streams (identity-checked)."""
+    rgb = {"oak": (200, 30, 30), "left_wrist": (30, 200, 30), "right_wrist": (30, 30, 200)}
+
+    def publish(owner, names):
+        if "oak" in names:
+            owner.publish_oak(np.full((48, 64, 3), rgb["oak"], np.uint8))
+        for name in ("left_wrist", "right_wrist"):
+            if name in names:
+                owner.publish_wrist(name, np.full((48, 64, 3), rgb[name], np.uint8))
+    rig = F.build_kinematic_rig(tmp_path / "rig")
+    rig.owner.camera_publisher = publish
+    rig.cameras = R.ApiCameras(rig.owner, R.DEFAULT_ROBOT_CAMERAS)
+    frames = rig.cameras.frames()
+    assert set(frames) == set(R.CAMERA_KEYS) and all(f.timestamp_basis == "capture" for f in frames.values())
+    for key, cam in R.DEFAULT_ROBOT_CAMERAS.items():
+        assert np.abs(frames[key].rgb.mean(axis=(0, 1)) - rgb[cam]).max() < 8, key
+    with pytest.raises(Refused):
+        R.ApiCameras(rig.owner, {"front": "head_usb"})
     summary = runner(rig, Toward(GOAL), tmp_path, max_steps=4).run()
     assert summary["aborted"] is None
+
+
+class SpecPolicy(Toward):
+    """Stand-in with a checkpoint-like input spec (240x320 images, as the fold datasets)."""
+    def input_spec(self):
+        return {"state_dim": 12, "action_dim": 12, "camera_names": list(self.cameras),
+                "cameras": {f"observation.images.{k}": (240, 320) for k in self.cameras}}
+
+
+def test_policy_camera_keys_must_match_the_camera_source(tmp_path):
+    rig = F.build_kinematic_rig(tmp_path / "rig")
+    summary = runner(rig, SpecPolicy(GOAL, cameras=("top", "front")), tmp_path, max_steps=2).run()
+    assert "cameras" in summary["aborted"] and summary["commands_sent"] == 0
+
+
+def test_preflight_warns_when_a_camera_aspect_differs_from_training(tmp_path):
+    rig = F.build_kinematic_rig(tmp_path / "rig")
+    rig.cameras = F.SyntheticCameras(rig.clock, shape=(54, 96, 3))      # 16:9, like the OAK's 1080p output
+    summary = runner(rig, SpecPolicy(GOAL), tmp_path, max_steps=2).run()
+    warnings = json.loads((tmp_path / "run/preflight.json").read_text())["warnings"]
+    assert summary["aborted"] is None
+    assert sum(w.startswith("camera_aspect: ") for w in warnings) == 3
+    rig2 = F.build_kinematic_rig(tmp_path / "rig2")
+    rig2.cameras = F.SyntheticCameras(rig2.clock, shape=(30, 40, 3))    # 4:3 matches 240x320
+    runner(rig2, SpecPolicy(GOAL), tmp_path, name="run2", max_steps=2).run()
+    assert not any(w.startswith("camera_aspect") for w in json.loads((tmp_path / "run2/preflight.json").read_text())["warnings"])
+
+
+def test_released_joint_maps_put_the_closed_jaw_where_the_pads_meet():
+    """profiles/fold-joint-maps: URDF -10 deg (the simulation's closed jaw) at range_min + 82 (left pads meet ~1355)."""
+    folder = SOFTWARE / "profiles/fold-joint-maps"
+    maps = R.load_arm_maps({arm: folder / f"{arm}-joint-map.json" for arm in R.ARMS})
+    cal = json.loads((folder / "calibration-2026-10-08.json").read_text())
+    for arm in R.ARMS:
+        name = f"{arm}_arm_gripper"
+        meet = cal[name]["range_min"] + 82
+        ticks = {n: 2047 for n in R.OWNER_JOINTS} | {name: meet}
+        assert abs(math.degrees(maps[arm].ticks_to_rad(ticks)[-1]) + 10) < 0.1
+    left = {n: 2047 for n in R.OWNER_JOINTS} | {"left_arm_gripper": 1357}
+    assert abs(math.degrees(maps["left"].ticks_to_rad(left)[-1]) + 10) < 0.3   # measured meeting point 1355-1359
 
 
 # ------------------------------------------------------------------------------------- MuJoCo simulation

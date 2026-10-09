@@ -28,8 +28,12 @@ def recover_ports(buses,reason,state,now):
  return recovered
 
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,stream=None):
   self.read_only=read_only
+  # Stream mode: stream_targets/hold_here for a 10 Hz policy client (stream_joint_executor.py, STREAM-MODE.md). On with
+  # the pickup profile; it does nothing until a client sends one of its two ops. stream=False is the pre-stream owner.
+  self.stream=bool(paddle_profile) if stream is None else bool(stream);self.stream_executor=None
+  if self.stream and not paddle_profile:raise ValueError('Stream mode requires the pickup profile')
   self.soft_release_s=soft_release_s;self.sleep=sleep;self.writer=None  # writer(): persist self.state now (set by main)  # >0: STOP/faults ease torque off over this many seconds
   self.paddle_profile=paddle_profile
   self.motion_count=0
@@ -52,6 +56,9 @@ class HardwareOwner:
   self.enabled=set();self.old={};self.goals={};self.rows={};self.limits={};self.last_tick=clock();self.lease=clock()+30
   self.started=wall();self.engine=None;self.current_command=None
   self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.position_names if paddle_profile else [],'pickup_motion_segment_budget':None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','base_drive_supported':bool(self.wheel_names),'base_drive_limits':{'max_wheel_m_s':.02,'max_duration_s':3.0} if self.wheel_names else None,'motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
+  if self.stream:
+   from stream_joint_executor import LIMITS
+   self.state['capabilities'].append('stream');self.state['stream_limits']=dict(LIMITS)
  def read(self,n,f):return int(self.by_name[n].read(f,n,normalize=False,num_retry=2))
  def write(self,n,f,v):
   self.by_name[n].write(f,n,v,normalize=False,num_retry=2);self.state['motor_writes']+=1
@@ -244,6 +251,7 @@ class HardwareOwner:
    try:self.release(n)
    except Exception as e:errors.append(str(e))
   if self.engine:self.engine.active=False
+  if self.stream_executor:self.stream_executor.reset();self.state['stream_phase']='released'
   if self.paddle_profile:self.camera_gate.paused_at=self.camera_gate.initial_seq=None # a camera pause only applies while holding; the next enable needs a fresh feed
   if reason not in ('Operator STOP','Hardware-owner exit','Local probe complete','Release requested during movement'):self.state['root_failure']=reason
   if record:self.state.update(last_stop={'time':self.wall(),'reason':reason,'command_id':self.current_command,'released':not errors,'release_errors':errors},stop_count=self.state.get('stop_count',0)+1,error=reason)
@@ -282,6 +290,7 @@ class HardwareOwner:
      update=self.engine.halt({n:self.rows[n]['Present_Position'] for n in self.engine.joints});self.state.update(update,halted_command_id=self.current_command)
      if self.paddle_profile:self.lease=self.clock()+120
     else:raise ValueError('The active motion cannot be halted; use stop')
+   if self.stream_executor:self.stream_executor.contact_latched=None  # halt acknowledges a stream contact_halt
    self.state['completed']=c['id'];self.publish();return
   if op=='base_pulse':
    if not self.wheel_names:raise ValueError('UNSUPPORTED_OWNER_SCOPE: owner started without --wheels; base drive disabled')
@@ -289,12 +298,17 @@ class HardwareOwner:
    candidate=WheelPulseExecutor(self.read,self.write,self.camera_fresh,clock=self.clock,wall=self.wall)
    update=candidate.start(c,self.rows,session_started=self.started)
    self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.last_tick=self.clock();self.publish();return
+  if self.stream and op=='stream_targets':return self.stream_command(c)
+  if self.stream and op=='hold_here':self.hold_here();self.state['completed']=c['id'];self.publish();return
   if op not in ('direct_joint','gripper_target'):raise ValueError('Unsupported hardware command')
   positions=c.get('positions')
   if c.get('waypoints') is not None:
    if not self.paddle_profile or op!='direct_joint':raise ValueError('Waypoint paths require the pickup profile')
    positions=c['waypoints'][0] if isinstance(c['waypoints'],list) and c['waypoints'] else None
   if not isinstance(positions,dict) or not positions or not set(positions)<=self.enabled or not set(positions)<=set(self.position_names):raise ValueError('Targets require already-enabled arm/head motors; wheels do not accept position-motion requests')
+  if self.stream_executor and self.engine is self.stream_executor and self.engine.active:
+   # Stream mode: a normal motion ends a running stream first (holding its goals), as replace=true does.
+   replaced=self.current_command;self.state.update(self.engine.halt({n:self.rows[n]['Present_Position'] for n in self.engine.joints}),replaced_command_id=replaced)
   if self.engine and self.engine.active:
    # replace=true swaps a running arm motion for this one, starting from the held goals (no stop in between).
    if not c.get('replace') or self.driving() or not hasattr(self.engine,'halt'):raise ValueError('Previous motion has not completed; send replace=true to change it, or halt first')
@@ -316,7 +330,49 @@ class HardwareOwner:
   if self.paddle_profile:self.motion_count+=1
   self.state['pickup_motion_segments_used']=self.motion_count
   self.state['local_gripper_probe']=False
-  self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.lease=self.clock()+(candidate.deadline+5 if op=='gripper_target' or self.paddle_profile else 30);self.last_tick=self.clock();self.publish()
+  self.engine=candidate;self.current_command=c['id'];self.state.update(update);self.lease=self.clock()+(candidate.deadline+5 if op=='gripper_target' or self.paddle_profile else 30);self.last_tick=self.clock()
+  if self.stream_executor:self.stream_executor.contact_latched=None;self.stream_executor.forget_jaws(positions)  # a started normal motion acknowledges a stream contact_halt; jaws it moves lose their stream block
+  self.publish()
+
+ def stream_command(self,c):
+  # One persistent executor: each command only updates its targets (contact counters and jaw blocks persist).
+  from stream_joint_executor import StreamJointExecutor,STREAM_TIMEOUT_S
+  if self.engine and self.engine.active and self.engine is not self.stream_executor:raise ValueError('A non-stream motion is running; halt it (robot_halt_motion) before streaming')
+  targets=c.get('targets')
+  if not isinstance(targets,dict) or not targets:raise ValueError('stream_targets needs a nonempty targets object of arm motor name to integer ticks')
+  if any(not isinstance(n,str) or not n.startswith(('right_arm_','left_arm_')) for n in targets) or not set(targets)<=set(self.position_names):raise ValueError('Stream targets must be arm motors in the owner scope (left_arm_*/right_arm_*)')
+  arms={n.split('_arm_')[0] for n in targets};required={n for n in self.position_names if n.split('_arm_')[0] in arms}
+  if not required<=self.enabled:raise ValueError('Streaming requires all six '+'/'.join(sorted(arms))+'-arm motors explicitly enabled: '+', '.join(sorted(required-self.enabled)))
+  if self.paddle_profile and not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
+  if self.stream_executor is None:self.stream_executor=StreamJointExecutor(self.ranges,self.setpoints,clock=self.clock,wall=self.wall)
+  ex=self.stream_executor;was_active=ex.active and self.engine is ex
+  if not was_active:ex.active=False
+  joints=sorted(required|(set(ex.joints) if was_active else set()))
+  current={n:self.rows[n]['Present_Position'] for n in joints}
+  result=ex.command(c,current,self.goals,joints)
+  if ex.active and not was_active:
+   self.engine=ex;self.motion_count+=1;self.state['pickup_motion_segments_used']=self.motion_count;self.state['local_gripper_probe']=False
+   self.state.update(ex.started_update(current));self.last_tick=self.clock()
+  if ex.active:self.current_command=c['id'];self.lease=self.clock()+STREAM_TIMEOUT_S+5
+  else:self.lease=self.clock()+120;self.state['stream_phase']='holding'  # an accepted no-op with no stream running is a heartbeat, like hold
+  self.state.update(stream_ack=c['id'],stream_result=result,jaw_contact=dict(ex.jaw_contact))
+  self.publish()
+ def hold_here(self):
+  # Hold every enabled joint at its present position (clamped 4 ticks inside its range, as soften() starts),
+  # with no torque ramp-down and no release. Ends any running motion or stream; acknowledges a stream contact_halt.
+  if self.driving():self.engine.stopped_early='halted by hold_here'
+  elif self.engine and self.engine.active:
+   if not hasattr(self.engine,'halt'):raise ValueError('The active motion cannot be halted; use stop')
+   self.state.update(self.engine.halt({n:self.rows[n]['Present_Position'] for n in self.engine.joints}),halted_command_id=self.current_command)
+  held={}
+  for n in sorted(self.enabled):
+   q=self.read(n,'Present_Position')
+   if n in self.ranges:lo,hi=self.ranges[n];q=max(lo+4,min(hi-4,q))
+   if q!=self.goals.get(n):self.write(n,'Goal_Position',q)
+   self.goals[n]=held[n]=q
+  if self.stream_executor:self.stream_executor.contact_latched=None
+  if self.enabled:self.lease=self.clock()+120
+  self.state.update(hold_here={'time':self.wall(),'goals':held},stream_phase='holding' if not self.driving() else self.state.get('stream_phase'))
 
 def atomic(path,value):
  temp=path.with_suffix('.tmp');temp.write_text(json.dumps(value,allow_nan=False));temp.replace(path)
