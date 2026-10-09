@@ -1172,10 +1172,13 @@ if (new URLSearchParams(location.search).has('tour')) {
     const y0 = scrollY, off = () => { if (Math.abs(scrollY - y0) > 120) { h.classList.add('gone'); removeEventListener('scroll', off); } };
     addEventListener('scroll', off, { passive: true });
   };
+  const moving = document.createElement('div'); moving.className = 'scrolling-badge'; moving.innerHTML = '<i>▼</i><i>▼</i><i>▼</i><b>下へスクロール中</b>';
   setTimeout(() => {
-    const ch = chapters[1], to = ch.offsetTop + ch.offsetHeight * 0.32, from = scrollY, t0 = performance.now(), ms = 2800;
-    const step = now => { if (cancelled) return hint(); const u = Math.min(1, (now - t0) / ms); scrollTo(0, from + (to - from) * ease(u)); if (u < 1) requestAnimationFrame(step); else hint(); };
+    document.body.appendChild(moving);
+    const ch = chapters[1], to = ch.offsetTop + ch.offsetHeight * 0.32, from = scrollY, t0 = performance.now(), ms = 1300;
+    const done = () => { moving.classList.add('gone'); setTimeout(() => moving.remove(), 400); hint(); };
+    const step = now => { if (cancelled) return done(); const u = Math.min(1, (now - t0) / ms); scrollTo(0, from + (to - from) * ease(u)); if (u < 1) requestAnimationFrame(step); else done(); };
     requestAnimationFrame(step);
-  }, 900);
+  }, 350);
 }
 window.__hoya = { robot, sceneAt, camAt, scrollS, HOME_Q, debugCam: null, poseArm, JOBS, W2 };
