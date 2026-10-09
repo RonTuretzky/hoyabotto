@@ -376,7 +376,7 @@
         <li><b>About 77.5 cm</b> (as the robot model says): the table is about 4.5 cm too high. Use a lower table (about 65.5 cm),
           or send the number and the demos get re-recorded at your height (untested below 12 cm; a few hours of compute).</li></ul></div></div>
     </div>
-  </div>
+  <p class="note" style="margin-top:8px"><b>Then the agent checks it:</b> <code>python tools/check_station.py --pilot-root "$PILOT"</code> reads one head-camera frame and answers in plain words, e.g. "Lower the table 7 mm", "Move the carton 8 mm to the robot's left", or "OK".</p></div>
   <div class="footer"><span>Step 2 · height</span><span class="pg"></span></div>
 </section>
 
@@ -415,7 +415,7 @@
         </ol>
       </div>
     </div>
-  </div>
+  <p class="note" style="margin-top:8px"><b>Then the agent checks it:</b> <code>python tools/check_station.py --pilot-root "$PILOT"</code> reads one head-camera frame and answers in plain words, e.g. "Lower the table 7 mm", "Move the carton 8 mm to the robot's left", or "OK".</p></div>
   <div class="footer"><span>Step 3 · setback and carton spot</span><span class="pg"></span></div>
 </section>
 
@@ -447,7 +447,7 @@
       <div class="panel risk"><b>Material is a guess</b><p>The simulation assumed a crease stiffness and friction, and trained across a range of them.
         Pre-folded, softer cartons can sag past flat. If you can, measure the crease with a luggage scale and send the reading.</p></div>
     </div>
-  </div>
+  <p class="note" style="margin-top:8px"><b>Then the agent checks it:</b> <code>python tools/check_station.py --pilot-root "$PILOT"</code> reads one head-camera frame and answers in plain words, e.g. "Lower the table 7 mm", "Move the carton 8 mm to the robot's left", or "OK".</p></div>
   <div class="footer"><span>Step 4 · carton</span><span class="pg"></span></div>
 </section>
 
@@ -568,139 +568,50 @@
 </section>
 
 <section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 5</div><h2>Point the cameras the way the policy expects</h2></div>
-    <div class="meta"><span class="badge both">Owner + agent</span><span class="badge time">30 min</span></div></div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 5 · automatic</div><h2>The robot points its own head camera</h2></div>
+    <div class="meta"><span class="badge both">Agent</span><span class="badge owner">Owner approves</span><span class="badge time">5 min</span></div></div>
   <div class="body">
-    <div class="cols">
-      <img src="img/fold-policy-setup/policy-views-220.png" alt="Simulated policy camera views: head front view and both wrist views at start, middle and end of a fold" style="width:100%;max-height:60vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
-      <div>
-        <div class="panel">
-          <h3>Head camera (OAK-D Lite) = "front"</h3>
-          <ul>
-            <li>Head pan <b>0°</b>, tilt <b>58° down</b>.</li>
-            <li>Use the <b>4:3 full-sensor</b> stream, not 640×360.</li>
-            <li>Check the view shows all four flaps and both claws (top row).</li>
-            <li>Note the head pan/tilt encoder ticks, so the pose can be repeated.</li>
-          </ul>
-        </div>
-        <div class="panel">
-          <h3>Wrist cameras = "left_wrist", "right_wrist"</h3>
-          <ul>
-            <li>Mounted as in the robot model, looking along the jaws.</li>
-            <li>The claw tips appear at the <b>bottom</b> of the image (middle and bottom rows).</li>
-            <li>The simulation assumed a 90° field of view. Calibrate the real cameras and send the numbers.</li>
-          </ul>
-        </div>
-        <p class="note">These are the simulated views. Take one still from each real camera with the carton in place and compare.</p>
-      </div>
-    </div>
-  </div>
-  <div class="footer"><span>Step 5 · cameras</span><span class="pg"></span></div>
+    <div class="cols"><div class="panel"><ol>
+      <li><b>You:</b> take the carton away, stand clear, keep STOP in reach. Raise both arms (the agent prints the pose: <code>--print-arm-pose</code>) so both gripper tags face the head.</li>
+      <li><b>Agent:</b> moves the head servos toward pan 0° and tilt 58° in small steps, and after every step measures where the camera really points from the two gripper tags. Wrong tick mappings don't matter: it measures, it doesn't trust the ticks.
+<pre><code>python tools/auto_head_pose.py --pilot-root "$PILOT" --execute --operator &lt;you&gt; --out head-pose.json</code></pre></li>
+      <li>It writes <code>head-pose.json</code>: the camera's measured position and angle, the head ticks and the lens numbers (read from the OAK itself).</li>
+    </ol></div>
+    <div><div class="panel risk"><b>Today's limit</b><p>Your head can only tilt about <b>36°</b> down (servo range ends at 2625 ticks; level is 2211). The policy trained at 58°.
+      The tool stops at the limit and records the real angle; step 7 then re-films the training at that angle. Nothing is forced past the limit.</p></div>
+      <div class="panel"><b>Wrist cameras</b><p>They ride on the grippers, so there is nothing to point. Their lenses are measured in step 6.</p></div></div></div></div>
+  <div class="footer"><span>Step 5 · head camera</span><span class="pg"></span></div>
 </section>
 
 <!-- 9 -->
 <section class="slide" aria-hidden="true">
-  <div class="eyebrow kicker">▶ Watch first</div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 6 · automatic</div><h2>Measure the cameras: no floor tags, no checkerboard</h2></div>
+    <div class="meta"><span class="badge both">Agent</span><span class="badge owner">Owner approves</span><span class="badge time">10 min</span></div></div>
   <div class="body">
-    <h2>Step 6a: lay the four floor tags</h2>
-    <video src="img/fold-policy-setup/step6a-floor-tags.mp4" muted loop playsinline controls preload="metadata"
-      style="display:block;width:100%;max-height:62vh;margin-top:12px;border-radius:12px;border:1px solid var(--line);background:#000"></video>
-    <p class="note" style="margin-top:10px">Tags 40–43 flat on the table before the carton goes down, top edge away from the robot.</p>
-  </div>
-  <div class="footer"><span>Watch · Step 6a</span><span class="pg"></span></div>
-</section>
-
-<section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 6a · camera poses</div><h2>Print the tags and lay them out</h2></div>
-    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15 min</span></div></div>
-  <div class="body"><div class="cols">
-    <div class="panel"><ol>
-      <li>Print <code>fold-pose-tags-40-43.pdf</code> at <b>100% / actual size</b> (no "fit to page").</li>
-      <li>Measure one tag's <b>black square</b> with a ruler. It should be 80 mm; write down what you get.</li>
-      <li>Cut the four tags out, leaving the white border.</li>
-      <li><b>Before the carton goes down</b>, tape them flat on the platform, printed text upright, <b>"TOP EDGE" pointing away from the robot</b>:
-        <table style="margin-top:6px"><tr><th>Tag</th><th>Sideways</th><th>Out from the base line</th></tr>
-        <tr><td>40</td><td>12 cm left</td><td>25 cm</td></tr><tr><td>41</td><td>12 cm right</td><td>25 cm</td></tr>
-        <tr><td>42</td><td>12 cm left</td><td>40 cm</td></tr><tr><td>43</td><td>12 cm right</td><td>40 cm</td></tr></table></li>
-    </ol></div>
-    <div class="panel"><h3>How to measure a tag spot</h3><ul>
-      <li><b>Sideways:</b> from the midpoint between the two shoulder-pan axes. Robot's left is negative.</li>
-      <li><b>Out:</b> from the line through the two shoulder-pan axes, toward the table, then <b>add 39 mm</b>. The base line sits 39 mm behind the pan axes.</li>
-      <li>Measure to the <b>centre</b> of each tag. Write the four actual spots down; exact placement doesn't matter, knowing it does.</li>
-      <li>Height: the tags lie on the carton surface, which is 120 mm below the bases after step 2.</li></ul></div>
-  </div></div>
-  <div class="footer"><span>Step 6a · tags</span><span class="pg"></span></div>
-</section>
-
-<section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 6b · camera poses</div><h2>Set the head, read its lens, take a still</h2></div>
-    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15 min</span></div></div>
-  <div class="body"><div class="cols">
-    <div class="panel"><ol>
-      <li>With STOP in reach, set the head to <b>pan 0°, tilt 58° down</b> with the robot's head controls.
-        Check with the phone inclinometer on the camera body: <b>58° below horizontal</b>.</li>
-      <li>Read the head pan/tilt <b>encoder ticks</b> (read-only) and write them down.</li>
-      <li>On the robot Mac, <b>in Terminal</b> (camera permission), read the OAK's factory lens calibration. This only reads; it moves nothing:
-<pre><code>cd software
-python tools/oak_intrinsics.py --width 640 --height 480 --out oak-640x480.json</code></pre></li>
-      <li>Save <b>one still</b> from the head OAK at <b>640×480</b>, with all four tags visible: <code>front.png</code>.</li>
-    </ol></div>
-    <div class="panel done"><b>Why 4:3</b><p>The policy saw a 4:3 image with a 54° vertical view. The usual 640×360 stream is cropped and too narrow.</p></div>
-  </div></div>
-  <div class="footer"><span>Step 6b · head camera</span><span class="pg"></span></div>
-</section>
-
-<section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 6c · camera poses</div><h2>Compute the head camera's pose</h2></div>
-    <div class="meta"><span class="badge both">Owner or agent</span><span class="badge time">5 min</span></div></div>
-  <div class="body"><div class="cols">
-    <div class="panel"><p>Run this with your measured tag size and spots, in metres. Sideways: left negative. Out: as in 6a. Height: −0.120.</p>
-<pre><code>python tools/camera_pose_from_tag.py --image front.png --camera front \
-  --intrinsics oak-640x480.json --tag-size 0.080 \
-  --tag 40 -0.12 0.25 -0.12  --tag 41 0.12 0.25 -0.12 \
-  --tag 42 -0.12 0.40 -0.12  --tag 43 0.12 0.40 -0.12 \
-  --update station.json</code></pre>
-      <p class="note">This writes the camera's position and angle into <code>station.json</code>. Start from <code>profiles/fold-station-xlerobot-220.json</code>, set <code>"measured": true</code>, and fill in your step 1–3 numbers.
-        Or just send me <code>front.png</code>, <code>oak-640x480.json</code> and your numbers, and I'll run it.</p></div>
-    <div class="panel"><h3>Check the answer</h3><ul>
-      <li>Lens about <b>42 cm above</b> the bases and about <b>5 cm forward</b>.</li>
-      <li>Pitch about <b>58° down</b>.</li>
-      <li>If it's far off, a tag was probably turned the wrong way or a spot was mis-measured.</li></ul></div>
-  </div></div>
-  <div class="footer"><span>Step 6c · solve the pose</span><span class="pg"></span></div>
-</section>
-
-<section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 6d · wrist cameras</div><h2>Calibrate each wrist camera's lens</h2></div>
-    <div class="meta"><span class="badge owner">Owner</span><span class="badge time">15 min per camera</span></div></div>
-  <div class="body"><div class="cols">
-    <div class="panel"><ol>
-      <li>Print <code>fold-checkerboard-9x6-25mm.pdf</code> at actual size. Measure one square (should be 25 mm). Tape it flat to a board.</li>
-      <li>From each wrist camera, at the resolution the policy will use, save <b>15–20 photos</b> of the board: near, far, tilted, in the corners. The whole board must be in every photo.</li>
-      <li>Run, for each camera:
-<pre><code>python tools/calibrate_camera_checkerboard.py \
-  --images 'left_wrist/*.png' --inner 9 6 --square-mm 25 \
-  --out left_wrist-640x480.json</code></pre></li>
-      <li>Send the two JSON files.</li>
-    </ol></div>
-    <div class="panel"><h3>What it tells us</h3><ul>
-      <li>The <b>field of view</b>. The simulation assumed 90° vertical. If yours differs, the demos are re-filmed with your lens and the policy retrained (no re-recording).</li>
-      <li>Where a wrist camera sits is fixed by its mount on the gripper, so it needs no tags; just confirm it's mounted as in the robot model.</li></ul></div>
-  </div></div>
-  <div class="footer"><span>Step 6d · wrist cameras</span><span class="pg"></span></div>
+    <div class="grid-2"><div class="panel"><h3>Head camera: done in step 5</h3><p>The pose comes from the gripper tags; the lens numbers come from the OAK's own factory calibration.
+      Optional cross-check with the box tags once the carton is back: <code>--box-tags</code>.</p></div>
+    <div class="panel"><h3>Wrist lenses: from the box tags</h3><ol>
+      <li><b>You:</b> tagged carton in its spot, STOP in reach, both arms enabled and holding.</li>
+      <li><b>Agent:</b> moves one wrist through ~12 planned views of the tags (collision-checked first), grabs a frame at each, returns, and solves the lens. Then the other arm.
+<pre><code>python tools/capture_wrist_calibration.py --pilot-root "$PILOT" --arm left --execute --operator &lt;you&gt;</code></pre></li>
+      <li>It refuses to save a poor fit (fewer than 8 good views or error above 1 px).</li></ol></div></div>
+    <p class="note">The floor tags (40–43) and the checkerboard are only fallbacks now: <code>fold-pose-tags-40-43.pdf</code>, <code>fold-checkerboard-9x6-25mm.pdf</code>.</p></div>
+  <div class="footer"><span>Step 6 · cameras</span><span class="pg"></span></div>
 </section>
 
 <!-- 10 -->
 <section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 7</div><h2>Send the measurements; the policy is refitted</h2></div>
-    <div class="meta"><span class="badge agent">Agent</span><span class="badge time">1–3 h compute</span></div></div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 7 · automatic</div><h2>Refit the policy to your measured robot</h2></div>
+    <div class="meta"><span class="badge both">Agent</span><span class="badge owner">Owner approves</span><span class="badge time">~3 h, ~$2.40</span></div></div>
   <div class="body">
-    <div class="grid-3">
-      <div class="card ok"><h3>Layout matched (steps 1–4)</h3><p>Only the cameras changed. The existing demonstrations are <b>re-filmed</b> from the measured camera positions (about 1 minute). Then the dataset is converted, the policy retrained on the cloud GPU (~30–60 min) and re-tested.</p></div>
-      <div class="card blocked"><h3>Layout differs</h3><p>Spacing, height or setback can't be matched. New demonstrations are <b>recorded</b> at your measured layout (~20–40 min), then converted and trained the same way.</p></div>
-      <div class="card"><h3>What you send</h3><ul><li><code>station.json</code> (measured: true)</li><li>Photos of each tape measurement</li><li>One still per camera</li><li>Head pan/tilt ticks</li></ul></div>
-    </div>
-  </div>
+    <div class="cols"><div class="panel"><ol>
+      <li><b>Agent:</b> one command takes <code>head-pose.json</code>, the wrist lens files and the station check, re-films the demonstrations from your real cameras, builds the dataset, trains on the cloud GPU, evaluates on held-out starts and picks the best checkpoint by score.
+<pre><code>python tools/refit_fold_policy.py --manifest measurements.json            # plan only
+python tools/refit_fold_policy.py --manifest measurements.json --launch   # spends ~$2.40</code></pre></li>
+      <li><b>You:</b> approve the <code>--launch</code> (the only step that costs money).</li>
+      <li>The chat config is pointed at the new checkpoint only if it folds at least 95% of held-out starts.</li></ol></div>
+    <div class="panel risk"><b>When re-filming isn't enough</b><p>If the station itself differs (arm spacing, table height or setback can't be matched), the tool says so and stops;
+      with approval it records new demonstrations at your layout first.</p></div></div></div>
   <div class="footer"><span>Step 7 · refit</span><span class="pg"></span></div>
 </section>
 
@@ -736,27 +647,17 @@ python tools/bind_fold_joint_maps.py \
 </section>
 
 <section class="slide" aria-hidden="true">
-  <div class="step-head"><div><div class="eyebrow kicker">Step 8b · hand pose</div><h2>Pose the arms at the training start, by hand</h2></div>
-    <div class="meta"><span class="badge owner">Owner</span><span class="badge exists">Motors released</span><span class="badge time">10 min</span></div></div>
+  <div class="step-head"><div><div class="eyebrow kicker">Step 8b · automatic</div><h2>The robot moves its arms to the start pose</h2></div>
+    <div class="meta"><span class="badge both">Agent</span><span class="badge owner">Owner approves</span><span class="badge time">2 min</span></div></div>
   <div class="body">
-    <img src="img/fold-policy-setup/training-start-pose.png" alt="Training start pose: shoulders folded low, wrists bent up, jaws closed, claws parked either side of the carton's near wall" style="width:100%;max-height:30vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
-    <div class="cols" style="margin-top:10px">
-      <table>
-        <tr><th>Joint</th><th>Left tick</th><th>Right tick</th><th>What it looks like</th></tr>
-        <tr><td>shoulder pan</td><td>1691</td><td>2401</td><td>each arm turned ~31° outward</td></tr>
-        <tr><td>shoulder lift</td><td>909</td><td>909</td><td>folded down, near its stop</td></tr>
-        <tr><td>elbow flex</td><td>2396</td><td>2396</td><td>+31°</td></tr>
-        <tr><td>wrist flex</td><td>3128</td><td>3128</td><td>bent up, +95°</td></tr>
-        <tr><td>wrist roll</td><td>2050</td><td>3024</td><td>right wrist rolled ~86°</td></tr>
-        <tr><td>jaw</td><td>≈1358</td><td>≈1354</td><td>closed (pads meet)</td></tr>
-      </table>
-      <div class="panel"><ol>
-        <li>Arms released, nothing enabled.</li>
-        <li>Move each arm by hand toward the picture and support it.</li>
-        <li>Read the ticks (<code>robot_get_state</code>, read-only) and adjust until every joint is within <b>±30 ticks</b> (±3°).</li>
-        <li>The policy only ever started here: the dry run warns until you're close.</li></ol></div>
-    </div>
-  </div>
+    <div class="cols"><img src="img/fold-policy-setup/training-start-pose.png" alt="Training start pose: shoulders folded low, wrists bent up, jaws closed, right wrist rolled about 86 degrees" style="width:100%;max-height:52vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)">
+    <div class="panel"><ol>
+      <li><b>You:</b> carton in its spot, both arms enabled and holding, STOP in reach.</li>
+      <li><b>Agent:</b> plans the move (one arm at a time: lift clear of the carton, turn, lower, jaws last), checks every leg for collisions first, then moves slowly:
+<pre><code>python tools/move_to_start_pose.py --pilot-root "$PILOT"                                   # plan only
+python tools/move_to_start_pose.py --pilot-root "$PILOT" --execute --operator &lt;you&gt;</code></pre></li>
+      <li>It ends holding at the pose and prints how close each joint is (within ±30 ticks). Or ask the chat: <code>robot_fold_policy_start_pose</code>.</li></ol>
+      <p class="note">Start the fold within 2 minutes: the owner releases idle arms after 120 s.</p></div></div></div>
   <div class="footer"><span>Step 8b · start pose</span><span class="pg"></span></div>
 </section>
 
@@ -880,9 +781,9 @@ python tools/bind_fold_joint_maps.py \
       <li>Box tagged: 12 tags at the marked spots (45 / 35 mm checked), confirmed in a head-camera still</li>
       <li>Head at pan 0°, tilt 58°, 4:3 stream; ticks noted</li>
       <li>Wrist cameras see their claw tips</li>
-      <li>Tags printed, measured and laid out; head set to 58°; OAK lens read</li><li>Head pose solved; wrist lenses calibrated</li>
-      <li>Measurements sent; refitted policy received</li>
-      <li>Joint maps bound to the live calibration; arms at the training start pose</li>
+      <li>Head pointed and measured by the agent (<code>auto_head_pose.py</code>)</li><li>Wrist lenses calibrated from the box tags (<code>capture_wrist_calibration.py</code>)</li><li>Station check says OK (<code>check_station.py</code>)</li>
+      <li>Refit run and best checkpoint chosen (<code>refit_fold_policy.py --launch</code>)</li>
+      <li>Joint maps bound to the live calibration; arms moved to the start pose (<code>move_to_start_pose.py</code>)</li>
       <li>Gripper streaming, link speed and joint speed confirmed</li>
       <li>Dry run clean</li>
       <li>Free-air 10-step run clean</li>
