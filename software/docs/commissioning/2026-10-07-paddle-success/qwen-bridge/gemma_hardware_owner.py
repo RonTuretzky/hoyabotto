@@ -64,6 +64,7 @@ class HardwareOwner:
   self.wheel_names=[n for n in WHEELS if n in self.names] if wheels and not read_only else []
   if wheels and not read_only and len(self.wheel_names)!=2:raise ValueError('Base drive requires both wheel motors on the owner buses')
   self.enabled=set();self.old={};self.goals={};self.rows={};self.limits={};self.last_tick=clock();self.lease=clock()+30
+  self.arm_speed_profiles={}
   self.started=wall();self.engine=None;self.current_command=None
   self.state={'started':self.started,'control_mode':'direct_joint','hardware_server':True,'phase':'idle','ok':True,'operator_armed':not read_only,'read_only':read_only,'camera_supervision_ok':True,'camera_supervision_required':paddle_profile,'supportsselectedjoints':self.position_names,'supported_motors':self.names,'commandable_motors':sorted(self.commandable_names),'read_only_motors':[n for n in self.names if n not in self.commandable_names],'ranges':self.ranges,'capabilities':['read','enable_motors','direct_joint','stop','release'],'pickup_required_enabled_motors':self.arm_scope() if paddle_profile else [],'head_supported':bool(self.head_names),'head_motors':list(self.head_names),'head_move_limits':dict(HEAD_LIMITS) if self.head_names else None,'pickup_motion_segment_budget':None,'pickup_idle_hold_seconds':120 if paddle_profile else 30,'execution_profile':'paddle-success-v1' if paddle_profile else 'legacy-direct','base_drive_supported':bool(self.wheel_names),'base_drive_limits':{'max_wheel_m_s':.02,'max_duration_s':3.0} if self.wheel_names else None,'motor_writes':0,'stop_latched':False,'stop_count':0,'last_stop':None,'software_temperature_limit_c':SOFTWARE_TEMPERATURE_LIMIT_C}
   if self.head_names:self.state['capabilities'].append('head_move')
@@ -196,10 +197,14 @@ class HardwareOwner:
   stamp=d.get('received_at')
   return type(stamp) in (int,float) and math.isfinite(stamp) and 0<=self.wall()-stamp<10 and d.get('seq') is not None
  def publish(self):
+  self.state['arm_speed_profiles']=dict(self.arm_speed_profiles)
   if not(self.engine and self.engine.active):self.state['phase']='holding' if self.enabled else 'idle'
   # Goals only mean something while a motor holds; enable always re-reads the encoder.
   self.state.update(time=self.wall(),rows=self.rows,enabled_motors=sorted(self.enabled),goals={n:g for n,g in self.goals.items() if n in self.enabled},lease_remaining=max(0,self.lease-self.clock()),stop_latched=False)
- def enable(self,names,enabled,manual=False):
+ def enable(self,names,enabled,manual=False,speed_profile='normal'):
+  from joycon_teleop import position_rate_limit, SPEED_PROFILES
+  if not isinstance(speed_profile,str) or speed_profile not in SPEED_PROFILES:raise ValueError('Unknown arm speed profile')
+  if speed_profile!='normal' and not self.paddle_profile:raise ValueError('Demo speed requires the commissioned pickup owner')
   if not isinstance(names,list) or not names or len(set(names))!=len(names) or not set(names)<=set(self.names) or type(enabled)is not bool:raise ValueError('Select known distinct motor names and boolean enabled')
   if not enabled:
    if self.engine and self.engine.active:self.release_all('Release requested during movement')
@@ -218,6 +223,7 @@ class HardwareOwner:
   if self.engine and self.engine.active:raise ValueError('Movement is in progress')
   # Validate the entire request before enabling any motor.
   for n in names:
+   if n in self.enabled and self.arm_speed_profiles.get(n,'normal')!=speed_profile and '_arm_' in n and not n.endswith('gripper'):raise ValueError('Release the arm before changing its speed profile')
    row=self.rows[n];q=row['Present_Position'];lo,hi=self.limits[n]
    if row['Status'] or (not self.paddle_profile and row['Present_Temperature']>SOFTWARE_TEMPERATURE_LIMIT_C) or abs(row['Present_Load'])>self.load_limit(n):raise ValueError(n+': fault or health limit')
    if self.paddle_profile and not 100<=row['Present_Voltage']<=140:raise ValueError(n+': pickup supply voltage outside 10..14V')
@@ -231,12 +237,15 @@ class HardwareOwner:
    self.old[n]={f:self.read(n,f) for f in ['Lock','Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient']}
    self.write(n,'Lock',0)
    torque=(500 if n.endswith('gripper') else 400 if n.endswith('elbow_flex') else HEAD_TORQUE_LIMIT if n in self.head_names else 800) if self.paddle_profile else (250 if n.endswith('gripper') else 400)
-   self.write(n,'Torque_Limit',min(self.old[n]['Torque_Limit'],torque));self.write(n,'Goal_Velocity',200 if self.paddle_profile and n.endswith('gripper') else 100);self.write(n,'Goal_Time',0);self.write(n,'Acceleration',5 if self.paddle_profile else 10)
+   speed=200 if self.paddle_profile and n.endswith('gripper') else int(position_rate_limit(n,speed_profile))
+   self.write(n,'Torque_Limit',min(self.old[n]['Torque_Limit'],torque));self.write(n,'Goal_Velocity',speed);self.write(n,'Goal_Time',0);self.write(n,'Acceleration',5 if self.paddle_profile else 10)
+   if (manual or speed_profile!='normal') and self.read(n,'Goal_Velocity')!=speed:raise RuntimeError(n+': speed readback mismatch')
    if self.paddle_profile and n.endswith(('shoulder_lift','elbow_flex')):self.write(n,'P_Coefficient',32)
    q=self.read(n,'Present_Position');lo,hi=self.limits[n]
    if n in self.ranges and not self.ranges[n][0]+4<=q<=self.ranges[n][1]-4:raise RuntimeError(n+': drifted before enable')
    if not 0<=q<=4095 or(lo<hi and not lo<=q<=hi):raise RuntimeError(n+': drifted outside firmware limits')
    self.write(n,'Goal_Position',q);self.enabled.add(n)
+   if '_arm_' in n and not n.endswith('gripper'):self.arm_speed_profiles[n]=speed_profile
    self.write(n,'Torque_Enable',1);self.write(n,'Lock',1);self.write(n,'Goal_Position',q);self.goals[n]=q
    self.state['enable_register_diagnostics'][n]['applied']=self.register_diagnostics(n)
   self.lease=self.clock()+(120 if self.paddle_profile else 30);self.state['released']=False;self.poll()
@@ -246,6 +255,7 @@ class HardwareOwner:
   self.rows.setdefault(n,{})['Torque_Enable']=0
   self.rows[n]['released_readback_at']=self.wall()
   self.enabled.discard(n)
+  self.arm_speed_profiles.pop(n,None)
   if n in self.old:
    for f in ['Torque_Limit','Goal_Velocity','Goal_Time','Acceleration','P_Coefficient','Lock']:self.write(n,f,self.old[n][f])
    self.old.pop(n)
@@ -306,7 +316,7 @@ class HardwareOwner:
    if not self.teleop or not self.teleop.active or c.get('token')!=self.teleop.token:raise ValueError('Manual session changed')
    self.release_all('Manual control released');self.state['completed']=c['id'];return
   if self.teleop and self.teleop.active:raise ValueError('Manual control owns the robot; STOP remains available')
-  if op=='enable_motors':self.enable(c.get('names'),c.get('enabled'));self.state['completed']=c['id'];return
+  if op=='enable_motors':self.enable(c.get('names'),c.get('enabled'),speed_profile=c.get('speed_profile','normal'));self.state['completed']=c['id'];return
   if op=='local_gripper_probe':
    if self.paddle_profile:raise ValueError('Legacy diagnostic probe unavailable under pickup profile')
    if self.enabled or any(r.get('Torque_Enable')!=0 for r in self.rows.values()) or len(self.rows)!=16:raise ValueError('Probe requires all16 observed released')
@@ -361,6 +371,9 @@ class HardwareOwner:
    from gripper_waypoint_executor import GripperWaypointExecutor
    executor=GripperWaypointExecutor
   candidate=executor(list(positions),{n:self.ranges[n] for n in positions},self.setpoints,clock=self.clock,wall=self.wall)
+  if self.paddle_profile:
+   from joycon_teleop import position_rate_limit
+   candidate.position_rate_limits={n:position_rate_limit(n,self.arm_speed_profiles.get(n,'normal')) for n in positions}
   current={n:self.rows[n]['Present_Position'] for n in positions}
   if self.paddle_profile:
    arms={n.split('_arm_')[0] for n in positions};required={n for n in self.position_names if n.split('_arm_')[0] in arms}
@@ -401,6 +414,7 @@ class HardwareOwner:
   if not isinstance(targets,dict) or not targets:raise ValueError('stream_targets needs a nonempty targets object of arm motor name to integer ticks')
   if any(not isinstance(n,str) or not n.startswith(('right_arm_','left_arm_')) for n in targets) or not set(targets)<=set(self.position_names):raise ValueError('Stream targets must be arm motors in the owner scope (left_arm_*/right_arm_*)')
   arms={n.split('_arm_')[0] for n in targets};required={n for n in self.position_names if n.split('_arm_')[0] in arms}
+  if any(self.arm_speed_profiles.get(n)=='demo' for n in required):raise ValueError('Policy streaming requires normal arm speed; release and re-enable normally first')
   if not required<=self.enabled:raise ValueError('Streaming requires all six '+'/'.join(sorted(arms))+'-arm motors explicitly enabled: '+', '.join(sorted(required-self.enabled)))
   if self.paddle_profile and not self.camera_gate.update(holding=True):raise ValueError('Pickup phone feed paused; no new target accepted')
   if self.stream_executor is None:self.stream_executor=StreamJointExecutor(self.ranges,self.setpoints,clock=self.clock,wall=self.wall)

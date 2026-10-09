@@ -4,7 +4,7 @@ import secrets
 import threading
 import time
 from gemma_direct_client import atomic_json
-from joycon_teleop import INPUT_TTL, SCOPES, validate_input
+from joycon_teleop import INPUT_TTL, SCOPES, SPEED_PROFILES, validate_input
 
 
 class TeleopAPI:
@@ -15,6 +15,7 @@ class TeleopAPI:
         self.permit = None
         self.token = None
         self.sequence = 0
+        self.speed_profile = 'normal'
 
     def status(self):
         s = self.client.status()
@@ -59,11 +60,15 @@ class TeleopAPI:
         try:
             if action == 'claim':
                 fields={'scope','control_mode','reference_id'} if body.get('control_mode')=='upstream' else {'scope'}
+                if 'speed_profile' in body: fields.add('speed_profile')
                 if set(body)!=fields or body.get('scope') not in SCOPES:raise ValueError('Select a valid scope and control mode')
+                profile=body.get('speed_profile','normal')
+                if not isinstance(profile,str) or profile not in SPEED_PROFILES:raise ValueError('Unknown manual speed profile')
                 if 'reference_id' in body and (not isinstance(body['reference_id'],str) or len(body['reference_id'])!=64):raise ValueError('Exact upstream reference fingerprint required')
                 token = secrets.token_urlsafe(32)
                 s = self.command('teleop_claim', token=token, **body)
                 self.token, self.scope, self.started, self.sequence = token, body['scope'], s['started'], 0
+                self.speed_profile=profile
                 return self.renew() | {'status': self.status()}
             if action == 'release':
                 if set(body) != {'token'}: raise ValueError('Session token required')
@@ -80,7 +85,7 @@ class TeleopAPI:
             c = {'token':self.token, 'session_started':body['owner_started'], 'sequence':body['sequence'],
                  'received':now, 'expires':now+INPUT_TTL,
                  **{k:body[k] for k in ('rates','deadman','linear','angular')}}
-            validate_input(c, self.scope)
+            validate_input(c, self.scope, self.speed_profile)
             if c['sequence'] <= self.sequence or c['session_started'] != self.started: raise ValueError('Old input or owner')
             s = self.client.status()
             if s['started'] != self.started or not 0 <= s['status_age_s'] <= .5 or (s.get('teleop') or {}).get('token') != self.token or not s['teleop']['active']:

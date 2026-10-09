@@ -24,6 +24,62 @@ exercises, a box, a short tutorial, better scenery and an over-shoulder viewpoin
 - Physical direction, load/contact, driving and stopping tests are still attended
   commissioning checks. They were not performed by this practice exercise work.
 
+## Camera-to-arm preflight and demo deployment readback — 9 October 2026
+
+- Read-only preflight still blocks right-arm registration: table tag1 and fixed right-gripper
+  tag2 are not accepted together. The current frame accepts carton14/26/27. The absent
+  detected mount alone was not proof of removal; the user subsequently confirmed BOTH
+  table1 and right-gripper2 are gone. Replace them for the existing routine. Right-arm geometry reports
+  unvalidated feetech_degrees_v1 mapping, missing gripper_from_tool and workspace bounds.
+- Fresh uncached paired-API state returned all16 motors torque-off. Its row timestamps were
+  68–88ms ahead of the observer at response receipt; the calibration sampler rejects future
+  stamps. This supports a host-clock offset, not stale hardware. Synchronize/verify clocks
+  or sample on the robot host before registration; do not relax freshness gates.
+- Start with fixed-head OAK and one arm: measured black-square widths, confirmed rigid tag2
+  mount, table1 co-visible, independently checked joint mapping, then the existing eight-fit/
+  three-heldout-pose registration. Grid clearance and excitation must be verified. Fit alone
+  is not jaw targeting: measure pad/hinge offsets and connect validated registration to the
+  currently pixel-only carton observer. Box-only pose and table-plane fit do not supply this.
+- Independent post-deployment readback confirms server9725a6b, new owner generation
+  1791551739.406972, idle/unclaimed, all16 motors released, normal100/demo300tick/s profiles,
+  and pilot enable schema exposes the profile. OAK remains1040x780, focus79, selected hash
+  a0f85c4e3814322178f172ceb1408066fd6904d6999685e27138222e1d2acfed.
+- Latest carton observation: OAK14/26/27 accepted; phone28 accepted. Prior five-frame
+  phone angle check accepted28 in5/5,11 in4/5,21 in3/5; these are intermittent visibility,
+  not always-visible guarantees. Target right-flap12 remains missing. depth_used:false and
+  metric_pose_available:false. Phone timing is receipt-only. No motor writes in these reads.
+- Requested delegated Codex worker failed before work with an account usage-limit error.
+  Primary verified the server deployment and prepared a fresh three-way UI integration
+  preserving the Joy-Con agent's current practice/preview changes. All65 combined UI tests
+  pass after supplying the existing model asset path (63 initial passes plus2 reruns), and
+  JS syntax passes. No speed patch applied to the other agent's checkout yet: its practice
+  session became active, so no restart was made. Prepared integration and receipts are in
+  seville-v2 .context/demo-speed/. No fast physical wave or calibration motion was run.
+
+## Arm demo speed and illuminated carton tags — 9 October 2026, 22:15 JST
+
+- Explicit normal/demo profiles added for Joy-Con and pilot/chat owner commands.
+  Demo uses 300 ticks/s (26.37 degrees/s) on the five positioning joints per arm;
+  normal owner speed is 100 ticks/s (8.79 degrees/s), Joy-Con normal80 (7.03 degrees/s).
+  Choose before enabling. Head, gripper, base, acceleration, torque, load, travel,
+  tracking, camera, deadman/watchdog and STOP rules remain unchanged. Policy streaming
+  requires normal. Release restores the original registers. No faster physical wave
+  has been executed or validated. Deployment verification will be recorded separately.
+- Validation: 64 Joy-Con tests and all28 isolated fake-hardware server test files
+  passed, including pilot/client/owner waypoints, speed selection before torque-on,
+  unchanged gripper/head caps, loaded-contact and tracking stops, and restoration.
+- After the user illuminated the box front, four fresh OAK frames (seq20470/20482/
+  20494/20506) accepted IDs14,26,27 in4/4 (margins79.88–87.11), ID10 in3/4
+  (39.62–40.45). Before illumination ID10 was rejected at20.17. No thresholds changed.
+  Phone and both wrists still accepted zero; the phone-facing panel remains dark.
+  OAK front lighting has visible glare around ID10. Diffuse/angle it and illuminate
+  the phone-facing short flap12 and wall22 next. The pilot's existing sense-tags path
+  can use accepted IDs for panel identification now. It still reports pixel-only,
+  depth_used:false and metric_pose_available:false; precise claw targeting needs
+  physical camera-to-arm, printed-size, hinge and pad-offset calibration.
+- Evidence: seville-v2 .context/demo-speed/lit-box/ (four API receipts and annotated
+  camera frames). Read-only capture; no motor command or camera change was sent.
+
 ## Joy-Con server deployed; real input and read-only 3D preview — 9 October 2026
 
 - The admin-only bootstrap succeeded without changing owner PID 95469 or its
@@ -50,6 +106,244 @@ exercises, a box, a short tutorial, better scenery and an over-shoulder viewpoin
   directions, contact clearance, driving and hardware stopping behavior remain
   commissioning checks; no autonomous task success is claimed.
 
+## OAK + Joy-Con main reconciliation — 9 October 2026, 21:53 JST
+
+- Combined the Joy-Con commissioning branch (6523472) and server/pilot/OAK branch
+  (4b7c34b) on main. Kept normal root restart dispatch and explicit Joy-Con modes.
+  Full-sensor capture, exact policy projection, guarded teleop and pilot tag work coexist.
+- `ensure_oak` now persists the tested camera profile when the existing stream is fresh
+  and its configuration hash matches the frozen contract. It writes only the profile;
+  the current camera, API and sole hardware owner are untouched by that adoption.
+  Normal future OAK launches read this profile and reject calibration/config changes.
+- Verified the combined tree: 59 Joy-Con tests, 13 OAK/projection tests and all 28
+  fake-hardware deployment test files passed. The server tests require their official
+  separate-process runner; collecting the whole directory in one pytest process leaks
+  legacy module-global mocks and fails collection. No production fix was inferred from it.
+- Main code revision fbf0e01 was pushed and reconciled on the robot through camera-only
+  job 20261009-215214-bdbc1f. It persisted the selected profile. Direct before/after
+  readback: owner 14244, API 14262, OAK watchdog/stream 13659/13660 and wrist publishers
+  97386/97393 all unchanged; all four cameras fresh, selected OAK hash unchanged.
+  Existing Joy-Con runtime remained in place; no owner/API restart or motor command.
+- Training owner has the final 45-degree contract and explicit user request to restart
+  after renderer/sampling/inference checks. No new training job has been reported here.
+
+## Selected OAK view and training handoff — 9 October 2026, 21:45 JST
+
+- Live OAK now uses IMX214 13MP (4208×3120), ISP 1/4, centered crop from 1052×780
+  to 1040×780, manual focus 79, requested 10 fps RGB / 15 fps stereo, USB2.
+  This preserves full native height and 98.86% of native width. A 60-second 10 fps
+  trial delivered 9.700913 RGB/depth pairs/s; 18 of 603 RGB sequence intervals were
+  not published (~2.99%). Sampled pair skew max 32.923 ms. No owner/API restart or
+  motor command was sent by the camera trial. Later Joy-Con deployments are separate.
+- First 1052×780 trial failed the stereo width-multiple-of-16 constraint and rolled back.
+  1040×780 passed both 5 fps and 10 fps trials. Runtime-only factory K correction
+  expands the calibrated 3840×2160 ROI by (+184,+480) before scaling/cropping; no
+  EEPROM writes. 237 natural-feature inliers support the old-to-new pixel transform
+  with median 0.408 px / p95 1.308 px error; this does not validate absolute extrinsics.
+- Frozen policy contract: 320×240 RGB, square-pixel fx=fy=289.70562748477136,
+  principal point (160,120), 45° VFOV. Shared remap validates camera/config/focus/K/D
+  and uses all 14 distortion terms. A 52.2° crop crosses a factory rational-model pole;
+  wider rectification requires physical lens calibration. See
+  [contract](config/oak-policy-camera-20261009.json) and [handoff](docs/oak-selected-2026-10-09.md).
+- Training thread acknowledged old job 6ac8daa0fee2c9007017836a CANCELED. Final contract,
+  helper, raw/policy previews and test evidence delivered to agreed server-evidence/
+  oak-selected-20261009. Training must validate exact simulator sampling and integrate
+  the same preprocessing before restart. No new training job is claimed here.
+- Head at capture 2085/2623; camera-to-arm, depth/RGB registration, physical base placement
+  and wrist calibration remain unverified. ACT inputs are RGB cameras plus joints;
+  depth/tags remain observer evidence, not direct ACT inputs. No verified live fold.
+- Final readback at 21:45 JST: selected OAK hash unchanged and all four cameras fresh.
+  Remote Joy-Con HEAD 6523472 already preserves the full-sensor capture implementation;
+  selected-profile persistence is the remaining integration change. The user requested
+  reconciling both branches onto main. Preserve Joy-Con dispatch and the sole motor owner.
+- Requested independent session-review agents could not start due account restrictions;
+  the explicitly labeled primary review is saved in .context/session-review/primary-review.md.
+
+## Tag viewpoints and training calibration contract — 9 October 2026, 21:19 JST
+
+- Six spaced raw captures per OAK/phone/wrist viewpoint: all 24 frame sequences and hashes distinct;
+  zero accepted tags. Phone is the best angle: IDs 12/22 decode in 6/6 original frames but margins
+  15.61–16.39 and 13.41–14.25 fall below the 20 base/30 observer thresholds. Tag edges 43/55px are
+  already large enough. OAK sees untagged carton interiors; left wrist is oblique/blurred, right has
+  no decoded markers. Improve diffuse illumination/exposure and retest; thresholds unchanged.
+- All 16 positions and torque flags unchanged during read-only capture. Head motors already enabled
+  at 1919/2622; arms/wheels off. Head pan differs from the old clear-table baseline 2094/2621, so do
+  not reuse its pose unchanged. No motion/enable/release/restart or camera-mode switch was sent.
+- Frozen training `cloud-release-v5` expects rectified 640×360 OAK, principal-centered 4:3 crop
+  x91.544..537.964/y25.185..360, then 320×240 (VFOV36.682°), with a model 35.145°/−5.132°head.
+  Physical runner still lacks that preprocessing. Wrist 90°VFOV and physical extrinsics are unverified.
+  ACT takes OAK+two wrists RGB and joint state, not phone/depth/tag-pose tensors.
+- Concrete calibration plan: independently measured camera-to-arm reference; verified joint/base/tag
+  mounts and real-pad offsets; per-camera projection; heldout validation and persistent calibration
+  with invalidation on geometry changes. Carton observer currently remains pixel-only.
+- [Full findings](docs/tag-angles-and-calibration-2026-10-09.md); raw evidence/contact sheet:
+  `.context/tag-angle-check-20261009/capture-20261009-211938/`. Copy and request deposited at
+  las-vegas-v1 `.context/station-refit-2026-10-09/server-evidence/oak-calibration-request-20261009-211938/`.
+  Native Conductor chat attachment failed; no direct message delivery or training-agent reply claimed.
+
+## OAK sensor coverage and AprilTag recheck — 9 October 2026, 21:08 JST
+
+- Luxonis's IMX214 mode table explicitly describes 1080p as a 4K crop followed by binning;
+  full resolution is 13MP, 4208x3120. The live selected-1080p 640x360 preview therefore does not
+  preserve the full native field. Proportional 13MP → 1052x780 is a candidate for commissioning,
+  not a verified USB2 configuration. No camera mode or runtime settings were changed.
+- Three fresh tag API reads accepted zero tags across OAK, phone and both wrists. Some phone/wrist
+  frames repeat in this brief burst. Offline decoding of the saved derived phone JPEG found IDs 12/22
+  with margins 18.73/17.00, below both the base detector floor (20) and observer threshold (30).
+  These are diagnostic derived-image scores, not accepted live tags. Thresholds remain unchanged.
+- The carton is back in view. Scene depth sequence 105147 rejects the dominant panel as a table:
+  76% support, normal 88.8° from expected up. Camera pose falls back to model; robot registration and
+  joint mapping remain unvalidated. Tags still supply pixels only, with no metric pose or depth fusion.
+  All 16 motors were released and position/torque readbacks unchanged across this read-only check.
+- Updated [v8b tag-aware pilot prompt](docs/prompts/carton-pilot-v8b-tags-v1.txt) is saved,
+  unbenchmarked and unexecuted. It requires accepted panel identity, actual-pad pinch evidence,
+  current path/clearance evidence and post-release observation, replacing blind historical assumptions.
+- [Investigation and primary sources](docs/oak-fov-and-tags-2026-10-09.md); local receipts and images:
+  `.context/oak-fov-research/`. Requested research-agent delegation failed (wrapper parse error,
+  then direct Codex account usage limit); documentation was checked directly by the primary agent.
+
+## Clear-table baseline and OAK frontend verification — 9 October 2026, 20:54–21:00 JST
+
+- After the owner cleared the table, six fresh scene frames accepted the tabletop plane (depth sequences
+  96760, 96766, 96770, 96775, 96779, 96784; captured 20:54:35.952–38.352 JST). Median fitted downward
+  tilt 35.95° (35.62–36.43°), roll 0.095°, lens 462.6 mm above tabletop (461.0–466.5 mm). Residual RMS
+  3.1–3.4 mm, 52.65–55.53% inliers and 16.32–17.54% image coverage. Tabletop height 700 mm is an input;
+  the resulting 700 mm table check is not an independent height measurement.
+- All 16 positions and torque flags were unchanged across the bracketing readbacks. Head ticks
+  2094/2621, head torque off; twelve arm joints were already enabled in both snapshots. These reads
+  sent no motion or enable command. Evidence and hashed baseline:
+  `.context/table-plane-clear-20261009/{README.md,baseline.json,summary.json}` plus source snapshots.
+  Saved depth PNGs are separately fetched neighboring frames, not the exact scene-fit sequences.
+- This baseline is saved evidence only: runtime still refits each frame and may refuse an occluded
+  table. Factory distortion coefficients are still skipped by the enum mismatch; RGB/depth registration
+  and camera-to-arm mapping remain unverified. Heading/forward/left offsets remain model-derived.
+  Head, camera mount, cart, table or projection changes invalidate this baseline.
+- Frontend snapshot sequence 99555 decoded to 640×360; all five frames in a one-second MJPEG check
+  also decoded to 640×360. Chrome's actual OAK image reported natural size 640×360, `object-fit:contain`,
+  no transform and a 1100-pixel-wide lightbox image element. Its 16:9 content is proportionally enlarged
+  to 1100×618.75 CSS pixels, so it loses sharpness but is not stretched by CSS. Server routes forward
+  the camera JPEG without resizing. Camera source remains selected 1080p → 640×360 preview, not verified
+  full native sensor FOV. The bare table occupies the bottom of the raw view, with room floor above it.
+  Evidence: `.context/oak-frontend-20261009/`. No camera-mode switch or restart was performed.
+- At the owner's request, the paired-mTLS client/config-path handoff was delivered to the Conductor
+  Robot Emojis Service conversation. Local chat port 1241 and remote hardware API were distinguished;
+  no verified SSH alias/key was available and no secrets were sent.
+
+## Current depth and carton-tag verification — 9 October 2026, 20:36 JST
+
+- Follow-up table-plane diagnosis at 20:49: fresh OAK RGB sequence 93988 shows carton panels and
+  both claws occupying the foreground, with room floor above and almost no exposed tabletop.
+  Saved depth sequence 93987 rejects the dominant vertical plane both with current projection
+  handling and with factory distortion coefficients supplied explicitly offline (about 53% support,
+  normal 94–95° from expected up; largest table-like candidate about 22%). Correcting the enum
+  parsing alone will not recover the table in this view. Next commissioning needs an exposed-table
+  view and a stable multi-frame fit at the known 700 mm height, before putting the carton back.
+  Evidence: `.context/table-plane-diagnostic/`, including RGB, depth, metadata and
+  `offline-comparison.json`. Projection comparison is diagnostic, not RGB/depth alignment validation.
+- Read-only check of the existing pilot returned fresh real OAK stereo depth, sequence 86123,
+  RGB/depth 640×360, source `raw_fallback`. `powered_depth_observer_ready:false` and
+  `robot_frame_calibrated:false`: RGB/depth registration and the robot transform remain unverified.
+- The installed `TwinRobot` scene path returned `camera_pose_source:model`, `mapping_validated:false`
+  and no loaded joint map. Table-plane fitting failed (dominant normal 94.6° from expected up).
+  The legacy v8b recipe's instruction to trust the heights line is not validated for this configuration.
+- The runtime also skipped factory distortion coefficients because its manifest says
+  `CameraModel.Perspective` while `_distortion_from` accepts `Perspective`. This check did not change
+  the publisher, perception code, camera geometry or calibration.
+- Carton-tag API works, but this snapshot accepted no tags in any of the four views. Phone decoded
+  ID 12 (print-plan right short flap), hamming 0, 43.8 px shortest edge, but rejected margin 21.7
+  below the configured 30 threshold. Other views had no detections. These are pixel observations;
+  `depth_used:false`, `metric_pose_available:false`. No grasp or fold is established.
+- The archived best Flash/v8b task prompt does not explicitly request `sense tags`; the live
+  supervisor instructions expose that action separately. Tag availability does not mean each run uses it.
+- Evidence: seville-v2 `.context/perception-check-20261009/{status,depth,scene,carton-tags}.json`.
+  Pilot was idle; no motion, model run, camera revival, restart or training was requested or dispatched.
+
+## Quiet sensor display, DSML handling and OAK FOV correction — 9 October 2026
+
+- User reiterated that routine sensing should not appear in the chat. The live `chat.html` now hides
+  `SENSE:` decisions, Sensors worker cards, and successful routine read-tool cards. IDs still advance;
+  full readings remain in model context/history/logs. Errors, STOP, motion tools, eyes reports and final
+  answers remain visible. Chrome readback confirmed zero sensor/`SENSE:` cards and both STOP buttons.
+- DSML is DeepSeek tool-call markup. A full-width/double-bar closing-parameter fragment had slipped past
+  the ASCII-only rejection regex and appeared as a final answer. The guarded patch recognizes those
+  tag variants and re-asks for a valid decision; it does not execute DSML. Three markup variants passed
+  fake-supervisor checks with zero motion calls; normal prose/STOP/invalid-argument checks passed.
+  Reproduction/rollback source: `tools/install_pilot_quiet_sensing.py`, content-addressed private backups.
+- One deployment precheck failed while the pilot was active, but a subsequent shell command ran the old
+  chat-only restart helper before the patch had applied. Hardware owner was not restarted. The helper
+  was tightened to require idle and a fresh all-16 torque-off readback. The source patch was then applied;
+  HTML verified directly, and parser activation used the corrected helper after release.
+- OAK verification: live raw publisher reports 1080p → 640×360, with factory K implying approximately
+  64.7° horizontal / 39.2° vertical in a pinhole calculation. Luxonis lists the native IMX214 4208×3120
+  field as 69° / 54°. **The current feed is not verified as maximally wide.** The old `full field, no crop`
+  label only described the selected 1080p preview. Corrected repository comments/metadata explicitly
+  say selected 1080p field and `full_sensor_fov_verified:false`. No sensor-mode switch or OAK restart
+  was performed for this verification; the running publisher still has the older label.
+- Draft actual-pad vision prompt and installer remain uninstalled; the quiet-display patch does not
+  claim to fix wrist registration or grasp positioning. Earlier loop diagnostics showed small opening
+  1374→1577 succeeds; +1 cm/+5 mm along-jaws refinements were accepted without a close or verified pinch.
+  The independent 2 fps four-camera recorder finalized 660 frames per view at
+  `.context/flash-loop/continuous-20261009-195136/` when the user prioritized the prompt request.
+
+## Flash/v8b live attempt: three missed pinches, controller stop — 9 October 2026, 18:46–18:56 JST
+
+The user explicitly requested the best recipe live and to accelerate toward the attempt. Flash/v8b was
+submitted to the existing pilot/sole hardware owner with current-camera checks, right-arm-only scope,
+normal speeds/limits, no camera/body pushing and no arc without a verified pad pinch. The final station
+remains unregistered; this live attempt does not validate the simulation refit or its full fold path.
+
+- The right claw opened and reached the high approach, then tried nominal pinch position −15 cm left
+  at 34 cm forward / 95 cm model height. Close stopped at 1349: closed on air. It reopened, settled
+  short at 1528, and reached the second high approach. No arc occurred.
+- User reported moving a camera. A task-local halt request was refused with `Hardware action sequence
+  active`; the normal chat STOP then confirmed release of all 16 motors. After the user clarified that
+  only the phone overview moved, the authorized attempt continued using fresh phone/wrist observations.
+  The phone was moved again; its viewpoint was refreshed. Wrist and OAK mounts did not change by that report.
+- Position −12 cm closed on air at 1345. Position −18.5 cm first stalled at 1609; one recipe-permitted
+  retry closed on air at 1348. The following open-to-2000 stopped on `Pickup gripper no-progress guard`.
+  No further attempt or guard override. Fourth position was not tried. **No verified pinch and no fold arc.**
+- Fresh owner readback confirmed **all 16 motors released** after the controller stop. Final right
+  gripper read 1374. Only right-arm motor commands were sent; no base/head/left-arm commands, training,
+  calibration, limit edits or hardware-owner restart occurred.
+- Four-camera recordings: pilot `recordings/20261009-184616-manual-*`,
+  `20261009-185234-manual-*` and the resumed run's rollover segment. The first manual recorder hit
+  its 180 s cap before the phone-change STOP, leaving an approximately 17 s tail uncovered by video.
+  State/event logs and post-stop frames cover that interval; it is not a full-video-coverage claim.
+  A task-local recording watcher rolled the resumed run's four cameras after the cap; sidecars show a
+  4.1–5.3 s interfile gap despite requested pre-roll. Review uses
+  full file decoding and two-second visual samples over the recorded timelines, not frame-by-frame watching.
+- Logs, requests, frames, release readbacks and review artifacts:
+  seville-v2 `.context/flash-v8b-live-20261009-184616/` and
+  `.context/flash-v8b-live-resume-20261009-185234/`. Details in
+  [carton-pilot-tags-2026-10-09.md](docs/carton-pilot-tags-2026-10-09.md).
+
+## Carton tags live; final table captured; live fold not started — 9 October 2026, 18:37 JST
+
+- The pilot now has read-only `sense tags` / `robot_get_carton_tags` and GET `/api/carton-tags`, using the
+  HACHIYO 12-tag print plan with identity, hash, freshness and quality checks. Latest live phone evidence
+  accepts 11 (left short flap) and 28 (left wall near); physical placement is not independently verified.
+  OAK/wrists have no accepted tags. No tag-derived robot pose or fold/grasp success is claimed.
+- Best latest LLM folding recipe: DeepSeek Flash v8b, 7/8 metric passes versus Opus 5.5's 3/4; same seeds
+  both 3/4, median 1.03 versus 2.205 min. These tests predate the corrected wrist-camera collider and
+  final table. Flash's hardest stress batch was 0/4. New 54-frame / four-model-trial checks tested tag
+  sensing only, not folding reliability. The ACT policy's results are a separate evaluation.
+- User requested the best model live: selected and verified Flash through the running chat API. Its
+  live read-only readiness review found final-station registration and camera-body clearance unresolved.
+  Legacy recipe coordinates/3 cm height correction and depth-height check are not verified for this setup.
+  **No folding motion was launched; all 16 motors remain released with zero tick changes.**
+- Final table: user-confirmed DCM-F5040H, rectangular 500 × 480 mm, 700 mm top height, label rating 5 kg.
+  New capture 18:34:23 JST is in the las-vegas-v1 workspace under
+  `.context/station-refit-2026-10-09/server-evidence/final-table/`; read its `reply.md` and `manifest.json`.
+  It supersedes the 18:15 round-table pictures. Four fresh cameras, owner-state brackets and matching
+  OAK RGB/depth sequence 13598 are saved; exposure synchronization and pixel registration remain unverified.
+- Historical head solve was box-only (IDs 10/26/27, no gripper tags). Head ticks 2078/2580 are observed;
+  translation to bases is untrusted. Physical mount height, pan spacing and setback are unknown.
+  Model references: 729.1 mm mounting plane, 220 mm pan spacing, 111.2 mm nominal setback. Do not apply
+  the old 45 cm cart correction. Camera CAD's long axis is Y, not Z. Simulation thread owns the refit
+  and candidate preview before training; this thread made no `folding_sim.py` edits or training runs.
+- Verification: 60 tag tests and 109 focused pilot tests passed. Seven broader-suite failures reproduced
+  on the untouched baseline. Code, installation/rollback, benchmark and evidence details:
+  [carton-pilot-tags-2026-10-09.md](docs/carton-pilot-tags-2026-10-09.md).
 ## Joy-Con goal: paired-API commissioning path prepared — 9 October 2026
 
 The user explicitly asked to get teleoperation ready and selected this Mac

@@ -105,11 +105,14 @@ def _decode(image, meta):
 class TagObserver:
     """Per-view fresh measurements; no seeded displacement or fixed-head assumption."""
 
-    def __init__(self, *, clock=time.time, max_age_s=2.0, detector=detect_tags, geometry=None):
+    def __init__(self, *, clock=time.time, max_age_s=2.0, detector=detect_tags, geometry=None,
+                 roles=None, role_mapping_source="printed_carton_kit_verify_physical_mounting"):
         self.clock = clock
         self.max_age_s = max_age_s
         self.detector = detector
         self._previous = {}
+        self.roles = dict(DEFAULT_ROLES if roles is None else roles)
+        self.role_mapping_source = role_mapping_source
         self.geometry = geometry if geometry is None or isinstance(geometry, TagGeometry) else TagGeometry(geometry)
 
     def _measure(self, image, meta, ids):
@@ -138,7 +141,7 @@ class TagObserver:
             corners = np.asarray(found["corners"], dtype=float)
             edge = float(np.min(np.linalg.norm(corners - np.roll(corners, 1, axis=0), axis=1)))
             quality_ok = found["hamming"] == 0 and found["margin"] >= 30 and edge >= 24
-            row = {"tag_id": tag_id, "role": DEFAULT_ROLES.get(tag_id, "unassigned"),
+            row = {"tag_id": tag_id, "role": self.roles.get(tag_id, "unassigned"),
                    "center_px": found["center"], "corners_px": found["corners"],
                    "decision_margin": found["margin"], "hamming": found["hamming"],
                    "shortest_edge_px": edge, "status": "DETECTED" if quality_ok else "REJECTED"}
@@ -156,7 +159,7 @@ class TagObserver:
                  "new_since_last_call": previous is None or previous[:2] != (stream, seq)}
         self._previous[camera_id] = (stream, seq, stamp, digest)
         relative = None
-        if 2 in accepted and 3 in accepted:
+        if (self.roles.get(2), self.roles.get(3)) == ("gripper", "paddle") and 2 in accepted and 3 in accepted:
             relative = {"from_tag": 2, "to_tag": 3, "units": "pixels",
                         "dx": accepted[3]["center_px"][0] - accepted[2]["center_px"][0],
                         "dy": accepted[3]["center_px"][1] - accepted[2]["center_px"][1],
@@ -220,8 +223,8 @@ class TagObserver:
                 images = [i for i in images if i["view"] != name]
         available = any(row["status"] != "UNKNOWN" for row in observations.values())
         compact = {"schema": 1, "family": "tag36h11", "observations": observations,
-                   "role_mapping": {str(k): v for k, v in DEFAULT_ROLES.items()},
-                   "role_mapping_source": "printed_carton_kit_verify_physical_mounting",
+                   "role_mapping": {str(k): v for k, v in self.roles.items()},
+                   "role_mapping_source": self.role_mapping_source,
                    "coordinate_system": "per_image_pixels", "depth_used": False,
                    "metric_pose_available": False, "physical_task_completed": False}
         compact["metric_pose_available"] = any((r.get("pose_3d") or {}).get("status") == "CAMERA_RELATIVE_ESTIMATE"
@@ -262,6 +265,12 @@ class TagRobot:
     If the server already provides robot_get_tags, prefer its native implementation.
     """
 
+    tool_name = TOOL_NAME
+    default_ids = (1, 2, 3)
+
+    def schema(self, cameras):
+        return tool_schema(cameras, self.observer.geometry is not None)
+
     def __init__(self, robot, *, observer=None, geometry=None):
         self.robot = robot
         # Optional local commissioning file beside the authenticated client's
@@ -273,6 +282,7 @@ class TagRobot:
         self.observer = observer or TagObserver(geometry=geometry)
         self.last_catalog = None
         self._cameras = None
+        self._revive_supported = False
 
     def get(self, path):
         return self.robot.get(path)
@@ -281,20 +291,23 @@ class TagRobot:
         catalog = copy.deepcopy(self.robot.catalog())
         functions = {t["function"]["name"]: t["function"] for t in catalog["tools"]}
         self._cameras = None
-        if TOOL_NAME not in functions and "robot_get_cameras" in functions:
-            camera_schema = functions["robot_get_cameras"].get("parameters", {}).get("properties", {}).get("cameras", {})
+        if self.tool_name not in functions and "robot_get_cameras" in functions:
+            properties = functions["robot_get_cameras"].get("parameters", {}).get("properties", {})
+            self._revive_supported = "revive" in properties
+            camera_schema = properties.get("cameras", {})
             names = camera_schema.get("items", {}).get("enum", [])
             if names and all(isinstance(n, str) for n in names):
                 self._cameras = names
-                catalog["tools"].append(tool_schema(names, self.observer.geometry is not None))
-                catalog.setdefault("metadata", {})["apriltags"] = {
+                catalog["tools"].append(self.schema(names))
+                metadata_key = "apriltags" if self.tool_name == TOOL_NAME else self.tool_name
+                catalog.setdefault("metadata", {})[metadata_key] = {
                     "execution": "local_detector_on_authenticated_robot_camera_snapshots",
-                    "tool": TOOL_NAME, "motor_access": False}
+                    "tool": self.tool_name, "motor_access": False}
         self.last_catalog = catalog
         return catalog
 
     def call(self, name, args, request_id=None):
-        if name != TOOL_NAME:
+        if name != self.tool_name:
             return self._forward(name, args, request_id)
         if self.last_catalog is None:
             self.catalog()
@@ -303,7 +316,7 @@ class TagRobot:
         if not isinstance(args, dict) or set(args) - {"cameras", "tag_ids", "include_images"}:
             raise ValueError("Unknown AprilTag tool arguments")
         cameras = args.get("cameras", list(self._cameras))
-        ids = args.get("tag_ids", [1, 2, 3])
+        ids = args.get("tag_ids", list(self.default_ids))
         if not isinstance(cameras, list) or not cameras or any(not isinstance(c, str) or c not in self._cameras for c in cameras) or len(cameras) != len(set(cameras)):
             raise ValueError("Choose distinct available camera names")
         if not isinstance(ids, list) or not 1 <= len(ids) <= 32 or any(type(i) is not int or not 0 <= i <= 586 for i in ids) or len(ids) != len(set(ids)):
@@ -311,7 +324,10 @@ class TagRobot:
         include = args.get("include_images", True)
         if type(include) is not bool:
             raise ValueError("include_images must be boolean")
-        payload = self._forward("robot_get_cameras", {"cameras": cameras}, request_id)
+        camera_args = {"cameras": cameras}
+        if self._revive_supported:
+            camera_args["revive"] = False
+        payload = self._forward("robot_get_cameras", camera_args, request_id)
         return self.observer.observe(payload, cameras, ids, include)
 
     def _forward(self, name, args, request_id):

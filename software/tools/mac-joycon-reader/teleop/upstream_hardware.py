@@ -87,9 +87,11 @@ class UpstreamHardware:
             # round-trip rounding tick must not become a slow idle drift.
             if abs(target-q)<=getattr(self.reference,'quantization_ticks',0):target=q
             limit=60. if n.startswith('head_') else 80.
+            if s['teleop'].get('speed_profile')=='demo' and '_arm_' in n and not n.endswith('gripper'):
+                limit=min(300.,s['teleop'].get('position_rate_limits_ticks_s',{}).get(n,80.))
             # Track the upstream target within the existing physical velocity
             # contract. Do not inherit the simulator's unrestricted positions.
-            rates[n]=max(-limit,min(limit,(target-q)*5.))
+            rates[n]=max(-limit,min(limit,(target-q)*max(5.,limit/40.)))
         linear,angular=command['linear'],command['angular']
         if not all(self.dead.values()):linear=angular=0.
         # Keep the commissioned 2 cm/s *per wheel* cap and 0.16 rad/s cap.

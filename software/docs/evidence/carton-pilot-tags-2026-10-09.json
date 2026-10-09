@@ -1,0 +1,587 @@
+{
+  "scope": "LLM pilot folding benchmark plus perception-only integration checks; not final-station live validation",
+  "benchmarks": [
+    {
+      "source": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/bench/results/matrix-38/results.json",
+      "sha256": "2a5518fd8b2aacc78a014d783195d9440acd33fa635ede9aef75ac77b0312076",
+      "written_utc": "2026-10-09T07:17:56.845566+00:00",
+      "rows": [
+        {
+          "config": "opus55",
+          "model": "claude-opus-5-5",
+          "seed": 13,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 4.3,
+          "minutes": 2.12,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:02.941637+00:00"
+        },
+        {
+          "config": "opus55",
+          "model": "claude-opus-5-5",
+          "seed": 15,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 0.4,
+          "minutes": 2.17,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:02.940927+00:00"
+        },
+        {
+          "config": "opus55",
+          "model": "claude-opus-5-5",
+          "seed": 12,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 0.4,
+          "minutes": 2.24,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:02.939823+00:00"
+        },
+        {
+          "config": "opus55",
+          "model": "claude-opus-5-5",
+          "seed": 14,
+          "success": false,
+          "folded": true,
+          "fold_by_pinch": false,
+          "deg_push": 17.2,
+          "minutes": 2.89,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:02.941613+00:00"
+        }
+      ]
+    },
+    {
+      "source": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/bench/results/matrix-38-flash/results.json",
+      "sha256": "511836ef609d9020fa47f1a74c8573f66d26bce34ffbd1d8e00722bd9e14d33d",
+      "written_utc": "2026-10-09T07:23:32.004243+00:00",
+      "rows": [
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 13,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 3.7,
+          "minutes": 0.84,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:02.941643+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 15,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 1.1,
+          "minutes": 0.86,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:02.939681+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 14,
+          "success": false,
+          "folded": true,
+          "fold_by_pinch": false,
+          "deg_push": 17.1,
+          "minutes": 1.2,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:02.940344+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 12,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 0.1,
+          "minutes": 1.53,
+          "eyes_reports": 1,
+          "started_utc": "2026-10-09T07:15:02.941129+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 16,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 0.9,
+          "minutes": 0.81,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:15:54.282424+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 18,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 3.4,
+          "minutes": 0.93,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:16:16.397141+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 19,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 0.4,
+          "minutes": 1.95,
+          "eyes_reports": 1,
+          "started_utc": "2026-10-09T07:16:35.511665+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 17,
+          "success": true,
+          "folded": true,
+          "fold_by_pinch": true,
+          "deg_push": 1.0,
+          "minutes": 7.61,
+          "eyes_reports": 2,
+          "started_utc": "2026-10-09T07:15:55.290309+00:00"
+        }
+      ]
+    },
+    {
+      "source": "/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/pilot/bench/results/matrix-37-flash-allhard/results.json",
+      "sha256": "32fa00667251bedbcbfb3b459000285c76b0d76097d36921653db72a7484243a",
+      "written_utc": "2026-10-09T07:09:54.427275+00:00",
+      "rows": [
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 8,
+          "success": false,
+          "folded": false,
+          "fold_by_pinch": false,
+          "deg_push": 0.2,
+          "minutes": 0.68,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:05:18.180051+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 9,
+          "success": false,
+          "folded": false,
+          "fold_by_pinch": false,
+          "deg_push": 0.4,
+          "minutes": 2.29,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:05:18.179525+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 10,
+          "success": false,
+          "folded": false,
+          "fold_by_pinch": false,
+          "deg_push": 0.0,
+          "minutes": 1.85,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:05:59.327075+00:00"
+        },
+        {
+          "config": "deepseek-flash",
+          "model": "deepseek-flash",
+          "seed": 11,
+          "success": false,
+          "folded": false,
+          "fold_by_pinch": false,
+          "deg_push": 0.6,
+          "minutes": 2.29,
+          "eyes_reports": 0,
+          "started_utc": "2026-10-09T07:07:36.679385+00:00"
+        }
+      ]
+    }
+  ],
+  "perception_fixture": {
+    "scope": "Idealized perception-only, no training or fold policy; camera poses are synthetic.",
+    "table_top_m": 0.7,
+    "box_m": [
+      0.379,
+      0.283,
+      0.108
+    ],
+    "cases": 18,
+    "rendered_frames": 54,
+    "motor_commands": 0,
+    "tagged_cases_with_detection": 9,
+    "untagged_false_detections": 0,
+    "records": [
+      {
+        "yaw_deg": -8,
+        "flap_angle_deg": 0,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": -8,
+        "flap_angle_deg": 0,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            12,
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": -8,
+        "flap_angle_deg": 45,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": -8,
+        "flap_angle_deg": 45,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            12,
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": -8,
+        "flap_angle_deg": 100,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": -8,
+        "flap_angle_deg": 100,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": 0,
+        "flap_angle_deg": 0,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": 0,
+        "flap_angle_deg": 0,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            12,
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": 0,
+        "flap_angle_deg": 45,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": 0,
+        "flap_angle_deg": 45,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            12,
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": 0,
+        "flap_angle_deg": 100,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": 0,
+        "flap_angle_deg": 100,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": 8,
+        "flap_angle_deg": 0,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": 8,
+        "flap_angle_deg": 0,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            12,
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": 8,
+        "flap_angle_deg": 45,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": 8,
+        "flap_angle_deg": 45,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            12,
+            22
+          ]
+        }
+      },
+      {
+        "yaw_deg": 8,
+        "flap_angle_deg": 100,
+        "tagged": false,
+        "ids": {
+          "oak35": [],
+          "oak58": [],
+          "right_detail": []
+        }
+      },
+      {
+        "yaw_deg": 8,
+        "flap_angle_deg": 100,
+        "tagged": true,
+        "ids": {
+          "oak35": [
+            10,
+            14,
+            26,
+            27
+          ],
+          "oak58": [],
+          "right_detail": [
+            22
+          ]
+        }
+      }
+    ]
+  },
+  "flash_sensing_trials": [
+    {
+      "case": "yaw0-flap0-tags0",
+      "actions": [
+        "sense",
+        "finish"
+      ],
+      "seconds": 6.397402250004234,
+      "scope": "offline sensing only; no fold or motion",
+      "motor_commands": 0
+    },
+    {
+      "case": "yaw0-flap0-tags1",
+      "actions": [
+        "sense",
+        "finish"
+      ],
+      "seconds": 15.18956754199462,
+      "scope": "offline sensing only; no fold or motion",
+      "motor_commands": 0
+    },
+    {
+      "case": "yaw0-flap100-tags0",
+      "actions": [
+        "sense",
+        "finish"
+      ],
+      "seconds": 4.979770541991456,
+      "scope": "offline sensing only; no fold or motion",
+      "motor_commands": 0
+    },
+    {
+      "case": "yaw0-flap100-tags1",
+      "actions": [
+        "sense",
+        "finish"
+      ],
+      "seconds": 6.3269951669935836,
+      "scope": "offline sensing only; no fold or motion",
+      "motor_commands": 0
+    }
+  ],
+  "live_readiness": {
+    "model": "deepseek-flash",
+    "scope": "live read-only readiness review; no folding run",
+    "started_at": 1791538620.498207,
+    "ended_at": 1791538628.13081,
+    "model_reply": {
+      "action": "finish",
+      "answer": "Readiness: BLOCKED. The legacy recipe cannot be used with the supplied new-station evidence. Blockers: robot_table_registration=unverified; wrist_camera_body_clearance not validated in final station; head_pose_provenance=historical box-only tags, no gripper tags, translation to bases untrusted; depth_pixel_registration_verified=false; motor_commands=0. Accepted tags only: phone ID 11 left_short_flap; phone ID 28 left_wall_near. Right-flap identification: no accepted right-flap tag, so it is unknown/unidentified, not absent or folded. Fold status: no accepted tag or height evidence proves a right flap fold; tags alone do not prove a grasp or fold. oak, left_wrist, and right_wrist report NO_VALID_TAGS. Missing/rejected IDs are unknown/occluded, not evidence of absence or folding. Do not run the live recipe until registration, clearance, head/arm translation, depth registration, and right-flap evidence are resolved."
+    },
+    "evidence": {
+      "positions": {
+        "left_arm_shoulder_pan": 1811,
+        "left_arm_shoulder_lift": 874,
+        "left_arm_elbow_flex": 2062,
+        "left_arm_wrist_flex": 2939,
+        "left_arm_wrist_roll": 2614,
+        "left_arm_gripper": 1371,
+        "head_motor_1": 2078,
+        "head_motor_2": 2580,
+        "right_arm_shoulder_pan": 2217,
+        "right_arm_shoulder_lift": 964,
+        "right_arm_elbow_flex": 2359,
+        "right_arm_wrist_flex": 2943,
+        "right_arm_wrist_roll": 2097,
+        "right_arm_gripper": 1374,
+        "base_left_wheel": 1282,
+        "base_right_wheel": 298
+      },
+      "all_16_released": true,
+      "table": {
+        "width_mm": 500,
+        "depth_mm": 480,
+        "height_mm": 700,
+        "source": "user confirmed"
+      },
+      "robot_table_registration": "unverified",
+      "wrist_camera_body_clearance": "not yet validated in final station; collision geometry rebuild pending preview",
+      "head_pose_provenance": "historical box-only tags, no gripper tags; translation to bases untrusted",
+      "depth_pixel_registration_verified": false,
+      "motor_commands": 0
+    },
+    "position_delta_ticks": {
+      "left_arm_shoulder_pan": 0,
+      "left_arm_shoulder_lift": 0,
+      "left_arm_elbow_flex": 0,
+      "left_arm_wrist_flex": 0,
+      "left_arm_wrist_roll": 0,
+      "left_arm_gripper": 0,
+      "head_motor_1": 0,
+      "head_motor_2": 0,
+      "right_arm_shoulder_pan": 0,
+      "right_arm_shoulder_lift": 0,
+      "right_arm_elbow_flex": 0,
+      "right_arm_wrist_flex": 0,
+      "right_arm_wrist_roll": 0,
+      "right_arm_gripper": 0,
+      "base_left_wheel": 0,
+      "base_right_wheel": 0
+    },
+    "all_16_released_after": true,
+    "motor_commands": 0
+  }
+}
