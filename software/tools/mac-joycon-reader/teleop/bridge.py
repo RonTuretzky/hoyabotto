@@ -344,8 +344,8 @@ def main():
         preview3d=ReadbackPreview(reference,a.model)
     practice_factory=None
     if a.connect_robot and a.control_mode=='upstream':
-        from practice040 import Practice040
-        practice_factory=Practice040
+        from carton_practice040 import CartonPractice040
+        practice_factory=CartonPractice040
     try:bridge=Bridge(robot,a.reader,mapping=mapping,input_backend=backend,preview3d=preview3d,practice_factory=practice_factory)
     except Exception:
         if preview3d:preview3d.close()

@@ -19,8 +19,8 @@ class Practice040:
     simulation=True
     allow_background_input=True  # Virtual-only; never applied to the live transport.
     teleop_keys={'forward':'w','backward':'s','rotate_left':'a','rotate_right':'d'}
-    def __init__(self):
-        self.bus=Model040PreviewBus(workshop=True);self.lock=threading.RLock()
+    def __init__(self,*,bus_factory=None,course_factory=BoxCourse):
+        self.bus=(bus_factory or (lambda:Model040PreviewBus(workshop=True)))();self.lock=threading.RLock()
         self.stopping=threading.Event();self.session=None;self.sequence=0
         self.last_input=0.;self.started=time.monotonic();self.neutral_seen=False
         lift,elbow=SO101Kinematics().inverse_kinematics(.1629,.1131)
@@ -31,7 +31,7 @@ class Practice040:
             self.positions[side+'_arm_gripper']=45.
         self.linear=self.angular=0.;self.pose={'x':0.,'y':0.,'heading':0.}
         self.origin=self.bus.model.body_pos[self.bus.chassis].copy()
-        self.home=dict(self.positions);self.course=BoxCourse();self.held=False;self.placed=False
+        self.home=dict(self.positions);self.course=course_factory();self.held=False;self.placed=False
         self.previous_grip=self.positions['right_arm_gripper'];self._configure_box()
         self.reason='Practice stopped'
         self.thread=threading.Thread(target=self.run,name='so101-kinematic-practice',daemon=True)

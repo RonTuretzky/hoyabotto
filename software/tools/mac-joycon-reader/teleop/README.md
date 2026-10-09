@@ -1,4 +1,39 @@
-## Guided practice course
+## Guided carton folding practice — 10 October 2026
+
+The prepared operator screen at `http://127.0.0.1:64684/` now starts in carton
+practice, with a **standing directly behind** camera (centerline, approximately
+1.68 m eye height). Choose right/left short or far/near long flap; each has an
+edge bead, printed role label and dotted 12 cm hinge arc. The seven milestones
+are wrists → open-jaw approach → pinch → fold arc → ten-second hold past flat
+→ release → two-second springback check. Reset carton and free practice are
+available. Only an explicitly started virtual session consumes motion inputs.
+
+Scene sources are [the latest carton handoff](../../../docs/carton-pilot-tags-2026-10-09.md)
+and `farm/sim/box_scene.py`: HACHIYO 379 × 283 × 108 mm, 140 mm flaps;
+DCM-F5040H 500 × 480 mm tabletop at 700 mm; latest right/far standing,
+near folded and left outward presentation. Practice targets reset the chosen
+flap upright. The 220 mm arm spacing, 729.1 mm mounting-plane height,
+111.2 mm setback and 10 mm carton inset are **model assumptions**; the final
+capture did not measure the robot/table registration or resolve table axis
+orientation. No old depth-estimated 77 cm rim or large training table is used.
+
+`carton_practice040.py` reuses the current benchmark's `PLASTIC` crease yield,
+delay, springback and relaxation parameters, with quasi-static unheld relaxation.
+Capture requires a nearby edge, jaw closure and roll alignment; pulling away
+from the hinge arc releases it. Short holds spring back. This is **geometric
+piloting practice**, not MuJoCo contact physics: no panel bending, pad forces,
+gripper stalls, camera/arm collisions, carton sliding, flap overlap, tape or
+physical retention certification. Marker labels are human identifiers, not
+AprilTag pose fixtures. Motor encoders/zeroes remain unvalidated.
+
+The existing single HID reader, practice/live switch and all live safety gates
+are retained. No robot deployment, restart, enable or movement is part of this
+simulation update. Tests check air closes, wrong-roll misses, slips, short-hold
+springback, ten-second retention, staged scoring, geometry and live-transport
+isolation. The original pickup exercise remains available as `Practice040`
+for its existing fixtures; the prepared screen now constructs `CartonPractice040`.
+
+## Earlier guided pickup course
 
 The operator screen can switch between **Practice simulator** and **Live robot**
 while stopped. Practice uses the same input reader and the maker's checksum-verified

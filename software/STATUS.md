@@ -1,3 +1,36 @@
+## Joy-Con carton folding practice ready — 10 October 2026
+
+- Prepared screen `127.0.0.1:64684` now constructs `CartonPractice040`, stopped
+  in local Practice. It keeps the single HID reader and existing live gates.
+  No remote deployment, restart, motor enable or motion was performed.
+- Uses the latest final-table handoff in `docs/carton-pilot-tags-2026-10-09.md`:
+  HACHIYO 379 × 283 × 108 mm, 140 mm flaps; rectangular DCM 500 × 480 mm
+  tabletop at 700 mm. 220 mm arm spacing, 729.1 mm mounting-plane height,
+  111.2 mm setback and 10 mm carton inset are model assumptions, not a physical
+  registration. Table axis orientation remains assumed. Older large-table/
+  77 cm rim training setups were not used for this scene.
+- Default camera stands directly behind on the robot centerline, approximately
+  1.68 m eye height; other views frame the carton too. Both maker SO-101 arms,
+  the common 0.4 cart shell and schematic OAK remain kinematic preview geometry.
+- Three-card tutorial and seven milestones: wrists, open-jaw approach, pinch,
+  hinge arc, ten-second past-flat hold, release, two-second springback check.
+  Right/left short and near/far long flap targets, repeat/reset/free practice,
+  human-readable role labels, white edge beads and arc guides are available.
+- Reuses the latest `farm/sim/box_scene.py` crease plasticity parameters.
+  Capture/roll/slip and springback are geometric/quasi-static proxies; no pad
+  forces, gripper stalls, camera/arm collisions, bending, carton sliding,
+  inter-flap overlap, tape or physical retention certification is modeled.
+- Verification: 75-test full teleop suite passed; nine focused carton tests
+  passed after adding the staged-course test and refining camera views.
+  JavaScript syntax and whitespace checks passed. A virtual-API synthetic
+  replay followed a reachable right-flap arc to 110°, held 11.2 s, released
+  and stayed at 80.1° after 2.4 s, with distinct rendered frames. This is
+  simulation evidence, not a human or physical-robot fold.
+- Local receipts/screens: `.context/joycon-readiness/carton-practice-evidence.json`,
+  `carton-operator-behind.jpg`, and `carton-practice-{behind,folded,released}.jpg`.
+  Both controllers were asleep/disconnected at readback; wake them and let gyro
+  calibration finish before starting. The screen was reloaded in Chrome.
+
 ## Guided local box practice ready — 9 October 2026
 
 The user confirmed the gyro-driven practice mode works and requested guided

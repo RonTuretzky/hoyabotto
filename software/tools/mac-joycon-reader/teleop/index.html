@@ -49,7 +49,7 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
 </header>
 <dialog id="tutorial" class="tutorial"><div class="eyebrow" id="tourCount">Quick tutorial · 1 of 3</div><h2 id="tourTitle"></h2><div id="tourBody"></div><p class="notice">Practice only. The box grip is simplified; real friction and contact forces are not modeled.</p><div class="tour-nav"><button id="tourBack">Back</button><button id="tourSkip">Skip tour</button><button id="tourNext">Next →</button></div></dialog>
 <main>
-<section id="coachPanel" class="card coach" hidden><div class="coach-head"><h2>Box piloting course</h2><button id="tourOpen">Quick tutorial</button></div><div class="coach-grid"><ol class="course-steps" id="courseSteps"></ol><div class="course-task"><h3 id="lessonTitle">Ready for a practice run?</h3><p id="lessonInstruction">Learn the controls, then approach, pick up and place the small box.</p><p id="lessonControls" class="hint"></p><p id="lessonNote" role="status"></p><div class="course-metrics"><span id="lessonDistance"></span><span id="lessonGrip"></span></div><div class="course-buttons"><button id="courseBegin">Begin course</button><button id="courseReset">Reset box</button><button id="courseFree">Free practice</button></div></div></div></section>
+<section id="coachPanel" class="card coach" hidden><div class="coach-head"><h2 id="courseHeading">Carton folding practice</h2><button id="tourOpen">Quick tutorial</button></div><div class="coach-grid"><ol class="course-steps" id="courseSteps"></ol><div class="course-task"><h3 id="lessonTitle">Ready for a practice run?</h3><p id="lessonInstruction">Practice a careful pinch, fold arc, hold and release.</p><p id="lessonControls" class="hint"></p><p id="lessonNote" role="status"></p><div class="course-metrics"><span id="lessonDistance"></span><span id="lessonGrip"></span><span id="foldAngle"></span><span id="foldHold"></span></div><div class="course-buttons"><label id="flapPicker" hidden>Practice flap <select id="flapChoice"><option value="right">Right short · R12</option><option value="left">Left short · L11</option><option value="far">Far long · F13</option><option value="near">Near long · N14</option></select></label><button id="courseBegin">Begin course</button><button id="courseReset">Reset carton</button><button id="courseFree">Free practice</button></div><p id="stationNote" class="hint"></p></div></div></section>
 <div class="workspace">
   <section class="card controls" aria-label="Practice controls">
     <div><div id="state" class="status" role="status">Connecting…</div><p id="reason" class="hint"></p><div id="error" role="alert"></div></div>
@@ -77,8 +77,8 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
     </div>
   </section>
   <section id="scenePanel" class="card" hidden aria-label="Robot simulation">
-    <div class="row scene-toolbar"><h2>Simulator</h2><select id="viewChoice" aria-label="Camera view"><option value="shoulder">Over-shoulder view</option><option value="orbit">Orbit view</option><option value="front">Front view</option><option value="side">Side view</option><option value="top">Top view</option></select></div>
-    <img id="sceneImage" alt="SO-101 kit-layout practice scene, viewed over the shoulder toward a box on a workbench">
+    <div class="row scene-toolbar"><h2>Simulator</h2><select id="viewChoice" aria-label="Camera view"><option value="behind">Standing directly behind</option><option value="shoulder">Over-shoulder view</option><option value="orbit">Orbit view</option><option value="front">Front view</option><option value="side">Side view</option><option value="top">Top view</option></select></div>
+    <img id="sceneImage" alt="Carton folding practice from directly behind the robot, with both arms and the rectangular table visible">
     <p id="sceneStatus">Waiting for simulator frames…</p>
   </section>
 </div>
@@ -94,7 +94,7 @@ summary{cursor:pointer;font-weight:650}.guide summary{color:#d9e3ed}#layers{disp
     <p id="backendInfo"></p><p id="axesReadback"></p><p id="gyroReadback"></p><p id="health"></p><p id="stopReason"></p>
     <div class="pads"><div><small>Left stick</small><div class="pad"><div id="leftDot" class="dot"></div></div></div><div><small>Right stick</small><div class="pad"><div id="rightDot" class="dot"></div></div></div></div>
     <p id="limits">Arm limit: 80 ticks/s · Head: 60 ticks/s · Wheels: 2 cm/s.</p>
-    <details id="simulation"><summary>Joint positions + base travel</summary><p>Simulation coordinates; not calibrated to the real robot. The practice box is solid and does not simulate folding.</p><div id="joints"></div><canvas id="base" width="360" height="260" aria-label="Top-down simulated base position"></canvas><p id="baseText"></p></details>
+    <details id="simulation"><summary>Joint positions + base travel</summary><p>Simulation coordinates; not calibrated to the real robot. Carton pinches and slips use geometry; crease springback uses the latest benchmark assumptions. Robot contact and servo forces are not simulated.</p><div id="joints"></div><canvas id="base" width="360" height="260" aria-label="Top-down simulated base position"></canvas><p id="baseText"></p></details>
     <details><summary id="readbackTitle">Virtual motor state</summary><p id="robotHealth"></p><div class="table-scroll"><table><thead><tr><th>Motor</th><th>Position</th><th>Torque</th><th>Load</th></tr></thead><tbody id="motors"></tbody></table></div></details>
   </details>
 </details>
@@ -116,17 +116,18 @@ async function action(body){
 }
 const tours=[
  ['Hands and wrists','<p>Set both Joy-Cons down for a few seconds, then pick them up comfortably.</p><ul><li><b>Tilt:</b> bend and roll the matching wrist.</li><li><b>Sticks:</b> move each hand in the direction its Joy-Con points.</li><li><b>L / R:</b> raise that hand. Click its stick to lower it.</li></ul>'],
- ['Meet the practice box','<p>You are looking over the robot’s shoulder. Its left hand is on your left.</p><ul><li><b>R:</b> the small handle on the box is your right-hand target.</li><li><b>ZR:</b> tap to toggle the right jaw. Open before approaching; close when aligned.</li><li><b>P:</b> lift the box, move over the placement marker, lower and release.</li></ul>'],
- ['Practice at your pace','<p>The course checks five small skills and gives you the next cue.</p><ul><li><b>− / Escape / Stop:</b> end practice.</li><li><b>Head:</b> left D-pad turns and tilts it.</li><li><b>Drive:</b> hold +; Y / A goes forward / backward, X / B turns.</li><li><b>Live robot:</b> Stop first, switch the control target, then Arm controls with rail SL / SR held only when you want motion.</li></ul><p>Release buttons and center the sticks before beginning.</p>']
+ ['Meet the carton','<p>You are standing directly behind the robot. Left and right match your hands.</p><ul><li><b>R12:</b> start with the right short flap. The white bead is 2 cm below its edge.</li><li><b>ZR / ZL:</b> toggle the right / left jaw. Open, align the edge inside the pads, then close.</li><li><b>Wrist:</b> keep side-flap jaws unrolled; rotate 90° to pinch the near or far long flap.</li></ul><p>379 × 283 × 108 mm HACHIYO carton, 140 mm flaps; 500 × 480 mm table, 700 mm high.</p>'],
+ ['Fold, hold, then check','<p>Carry the captured flap around its hinge. The dotted arc shows a 12 cm radius.</p><ul><li><b>Fold:</b> move inward and down to 100–110°, keeping the edge captured. Pulling away causes a slip.</li><li><b>Hold:</b> stay past 100° for ten seconds. A brief fold springs back.</li><li><b>Release:</b> open the jaw, move clear, and watch for two seconds.</li><li><b>− / Escape / Stop:</b> ends practice. Reset carton repeats the exercise.</li></ul><p>This is a geometric practice model using benchmark crease assumptions. Placement, robot contact and servo forces are unverified.</p>']
 ];
 function showTour(){tourStep=0;drawTour();$('tutorial').showModal();tourOpened=true}
 function drawTour(){$('tourCount').textContent=`Quick tutorial · ${tourStep+1} of 3`;$('tourTitle').textContent=tours[tourStep][0];$('tourBody').innerHTML=tours[tourStep][1];$('tourBack').disabled=tourStep===0;$('tourNext').textContent=tourStep===2?'Begin exercises':'Next →'}
 $('tourOpen').onclick=showTour;$('tourBack').onclick=()=>{tourStep=Math.max(0,tourStep-1);drawTour()};
-$('tourSkip').onclick=()=>{sessionStorage.setItem('box-tour-v1','seen');$('tutorial').close()};
-$('tourNext').onclick=()=>{if(tourStep<2){tourStep++;drawTour()}else{sessionStorage.setItem('box-tour-v1','seen');$('tutorial').close();action({op:'lesson',action:'start'})}};
+$('tourSkip').onclick=()=>{sessionStorage.setItem('carton-tour-v1','seen');$('tutorial').close()};
+$('tourNext').onclick=()=>{if(tourStep<2){tourStep++;drawTour()}else{sessionStorage.setItem('carton-tour-v1','seen');$('tutorial').close();action({op:'lesson',action:'start'})}};
 $('courseBegin').onclick=()=>action({op:'lesson',action:'repeat'});
 $('courseReset').onclick=()=>action({op:'lesson',action:'reset_box'});
 $('courseFree').onclick=()=>action({op:'lesson',action:'free'});
+$('flapChoice').onchange=()=>action({op:'lesson',action:'target:'+$('flapChoice').value});
 
 $('backendChoice').onchange=()=>action({op:'input_backend',backend:$('backendChoice').value});
 $('referenceFrame').onchange=()=>action({op:'reference_frame',frame:$('referenceFrame').value});
@@ -148,15 +149,24 @@ function draw(s){
   const lesson=r.lesson;
   $('coachPanel').hidden=!s.simulation||!lesson;
   if(s.simulation&&lesson){
-    if(!tourOpened&&!sessionStorage.getItem('box-tour-v1'))showTour();
-    const names=['Wrists','Approach','Grip','Lift','Place'];
+    if(!tourOpened&&!sessionStorage.getItem('carton-tour-v1'))showTour();
+    const fold=r.folding;
+    const names=lesson.names||['Wrists','Approach','Grip','Lift','Place'];
     $('courseSteps').replaceChildren(...names.map((name,i)=>{const li=document.createElement('li');li.textContent=`${i+1}. ${name}`;li.className=lesson.complete||i<lesson.step?'done':i===lesson.step&&lesson.active?'current':'';return li}));
     $('lessonTitle').textContent=lesson.active?lesson.title:'Ready for a practice run?';
-    $('lessonInstruction').textContent=lesson.active?lesson.instruction:'Learn the controls, then approach, pick up and place the box.';
+    $('lessonInstruction').textContent=lesson.active?lesson.instruction:fold?'Learn the controls, then pinch, fold, hold and release the selected flap.':'Learn the controls, then approach, pick up and place the box.';
     $('lessonControls').textContent=lesson.controls;$('lessonNote').textContent=lesson.note;
-    $('lessonDistance').textContent=`Tip to R: ${lesson.distance_cm} cm`;$('lessonGrip').textContent=lesson.box_held?'Box attached':'Box on table';
+    $('courseHeading').textContent=fold?'Carton folding practice':'Box piloting course';
+    $('lessonDistance').textContent=`Tip to ${fold?.label||'R'}: ${lesson.distance_cm} cm`;
+    $('lessonGrip').textContent=fold?(fold.held_by?`${fold.held_by} pads · captured`:'Pads released'):(lesson.box_held?'Box attached':'Box on table');
+    $('foldAngle').textContent=fold?`${fold.angle_deg}° · 90° is flat`:'';
+    $('foldHold').textContent=fold?`Hold: ${fold.hold_s.toFixed(1)} / 10 s`:'';
+    $('flapPicker').hidden=!fold;
+    if(fold)$('flapChoice').value=fold.target;
+    $('stationNote').textContent=fold?'Latest carton station: HACHIYO 379 × 283 × 108 mm · 140 mm flaps · DCM 500 × 480 mm table at 700 mm. Robot placement and crease parameters are model assumptions. No force/contact validation.':'';
+    $('courseReset').textContent=fold?'Reset carton':'Reset box';
     $('courseBegin').textContent=lesson.active?'Repeat course':'Begin course';
-    for(const id of ['courseBegin','courseReset','courseFree'])$(id).disabled=s.busy||pending>0||!!s.reader_error;
+    for(const id of ['courseBegin','courseReset','courseFree','flapChoice'])$(id).disabled=s.busy||pending>0;
   }else if($('tutorial').open)$('tutorial').close();
   const busy=s.busy||pending>0,locked=s.armed||busy,unavailable=!connected||!!s.reader_error||!Object.keys(d).length;
   $('speedPicker').hidden=!r.teleop?.speed_profiles;
@@ -243,7 +253,8 @@ function draw(s){
   $('limits').textContent=upstream&&!physicalUpstream?'Original Windows movement + XLeRobot IK · 50 Hz · sticks up to 15 cm/s · base 10 cm/s. Model joint limits apply.':(s.speed_profile==='demo'?'Arm: up to 26°/s':'Arm: about 7°/s')+' · Grip: unchanged · Head: 60 ticks/s · Wheels: 2 cm/s.';
   $('ikStatus').textContent=(s.control_info?.warnings||[]).join(' · ');
   $('scenePanel').hidden=!r.simulator;
-  $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':r.simulator.kinematic_practice?'0.4 SO-101 kinematic practice · No robot motion':r.simulator.read_only?(r.simulator.model_hardware||'Read-only MuJoCo preview')+' · Joint mapping unvalidated · Base stationary':'Live simulation · Solid practice box')):'';
+  if(r.simulator?.view)$('viewChoice').value=r.simulator.view;
+  $('sceneStatus').textContent=r.simulator?(r.simulator.render_error||(r.simulator.frame_age_s>1?'View paused — waiting for a fresh frame.':r.simulator.carton_practice?'0.4 SO-101 · Full-size carton · Hinged flaps + springback · Local practice only':r.simulator.kinematic_practice?'0.4 SO-101 kinematic practice · No robot motion':r.simulator.read_only?(r.simulator.model_hardware||'Read-only MuJoCo preview')+' · Joint mapping unvalidated · Base stationary':'Live simulation · Solid practice box')):'';
   $('health').textContent=`Input age: ${s.input_age_s??'—'} s · ${s.simulation?'Local control loop':'Network round trip'}: ${s.rtt_ms??'—'} ms`;
   $('backendInfo').textContent='Input: '+(s.input_backend==='hid'?'Independent Nintendo HID':'Apple GameController')+' · Held: '+(Object.entries(d.buttons||{}).filter(([k,v])=>v).map(([k])=>k.replace('Button ','')).join(', ')||'none');
   $('axesReadback').textContent=['left','right'].map(side=>`${side} stick: X ${(a[side+'x']||0).toFixed(2)} / Y ${(a[side+'y']||0).toFixed(2)}`).join(' · ');

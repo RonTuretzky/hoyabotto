@@ -23,7 +23,7 @@ from farm.kinematics.assets import verified_model
 DEFAULT_SO101=SOFTWARE.parent/'.context/joycon-readiness/so101-model'
 
 
-def scene040(path, so101_directory, workshop=False):
+def scene040(path, so101_directory, workshop=False, carton=False):
     _,manifest=verified_model(so101_directory)
     urdf=ET.parse(Path(so101_directory)/manifest['urdf']).getroot()
     for mesh in urdf.iter('mesh'):
@@ -56,7 +56,8 @@ def scene040(path, so101_directory, workshop=False):
         if mesh.tag=='mesh' and mesh.get('name') not in used:asset.remove(mesh)
     for mesh in arm.find('asset'):asset.append(copy.deepcopy(mesh))
     for side,sign in (('left',-1),('right',1)):
-        mount=ET.SubElement(chassis,'body',name=side+'_so101_mount',pos=f'0 {sign*.11} .41',euler='0 0 3.141592653589793')
+        mount_height=.7291-float(chassis.get('pos').split()[2]) if carton else .41
+        mount=ET.SubElement(chassis,'body',name=side+'_so101_mount',pos=f'0 {sign*.11} {mount_height}',euler='0 0 3.141592653589793')
         for child in arm.find('worldbody'):
             item=copy.deepcopy(child)
             for node in list(item.iter('geom')):
@@ -82,14 +83,18 @@ def scene040(path, so101_directory, workshop=False):
     if workshop:
         from practice_scene040 import add_workshop
         add_workshop(root,SOFTWARE.parent/'.context/joycon-readiness/workshop-art')
+        if carton:
+            from carton_practice_scene import add_carton_station
+            add_carton_station(root,SOFTWARE.parent/'.context/joycon-readiness/workshop-art')
     return ET.tostring(root,encoding='unicode'),manifest
 
 
 class Model040PreviewBus(MujocoBus):
-    def __init__(self,model_path=None,*,render=True,forward_arms=True,workshop=False):
+    def __init__(self,model_path=None,*,render=True,forward_arms=True,workshop=False,carton=False):
         path=Path(model_path or DEFAULT_MODEL).resolve()
         directory=Path(os.environ.get('XLEROBOT_SO101_MODEL',DEFAULT_SO101)).resolve()
-        xml,self.arm_manifest=scene040(path,directory,workshop)
+        xml,self.arm_manifest=scene040(path,directory,workshop,carton)
+        self.carton_scene=carton
         self.model=mujoco.MjModel.from_xml_string(xml);self.data=mujoco.MjData(self.model)
         self.model_sha256=hashlib.sha256(xml.encode()).hexdigest();self.map={}
         for side in ('left','right'):
@@ -102,15 +107,15 @@ class Model040PreviewBus(MujocoBus):
         self.chassis=self.model.body('chassis').id
         self.render_enabled=render;self.renderer=None;self.latest_jpeg=None
         self.frame_lock=threading.Lock();self.render_error=None;self.frame_sequence=0;self.last_render=0.
-        self.view='shoulder';self.pending_view=None;self.render_interval=.1
+        self.view='behind' if carton else 'shoulder';self.pending_view=None;self.render_interval=.1
         mujoco.mj_forward(self.model,self.data)
 
     def set_view(self,view):
-        if view not in ('shoulder','orbit','front','side','top'):raise ValueError('Unknown camera view')
+        if view not in ('behind','shoulder','orbit','front','side','top'):raise ValueError('Unknown camera view')
         with self.frame_lock:self.pending_view=view
 
     def render_frame(self,force=False):
-        if self.view!='shoulder' and self.pending_view!='shoulder':return super().render_frame(force)
+        if not self.carton_scene and self.view not in ('behind','shoulder') and self.pending_view not in ('behind','shoulder'):return super().render_frame(force)
         if not self.render_enabled or not force and time.monotonic()-self.last_render<self.render_interval:return
         import io
         from PIL import Image
@@ -119,11 +124,20 @@ class Model040PreviewBus(MujocoBus):
             self.camera=mujoco.MjvCamera();self.option=mujoco.MjvOption();self.option.geomgroup[3]=0
         with self.frame_lock:
             if self.pending_view:self.view=self.pending_view;self.pending_view=None
-        if self.view!='shoulder':return super().render_frame(force)
+        if not self.carton_scene and self.view not in ('behind','shoulder'):return super().render_frame(force)
         chassis=self.data.xpos[self.chassis]
         q=self.data.xquat[self.chassis];yaw=math.atan2(2*(q[0]*q[3]+q[1]*q[2]),1-2*(q[2]*q[2]+q[3]*q[3]))
-        self.camera.lookat[:]=[chassis[0]-.42*math.cos(yaw),chassis[1]-.42*math.sin(yaw),.91]
-        self.camera.distance=1.05;self.camera.azimuth=205+math.degrees(yaw);self.camera.elevation=-26
+        if self.view=='behind':
+            self.camera.lookat[:]=[chassis[0]-.30*math.cos(yaw),chassis[1]-.30*math.sin(yaw),.85]
+            # Eye about 1.68 m high, on the robot centerline and behind its -X forward.
+            self.camera.distance=1.15;self.camera.azimuth=180+math.degrees(yaw);self.camera.elevation=-46
+        elif self.view=='shoulder':
+            self.camera.lookat[:]=[chassis[0]-.42*math.cos(yaw),chassis[1]-.42*math.sin(yaw),.91]
+            self.camera.distance=1.05;self.camera.azimuth=205+math.degrees(yaw);self.camera.elevation=-26
+        else:
+            azimuth,elevation,distance={'orbit':(135,-30,1.4),'front':(0,-22,1.25),'side':(90,-25,1.3),'top':(180,-85,1.05)}[self.view]
+            self.camera.lookat[:]=[chassis[0]-.30,chassis[1],.82]
+            self.camera.distance=distance;self.camera.azimuth=azimuth;self.camera.elevation=elevation
         self.renderer.update_scene(self.data,camera=self.camera,scene_option=self.option)
         out=io.BytesIO();Image.fromarray(self.renderer.render()).save(out,format='JPEG',quality=86)
         with self.frame_lock:self.latest_jpeg=out.getvalue();self.frame_sequence+=1
