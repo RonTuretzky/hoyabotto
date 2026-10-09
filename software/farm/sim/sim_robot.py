@@ -1158,9 +1158,10 @@ class SimRobot:
     def _flap_contacts(self):
         """Robot contacts on the target flap: {'pinched' (the INNER pad faces of both jaws of one arm touch it: the flap is
         between the pads), 'pads' (some contact on a jaw's distal pad region), 'illegal' (a contact that is not allowed by
-        the owner's 9 October rule: any robot geom other than the jaw pads, and any pad contact while no arm pinches the
-        flap, i.e. pushing with a closed or open claw; while an arm pinches, every pad contact of either arm is allowed,
-        which covers pressing the crease with the other claw's pads), 'illegal_geoms', 'crease_force' (N, robot contacts
+        the owner's 9 October rule: any robot geom other than the jaw pads, and the outer faces or tips of the pads while
+        no arm pinches the flap, i.e. pushing with a claw; a pad's inner face is always allowed (closing on the flap), and
+        while an arm pinches every pad contact of either arm is, which covers pressing the crease with the other claw's
+        pads), 'illegal_geoms', 'crease_force' (N, robot contacts
         on the crease panel within PLASTIC press_zone_m of the hinge)}. Pads = jaw-body contacts beyond PAD_Y_M along the
         jaw (Fixed_Jaw frame); inner = the contact normal points from the jaw toward the other jaw."""
         np, mj = self.np, self.mj
@@ -1179,7 +1180,7 @@ class SimRobot:
                 flap_body, other, og, sign = b2, b1, con.geom1, 1.0
             else:
                 continue
-            pad = False
+            pad = face = False
             for arm, (fixed, moving) in self.jaw_bodies.items():
                 if other in (fixed, moving):
                     rot = data.xmat[fixed].reshape(3, 3)
@@ -1188,9 +1189,10 @@ class SimRobot:
                     if pad:
                         n = rot.T @ (sign * np.asarray(con.frame[:3]))   # jaw -> flap, fixed jaw frame
                         # the pads close along x: the fixed pad's inner face looks toward -x, the moving pad's toward +x
-                        if (other == fixed and n[0] < -0.5) or (other == moving and n[0] > 0.5):
+                        face = bool((other == fixed and n[0] < -0.5) or (other == moving and n[0] > 0.5))
+                        if face:
                             inner[arm][0 if other == fixed else 1] = True
-            hits.append((pad, mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, og) or model.body(other).name))
+            hits.append((pad, face, mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, og) or model.body(other).name))
             if flap_body == self.flap_panel:
                 rot = data.xmat[flap_body].reshape(3, 3)
                 local = rot.T @ (np.asarray(con.pos) - data.xpos[flap_body])
@@ -1198,9 +1200,9 @@ class SimRobot:
                     mj.mj_contactForce(model, data, i, f6)
                     out['crease_force'] += abs(float(f6[0]))
         out['pinched'] = any(all(v) for v in inner.values())
-        for pad, name in hits:
+        for pad, face, name in hits:
             out['pads'] |= pad
-            if not pad or not out['pinched']:
+            if not (face or (pad and out['pinched'])):
                 out['illegal'] = True
                 out['illegal_geoms'].add(name)
         return out
