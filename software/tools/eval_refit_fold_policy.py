@@ -43,8 +43,10 @@ class AuditedEpisode(base.Episode):
 
     def images(self):
         images = {}
+        jitter = getattr(self, 'image_jitter', None)
         for key, camera in base.CAMERAS.items():
-            images[key] = render_policy_camera(self.renderer, self.data, camera, self.option, self.camera_contract)
+            image = render_policy_camera(self.renderer, self.data, camera, self.option, self.camera_contract)
+            images[key] = jitter(image) if jitter is not None else image
         return images
 
     def step(self, target):

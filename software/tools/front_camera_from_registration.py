@@ -23,26 +23,40 @@ import mujoco
 import numpy as np
 
 
-def camera_pose(base_from_camera, scene):
-    model = mujoco.MjModel.from_xml_path(str(scene))
-    data = mujoco.MjData(model)
-    mujoco.mj_forward(model, data)
+def registered_world_pose(base_from_camera, model, data):
+    """Resolve a registration in the current scene, never reuse old world coordinates."""
+    transform = np.asarray(base_from_camera, float)
+    if (transform.shape != (4, 4) or not np.isfinite(transform).all()
+            or not np.allclose(transform[3], [0, 0, 0, 1], atol=1e-6)
+            or not np.allclose(transform[:3, :3].T @ transform[:3, :3], np.eye(3), atol=1e-4)
+            or not np.isclose(np.linalg.det(transform[:3, :3]), 1, atol=1e-4)):
+        raise ValueError('base_from_camera must be a finite rigid 4x4 transform')
     base = model.body('right_base_link').id
     world_from_base = np.eye(4)
     world_from_base[:3, :3] = data.xmat[base].reshape(3, 3)
     world_from_base[:3, 3] = data.xpos[base]
-    world_from_camera = world_from_base @ np.asarray(base_from_camera, float)
+    world_from_camera = world_from_base @ transform
     rotation = world_from_camera[:3, :3]
     x_axis, y_axis = rotation[:, 0], -rotation[:, 1]          # optical -> MuJoCo camera axes
+    return world_from_camera[:3, 3], x_axis, y_axis
+
+
+def camera_pose(base_from_camera, scene):
+    model = mujoco.MjModel.from_xml_path(str(scene))
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    pos, x_axis, y_axis = registered_world_pose(base_from_camera, model, data)
     front = model.camera('front').id
     assumed = data.cam_xmat[front].reshape(3, 3)
     forward_measured, forward_assumed = -np.cross(x_axis, y_axis), -assumed[:, 2]
-    return dict(pos=world_from_camera[:3, 3].round(5).tolist(),
+    return dict(pos=pos.round(5).tolist(),
                 xyaxes=np.r_[x_axis, y_axis].round(6).tolist(),
+                base_from_camera=np.asarray(base_from_camera, float).tolist(),
+                base_frame='right_base_link',
                 tilt_down_deg=round(math.degrees(math.asin(-forward_measured[2])), 2),
                 assumed_pos=data.cam_xpos[front].round(5).tolist(),
                 assumed_tilt_down_deg=round(math.degrees(math.asin(-forward_assumed[2])), 2),
-                position_change_mm=(1000 * (world_from_camera[:3, 3] - data.cam_xpos[front])).round(1).tolist(),
+                position_change_mm=(1000 * (pos - data.cam_xpos[front])).round(1).tolist(),
                 view_direction_change_deg=round(math.degrees(math.acos(float(np.clip(
                     forward_measured @ forward_assumed, -1, 1)))), 2))
 

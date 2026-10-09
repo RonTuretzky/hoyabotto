@@ -38,8 +38,9 @@ def replace_cart(root, upstream, station, out, tilt=35.145, pan=-5.132):
             bid=int(m.body_parentid[bid])
         return False
     T=np.array([[0.,1,0],[-1,0,0],[0,0,1]])
-    # User tabletop is 700 mm above CAD ground. Arm base uses mapped plane.
-    shift=np.array([0.,station.base_y-.09,-.7])
+    # Align the CAD mounting plane with the measured arm mounting plane.
+    # Desktop/floor coordinates stay fixed; the old -0.7 assumed +29.1 mm mounts.
+    shift=np.array([0.,station.base_y-.09,station.base_height-BASE_PLANE_Z])
     out.mkdir(parents=True,exist_ok=True)
     rows=[]
     for g in range(m.ngeom):

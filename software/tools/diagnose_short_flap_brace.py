@@ -79,12 +79,17 @@ def run(args):
     if getattr(args, 'close_majors_after_open_claw', False) and args.majors_view_camera not in ('none', 'front'):
         options['additional_view_camera'] = args.majors_view_camera
     yaw=math.radians(args.carton_yaw_degrees)
-    offset_y=-.1515+.01+.379/2*abs(math.sin(yaw))+.283/2*abs(math.cos(yaw))
+    station = FoldingStation(args.base_height, args.base_to_table_edge, args.carton_inset,
+        table_marker_xy=(-.5, .55), backup_table_marker_xy=(.45, .70))
+    # Translate a rotated carton so its nearest corner retains the requested inset.
+    from carton.geometry import Box
+    box = Box()
+    offset_y = (station.table_edge_y + station.box_from_table_edge
+                + box.length/2*abs(math.sin(yaw)) + box.width/2*abs(math.cos(yaw)))
     if args.park_back:
         options['initial_arm_targets']={'left':[-.20,-.18,.30],'right':[.20,-.18,.30]}
     sim = cls(Path(args.simulation_root), out,
-        station=FoldingStation(args.base_height, args.base_to_table_edge, .01, table_marker_xy=(-.5, .55),
-                               backup_table_marker_xy=(.45, .70)),
+        station=station,
         material=CartonMaterial(hinge_stiffness=args.hinge_stiffness, hinge_friction=args.hinge_friction,
                                 hinge_rest_degrees=args.hinge_rest_degrees),
         width=args.width, height=args.height,
@@ -158,7 +163,7 @@ def run(args):
             from carton.folding_retention import open_near_for_transfer
             result['stage'] = 'Physically open near flap before minor folds'
             result['near_preparation'] = open_near_for_transfer(sim, controller,
-                args.prepare_near_degrees, capture=True)
+                args.prepare_near_degrees, capture=True, release_lift=args.near_release_lift)
             result['near_opening_action_executed'] = True
         if getattr(args, 'open_shorts_first', False):
             if args.tool != 'claws' or args.prepare_near_degrees is None or args.fold_right:
@@ -277,7 +282,8 @@ def run(args):
                 result['stage']='Release minor pinch and press left short'
                 result['both_shorts_held']=fold_second_short(sim,controller,capture=True,
                     retreat_box=(-.04,0,.04),brace_label='left minor',
-                    right_min_degrees=args.right_hold_min_degrees)
+                    right_min_degrees=args.right_hold_min_degrees,
+                    press_along=args.left_press_along)
                 if args.open_claw_transfer:
                     from carton.folding_retention import transfer_to_open_claw
                     result['stage'] = 'Transfer both short-flap holds to one open right claw'
@@ -442,6 +448,7 @@ if __name__ == '__main__':
     parser.add_argument('--paddle-end-degrees', type=float, default=75.)
     parser.add_argument('--right-hold-min-degrees', type=float, default=85.)
     parser.add_argument('--near-open-degrees', type=float, default=math.degrees(-.1))
+    parser.add_argument('--carton-inset', type=float, default=.01)
     parser.add_argument('--base-height', type=float, default=.06,
                         help='Assumed arm-base origin height above the tabletop (m)')
     parser.add_argument('--base-to-table-edge', type=float, default=.15,
@@ -465,6 +472,10 @@ if __name__ == '__main__':
     parser.add_argument('--far-open-degrees', type=float, default=math.degrees(-.1),
                         help='Initial far-flap presentation angle (an assumption, not an executed motion)')
     parser.add_argument('--prepare-near-degrees', type=float)
+    parser.add_argument('--near-release-lift', type=float, default=.10,
+                        help='right-claw withdrawal after opening the near flap (0.04..0.10 m)')
+    parser.add_argument('--left-press-along', type=float, default=-.10,
+                        help='left short-flap press point along its hinge, metres from midpoint')
     parser.add_argument('--open-claw-transfer', action='store_true')
     parser.add_argument('--support-height', type=float, default=.1094)
     parser.add_argument('--near-after-open-claw', action='store_true')

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import signal
@@ -64,7 +65,7 @@ def merge_shards(roots, destination, repo_id, minimum=128):
     return dict(training_episodes=len(episodes), frames=frames, holdouts=len(held))
 
 
-def main():
+def parse_args(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--dataset-repo', required=True)
     ap.add_argument('--model-repo', required=True)
@@ -83,11 +84,67 @@ def main():
     ap.add_argument('--camera-lag', nargs='*', default=[], metavar='KEY=SECONDS')
     ap.add_argument('--visual-jitter', type=float, default=0.)
     ap.add_argument('--front-camera-pose', type=Path, help='measured head camera pose JSON (tools/front_camera_from_registration.py)')
-    ap.add_argument('--station', nargs='*', default=[], metavar='FLAG',
-                    help='record_refit_fold_demos station flags, e.g. --base-spacing 0.29 --base-height 0.077')
-    args = ap.parse_args()
+    for name in ('base-spacing', 'base-height', 'base-to-table-edge', 'carton-inset', 'along', 'radius',
+                 'pinch-normal-tilt-degrees', 'pre-height', 'clearance', 'prepare-near-degrees', 'start-jitter-m',
+                 'left-press-along', 'near-release-lift'):
+        ap.add_argument('--' + name, type=float, help='forwarded to record_refit_fold_demos')
+    ap.add_argument('--teacher-position', type=float, nargs=3)
+    ap.add_argument('--axis-sign', type=int, choices=(-1, 1))
+    ap.add_argument('--full-grip-orientation', action='store_true')
+    args = ap.parse_args(argv)
     if args.front_camera_pose is not None and not args.front_camera_pose.is_file():
         raise SystemExit(f'Missing {args.front_camera_pose}')
+    for name, lo, hi in [('base_spacing', .1, .5), ('base_height', -.05, .3),
+                         ('base_to_table_edge', 0, .5), ('carton_inset', 0, .1), ('start_jitter_m', 0, .03),
+                         ('left_press_along', -.12, .12), ('near_release_lift', .04, .10)]:
+        value = getattr(args, name)
+        if value is not None and (not math.isfinite(value) or not lo <= value <= hi):
+            ap.error(f'--{name.replace("_", "-")} must be finite and within {lo}..{hi}')
+    for name in ('arm_cap_ticks_s', 'jaw_cap_ticks_s', 'sample_dt', 'max_time', 'max_minutes'):
+        value = getattr(args, name)
+        if value is not None and (not math.isfinite(value) or value <= 0):
+            ap.error(f'--{name.replace("_", "-")} must be finite and positive')
+    if args.teacher_position is not None and not all(math.isfinite(v) for v in args.teacher_position):
+        ap.error('--teacher-position must be finite')
+    if args.fps <= 0 or args.episodes <= 0 or args.steps <= 0:
+        ap.error('fps, episodes and steps must be positive')
+    return args
+
+
+def station_arguments(args):
+    flags = ['--along', '-.04', '--radius', '.125', '--axis-sign', '-1',
+             '--pinch-normal-tilt-degrees', '15', '--pre-height', '.035',
+             '--teacher-position', '-.5', '-.7', '.75', '--clearance', '.002']
+    for name in ('base-spacing', 'base-height', 'base-to-table-edge', 'carton-inset', 'along', 'radius', 'axis-sign',
+                 'pinch-normal-tilt-degrees', 'pre-height', 'clearance', 'prepare-near-degrees', 'start-jitter-m',
+                 'front-camera-pose', 'left-press-along', 'near-release-lift'):
+        value = getattr(args, name.replace('-', '_'))
+        if value is not None:
+            flag = '--' + name
+            if flag in flags:
+                flags[flags.index(flag) + 1] = str(value)
+            else:
+                flags += [flag, str(value)]
+    if args.teacher_position is not None:
+        start = flags.index('--teacher-position')
+        flags[start+1:start+4] = [str(v) for v in args.teacher_position]
+    if args.full_grip_orientation:
+        flags.append('--full-grip-orientation')
+    return flags
+
+
+def robot_conditions(args):
+    """The exact collection flags and timing saved alongside the dataset/model."""
+    return dict(arm_cap_ticks_s=args.arm_cap_ticks_s, jaw_cap_ticks_s=args.jaw_cap_ticks_s,
+                sample_dt=args.sample_dt, max_time=args.max_time, fps=args.fps,
+                camera_lag=list(args.camera_lag), visual_jitter=args.visual_jitter,
+                station=station_arguments(args),
+                front_camera_pose=json.loads(args.front_camera_pose.read_text()) if args.front_camera_pose else None)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    conditions = robot_conditions(args)
     gpu_count = args.gpus
     batch_per_gpu = 32 // gpu_count
     collection_workers = gpu_count * 8
@@ -116,17 +173,12 @@ def main():
     # Root metadata also accompanies final model uploads; checkpoints copy sidecars before upload.
     for name in (CONTRACT_FILE, METADATA_FILE):
         api.upload_file(path_or_fileobj=work/name, path_in_repo=name, repo_id=args.model_repo)
-    robot_conditions = dict(arm_cap_ticks_s=args.arm_cap_ticks_s, jaw_cap_ticks_s=args.jaw_cap_ticks_s,
-                            sample_dt=args.sample_dt, max_time=args.max_time, fps=args.fps,
-                            camera_lag=list(args.camera_lag), visual_jitter=args.visual_jitter,
-                            station=list(args.station),
-                            front_camera_pose=json.loads(args.front_camera_pose.read_text()) if args.front_camera_pose else None)
     status = dict(hardware_commands=False, physical_registration_verified=False,
                   dataset_repo=args.dataset_repo, model_repo=args.model_repo,
                   gpus=gpu_count, global_batch_size=32, batch_per_gpu=batch_per_gpu,
                   collection_workers=collection_workers, started=started, episodes=args.episodes, steps=args.steps,
-                  robot_conditions=robot_conditions, camera_contract=provenance(camera_contract))
-    (work/'robot-conditions.json').write_text(json.dumps(robot_conditions, indent=2))
+                  robot_conditions=conditions, camera_contract=provenance(camera_contract))
+    (work/'robot-conditions.json').write_text(json.dumps(conditions, indent=2))
     api.upload_file(path_or_fileobj=work/'robot-conditions.json', path_in_repo='refit/robot-conditions.json',
                     repo_id=args.model_repo)
 
@@ -215,12 +267,7 @@ def main():
             if done:
                 status['recording_progress']['estimated_seconds_left'] = elapsed * (args.episodes-done)/done
 
-        station_args = ['--along','-.04','--radius','.125','--axis-sign','-1',
-                        '--pinch-normal-tilt-degrees','15','--pre-height','.035',
-                        '--teacher-position','-.5','-.7','.75','--clearance','.002']
-        if args.front_camera_pose:
-            station_args += ['--front-camera-pose', str(args.front_camera_pose)]
-        station_args += list(args.station)
+        station_args = conditions['station']
         recorder_args = ['--sample-dt', str(args.sample_dt), '--max-time', str(args.max_time)]
         if args.arm_cap_ticks_s:
             recorder_args += ['--arm-cap-ticks-s', str(args.arm_cap_ticks_s)]

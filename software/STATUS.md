@@ -1,4 +1,40 @@
-## Fold policy retrained under the robot's conditions — 10 October 2026, 02:40 JST
+## Measured-station cloud refit launched — 10 October 2026, 04:32 JST
+
+The v12 job is running on **8 H200 GPUs** and has started generating 240 demonstrations,
+followed by 25,000 optimizer steps. All eight GPU rendering/projection checks passed.
+[Job and logs](https://huggingface.co/jobs/RonTuretzky/6ac94154095c5780893094f9).
+Model: `RonTuretzky/act_carton_dcm_refit_20261010_v4`; dataset:
+`RonTuretzky/carton_dcm_refit_20261010_v4`. Five-hour provider limit, 295-minute
+internal watchdog, about $200 maximum new compute; no automatic paid retries.
+This records startup, not a completed training run or a successful learned policy.
+
+The station now uses owner-confirmed **273 mm pan-axis spacing**, an approximately
+**50 mm mounting plane above the desktop**, and a **210 mm pan-axis setback** behind
+the nearest desk edge (100 mm behind cart edge plus the 110 mm cart/table gap).
+The SO101 base-origin setback is 248.8353 mm after frame conversion. The carton
+target is centred between the arms, with its nearest bottom wall flush with the
+nearest desk edge. The owner will match this target; physical alignment remains
+unverified and must be checked before robot execution. The registered camera
+transform is resolved in each scene's `right_base_link`, not reused as fixed world coordinates.
+
+Fresh qualification on this target: 8/8 teacher trials, 2/2 audited replays at
+4 Hz under speed/step limits and camera delays, a 1,853-frame dataset conversion,
+30 local optimizer steps with checkpoint reload/image inference, and a successful
+relocated bundle run. These qualify the simulation pipeline, not physical folding
+or full owner-controller equivalence. See [qualification and evidence contract](docs/refit-launch-qualification.md).
+
+The v10 job `6ac92666095c57808930800d` ended in ERROR after exceeding private
+storage; v11 `6ac9303e095c578089308683` was CANCELED for geometry correction.
+With explicit owner approval, exactly 53 historical objects (25,601,226,794 bytes)
+were purged from the October 9 v3 model repository. All 56 current files, including
+20k/25k checkpoints, retained their hashes. Account storage was 64.6/100 GB afterward.
+
+Receipts, immutable source manifest, qualification evidence and budget ledger are in
+the outer workspace's `.context/station-refit-2026-10-09/training/`.
+Launched source archive SHA-256: `b0a4aaa6e21f7278f296e992eff840346af9455de0badbe6249095f7ec13ce48`.
+No robot commands were issued for this launch.
+
+## Historical v10 attempt under robot conditions — 10 October 2026, 02:40 JST
 
 Why: the 9 Oct refit model (25k steps, 8xH200, ~$109) folds both short flaps in 30/30 plain-simulator starts but,
 run through the real owner code in simulation (`fold_policy_runner --transport sim-owner-stream`), faults every start

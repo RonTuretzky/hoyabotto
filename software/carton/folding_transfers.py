@@ -12,13 +12,15 @@ from carton.folding_progress import ContactProgressGuard
 
 def fold_second_short(sim,controller,*,capture=False,clearance=.006,
                       retreat_box=(0,-.04,.025),brace_label='near flap',
-                      right_min_degrees=85.):
+                      right_min_degrees=85., press_along=-.10):
     """Release the declared left brace, keeping the right minor held.
 
     Joint-path obstacle snapshots are simulator diagnostics. Contact-point
     commands use fresh rendered RGB-D registration; there is no hardware port.
     """
     port=controller.port;c=controller
+    if not math.isfinite(press_along) or not -.12 <= press_along <= .12:
+        raise ValueError('Left short press must stay within 120 mm of the flap midpoint')
     if not math.isfinite(right_min_degrees) or not 50 <= right_min_degrees <= 85:
         raise ValueError('Declared partial right hold must be between 50 and 85 degrees')
     def verify_right(reading):
@@ -46,7 +48,7 @@ def fold_second_short(sim,controller,*,capture=False,clearance=.006,
     c.contact_progress_checks.append({'stage':'left short transfer','checks':guard.checks})
     start=math.radians(measured['degrees'])
     for i,theta in enumerate(np.linspace(start,math.pi/2,41)):
-        point,orientation=contact_point(theta,0,-1,-.10,.095,0,.010)
+        point,orientation=contact_point(theta,0,-1,press_along,.095,0,.010)
         if i==0:
             port.set_grippers({'left':-.17},.5,'Close left claw clear of carton')
             # The released fingers can be 1--3 mm from the panel. Make an
@@ -90,6 +92,7 @@ def fold_second_short(sim,controller,*,capture=False,clearance=.006,
     verify_right(reading)
     return {'angles':sim.truth_angles(),'motion':dict(sim.motion_stats),
             'visual_angles':reading['angles'],'held_only':True,
+            'press_along_m':press_along,
             'right_min_degrees':right_min_degrees,'full_task_complete':False}
 
 

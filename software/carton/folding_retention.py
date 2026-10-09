@@ -16,10 +16,12 @@ from carton.folding_paths import JointPathPlanner, execute_path
 from carton.folding_sim import JOINTS
 
 
-def open_near_for_transfer(sim, controller, degrees=-15., *, capture=False):
+def open_near_for_transfer(sim, controller, degrees=-15., *, capture=False, release_lift=.10):
     """Push the near flap outward while the left claw braces a short flap."""
     if not math.isfinite(degrees) or not -35 <= degrees <= -10:
         raise ValueError('Near-flap opening must be between -35 and -10 degrees')
+    if not math.isfinite(release_lift) or not .04 <= release_lift <= .10:
+        raise ValueError('Near-flap release lift must be finite and between 40 and 100 mm')
     c = controller
     port = c.port
     reading = c.sense('Locate near flap before physical clearance preparation')
@@ -80,7 +82,7 @@ def open_near_for_transfer(sim, controller, degrees=-15., *, capture=False):
         if observed_target():
             break
     actual = sim.actual_control_position('right').copy()
-    port.move_arms({'right': actual + [0, 0, .10]}, .8,
+    port.move_arms({'right': actual + [0, 0, release_lift]}, .8,
                    'Lift right claw clear of opened near flap', 'down')
     q, error = sim.ik('right', np.array([.20, -.18, .30]), None)
     if error > .008:
@@ -94,7 +96,7 @@ def open_near_for_transfer(sim, controller, degrees=-15., *, capture=False):
     observed = reading['angles'].get('long_near')
     if observed is None or abs(observed['degrees']-degrees) > 5:
         raise ValueError('Opened near-flap clearance was not retained after release')
-    return dict(requested_degrees=degrees, visual_angle=observed, brace_checks=checks,
+    return dict(requested_degrees=degrees, release_lift_m=release_lift, visual_angle=observed, brace_checks=checks,
                 visual_checks=visual_checks,
                 vision_interrupted=vision_interrupted,
                 physical_opening_executed=True, full_task_complete=False)

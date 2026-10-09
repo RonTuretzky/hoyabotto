@@ -80,6 +80,22 @@ def test_conversion_evaluation_fake_and_preview_share_pixels(tmp_path, monkeypat
                 np.testing.assert_array_equal(image,expected)
 
 
+def test_audited_eval_applies_same_image_jitter_as_base_eval(monkeypatch):
+    from tools import eval_fold_policy as base
+    from tools import eval_refit_fold_policy as audited
+    c, _, xml = point_scene()
+    m = mujoco.MjModel.from_xml_string(xml); d = mujoco.MjData(m)
+    mujoco.mj_forward(m, d)
+    monkeypatch.setattr(base, 'CAMERAS', {'front': 'front'})
+    option = mujoco.MjvOption(); option.geomgroup[3] = option.geomgroup[4] = 0
+    with mujoco.Renderer(m, 240, 320) as renderer:
+        ep = SimpleNamespace(renderer=renderer, data=d, camera_contract=c, option=option,
+                             image_jitter=lambda image: 255-image)
+        expected = base.Episode.images(ep)['front']
+        np.testing.assert_array_equal(audited.AuditedEpisode.images(ep)['front'], expected)
+        assert not np.array_equal(expected, render_policy_camera(renderer, d, 'front', contract=c))
+
+
 def payload():
     c = load_contract()
     yy,xx = np.mgrid[:780,:1040]
