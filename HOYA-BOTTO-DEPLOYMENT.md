@@ -15,10 +15,12 @@ c9b264bb68fa5091b02d38383921b23104eec551bbacc1e5469deb34ec29cf52 (the earlier 14
 Edits to a fresh export, to repeat when the deck is re-exported:
 - CSP `connect-src 'none'` becomes `connect-src https://hoya-botto-show.ronturetzky.workers.dev`.
 - The `robot-emoji-link` and `robot-slide-overlay` blocks are appended before `</body>`, unchanged.
-- A `wave-qr` style block moves the fixed Wave button to the top-left in landscape, so it does not cover the QR.
+- A `wave-qr` style block moves the fixed Wave button to the top-left in landscape, so it does not cover the QR,
+  and to the bottom-right in portrait, so it does not cover the cover title.
 - Each slide canvas gets a clickable QR (inline SVG, `data-wave-qr`) to https://hoyabotto.com/wave.html:
   top-right at left 1606, top 16 (canvas px); slide 4 at left 1768, top 150, beside its full-width video.
-  The cover gets a QR card with a Japanese explanation of the wave show instead.
+  The cover gets a large QR card (380 px code) with a Japanese explanation of the wave show instead; its
+  title, subtitle and byline move up (top 290→120, 470→280, 714→452) to make room.
 Images and slide behavior are embedded in the HTML; fonts load from Google Fonts.
 The supporting pages and earlier PDF are preserved.
 
