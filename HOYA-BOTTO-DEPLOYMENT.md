@@ -7,8 +7,18 @@
 - Local labor-saving sources: sources/labor-saving-cases.html
 
 This gh-pages branch contains the static site. Main retains the robot software and its history.
-The homepage retains the 14-slide HTML export supplied on October 9, 2026, with a small visitor Wave link appended.
-The original export SHA-256 is 8cbf2344f9d9b6301b2eddb9500c88f951bfbb3e444de39fbb15ee2a2a6e2654.
+The homepage is the 20-slide Japanese HTML export supplied on October 10, 2026, with the visitor Wave link,
+the name/emoji overlay and a Wave QR added. The original export SHA-256 is
+c9b264bb68fa5091b02d38383921b23104eec551bbacc1e5469deb34ec29cf52 (the earlier 14-slide export was
+8cbf2344f9d9b6301b2eddb9500c88f951bfbb3e444de39fbb15ee2a2a6e2654).
+
+Edits to a fresh export, to repeat when the deck is re-exported:
+- CSP `connect-src 'none'` becomes `connect-src https://hoya-botto-show.ronturetzky.workers.dev`.
+- The `robot-emoji-link` and `robot-slide-overlay` blocks are appended before `</body>`, unchanged.
+- A `wave-qr` style block moves the fixed Wave button to the top-left in landscape, so it does not cover the QR.
+- Each slide canvas gets a clickable QR (inline SVG, `data-wave-qr`) to https://hoyabotto.com/wave.html:
+  top-right at left 1606, top 16 (canvas px); slide 4 at left 1768, top 150, beside its full-width video.
+  The cover gets a QR card with a Japanese explanation of the wave show instead.
 Images and slide behavior are embedded in the HTML; fonts load from Google Fonts.
 The supporting pages and earlier PDF are preserved.
 
