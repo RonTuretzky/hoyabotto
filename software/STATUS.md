@@ -1,3 +1,18 @@
+## Cable cleared: calibration tags co-visible — 9 October 2026, 22:49 JST
+
+- After the user hid the cable, table1 and hand2 both decoded in all five distinct
+  fresh OAK frames (41742/41744/41745/41748/41750). Hand2 had hamming0,
+  margin75.26–75.72, shortest edge43.33–43.43px. The cable no longer crosses
+  its printed pattern. Detector settings and OAK configuration were unchanged.
+- Read-only preflight now reports only the motor-clock freshness blocker. Its
+  returned fixed-housing confirmation is dated 2026-10-06, before today's tag
+  replacement, so current mounting rigidity must be reconfirmed. Existing joint
+  mapping, tool-offset and workspace configuration remain unvalidated/incomplete.
+- Fresh uncached state: all16 motors released; row timestamps 203–223ms
+  ahead of observer receipt. No motor writes or calibration motion. Evidence:
+  seville-v2 .context/tag-remount-check/cable-clear/ (five receipts, images,
+  calibration status, state and manifest). Visibility is verified; registration is not.
+
 ## Replacement calibration tags checked — 9 October 2026, 22:46 JST
 
 - User reports replacing table tag1 and right-gripper tag2. Three distinct OAK
