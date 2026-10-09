@@ -62,24 +62,6 @@
       requestAnimationFrame(tick);
     }
     tick();
-    // arriving from the wave page: glide into the exploded view, then hint to keep scrolling
-    if (new URLSearchParams(location.search).has('tour')) {
-      var cancelled = false, stop = function () { cancelled = true; };
-      addEventListener('touchstart', stop, { passive: true, once: true }); addEventListener('wheel', stop, { passive: true, once: true });
-      var hint = function () {
-        var h = document.createElement('div'); h.className = 'scroll-hint'; h.innerHTML = '<span>↓</span>スクロールで続きを見る'; document.body.appendChild(h);
-        var y0 = scrollY, off = function () { if (Math.abs(scrollY - y0) > 120) { h.classList.add('gone'); removeEventListener('scroll', off); } };
-        addEventListener('scroll', off, { passive: true });
-      };
-      var moving = document.createElement('div'); moving.className = 'scrolling-badge'; moving.innerHTML = '<i>▼</i><i>▼</i><i>▼</i><b>下へスクロール中</b>';
-      setTimeout(function () {
-        document.body.appendChild(moving);
-        var ch = chapters[1], to = ch.offsetTop + ch.offsetHeight * 0.3, from = scrollY, t0 = performance.now(), ms = 1100;
-        var done = function () { moving.classList.add('gone'); setTimeout(function () { moving.remove(); }, 400); hint(); };
-        var step = function (now) { if (cancelled) return done(); var u = Math.min(1, (now - t0) / ms); scrollTo(0, from + (to - from) * ease(u)); if (u < 1) requestAnimationFrame(step); else done(); };
-        requestAnimationFrame(step);
-      }, 250);
-    }
   }
   window.__startVideoMode = start;
   if (window.__videoMode) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start(); }

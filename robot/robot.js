@@ -1162,23 +1162,4 @@ function frameBody() {
 }
 window.__step?.('描画');
 requestAnimationFrame(() => { frame(); document.getElementById('loading').classList.add('done'); });
-// Arriving from the wave page (?tour): glide into the exploded view, then hint to keep scrolling.
-if (new URLSearchParams(location.search).has('tour')) {
-  let cancelled = false;
-  const stop = () => { cancelled = true; };
-  addEventListener('touchstart', stop, { passive: true, once: true }); addEventListener('wheel', stop, { passive: true, once: true });
-  const hint = () => {
-    const h = document.createElement('div'); h.className = 'scroll-hint'; h.innerHTML = '<span>↓</span>スクロールで続きを見る'; document.body.appendChild(h);
-    const y0 = scrollY, off = () => { if (Math.abs(scrollY - y0) > 120) { h.classList.add('gone'); removeEventListener('scroll', off); } };
-    addEventListener('scroll', off, { passive: true });
-  };
-  const moving = document.createElement('div'); moving.className = 'scrolling-badge'; moving.innerHTML = '<i>▼</i><i>▼</i><i>▼</i><b>下へスクロール中</b>';
-  setTimeout(() => {
-    document.body.appendChild(moving);
-    const ch = chapters[1], to = ch.offsetTop + ch.offsetHeight * 0.32, from = scrollY, t0 = performance.now(), ms = 1300;
-    const done = () => { moving.classList.add('gone'); setTimeout(() => moving.remove(), 400); hint(); };
-    const step = now => { if (cancelled) return done(); const u = Math.min(1, (now - t0) / ms); scrollTo(0, from + (to - from) * ease(u)); if (u < 1) requestAnimationFrame(step); else done(); };
-    requestAnimationFrame(step);
-  }, 350);
-}
 window.__hoya = { robot, sceneAt, camAt, scrollS, HOME_Q, debugCam: null, poseArm, JOBS, W2 };
