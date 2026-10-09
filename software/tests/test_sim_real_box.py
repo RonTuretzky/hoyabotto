@@ -166,3 +166,19 @@ def test_resent_open_after_an_open_stall_trips_the_no_progress_guard():
         assert score['faults'] == 1 and score['released_all'] is True
     finally:
         r.close()
+
+
+def test_fidelity_overrides_lean_and_crease():
+    r = SimRobot(seed=3, real_time=False, fidelity={'lean_jitter_deg': [20.0, 20.0], 'plastic': {'rate_per_s': 0.1}})
+    try:
+        assert r.score()['flap_rest_deg'] == pytest.approx(20.0, abs=0.1)
+        assert r.plastic['rate_per_s'] == 0.1 and r.plastic['yield_deg'] == box_scene.PLASTIC['yield_deg']
+    finally:
+        r.close()
+    jittered = [SimRobot(seed=s, real_time=False) for s in (0, 3)]
+    try:
+        leans = [x.score()['flap_rest_deg'] for x in jittered]
+        assert all(-12.0 <= v <= 15.0 for v in leans) and abs(leans[0] - leans[1]) > 5   # drawn per seed
+    finally:
+        for x in jittered:
+            x.close()

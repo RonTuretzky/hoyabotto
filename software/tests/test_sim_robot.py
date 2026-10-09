@@ -156,8 +156,8 @@ def test_target_outside_commandable_range_is_refused(robot):
                                       f'[{lo + 40}, {hi - 40}] ticks (40-tick margin)')
     wrong = robot.call('robot_move_joint_targets', {'arm': 'left', 'positions': {'right_arm_shoulder_lift': 2000}, 'duration_s': 3})
     assert wrong['result']['error'] == 'Wrong-arm joint: right_arm_shoulder_lift; requested arm: left'
-    head = robot.call('robot_set_motor_enable', {'names': ['head_motor_1'], 'enabled': True})
-    assert head['ok'] is False and head['result']['error'].startswith('UNSUPPORTED_OWNER_SCOPE: these motors are read-only')
+    wheel = robot.call('robot_set_motor_enable', {'names': ['base_left_wheel'], 'enabled': True})   # the head is enableable (test_sim_head.py)
+    assert wheel['ok'] is False and wheel['result']['error'].startswith('UNSUPPORTED_OWNER_SCOPE: these motors are read-only')
     partial = SimRobot(real_time=False, preset='near7')
     try:
         ok(partial.call('robot_set_motor_enable', {'names': LEFT[:5], 'enabled': True}))
