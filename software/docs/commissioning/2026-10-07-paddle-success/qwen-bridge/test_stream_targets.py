@@ -1,4 +1,4 @@
-"""Stream mode (owner --stream): stream_targets / hold_here for a 10 Hz policy client. Fake bus, virtual clock; no hardware."""
+"""Stream mode (on with the pickup profile): stream_targets / hold_here for a 10 Hz policy client. Fake bus, virtual clock; no hardware."""
 import json,os,sys,tempfile,threading,time,types
 from pathlib import Path
 from types import SimpleNamespace as C
@@ -18,7 +18,7 @@ class Bus:
   for n in ns:self.r[n]['Torque_Enable']=0
 t=[0.]
 tel=lambda bus,n:dict(Present_Position=bus.r[n]['Present_Position'],Present_Load=load.get(n,0),Present_Voltage=124,Moving=0,Present_Velocity=vel.get(n,0),Status=bus.r[n]['Status'])
-def owner(stream=True,clock=None,wall=None):
+def owner(stream=None,clock=None,wall=None):
  load.clear();vel.clear();b=Bus();clock=clock or (lambda:t[0]);wall=wall or (lambda:t[0])
  o=HardwareOwner([b],{n:C(range_min=826,range_max=3268,homing_offset=0) for n in ALL},tel,clock=clock,wall=wall,position_scope=ALL,paddle_profile=True,camera_metadata=lambda:{'received_at':wall(),'seq':1},stream=stream)
  o.inspect();return o,b
@@ -40,7 +40,10 @@ def rejected(fn,text):
  except ValueError as x:assert text in str(x),str(x);return str(x)
  raise AssertionError('accepted: '+text)
 
-# 1. Off by default: no 'stream' capability; both ops are rejected exactly like an unknown op; stream needs the profile.
+# 1. On by default with the pickup profile; stream=False (the pre-stream owner) has no 'stream' capability and rejects
+#    both ops exactly like an unknown op; stream needs the profile.
+assert 'stream' in owner()[0].state['capabilities']
+assert 'stream' not in HardwareOwner([Bus()],{n:C(range_min=826,range_max=3268,homing_offset=0) for n in ALL},tel,clock=lambda:t[0],wall=lambda:t[0],position_scope=ALL).state['capabilities']
 o,b=owner(stream=False);o.enable(ALL,True)
 assert 'stream' not in o.state['capabilities'] and 'stream_limits' not in o.state and o.stream_executor is None
 unknown=rejected(lambda:send(o,'bogus'),'Unsupported hardware command')
@@ -253,5 +256,5 @@ with tempfile.TemporaryDirectory() as tmp:
   except ValueError:pass
   else:raise AssertionError('accepted '+str(bad))
  assert len(calls)==2
-print('Stream mode: off by default, both-arm 40-tick ramp, range/envelope rejection, 2-tick skip and no-op, 10-tick jaw steps, jaw guard freeze and reopen, '
+print('Stream mode: on with the pickup profile, stream=False rejects like an unknown op, both-arm 40-tick ramp, range/envelope rejection, 2-tick skip and no-op, 10-tick jaw steps, jaw guard freeze and reopen, '
       'cross-command arm contact hold, 0.5 s timeout hold, hold_here at present, replace rules, 96/800/500 faults release, client refusals without STOP, API tools; no hardware')

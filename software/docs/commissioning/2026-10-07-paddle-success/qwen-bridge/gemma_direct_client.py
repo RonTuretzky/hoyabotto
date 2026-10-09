@@ -112,7 +112,7 @@ class DirectJointClient:
         """Stop the running motion and hold where the arm is (wheels brake and release); unlike stop, nothing is released."""
         return self._command({'op':'halt'})
     def stream(self,targets,command_id=None):
-        """Stream mode (owner --stream): send one set of arm targets and return once the owner acknowledges it.
+        """Stream mode (on with the pickup profile): send one set of arm targets and return once the owner acknowledges it.
         A refusal, stale status or missing acknowledgement returns accepted False and never sends STOP; an owner
         fault still shows as owner_stopped / stop_count."""
         if not isinstance(targets,dict) or not targets or any(not isinstance(n,str) or type(q) is not int for n,q in targets.items()):
@@ -146,7 +146,7 @@ class DirectJointClient:
                     try:state=self.status()
                     except (OSError,ValueError,KeyError,TypeError) as exc:return refuse('HARDWARE_OWNER_UNAVAILABLE: '+str(exc))
                     if state.get('hardware_server') is not True or not 0<=state['status_age_s']<=1:return refuse('OWNER_STATUS_STALE')
-                    if 'stream' not in (state.get('capabilities') or []):return refuse('STREAM_MODE_DISABLED: the owner was not started with --stream')
+                    if 'stream' not in (state.get('capabilities') or []):return refuse('STREAM_MODE_DISABLED: the running owner predates stream mode (redeploy to install it)')
                     if state.get('ok') is not True or state.get('operator_armed') is not True:return refuse('OWNER_NOT_HEALTHY_OR_NOT_ARMED')
                     if state.get('phase') not in ('idle','holding','moving'):return refuse('OWNER_BUSY: '+str(state.get('phase')))
                     started=state['started'];stops=state.get('stop_count',0);generation=self.cancel_generation

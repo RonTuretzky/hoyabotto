@@ -28,11 +28,11 @@ def recover_ports(buses,reason,state,now):
  return recovered
 
 class HardwareOwner:
- def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,stream=False):
+ def __init__(self,buses,calibration,read_telemetry,clock=time.monotonic,wall=time.time,read_only=False,position_scope=None,paddle_profile=False,camera_metadata=None,wheels=False,soft_release_s=0,sleep=time.sleep,stream=None):
   self.read_only=read_only
-  # --stream (default off): stream_targets/hold_here for a 10 Hz policy client (stream_joint_executor.py, STREAM-MODE.md).
-  # Off: both ops are rejected like any unknown op and nothing else changes.
-  self.stream=bool(stream);self.stream_executor=None
+  # Stream mode: stream_targets/hold_here for a 10 Hz policy client (stream_joint_executor.py, STREAM-MODE.md). On with
+  # the pickup profile; it does nothing until a client sends one of its two ops. stream=False is the pre-stream owner.
+  self.stream=bool(paddle_profile) if stream is None else bool(stream);self.stream_executor=None
   if self.stream and not paddle_profile:raise ValueError('Stream mode requires the pickup profile')
   self.soft_release_s=soft_release_s;self.sleep=sleep;self.writer=None  # writer(): persist self.state now (set by main)  # >0: STOP/faults ease torque off over this many seconds
   self.paddle_profile=paddle_profile
@@ -419,7 +419,7 @@ def main():
   if not live:raise RuntimeError('no motor bus answered: '+json.dumps(missing))
   if missing:print('Hardware owner WARNING: motor bus not answering, left out: '+json.dumps(missing),flush=True)  # before any check that needs it
   buses=live
-  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0,stream='--stream' in sys.argv);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
+  owner=HardwareOwner(buses,r.calibration,observed_telemetry,read_only='--read-only' in sys.argv,position_scope=[n for b in buses for n in b.motors if n.startswith('right_arm_')] if '--right-arm-only' in sys.argv else [n for b in buses for n in b.motors if n.startswith(('right_arm_','left_arm_'))] if '--both-arms' in sys.argv else None,paddle_profile='--paddle-profile' in sys.argv,wheels='--wheels' in sys.argv,soft_release_s=2.0);owner.inspect();atomic(folder/'status.json',owner.state);owner.writer=lambda:atomic(folder/'status.json',owner.state)
   owner.state['missing_buses']=missing
   if(folder/'command.json').exists():last=json.loads((folder/'command.json').read_text()).get('id')
   print(f'Hardware owner ready:{len(owner.names)} motor reads, all torque off.',flush=True)

@@ -1,4 +1,4 @@
-"""Stream executor for a 10 Hz learned-policy client; runs inside the sole owner, only with --stream. Never opens a port.
+"""Stream executor for a 10 Hz learned-policy client; runs inside the sole owner (stream mode: on with the pickup profile). Never opens a port.
 
 One executor object lives as long as the owner. Each stream_targets command only updates its targets, so the contact
 counters, jaw guard and jaw blocks persist across commands. A stream session ends (holding, nothing released) when no

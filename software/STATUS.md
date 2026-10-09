@@ -12,7 +12,7 @@ moved and no robot call was made.
 - **New chat tools:** `carton/fold_policy_chat.py` adds `robot_get_fold_policy_status`, `robot_fold_policy_dry_run`
   and `robot_fold_policy_run`. Installer: `tools/install_fold_policy_chat.py`. Execution is disabled by default; the
   owner's config holds the gates. Not installed.
-- **New owner stream mode** (`--stream`, default off; qwen-bridge `STREAM-MODE.md`): `robot_stream_joint_targets`
+- **New owner stream mode** (always on with the pickup profile, no flag; qwen-bridge `STREAM-MODE.md`): `robot_stream_joint_targets`
   (both arms and jaws, no STOP on refusal) and `robot_hold_here`. Not deployed.
 - **Simulation results** (demo checkpoint, real owner code on the fake bus):
   - today's owner semantics: holding-drift fault, all motors released, fold failed;

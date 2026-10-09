@@ -29,7 +29,7 @@ CHAT = re.compile(r'chat=Chat\((?!FoldPolicyRobot\()(.*?Robot\(args\.config\)\)*
 MOVE = "'robot_move_base','robot_stop')"
 MOVE_AFTER = "'robot_move_base','robot_stop','robot_fold_policy_dry_run','robot_fold_policy_run')"
 DEFAULT_BLOCKERS = [
-    'owner stream mode (jaw closures, no STOP on a refused streamed target) is not deployed: '
+    'owner stream mode (jaw closures, no STOP on a refused streamed target) is not deployed and validated: '
     'docs/carton-fold-policy-chat-mac-handoff.md section 4',
     'the policy has not been retrained for the measured station and cameras (handoff section 3)',
 ]

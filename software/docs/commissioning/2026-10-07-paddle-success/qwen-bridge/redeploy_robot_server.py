@@ -373,7 +373,6 @@ def main():
  parser.add_argument('--no-wrist-cams',action='store_true',help='do not start wrist-camera publishers')
  parser.add_argument('--network-only',action='store_true',help='after a Wi-Fi change: repair the Cloudflare relay, make the API listen on the LAN (restarts only the API), report the addresses; motors untouched')
  parser.add_argument('--oak',choices=['on','off'],help='switch the OAK stream off (stays off across deploys) or back on; combine with --cameras-only')
- parser.add_argument('--stream',action='store_true',help='start the owner with --stream: stream_targets/hold_here for a 10 Hz policy client (default off; owner approval first, see STREAM-MODE.md)')
  parser.add_argument('--release-holding',action='store_true',help='allow stopping an owner that is holding motors (the arm will lose torque; support it first)')
  args=parser.parse_args()
  if not WORK.is_dir():fail(f'{WORK} not found; set XLEROBOT_WORK_ROOT')
@@ -421,7 +420,6 @@ def main():
         'Support the arm, then call robot_stop (or rerun with --release-holding).')
  if args.no_wheels:OWNER_ARGS.remove('--wheels')
  if args.right_arm_only:OWNER_ARGS[OWNER_ARGS.index('--both-arms')]='--right-arm-only'
- if args.stream:OWNER_ARGS.append('--stream')
  if args.dry_run:
   if not args.no_wrist_cams:setup_wrist_cameras(True)
   ensure_relay(True);say(f"dry run: nothing stopped or installed; the API would listen on {API_BIND}");return
@@ -482,7 +480,7 @@ def bring_up(args):
  if not rows or len(rows)!=len(s.get('supported_motors') or rows) or any(r.get('Torque_Enable')!=0 for r in rows.values()) or s.get('motor_writes')!=0 or s.get('stop_latched'):fail('fresh owner is not all-16 released with zero writes and STOP clear: '+json.dumps({k:s.get(k) for k in ('phase','motor_writes','stop_latched')}))
  if s.get('execution_profile')!='paddle-success-v1':fail('fresh owner is not running the paddle-success-v1 profile')
  if s.get('base_drive_supported') is not ('--wheels' in OWNER_ARGS):fail('fresh owner base_drive_supported does not match the requested --wheels setting')
- if ('stream' in (s.get('capabilities') or [])) is not ('--stream' in OWNER_ARGS):fail('fresh owner stream capability does not match the requested --stream setting')
+ if 'stream' not in (s.get('capabilities') or []):fail('fresh owner does not advertise stream mode (stream_targets/hold_here)')
  if not args.no_wrist_cams:setup_wrist_cameras(False)  # before the API, which loads the detected IDs at startup
  api=start_api()
 

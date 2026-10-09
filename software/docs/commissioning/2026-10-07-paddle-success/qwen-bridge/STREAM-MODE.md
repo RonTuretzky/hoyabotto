@@ -1,11 +1,13 @@
-# Stream mode (owner `--stream`)
+# Stream mode
 
-Stream mode is an opt-in mode of the sole hardware owner. It is meant for a 10 Hz learned-policy client: the client
-sends one set of arm targets per step and gets an acknowledgement back.
+Stream mode is part of the sole hardware owner. It is meant for a 10 Hz learned-policy client: the client sends one
+set of arm targets per step and gets an acknowledgement back.
 
-**It is off by default and has never run on hardware.** When it is off, the two new owner ops are rejected exactly
-like an unknown op (`Unsupported hardware command`), `capabilities` does not contain `stream`, and nothing else in the
-owner changes.
+**It is always on with the pickup profile (how the owner is deployed), and it has never run on hardware.** There is
+no flag. It does nothing until a client sends `stream_targets` or `hold_here`, and both API tools are hidden from the
+chat model, so every existing tool and motion behaves exactly as before. `HardwareOwner(stream=False)` is the
+pre-stream owner, for tests: it rejects both ops exactly like an unknown op (`Unsupported hardware command`), and its
+`capabilities` lack `stream`.
 
 It closes these gaps in the normal motion path (see `software/docs/carton-fold-policy-robot.md` §5 item 8):
 
@@ -18,7 +20,7 @@ It closes these gaps in the normal motion path (see `software/docs/carton-fold-p
 Code:
 
 - `stream_joint_executor.py`: the executor.
-- `gemma_hardware_owner.py`: `stream_command`, `hold_here` and the `--stream` flag.
+- `gemma_hardware_owner.py`: `stream_command` and `hold_here`.
 - `gemma_direct_client.py`: `DirectJointClient.stream` and `DirectJointClient.hold_here`.
 - `gemma_robot_tools.py`: the two API tools.
 - `test_stream_targets.py`: the tests.
@@ -85,14 +87,21 @@ advertises `stream`; `robot_get_capabilities` reports this as `stream_mode`.
 `software/farm/sim/sim_robot.py` lists both tools in `MOTION_TOOLS`. They are not simulated, so they are not in
 `IMPLEMENTED_TOOLS`.
 
-## Enabling it
+## Installing it
 
-1. Get the owner's approval. This changes how the arms are driven.
-2. On the robot Mac, with the arms supported and released, run `./restart-robot-server.sh --stream`. That runs
-   `redeploy_robot_server.py --stream`, which adds `--stream` to the owner command line and checks that the fresh
-   owner advertises `stream`. Leave out `--stream` to turn the mode off again.
-3. A remote `/admin/deploy` restart does not pass `--stream`, so it starts the owner with stream mode off.
-   `--api-only` does not restart the owner and does not change the mode.
+Installing changes owner code, so the owner must restart once. **The restart releases every motor**, so the arms must
+be resting or supported first. `redeploy_robot_server.py` refuses while motors are holding. An `--api-only` deploy
+refuses, because owner files changed.
+
+- **Remotely**, from the chat Mac:
+  `python robot_admin.py deploy <branch>` (`POST /admin/deploy`, mode `restart`). It:
+  - runs every test in `TESTS` on the robot Mac and aborts on any failure;
+  - restarts the API and the owner;
+  - checks that the fresh owner advertises `stream`;
+  - rolls back automatically if the new version does not come up.
+
+  The API is back within seconds and the cameras keep streaming.
+- **On the robot Mac:** `./restart-robot-server.sh`.
 
 ## What was tested (fake bus, virtual clock; no hardware)
 

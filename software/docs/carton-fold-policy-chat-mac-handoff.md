@@ -15,7 +15,7 @@ reach, nobody in the arms' sweep, never relax limits.
 | Robot runner | `carton/fold_policy_runner.py`: reads the owner and cameras through the robot API, converts ticks to radians with the joint maps, runs the policy, clamps and sends. Dry-run unless `--execute` |
 | Chat tools | **New:** `carton/fold_policy_chat.py` + `tools/install_fold_policy_chat.py` (section 2.4). Not installed yet |
 | Owner (robot Mac) | Deployed owner is `paddle-success-v1`. It **cannot run the policy as is**: jaw closures cannot be streamed, a refused streamed target releases every motor, and held joints fault at 96 ticks of drift (section 3) |
-| Owner stream mode | **New, opt-in, not deployed:** see section 2.5 |
+| Owner stream mode | **New, not deployed:** always on once installed (no flag), unused until a client streams; see section 2.5 |
 | Joint maps | Arms: owner-accepted twin mapping (zero tick 2047, sign +1). Jaws: **corrected on this branch** (section 2.2) |
 | Head camera | Pose unknown (the twin's head mapping is off ~15° tilt / 17° pan). The OAK now streams **16:9** 1080p; the policy was trained on a **4:3** head camera (section 4, step B) |
 
@@ -123,10 +123,11 @@ Tests: `tests/test_fold_policy_chat.py` (8). The runner is a stand-in subprocess
 - STOP interrupting the job;
 - the installer's idempotent and reversible patch.
 
-### 2.5 Owner stream mode (robot Mac, opt-in)
+### 2.5 Owner stream mode (robot Mac)
 
-The full rules are in `docs/commissioning/2026-10-07-paddle-success/qwen-bridge/STREAM-MODE.md`. The owner is started with `--stream`; **the default is off**. With it
-off, both new ops are rejected like any unknown op and nothing else changes. With it on:
+The full rules are in `docs/commissioning/2026-10-07-paddle-success/qwen-bridge/STREAM-MODE.md`. There is **no flag**. It is on whenever the
+owner runs the pickup profile, which is how the owner is deployed. It does nothing until a client sends one of its two
+ops, and both tools are hidden from the chat model, so every existing tool behaves as before. What it adds:
 
 - **`robot_stream_joint_targets {positions}`**: one call per tick names **both arms, jaws included**. The owner keeps
   one stream executor across commands. Its rules:
@@ -229,7 +230,12 @@ change `profiles/fold-joint-maps/right-joint-map.json` `gripper.model_zero_tick`
 
 **E. Owner stream mode on the robot Mac (owner).**
 1. Approve the change in 2.5.
-2. Redeploy with `--stream` (`./restart-robot-server.sh --stream` on the robot Mac with the arms supported and released; a remote `/admin/deploy` does not pass `--stream`).
+2. Install it. This is one owner restart, which **releases every motor**, so the arms must be resting or supported
+   first; the deploy refuses while motors are holding.
+   - Remotely: `python robot_admin.py deploy <branch>` from the chat Mac (`POST /admin/deploy`). It runs all the
+     redeploy tests on the robot Mac first, checks that the fresh owner advertises `stream`, and rolls back if the
+     new version does not come up. The API is back within seconds.
+   - Locally on the robot Mac: `./restart-robot-server.sh`.
 3. Validate in free air, STOP in hand: a jaw close and open stream, a hold-here, the 0.5 s timeout hold, and a
    contact yield against a hand.
 

@@ -412,7 +412,7 @@ class ApiOwnerTransport:
 
 
 class StreamOwnerTransport(ApiOwnerTransport):
-    """The owner's opt-in stream mode (owner started with --stream; qwen-bridge STREAM-MODE.md) through the API.
+    """The owner's stream mode (on with the pickup profile; qwen-bridge STREAM-MODE.md) through the API.
 
     One robot_stream_joint_targets call per tick names both arms, jaws included (a jaw moves at most 10 ticks per
     command, closing too). A refusal answers accepted=false and never releases motors; the runner aborts and holds.
@@ -424,7 +424,7 @@ class StreamOwnerTransport(ApiOwnerTransport):
     def preflight(self):
         caps = _ok(self._call("robot_get_capabilities", {}), "robot_get_capabilities")
         if caps.get("stream_mode") is not True:
-            raise Refused("The owner is not in stream mode (started without --stream; see qwen-bridge STREAM-MODE.md)")
+            raise Refused("The owner is not in stream mode (it predates it: redeploy; see qwen-bridge STREAM-MODE.md)")
         return {"stream_mode": True}
 
     def send(self, targets, duration_s):
@@ -1005,7 +1005,8 @@ def main(argv=None):
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--transport", choices=["sim-owner", "sim-owner-stream", "sim-direct", "api", "api-stream",
                                             "direct-client"], required=True,
-                    help="api-stream / sim-owner-stream: the owner's opt-in stream mode (qwen-bridge STREAM-MODE.md)")
+                    help="api-stream / sim-owner-stream: the owner's stream mode (qwen-bridge STREAM-MODE.md); "
+                         "sim-owner simulates the owner before stream mode")
     ap.add_argument("--joint-map", action="append", metavar="ARM=PATH", help="measured per-arm joint map (robot)")
     ap.add_argument("--camera", action="append", metavar="KEY=CAMERA", help="policy key -> robot camera, e.g. front=oak (robot; default for the robot-model policy)")
     ap.add_argument("--sim-trial", type=Path, help="fold-demos trial dir with run/scene.xml and demo.npz")
