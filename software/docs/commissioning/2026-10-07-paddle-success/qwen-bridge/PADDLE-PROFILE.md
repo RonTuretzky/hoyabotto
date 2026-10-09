@@ -109,3 +109,24 @@ Exceptions:
 - **Both arms.** The restart script now starts the owner with `--both-arms --paddle-profile --wheels`; `--right-arm-only` gives the old scope. A pickup command needs all six joints of the arm it moves enabled, but not the other arm. The pickup profile settings and guards apply to each arm.
 - **Mismatched arm.** If an arm's saved calibration does not match its servos, that arm stays read-only (`scope_reduced` in status) and the other arm works. A single-arm scope with a mismatch, or a mismatch in every scoped arm, still refuses startup.
 - **Restore.** `robot_restore_calibration(arm)` is a no-motion job. It stops the owner, writes the saved calibration file's homing offset, limits and position mode into that arm's six servos with torque off, reads them back, then restarts. This fixes the left arm's 6 October mismatch (four servos left holding the rejected candidate). `test_both_arms.py` covers this.
+
+## Head scope (2026-10-09, OAK on the head)
+
+The OAK-D Lite now sits on the two-servo head (slot cradle on the stock tilt link); the old USB head camera is gone.
+The restart script starts the owner with `--head` as well (`--no-head` leaves the head read-only).
+
+- **Enable/release.** `robot_set_motor_enable` accepts `head_motor_1` (pan) and `head_motor_2` (tilt), alone or
+  together. They hold where they are, like arm joints. They are not part of any arm's six-joint rule, and an arm move never needs them.
+- **Moves.** Only `robot_move_head {positions, duration_s}` (owner op `head_move`, `head_joint_executor.py`):
+  - at most 200 ticks per joint per move;
+  - `duration_s` at least 1 s per 100 ticks of the longest travel (default: that minimum, at least 1 s);
+  - targets inside the saved range minus 40 ticks;
+  - no head move while another motion runs;
+  - head names in `direct_joint` targets are refused.
+- **Guards.** These are the arm guards: the 40-tick ramp, the 96-tick following error (fault and release), the
+  contact halt (load ≥ 350, stalled, ≥ 50 ticks behind), the 1 s watchdog, the phone-feed gate and the 120 s idle lease.
+  The head's torque limit and load fault level are 500 (arm joints: 800).
+- **Calibration mismatch.** A head calibration mismatch, or a head missing from the answering buses, leaves the head
+  read-only (`scope_reduced.head`); the arms keep working.
+- **Capabilities.** `robot_get_capabilities` reports `head_supported`, `head_motors` and `head_move_limits`.
+- **Tests.** `test_head_scope.py`.
