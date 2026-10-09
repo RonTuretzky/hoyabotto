@@ -26,7 +26,7 @@ OWNER_LOG=WORK/'gemma-hardware-owner.log';API_LOG=WORK/'qwen-server-recovery/api
 # Files only the API process loads: these can be replaced by restarting the API alone, with motors untouched.
 API_ONLY=['gemma_robot_tools.py','gemma_reach_planner.py','right-arm-kinematics.json','wrist_cameras.py','frame_clips.py','remote_admin.py','paddle_segments.py','calibration_job.py','paddle-procedure.json']
 INSTALL=['joycon_native_units.py','joycon_reference.py','joycon_teleop.py','joycon_teleop_api.py','calibration_job.py','remote_admin.py','wheel_pulse_executor.py','paddle_joint_executor.py','paddle_segments.py','paddle_camera_gate.py','gemma_hardware_owner.py','gemma_direct_client.py','gemma_robot_tools.py','wrist_cameras.py','frame_clips.py','paddle-procedure.json','restart_gemma_owner_released.py','gemma_reach_planner.py','right-arm-kinematics.json','stream_joint_executor.py','head_joint_executor.py']
-TESTS=['test_joycon_teleop.py','test_gripper_chunks.py','test_gripper_enable.py','test_oak_wait.py','test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_frame_clips.py','test_reach_planner_right.py','test_stream_targets.py','test_head_scope.py']
+TESTS=['test_joycon_teleop.py','test_joycon_commissioning.py','test_gripper_chunks.py','test_gripper_enable.py','test_oak_wait.py','test_network.py','test_port_recovery.py','test_wrist_revive.py','test_both_arms.py','test_calibration_job.py','test_soft_release.py','test_remote_admin.py','test_contact_guard.py','test_continuous_motion.py','test_wheel_pulse.py','test_paddle_joint_executor.py','test_paddle_segments.py','test_paddle_camera_gate.py','test_paddle_owner.py','test_paddle_client.py','test_paddle_stop_recovery.py','test_gemma_hardware_owner.py','test_wrist_cameras.py','test_frame_clips.py','test_reach_planner_right.py','test_stream_targets.py','test_head_scope.py']
 OWNER_ARGS=['--both-arms','--paddle-profile','--wheels','--head','--allow-missing-bus'];  # an arm (or the head) whose calibration mismatches stays read-only
 API_PORT=1241
 WRIST_STREAM=WORK/'wrist-camera-stream';CAPTURE=WORK/'capture-single'
@@ -372,6 +372,7 @@ def main():
  parser.add_argument('--cameras-only',action='store_true',help='only start missing wrist-camera publishers (run from Terminal); the server is not touched')
  parser.add_argument('--joycon-teleop',action='store_true',help='explicitly enable manual Joy-Con sessions in the owner (starts disarmed)')
  parser.add_argument('--upstream-joycon-reference',type=Path,help='Explicitly install the measured upstream control mode in the owner; requires --joycon-teleop')
+ parser.add_argument('--native-joycon-reference',action='store_true',help='bind current saved native units for explicit Joy-Con commissioning; no calibration writes')
  parser.add_argument('--right-arm-only',action='store_true',help='only the right arm is movable (the left stays read-only)')
  parser.add_argument('--no-wheels',action='store_true',help='start the owner without base drive (robot_move_base refused)')
  parser.add_argument('--no-head',action='store_true',help='start the owner with the head read-only (robot_move_head refused)')
@@ -380,6 +381,9 @@ def main():
  parser.add_argument('--oak',choices=['on','off'],help='switch the OAK stream off (stays off across deploys) or back on; combine with --cameras-only')
  parser.add_argument('--release-holding',action='store_true',help='allow stopping an owner that is holding motors (the arm will lose torque; support it first)')
  args=parser.parse_args()
+ if args.native_joycon_reference:
+  if not args.joycon_teleop or args.upstream_joycon_reference or args.right_arm_only or args.no_wheels or args.no_head or args.api_only or args.cameras_only or args.network_only or args.release_holding:
+   parser.error('Native Joy-Con commissioning requires an exclusive full released deployment with arms, head and wheels')
  if args.upstream_joycon_reference:
   if not args.joycon_teleop or args.right_arm_only or args.no_wheels or args.no_head or args.api_only or args.cameras_only or args.network_only:
    parser.error('Upstream Joy-Con mode requires a full --joycon-teleop deployment with both arms, head and wheels')
@@ -430,6 +434,14 @@ def main():
   if owners and enabled and not args.release_holding:
    fail('motors are holding '+', '.join(enabled)+'. Stopping the owner turns their torque off and the arm will drop. '
         'Support the arm, then call robot_stop (or rerun with --release-holding).')
+ if args.native_joycon_reference:
+  from joycon_commissioning import prepare_native_reference, require_no_pending_command
+  try:
+   require_no_pending_command(status,SESSION/'command.json')
+   reference,path=prepare_native_reference(Path('/Users/teachera/.cache/huggingface/lerobot/calibration/robots/xlerobot_2wheels/farm_xlerobot.json'),status,WORK/'joycon-references',dry_run=args.dry_run)
+  except (ValueError,OSError,KeyError) as exc:fail(str(exc))
+  args.upstream_joycon_reference=path;args.upstream_reference_id=reference.reference_id
+  say('exact native reference: '+reference.reference_id+' at '+str(path))
  if args.joycon_teleop:OWNER_ARGS.append('--teleop')
  if args.upstream_joycon_reference:OWNER_ARGS.extend(['--upstream-joycon-reference',str(args.upstream_joycon_reference)])
  if args.no_wheels:OWNER_ARGS.remove('--wheels')
@@ -440,6 +452,11 @@ def main():
   ensure_relay(True);say(f"dry run: nothing stopped or installed; the API would listen on {API_BIND}");return
  # API first, so no new command reaches the owner while it shuts down.
  if stop(apis,'API',10):fail('API did not exit; owner left running')
+ if args.native_joycon_reference:
+  from joycon_commissioning import require_released, require_no_pending_command
+  try:require_no_pending_command(require_released(read_status()),SESSION/'command.json')
+  except ValueError as exc:
+   start_api();fail('Owner changed before restart; restored API without stopping the owner: '+str(exc))
  if owners:
   left=stop(owners,'hardware owner',20)
   if left:fail(f'hardware owner {left} did not exit within 20 s; not forcing it (it releases motors on exit). Inspect {OWNER_LOG}')
@@ -469,6 +486,7 @@ def main():
   if args.upstream_joycon_reference:
    index=OWNER_ARGS.index('--upstream-joycon-reference');del OWNER_ARGS[index:index+2]
    args.upstream_joycon_reference=None
+  if '--teleop' in OWNER_ARGS:OWNER_ARGS.remove('--teleop')
   try:s,owner,api=bring_up(args)
   except SystemExit:
    if not processes('gemma_robot_tools.py'):say('the previous version did not start either; starting the API anyway so the robot stays reachable');start_api()

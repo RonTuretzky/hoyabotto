@@ -1,3 +1,28 @@
+## Joy-Con goal: paired-API commissioning path prepared — 9 October 2026
+
+The user explicitly asked to get teleoperation ready and selected this Mac
+running Conductor for the Joy-Cons. SSH is not required: the paired mTLS client
+connects over LAN. The existing inactive robot copy predates corrected native
+units and remains locked; the corrected server is being prepared separately.
+
+- Added opt-in `joycon-ready-dry-run` and `joycon-ready` administration modes.
+  They bind current saved native calibration, require fresh all-16 release and
+  no pending owner command, preserve camera publishers, and start disarmed.
+- Added an isolated admin-only bootstrap that preserves the live API source
+  and motor owner. A reviewed source hash protects existing admin changes;
+  startup failure restores the old module. Source uploaded on the scoped
+  `RonTuretzky/joycon-admin-bootstrap-20261009` ref.
+- Local verification: 59 Joy-Con tests, 27 owner/deployment test files and
+  five commissioning guard/rollback tests pass. Preserved the OAK thread's
+  current optional full-sensor camera implementation without starting it.
+- First remote bootstrap dry-run refused before service/file changes when
+  another session enabled the head. The user's head release was then confirmed
+  with all 16 torque bits zero. A concurrent OAK camera trial occupies the admin
+  job slot; no commissioning restart has occurred yet.
+- This Mac's HID inventory currently reports no original Joy-Cons. Pairing,
+  operator scene-clearance confirmation, physical direction, rail-release,
+  disconnect and STOP checks remain outstanding. No motion test is claimed.
+
 ## Joy-Con commissioning preparation — 9 October 2026, 20:27–20:33 JST
 
 The user confirmed they are commissioning the Joy-Con controls. This workspace merges

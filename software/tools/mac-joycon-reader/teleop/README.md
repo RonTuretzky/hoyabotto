@@ -283,6 +283,24 @@ owner/API with fake motors, rail release, re-centering, and stale feedback.
 All 24 existing owner test files also passed after merging the newer robot fixes. These fake-motor checks forbid network sockets. They do not prove physical
 calibration, safe collision geometry, or actual robot operation.
 
+### Authenticated commissioning deployment
+
+The explicit operator goal on 9 October authorizes preparation of the current
+Joy-Con server and this Mac's disarmed operator screen. Normal `restart` keeps
+its existing behavior. The fixed `joycon-ready-dry-run` and `joycon-ready` admin
+modes select both arms, head and wheels, create an exact native binding from the
+saved calibration, and leave torque off. They preserve the existing cameras.
+Fresh all-16 torque-off telemetry and an acknowledged command mailbox are
+required before a restart; live calibration is verified again by the new owner.
+No homing or calibration writes occur.
+
+Older servers first need the isolated admin bootstrap ref: it replaces only
+`remote_admin.py` and restarts only the API, with a reviewed-baseline hash and
+backup/rollback. It never stops the motor owner or replaces the live API code.
+A busy deployment job or powered motor refuses the bootstrap. The old locked
+`04dd3ae` installation is retained. Neither deployment mode arms a controller;
+only the local operator's explicit **Arm controls** action can do that.
+
 ## Prepared robot integration
 
 The canonical sole serial owner gains an opt-in `--teleop` capability. The normal

@@ -51,6 +51,7 @@ class Bridge:
         self.generation=0;self.armed=False;self.busy=False;self.scope='left';self.session=None;self.identity=None
         self.reason='Disarmed — test both triggers, then release them and center the sticks'
         if getattr(self.mapping,'mode',None)=='cartesian':self.reason='Disarmed — test upper L/R buttons, release all buttons and center the sticks'
+        if getattr(self.mapping,'mode',None)=='upstream' and getattr(robot,'supports_upstream',False):self.reason='Disarmed — check SL or SR on each Joy-Con, release all controls and center sticks'
         self.robot_state={};self.ui_seen=0;self.sequence=0;self.rtt=None;self.closing=False
         self.release_pending=0;self.worker=None;self.reader_thread=None;self.proc=None
         if start:self.start()
@@ -190,7 +191,7 @@ class Bridge:
                 self.valid()
                 self.session=result;self.robot_state=result.get('status',self.robot_state)
                 self.mapping.update_robot_status(self.robot_state);self.armed=True
-                self.reason='PRACTICE — simulated components only' if self.robot.simulation else 'Armed — hold trigger to move'
+                self.reason='PRACTICE — simulated components only' if self.robot.simulation else ('Armed — hold the side-rail SL or SR buttons to move' if getattr(self.mapping,'mode',None)=='upstream' else 'Armed — hold trigger to move')
         except Exception as e:
             self.release('Start failed: '+str(e));raise
         finally:
