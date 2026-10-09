@@ -1,8 +1,8 @@
 # Final DCM desk station refit — 9 October 2026
 
-Scene review was approved. **Cloud retraining is prepared but blocked by the local read-only Hugging Face token; $0 spent and no job submitted.**
+Scene review was approved. **Cloud retraining is authorized and submitted. The corrected H200 job is RUNNING and recording audited demonstrations; optimizer training has not yet been observed.**
 The existing server thread owns hardware. This checkout owns simulation geometry and candidate previews.
-The user authorized up to **$20 total** and asked for the fastest training. No further spending approval
+The user authorized up to **$50 total** and asked for the fastest training. No further spending approval
 is needed within that cap. Static clearance and IK are not motion validation.
 
 ## Retraining handoff (latest)
@@ -22,7 +22,7 @@ All evidence is under the outer workspace's `.context/station-refit-2026-10-09/t
 - `dataset-smoke`: one complete three-camera LeRobot episode, 578 frames; two holdouts identified.
 - **120 targeted tests passed** (119 combined plus the added policy-render integration test).
   The latter confirms synthetic teacher markers and collision hulls are hidden from policy images.
-- `cloud-release-v1.tar.gz` and `cloud-release-v1/manifest.json`: frozen, credential-free source/assets.
+- `cloud-release-v2.tar.gz` and `cloud-release-v2/manifest.json`: frozen, credential-free source/assets.
 - `launch-cloud.py`: one-job submission with durable deduplication and source checksum.
 - `budget-and-launch.json`: authorization, authentication blocker, qualifications, and spending ledger.
 
@@ -33,8 +33,9 @@ is group 4 and is removed from policy observations. Policy cameras retain the ap
 The head view uses the principal-point-centered 4:3 crop at 320×240. The physical runner does not yet
 implement this matching preprocessing; do not deploy or move hardware from this training handoff.
 
-Prepared job: Hugging Face H200 **$5/hour**, three-hour timeout **$15 compute cap**, **$5 reserve**
-within the $20 authorization. Official pricing checked at https://huggingface.co/docs/hub/main/en/jobs-pricing.
+Active job: Hugging Face H200 **$5/hour**, three-hour timeout **$15 compute cap**.
+The ledger conservatively reserves **$30 across both attempts**, leaving **$20 unallocated**
+within the $50 authorization. Actual billed charges are not yet available; the first failed attempt ran for four seconds. Official pricing checked at https://huggingface.co/docs/hub/main/en/jobs-pricing.
 320 trials, 12 recorder workers; collection must retain ≥80% audited success and ≥128 valid episodes.
 Every tenth seed is held out. Six render workers, three cameras, ACT batch 32, chunk/action steps 100,
 lr 3e-5, 25,000 updates, checkpoints every 5,000. Private dataset/model destinations:
@@ -42,20 +43,53 @@ lr 3e-5, 25,000 updates, checkpoints every 5,000. Private dataset/model destinat
 - `RonTuretzky/carton_dcm_refit_20261009_v1`
 - `RonTuretzky/act_carton_dcm_refit_20261009_v1`
 
-These repositories were **not created**: the active saved token is named `test`, role `read`, and
-the create-model call returned HTTP 403. No alternate project write credential was found in the
-three relevant configured `.env` locations. User was asked to run `hf auth login` locally with a
-repository-write and Jobs-capable token; never paste credentials into chat. Once authenticated:
+The repositories are now private and created. The user supplied a write/Jobs-capable credential;
+it is passed through process stdin and the provider's secret field, never stored in source or local files.
 
-```sh
-/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/.venv/bin/python \
-  /Users/wk/conductor/workspaces/xlerobot-farm/las-vegas-v1/.context/station-refit-2026-10-09/training/launch-cloud.py
-```
+- First job: `6ac8c46ffee2c90070177627`, confirmed ERROR before recording: the image uses uv and has no pip module.
+- Active job: [`6ac8c522095c57808930534d`](https://huggingface.co/jobs/RonTuretzky/6ac8c522095c57808930534d),
+  started 10:43:38 UTC. H200 and LeRobot 0.6.1 confirmed in provider logs.
+- Corrective launch uses `uv pip install --python <container-python>` and preserves the first attempt in the budget ledger.
+- Each attempt has a three-hour/$15 cap. The ledger conservatively reserves the full first cap until billed usage is known.
+- Total authorized budget is now $50; do not count that as a request to spend the entire amount.
+- The evidence archive now includes baked OBJ/STL scene meshes for later held-out evaluation.
 
 Record the returned job ID immediately (launcher does this), inspect live logs, and distinguish
 recording/rendering from actual optimizer steps. Do not blindly resubmit an uncertain launch.
 No automatic paid retries. Training completion still requires held-out closed-loop evaluation before
 choosing a checkpoint; a completed training job is not physical readiness.
+
+## Audited checkpoint evaluation
+
+Use `tools/eval_refit_fold_policy.py` for this new scene. It checks loaded forbidden contacts
+at every physics step, including camera-to-flap contacts; the historical evaluator only sampled
+penetration at policy-tick boundaries. Policy images hide collision hulls and teacher-only markers.
+Malformed/nonfinite actions cannot advance physics. Complete contact streams are independently rescored
+and hashed, and an audit failure prevents a success result.
+
+Three evaluator regression tests pass (seven combined with cloud pipeline checks). A full recorded-command smoke replay (`eval-harness-smoke`, seed 9100)
+folded both short flaps at 57.7 s with 28,850 audited steps, complete coverage, no loaded forbidden
+contact, 0.33 mm maximum flap penetration and 1.4 mm carton translation. This verifies the evaluation
+harness, **not a trained-policy score**. The evaluator was added after active cloud bundle v2;
+evaluation runs locally against downloaded checkpoints and restored holdouts.
+
+`training/watch-cloud.py` is a read-only Hub watcher with local evaluation, running separately
+from the paid job. It never submits or retries a cloud job. Its outputs are `live-cloud-status.json`,
+`watch-cloud.log` and `cloud-evaluation/`. It verifies the evidence SHA-256, rewrites cloud asset paths,
+loads every holdout scene, and checks training/holdout seed separation before evaluation. An offline
+cloud-style restore smoke loaded successfully. It screens 5k on four starts and evaluates 15k/20k/25k
+on every held-out start with temporal ensembling 0.01, four concurrent local workers. Results go into
+`scoreboard.json`; `best-checkpoint.json` remains explicitly simulation-only and not physical-ready.
+
+To resume monitoring if that local process stops (no paid launch):
+
+```sh
+/Users/wk/conductor/workspaces/research/minsk/.context/xlerobot-farm/software/.venv/bin/python -u \
+  /Users/wk/conductor/workspaces/xlerobot-farm/las-vegas-v1/.context/station-refit-2026-10-09/training/watch-cloud.py
+```
+
+Do not start two watchers simultaneously. Completed evaluation shards are reused; failed/incomplete
+shards are preserved under an `-incomplete-` suffix before a local retry.
 
 ## Locations
 

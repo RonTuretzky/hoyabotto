@@ -99,7 +99,7 @@ def main():
         evidence = work/'simulation-evidence.tar.gz'
         with tarfile.open(evidence, 'w:gz') as archive:
             for p in sorted(demos.rglob('*')):
-                if p.is_file() and (p.suffix in ('.json', '.npz', '.xml') or p.name.endswith('.jsonl.gz')):
+                if p.is_file() and (p.suffix.lower() in ('.json', '.npz', '.xml', '.obj', '.stl') or p.name.endswith('.jsonl.gz')):
                     archive.add(p, arcname=str(p.relative_to(work)))
         status['evidence_sha256'] = hashlib.file_digest(evidence.open('rb'), 'sha256').hexdigest()
         api.upload_file(path_or_fileobj=evidence, path_in_repo='refit/simulation-evidence.tar.gz',
