@@ -14,7 +14,7 @@ exercises, a box, a short tutorial, better scenery and an over-shoulder viewpoin
   directional lighting, floor and backdrop. Grasp is a proximity/closure proxy.
   Closing from far away cannot attach; lift/placement milestones use rendered
   coordinates. No physical force/friction or carton folding success is claimed.
-- Verification: 65 local tests passed; targeted lesson tests and JavaScript syntax
+- Verification: 67 local tests passed after current-main reconciliation; targeted lesson tests and JavaScript syntax
   checks passed after the final small rendering changes. Actual HID gyro input
   changed the virtual wrists and distinct rendered frames in the preceding run.
 - Final paired-API readback: physical owner idle, all 16 motors released, manual
