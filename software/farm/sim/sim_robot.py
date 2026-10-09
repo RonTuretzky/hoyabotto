@@ -128,7 +128,8 @@ FIDELITY = {'meet_jitter_ticks': {'left': (0, 4), 'right': (-4, 10)},
             'right_grip_sticks': {'p_close': 0.5, 'p_open': 0.4, 'p_reopen': 0.7, 'close_band': (1520, 1610),
                                   'open_band': (1500, 1950)},
             'lift_bias_deg': {'left': 5.0, 'right': 5.0},
-            'roll_offset_deg': {'left': 90.0, 'right': 90.0}}
+            'roll_offset_deg': {'left': 90.0, 'right': 90.0},
+            'head_tilt_deg': 45.0}
 PAD_Y_M = -0.055               # jaw frame (Fixed_Jaw: the jaw runs along -y, tip at -0.106): contacts beyond this are the pads
 FLAP_FOLDED_DEG = 75.0         # score()['flap_folded'] threshold (farm.sim.box_scene.FLAP_FOLDED_DEG)
 FOLD_PUSH_ALLOWANCE_DEG = 10.0 # score()['fold_by_pinch']: at most this much of the flap's turn may happen under a non-pad contact
@@ -844,6 +845,12 @@ class SimRobot:
                 model.dof_frictionloss[model.jnt_dofadr[jid]] = 50.0
                 model.dof_damping[model.jnt_dofadr[jid]] = 50.0
         self.head_ticks = {n: int(sample_rows.get(n, {}).get('Present_Position', (self.calibration[n][0] + self.calibration[n][1]) // 2)) for n in HEAD_NAMES}
+        tilt = self.fidelity.get('head_tilt_deg')
+        if tilt is not None and 'head_motor_2' in self.calibration:
+            # the real OAK looks down into the open box (9 October: its table-plane fit landed on the box floor);
+            # head_motor_2 above its midpoint tilts the head down (twin convention)
+            lo, hi = self.calibration['head_motor_2']
+            self.head_ticks['head_motor_2'] = int((lo + hi) // 2 + float(tilt) * 4096 / 360)
         self.world.model, self.world.data = model, data
         self._reset_state()
 
