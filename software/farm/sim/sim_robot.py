@@ -60,7 +60,7 @@ MOTION_TOOLS = ('robot_move_joint_targets', 'robot_move_head', 'robot_set_grippe
 IMPLEMENTED_TOOLS = ('robot_list_motors', 'robot_set_motor_enable', 'robot_get_state', 'robot_get_cameras',
                      'robot_get_clip', 'robot_get_capabilities', 'robot_get_depth', 'robot_stop',
                      'robot_move_joint_targets', 'robot_move_path', 'robot_get_motion', 'robot_halt_motion',
-                     'robot_set_gripper', 'robot_move_base')
+                     'robot_set_gripper', 'robot_move_base', 'robot_move_head')
 CAMERA_TOOLS = ('robot_get_cameras', 'robot_get_clip', 'robot_get_depth')
 
 # Pickup-profile constants (paddle_joint_executor.py / paddle_segments.py / gemma_robot_tools.py).
@@ -153,9 +153,30 @@ CONTACT_NOTE = (f'Load >= {CONTACT_HALT_LOAD} on a joint lagging >= {CONTACT_PUS
                 'where it is; nothing was released.')
 GRIPPER_NOTE = ('The jaw stopped before the target and is holding (often an object between the jaws). Look at the '
                 'wrist camera before the next step.')
-READ_ONLY_MESSAGE = ('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: {names}. The head '
-                     'cannot be moved (aim cameras by moving the arm instead); the wheels move only through '
-                     'robot_move_base, which needs no enable. Enable only arm joints.')
+READ_ONLY_MESSAGE = ('UNSUPPORTED_OWNER_SCOPE: these motors are read-only and are never powered: {names}. the wheels move '
+                     'only through robot_move_base, which needs no enable. With --head the head motors (head_motor_1 pan, '
+                     'head_motor_2 tilt) enable here and move only through robot_move_head.')
+# Head (the OAK-D Lite on the two-servo head): the real owner's --head scope (qwen-bridge/head_joint_executor.py,
+# gemma_robot_tools.move_head, 9 October). Enable/release like any motor, never part of an arm's six-joint rule; move only
+# through robot_move_head: <= 200 ticks per joint per move, duration_s >= 1 s per 100 ticks of the longest travel
+# (default: that minimum, at least 1 s), targets 40 ticks inside the saved range, joints within 2 ticks dropped.
+HEAD_MAX_TICKS = 200
+HEAD_TICKS_PER_S = 100
+HEAD_LIMITS = {'max_ticks_per_move': HEAD_MAX_TICKS, 'min_duration_s_per_100_ticks': 100 / HEAD_TICKS_PER_S, 'margin_ticks': MARGIN,
+               'max_duration_s': 25, 'load_limit': 500, 'tool': 'robot_move_head'}
+HEAD_ENABLE_NOTE = ('Head motors (head_motor_1 pan, head_motor_2 tilt; the OAK camera rides on the head) can be enabled when '
+                    'robot_get_capabilities.head_supported is true; they are not part of any arm six-joint rule and move only '
+                    'through robot_move_head. Wheels are read-only (robot_move_base needs no enable).')
+HEAD_TOOL_DESCRIPTION = ('Aim the head (and the OAK camera on it): absolute encoder targets for head_motor_1 (pan) and/or head_motor_2 '
+                         '(tilt), already enabled with robot_set_motor_enable. Needs capabilities.head_supported (owner started with '
+                         '--head). Each joint moves at most 200 ticks per call (about 18 degrees; 4096 ticks per turn), targets stay 40 '
+                         'ticks inside the saved range, and duration_s must be at least 1 s per 100 ticks of the longest travel '
+                         '(default: that minimum, at least 1 s). The owner applies the arm guards (ramp, 96-tick following error, '
+                         'contact halt, watchdog, phone-feed gate, idle lease) and waits for measured completion. Joints already '
+                         'within 2 ticks of their target are dropped. Not allowed while another motion runs.')
+HEAD_POLICY = ('robot_set_motor_enable accepts head_motor_1 (pan) / head_motor_2 (tilt); robot_move_head moves them (<=200 ticks '
+               'per joint per call, duration_s >= 1 s per 100 ticks, 40-tick range margin); the OAK camera is on the head, so its '
+               'view direction follows the head pose')
 ODOMETRY_NOTE = 'wheel encoder estimate only; slip and floor contact unverified'
 
 
@@ -705,6 +726,17 @@ class _BasePulse:
                 self.done.set()
 
 
+class _HeadMotion:
+    """A robot_move_head ramp: ticks go linearly from start to target over duration (sim seconds from t0)."""
+
+    def __init__(self, command_id, start, target, duration, t0):
+        self.command_id, self.start, self.target, self.duration, self.t0 = command_id, start, target, duration, t0
+        self.active = True
+        self.outcome = None
+        self.result = None
+        self.done = threading.Event()
+
+
 # ---------------------------------------------------------------- the robot
 
 class SimRobot:
@@ -844,7 +876,8 @@ class SimRobot:
         self.jaw_bodies = {arm: (mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, fixed), mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, moving))
                            for arm, (fixed, moving) in (('left_arm', ('Fixed_Jaw', 'Moving_Jaw')), ('right_arm', ('Fixed_Jaw_2', 'Moving_Jaw_2')))}
         self.tip_sites = {arm: mj.mj_name2id(model, mj.mjtObj.mjOBJ_SITE, site) for arm, (_, _, _, site) in twin.ARMS.items()}
-        # Head joints never move (read-only motors): freeze them. Wheels do not spin (fixed base).
+        # Head joints move only kinematically (robot_move_head ramps their qpos); otherwise frozen, enabled or released
+        # (no head sag). Wheels do not spin (fixed base).
         for joint in ('head_pan_joint', 'head_tilt_joint', 'left_wheel_joint', 'right_wheel_joint'):
             jid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_JOINT, joint)
             if jid >= 0:
@@ -881,6 +914,7 @@ class SimRobot:
         mj.mj_forward(model, data)
         self.motion = None
         self.base = None
+        self.head_motion = None
         self.last_motion = None
         self.last_stop = None
         self.stop_count = 0
@@ -909,6 +943,9 @@ class SimRobot:
         self.sim_started = float(data.time)
 
     def _set_passive(self, motor):
+        if motor.name in HEAD_NAMES:   # the head stays frozen where it is (see _load_model)
+            motor.force = 0.0
+            return
         self.model.dof_damping[motor.dadr] = RELEASED_DAMPING
         self.model.dof_frictionloss[motor.dadr] = RELEASED_FRICTION
         if motor.actuator is not None:
@@ -916,6 +953,8 @@ class SimRobot:
         motor.force = 0.0
 
     def _set_active(self, motor):
+        if motor.name in HEAD_NAMES:
+            return
         self.model.dof_damping[motor.dadr] = ENABLED_DAMPING
         self.model.dof_frictionloss[motor.dadr] = ENABLED_FRICTION
 
@@ -971,6 +1010,8 @@ class SimRobot:
             self.base.step(self, dt, now)
         if self.grip_stick_at or self.grip_stuck:
             self._grip_stick_step()
+        if self.head_motion is not None and self.head_motion.active:
+            self._head_step(now)
         for n in self.arm_motors:
             motor = self.motors[n]
             if motor.actuator is None:
@@ -1043,6 +1084,7 @@ class SimRobot:
             self.base.active = False
             self.base.result = None
             self.base.done.set()
+        self._cancel_head_motion(None)
         if record:
             self.last_stop = {'time': time.time(), 'reason': reason, 'command_id': self.motion.command_id if self.motion else None, 'released': True, 'release_errors': []}
             self.stop_count += 1
@@ -1280,7 +1322,7 @@ class SimRobot:
             raw_tools = []
         by_name = {t['function']['name']: t for t in raw_tools if t.get('type') == 'function'}
         for name in IMPLEMENTED_TOOLS:
-            tool = by_name.get(name) or _minimal_tool(name)
+            tool = self._head_tool() if name == 'robot_move_head' else (by_name.get(name) or _minimal_tool(name))
             tools.append(self._patch_schema(json.loads(json.dumps(tool))))
         return {'tools': tools, 'metadata': {'ok': True, 'stop_tool': 'robot_stop', 'simulated': True, 'execution_profile': EXECUTION_PROFILE,
                                              'scene': self.scene_source, 'model': twin.VENDORED_ID}}
@@ -1301,6 +1343,10 @@ class SimRobot:
                         full = f'{arm}_arm_{key}'
                         if full in cal and (obj.get('description') or '').startswith('Selected arm') and full in obj.get('properties', {}):
                             spec['minimum'], spec['maximum'] = cal[full][0] + 4, cal[full][1] - 4
+        if name == 'robot_set_motor_enable':
+            desc = tool['function']['description']
+            tool['function']['description'] = (desc.replace('Head and wheels are read-only.', HEAD_ENABLE_NOTE)
+                                               if 'Head and wheels are read-only.' in desc else desc + ' ' + HEAD_ENABLE_NOTE)
         if name == 'robot_move_joint_targets':
             patch_targets(params['properties']['positions'])
             for clause in params.get('allOf', []):
@@ -1436,7 +1482,7 @@ class SimRobot:
         return sorted(n for n, m in self.motors.items() if m.enabled)
 
     def _phase(self):
-        if self.motion is not None and self.motion.active or self.base is not None and self.base.active:
+        if self.motion is not None and self.motion.active or self.base is not None and self.base.active or self._head_moving():
             return 'moving'
         return 'holding' if any(m.enabled for m in self.motors.values()) else 'idle'
 
@@ -1520,7 +1566,9 @@ class SimRobot:
         if name == 'robot_get_state':
             return self._state(), None
         if name == 'robot_get_capabilities':
-            return self._capabilities(), None
+            return dict(self._capabilities(), **self._head_capabilities()), None
+        if name == 'robot_move_head':
+            return self._move_head(args['positions'], args.get('duration_s')), None
         if name == 'robot_list_motors':
             with self.lock:
                 ready = self._readiness()
@@ -1672,6 +1720,8 @@ class SimRobot:
                 for n in names:
                     motor = self.motors.get(n)
                     if motor is not None and motor.enabled:
+                        if n in HEAD_NAMES:
+                            self._cancel_head_motion('released')
                         if self.motion is not None and self.motion.active and n in self.motion.joints:
                             self.motion.halt({j: self.motors[j].present for j in self.motion.joints})
                         motor.enabled = False
@@ -1682,7 +1732,7 @@ class SimRobot:
             ready = self._readiness()
             if not ready['available_to_accept_authorized_command']:
                 return self._busy_result(ready)
-            readonly = sorted(set(names) - set(self.arm_motors))
+            readonly = sorted(set(names) - set(self.arm_motors) - set(HEAD_NAMES))
             if readonly:
                 raise ValueError(READ_ONLY_MESSAGE.format(names=', '.join(readonly)))
             faults = {n: ready['joint_blockers'][n] for n in names if n in ready['joint_blockers']}
@@ -1706,6 +1756,9 @@ class SimRobot:
             if self.motion is not None and self.motion.active:
                 halted_id = self.motion.command_id
                 self.motion.halt({j: self.motors[j].present for j in self.motion.joints})
+            if self._head_moving():
+                halted_id = self.head_motion.command_id
+                self._cancel_head_motion('halted')
             self.last_completed = command_id
             self._poll_rows()
             positions = {n: self.motors[n].present for n in self.arm_motors}
@@ -1984,6 +2037,130 @@ class SimRobot:
             raise ValueError('Finite linear_m_s, angular_rad_s and duration_s in (0,3] required')
         return self._command({'op': 'base_pulse', 'linear_m_s': linear_m_s, 'angular_rad_s': angular_rad_s, 'duration_s': duration_s})
 
+    # ---------------------------------------------------------------- head (robot_move_head)
+
+    def _head_tool(self):
+        """robot_move_head as the real bridge declares it (gemma_robot_tools HEAD_TARGET: raw range +-4 schema bounds)."""
+        positions = {'type': 'object', 'description': 'Canonical head motor names and integer encoder ticks.', 'minProperties': 1,
+                     'properties': {n: {'type': 'integer', 'minimum': self.calibration[n][0] + 4, 'maximum': self.calibration[n][1] - 4} for n in HEAD_NAMES},
+                     'additionalProperties': False}
+        return {'type': 'function', 'function': {'name': 'robot_move_head', 'description': HEAD_TOOL_DESCRIPTION,
+                                                 'parameters': {'type': 'object', 'properties': {'positions': positions,
+                                                                                                 'duration_s': {'type': 'number', 'exclusiveMinimum': 0, 'maximum': 25}},
+                                                                'required': ['positions'], 'additionalProperties': False}}}
+
+    def _head_capabilities(self):
+        bands = self._commandable()
+        return {'head_supported': True, 'head_motors': list(HEAD_NAMES), 'head_move_limits': dict(HEAD_LIMITS), 'head_policy': HEAD_POLICY,
+                'head_commandable_ranges': {n: bands[n] for n in HEAD_NAMES},
+                'head_convention': 'head_motor_1 above its saved midpoint pans the OAK view LEFT; head_motor_2 above its midpoint tilts it DOWN'}
+
+    def _head_moving(self):
+        return self.head_motion is not None and self.head_motion.active
+
+    def _head_step(self, now):
+        """Physics thread: put the head joints on their linear ramp (kinematic; no load or following error)."""
+        hm = self.head_motion
+        f = 1.0 if hm.duration <= 0 else min(1.0, max(0.0, (now - hm.t0) / hm.duration))
+        for n, target in hm.target.items():
+            motor = self.motors[n]
+            tick = hm.start[n] + (target - hm.start[n]) * f
+            self.data.qpos[motor.qadr] = motor.tick_to_q(tick)
+            self.data.qvel[motor.dadr] = 0.0
+            motor.goal = int(round(tick))
+        if f >= 1.0:
+            hm.active = False
+            hm.outcome = 'endpoint_settled'
+            hm.result = {n: int(t) for n, t in hm.target.items()}
+            hm.done.set()
+
+    def _cancel_head_motion(self, outcome):
+        """Stop a head ramp where it is (STOP/fault: outcome None and the call reports the stop; release/halt: it holds)."""
+        hm = self.head_motion
+        if hm is None or not hm.active:
+            return
+        hm.active = False
+        hm.outcome = outcome or 'stopped'
+        hm.result = None
+        hm.done.set()
+
+    def _move_head(self, positions, duration_s=None):
+        """robot_move_head, in the real order: the bridge's normalize_targets(head=True) (names, commandable bounds), joints
+        within 2 ticks dropped (all dropped: no_op), default duration, then the owner (busy, range, enabled) and
+        head_joint_executor.check_head_request (<=200 ticks, >=1 s per 100 ticks). Blocks until the ramp ends."""
+        if not isinstance(positions, dict) or not positions:
+            raise ValueError('Integer joint target object required')
+        result = {}
+        for key, q in positions.items():
+            if key not in self.motors:
+                raise ValueError('Unknown position joint: ' + str(key) + '; valid canonical names: ' + ', '.join(self.motors))
+            if key not in HEAD_NAMES:
+                raise ValueError('Head tool accepts head motors only: ' + key)
+            if type(q) is not int:
+                raise ValueError('Integer head-motor target required')
+            result[key] = q
+        bands = self._commandable()
+        for n, q in result.items():
+            b = bands[n]
+            if not b['min_ticks'] <= q <= b['max_ticks']:
+                raise ValueError(f"Target out of bounds: {n}={q}; commandable inclusive range [{b['min_ticks']}, {b['max_ticks']}] ticks ({b['margin_ticks']}-tick margin)")
+        with self.lock:
+            self._poll_rows()
+            present = {n: self.motors[n].present for n in HEAD_NAMES}
+        moving = {n: t for n, t in result.items() if abs(t - present[n]) > 2}
+        if not moving:
+            return {'accepted': True, 'completed': True, 'no_op': True, 'endpoint_reached': True, 'motor_writes': 0,
+                    'reason': 'Every requested head joint is already within 2 ticks of its target'}
+        travel = max(abs(t - present[n]) for n, t in moving.items())
+        if duration_s is None:
+            duration_s = max(1.0, round(travel / 100, 2))
+        if type(duration_s) not in (int, float) or not math.isfinite(duration_s) or not 0 < duration_s <= 25:
+            raise ValueError('Duration must be finite in (0,25]')
+        if not self._command_lock.acquire(blocking=False):
+            raise RuntimeError('Hardware command active; STOP remains independently available')
+        try:
+            with self.lock:
+                ready = self._readiness()
+                if not ready['available_to_accept_authorized_command']:
+                    return dict(self._busy_result(ready), head_targets=moving, duration_s=duration_s)
+                self._poll_rows()
+                current = {n: self.motors[n].present for n in moving}
+                for n in moving:
+                    lo, hi = self.calibration[n]
+                    if not lo + MARGIN <= moving[n] <= hi - MARGIN:
+                        raise ValueError('Target outside saved range plus 40-tick margin: ' + n)
+                    if not self.motors[n].enabled:
+                        raise ValueError('Requested motor is released; explicitly enable it first: ' + n)
+                travels = {n: abs(t - current[n]) for n, t in moving.items()}
+                for n, d in travels.items():
+                    if d > HEAD_MAX_TICKS:
+                        raise ValueError(f'Head move: {n} travels {d} ticks; at most {HEAD_MAX_TICKS} per move')
+                need = max(travels.values()) / HEAD_TICKS_PER_S
+                if duration_s + 1e-9 < need:
+                    raise ValueError(f'Head move duration_s must be at least 1 s per 100 ticks: {max(travels.values())} ticks needs {need:.2f} s, got {duration_s}')
+                generation = self.cancel_generation
+                command_id = self._next_command_id()
+                hm = _HeadMotion(command_id, current, dict(moving), float(duration_s), self.world.now())
+                self.head_motion = hm
+            self._wait(hm.done, generation)
+            with self.lock:
+                if hm.result is None:
+                    if hm.outcome in ('halted', 'released'):
+                        self._poll_rows()
+                        return {'accepted': True, 'completed': False, 'halted': True, 'endpoint_reached': False, 'closure_outcome': hm.outcome,
+                                'holding': hm.outcome == 'halted', 'command_id': command_id, 'readbacks': {n: self.motors[n].present for n in moving},
+                                'mode': 'direct_joint', 'head_targets': moving, 'duration_s': duration_s}
+                    raise RuntimeError('Owner stopped: ' + str((self.last_stop or {}).get('reason') or self.error))
+                self._poll_rows()
+                readbacks = {n: self.motors[n].present for n in moving}
+                self.last_completed = command_id
+                self.counts['head_moves'] = self.counts.get('head_moves', 0) + 1
+                done = self._completion(command_id, readbacks, endpoint_reached=True, closure_outcome='endpoint_settled',
+                                        settle_residual_ticks={n: moving[n] - readbacks[n] for n in moving}, duration_s_actual=hm.duration)
+                return dict(done, head_targets=moving, duration_s=duration_s)
+        finally:
+            self._command_lock.release()
+
     # ---------------------------------------------------------------- scripting helpers (tests, bench setup)
 
     def set_box_pose(self, forward_m, left_m, up_m, yaw_rad=0.0):
@@ -2087,7 +2264,12 @@ APPROXIMATIONS = """Where SimRobot differs from the real paddle-success-v1 owner
   command exactly; a box touching a jaw stays with the robot. The pulse blocks for duration + 0.8 s of sim time.
 - Sim time between commands follows wall time (1x); only blocking calls fast-forward when real_time=False, so tick-level
   results differ run to run. Step hooks (camera recording) run at most every 0.5 s of sim time while fast-forwarding.
-- Head motors are frozen at the sample's positions; the fallback scene's cameras are approximate poses.
+- Head motors (robot_move_head, the real owner's --head scope, always on here) move kinematically: their joint angles
+  follow an exact linear ramp in sim time (no load, following error, contact halt or overshoot; no idle lease, as for the
+  arms) and otherwise stay frozen, enabled or released (no sag). They start at the sample's pan and,
+  with FIDELITY, head_tilt_deg 45 down (head_motor_2 at saved midpoint + 512 ticks, which is above its saved range_max: the
+  real OAK looked that far down on 9 October); a move back inside the commandable range is allowed from there. The fallback
+  scene's cameras are approximate poses.
 - score()['moves'] counts accepted robot_move_joint_targets/robot_move_path/opening robot_set_gripper calls,
   'gripper_closes' closing robot_set_gripper calls, 'base_pulses' robot_move_base calls; internal 300-tick parts are not counted.
 """
