@@ -1183,18 +1183,20 @@ class SimRobot:
             else:
                 continue
             pad = face = False
+            jaw = None
             for arm, (fixed, moving) in self.jaw_bodies.items():
                 if other in (fixed, moving):
                     rot = data.xmat[fixed].reshape(3, 3)
                     local = rot.T @ (np.asarray(con.pos) - data.xpos[fixed])
                     pad = bool(local[1] < PAD_Y_M)
+                    jaw = (arm, other)
                     if pad:
                         n = rot.T @ (sign * np.asarray(con.frame[:3]))   # jaw -> flap, fixed jaw frame
                         # the pads close along x: the fixed pad's inner face looks toward -x, the moving pad's toward +x
                         face = bool((other == fixed and n[0] < -0.5) or (other == moving and n[0] > 0.5))
                         if face:
                             inner[arm][0 if other == fixed else 1] = True
-            hits.append((pad, face, mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, og) or model.body(other).name))
+            hits.append((pad, face, jaw, mj.mj_id2name(model, mj.mjtObj.mjOBJ_GEOM, og) or model.body(other).name))
             if flap_body == self.flap_panel:
                 rot = data.xmat[flap_body].reshape(3, 3)
                 local = rot.T @ (np.asarray(con.pos) - data.xpos[flap_body])
@@ -1202,9 +1204,10 @@ class SimRobot:
                     mj.mj_contactForce(model, data, i, f6)
                     out['crease_force'] += abs(float(f6[0]))
         out['pinched'] = any(all(v) for v in inner.values())
-        for pad, face, name in hits:
+        facing = {jaw for pad, face, jaw, _ in hits if face}   # a jaw closing on the flap with its face: its pad edges too
+        for pad, face, jaw, name in hits:
             out['pads'] |= pad
-            if not (face or (pad and out['pinched'])):
+            if not (face or (pad and (out['pinched'] or jaw in facing))):
                 out['illegal'] = True
                 out['illegal_geoms'].add(name)
         return out
