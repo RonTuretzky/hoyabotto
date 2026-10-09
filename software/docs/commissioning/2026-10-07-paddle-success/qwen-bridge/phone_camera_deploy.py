@@ -387,18 +387,36 @@ class LocalRuntime:
 
     def preflight(self, process: Process, sources: Mapping[str, bytes]) -> None:
         # Source never executes. Imports are fixed; server/config is not imported.
-        code = ("import importlib,json,sys; "
-                "data=json.load(sys.stdin); "
-                "sys.path[0]=data['script_directory']; "
-                "[compile(bytes.fromhex(v),k,'exec') for k,v in data['sources'].items() if k.endswith('.py')]; "
-                "[importlib.import_module(m) for m in data['imports']]")
+        code = """import importlib,json,sys
+data=json.load(sys.stdin)
+sys.path[0]=data['script_directory']
+try:
+    [compile(bytes.fromhex(v),k,'exec') for k,v in data['sources'].items() if k.endswith('.py')]
+    [importlib.import_module(m) for m in data['imports']]
+except Exception as error:
+    print(json.dumps({'error_type':type(error).__name__,
+                      'missing_module':getattr(error,'name',None) if isinstance(error,ModuleNotFoundError) else None}))
+    sys.exit(1)
+"""
         payload = {"sources": {n: b.hex() for n, b in sources.items()}, "imports": _dependencies(sources),
                    "script_directory": str(Path(process.argv[-1]).parent)}
         result = subprocess.run([*process.argv[:-1], "-B", "-c", code],
                                 input=json.dumps(payload),
                                 text=True, capture_output=True, cwd=process.cwd, timeout=30)
         if result.returncode:
-            raise DeployError("phone interpreter compile/dependency preflight failed")
+            # Report only allowlisted diagnostic fields, never subprocess text.
+            detail = ""
+            try:
+                failure = json.loads(result.stdout)
+                missing = failure.get('missing_module')
+                kind = failure.get('error_type')
+                if kind in ('ModuleNotFoundError','ImportError','SyntaxError','IndexError'):
+                    detail = ': '+kind
+                if isinstance(missing,str) and re.fullmatch(r'[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*',missing) and missing.split('.')[0] in {'aiohttp','PIL'}:
+                    detail += ' ('+missing+')'
+            except (ValueError,TypeError,AttributeError):
+                pass
+            raise DeployError("phone interpreter compile/dependency preflight failed"+detail)
 
     def stop(self, process: Process, timeout: float) -> None:
         proc = self._same(process)
