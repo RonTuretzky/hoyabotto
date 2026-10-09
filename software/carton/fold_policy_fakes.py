@@ -351,7 +351,7 @@ class FakeOwner:
     """The deployed API + DirectJointClient + HardwareOwner, on a fake bus and a virtual clock."""
     def __init__(self, plant, calibration: dict, workdir: Path, *, clock: VirtualClock | None = None,
                  owner_period_s: float = 0.05, rtt_s: float = 0.0, soft_release_s: float = 2.0,
-                 camera_publisher: Callable[["FakeOwner", list], None] | None = None):
+                 camera_publisher: Callable[["FakeOwner", list], None] | None = None, stream: bool = False):
         self.workdir = Path(workdir)
         self.session = self.workdir / "work/gemma-hardware-session"
         self.session.mkdir(parents=True, exist_ok=False)
@@ -371,7 +371,7 @@ class FakeOwner:
                               homing_offset=calibration[n]["homing_offset"]) for n in OWNER_JOINTS},
             self.bus.telemetry, clock=self.clock, wall=self.clock, position_scope=list(OWNER_JOINTS),
             paddle_profile=True, camera_metadata=self._phone_metadata, wheels=False,
-            soft_release_s=soft_release_s, sleep=self._advance_only)
+            soft_release_s=soft_release_s, sleep=self._advance_only, stream=stream)
         self.owner.inspect()
         self.owner.writer = lambda: atomic(self.session / "status.json", self.owner.state)
         atomic(self.session / "status.json", self.owner.state)
@@ -672,12 +672,12 @@ class SimRig:
 
 def build_sim_rig(trial: Path, workdir: Path, *, owner: bool = True, owner_period_s=0.05, rtt_s=0.0,
                   api_cameras: bool = False, height=240, width=320, max_speed_ticks_s=None, load_model="constant",
-                  camera_keys=None):
+                  camera_keys=None, stream: bool = False):
     """MuJoCo carton fold simulation behind the deployed owner (owner=True) or directly (owner=False).
 
     `camera_keys` are the policy's cameras (default: what the scene has, see scene_camera_keys)."""
     import mujoco
-    from carton.fold_policy_runner import ApiCameras, ApiOwnerTransport
+    from carton.fold_policy_runner import ApiCameras, ApiOwnerTransport, StreamOwnerTransport
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=False)
     model = mujoco.MjModel.from_xml_path(str(Path(trial) / "run/scene.xml"))
@@ -691,8 +691,8 @@ def build_sim_rig(trial: Path, workdir: Path, *, owner: bool = True, owner_perio
     clock = VirtualClock()
     if owner:
         fake = FakeOwner(plant, calibration, workdir / "robot", clock=clock, owner_period_s=owner_period_s, rtt_s=rtt_s,
-                         camera_publisher=sim_camera_publisher(plant, keys) if api_cameras else None)
-        transport = ApiOwnerTransport(fake, clock=clock)
+                         camera_publisher=sim_camera_publisher(plant, keys) if api_cameras else None, stream=stream)
+        transport = (StreamOwnerTransport if stream else ApiOwnerTransport)(fake, clock=clock)
         mapping = {"top": "oak", "front": "phone"} if keys == LEGACY_CAMERA_KEYS else DEFAULT_ROBOT_CAMERAS
         cameras = ApiCameras(fake, mapping) if api_cameras else SimCameras(plant, clock, keys)
         return SimRig(clock, fake.sleep, transport, cameras, maps, plant, fake, calibration)
@@ -705,7 +705,7 @@ def build_sim_rig(trial: Path, workdir: Path, *, owner: bool = True, owner_perio
 
 
 def build_kinematic_rig(workdir: Path, start: dict[str, int] | None = None, *, rate_ticks_s=200.0, owner_period_s=0.05,
-                        rtt_s=0.0, zero_sign=None, ranges=None):
+                        rtt_s=0.0, zero_sign=None, ranges=None, stream=False):
     """Fast rig: deployed owner over a rate-limited kinematic plant and synthetic cameras."""
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=False)
@@ -716,9 +716,10 @@ def build_kinematic_rig(workdir: Path, start: dict[str, int] | None = None, *, r
     maps, map_paths = write_joint_maps(workdir / "joint-maps", calibration, zero_sign, evidence="fake test fixture")
     plant = KinematicPlant(start, rate_ticks_s)
     clock = VirtualClock()
-    fake = FakeOwner(plant, calibration, workdir / "robot", clock=clock, owner_period_s=owner_period_s, rtt_s=rtt_s)
-    from carton.fold_policy_runner import ApiOwnerTransport
-    rig = SimRig(clock, fake.sleep, ApiOwnerTransport(fake, clock=clock), SyntheticCameras(clock), maps, plant, fake,
+    fake = FakeOwner(plant, calibration, workdir / "robot", clock=clock, owner_period_s=owner_period_s, rtt_s=rtt_s,
+                     stream=stream)
+    from carton.fold_policy_runner import ApiOwnerTransport, StreamOwnerTransport
+    rig = SimRig(clock, fake.sleep, (StreamOwnerTransport if stream else ApiOwnerTransport)(fake, clock=clock), SyntheticCameras(clock), maps, plant, fake,
                  calibration)
     rig.map_paths = map_paths
     return rig

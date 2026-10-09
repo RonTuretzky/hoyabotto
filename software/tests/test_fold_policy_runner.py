@@ -178,6 +178,35 @@ def test_stream_gripper_mode_closes_in_small_steps_only_on_a_streaming_transport
     assert "gripper_stream_step" in detail["right_arm_gripper"]["clamps"]
 
 
+def test_stream_transport_refuses_an_owner_without_stream_mode(tmp_path):
+    rig = F.build_kinematic_rig(tmp_path / "rig")
+    rig.transport = R.StreamOwnerTransport(rig.owner, clock=rig.clock)
+    summary = runner(rig, Toward(GOAL), tmp_path, gripper_mode="stream", max_steps=3).run()
+    assert "not in stream mode" in summary["aborted"] and summary["commands_sent"] == 0
+
+
+def test_stream_owner_executes_both_arms_and_jaw_closures_in_one_call_per_tick(tmp_path):
+    rig = F.build_kinematic_rig(tmp_path / "rig", stream=True)
+    rig.enable_all()
+    start = rig.owner.owner.state["stop_count"]
+    goal = np.asarray(rig.arm_maps["left"].ticks_to_rad({n: 2048 for n in R.OWNER_JOINTS})
+                      + rig.arm_maps["right"].ticks_to_rad({n: 2048 for n in R.OWNER_JOINTS}))
+    gr = R.OWNER_JOINTS.index("right_arm_gripper")
+    goal[gr] -= 0.15                                          # close the right jaw ~100 ticks while the arms move
+    goal[R.OWNER_JOINTS.index("left_arm_shoulder_pan")] += 0.3
+    summary = runner(rig, Toward(goal, rate=0.05), tmp_path, execute=True, gripper_mode="stream", max_steps=40).run()
+    assert summary["aborted"] is None and summary["commands_sent"] > 0
+    names = [c[0] for c in rig.owner.calls]
+    assert "robot_move_joint_targets" not in names and "robot_stop" not in names
+    assert names.count("robot_stream_joint_targets") == summary["commands_sent"] and names[-1] == "robot_hold_here"
+    sent = [a for n, a, _ in rig.owner.calls if n == "robot_stream_joint_targets"]
+    assert any("right_arm_gripper" in a["positions"] and any(k.startswith("left_arm_") for k in a["positions"])
+               for a in sent)
+    assert rig.owner.owner.state["stop_count"] == start and rig.owner.faults == []
+    jaw = rig.owner.owner.rows["right_arm_gripper"]["Present_Position"]
+    assert jaw < 2048 - 60                                    # the jaw closed while streaming
+
+
 def test_race_guard_never_commands_a_target_the_moving_joint_will_pass(tmp_path):
     r, rig = planner(tmp_path)
     n = "right_arm_shoulder_pan"

@@ -125,7 +125,39 @@ Tests: `tests/test_fold_policy_chat.py` (8). The runner is a stand-in subprocess
 
 ### 2.5 Owner stream mode (robot Mac, opt-in)
 
-STREAM_MODE_SECTION
+The full rules are in `docs/commissioning/2026-10-07-paddle-success/qwen-bridge/STREAM-MODE.md`. The owner is started with `--stream`; **the default is off**. With it
+off, both new ops are rejected like any unknown op and nothing else changes. With it on:
+
+- **`robot_stream_joint_targets {positions}`**: one call per tick names **both arms, jaws included**. The owner keeps
+  one stream executor across commands. Its rules:
+  - each goal ramps at most 40 ticks per owner loop;
+  - out-of-range targets, or targets more than 96 ticks from present, reject the whole set;
+  - joints within 2 ticks are **skipped**, not refused;
+  - jaws change at most 10 ticks per command, closing too;
+  - a closing jaw with load ≥ 250 or 40 ticks behind freezes where it is (`jaw_contact`) until it is opened;
+  - arm contact (load ≥ 350, stalled, 50 ticks behind) is counted across commands and **holds** everything at
+    present (`contact_halt`);
+  - with no command for 0.5 s, the stream ends holding.
+  - A refusal answers `accepted: false` and **never sends STOP**.
+- **`robot_hold_here`**: every enabled joint holds at its present position, with no torque ramp-down and no release.
+- **Unchanged:** the 96-tick drift fault, the load faults (800 arm, 500 jaw), the watchdogs and the camera gate. All
+  still release everything.
+- Both tools are hidden from the chat model (`PILOT_HIDDEN`); only the runner uses them.
+
+The runner's side:
+
+- `--transport api-stream` (`StreamOwnerTransport`) makes one `robot_stream_joint_targets` call per tick.
+- `--gripper-mode stream` limits jaws to ±10 ticks per tick.
+- It checks `stream_mode` in `robot_get_capabilities` at preflight.
+- It halts with `robot_hold_here`.
+
+The simulation fakes run the real owner with `stream=True` (`--transport sim-owner-stream`).
+
+Tests: `docs/commissioning/2026-10-07-paddle-success/qwen-bridge/test_stream_targets.py`, added to the redeploy test list. All 24 redeploy test files pass. Runner tests
+cover the stream transport against the real owner code: one call per tick, a jaw closure while the arms move, no
+STOP, and a refusal when the owner lacks stream mode.
+
+**Never run on hardware.** STREAM-MODE.md lists the free-air checks to do first.
 
 ## 3. What the simulation says about the robot path (9 October)
 
@@ -138,11 +170,21 @@ guard, and the ±5° training envelope. The policy ran at 10 Hz with 30 ms of vi
 | `sim-direct`: runner bounds only, jaw closures dropped (today's owner cannot stream them) | b02 trial-010 | **Fail.** Left short 95°, right short 25° (401 closures dropped) |
 | `sim-direct` with `--gripper-mode stream` (closures ≤ 10 ticks per tick) | b02 trial-010 | **Both shorts held** at 59.9 s (94° / 92°), carton moved 6.7 mm |
 | same | b01 trials 020 / 040 / 060 | **All three held** at 56.9 / 57.1 / 59.7 s (shorts 92–94°), carton moved 1.1 / 2.1 / 1.1 mm |
+| same, plus 100 ms of inference delay (no owner) | b02-010, b01-040 | **Both held** (carton ≤ 4.5 mm): the policy tolerates latency |
+| `sim-owner-stream`: the real owner code in stream mode, **50 ms owner loop** | the same four | **1/4.** No owner fault in any run, but three pushed the carton 64–73 mm and left a short flap open or pushed out |
+| `sim-owner-stream`, **33 ms owner loop** | the same four | **4/4 held**, carton ≤ 3.9 mm, no owner fault |
+| `sim-owner-stream`, **20 ms owner loop** | b02-010, b01-040 | **Both held**, carton ≤ 3.6 mm |
 
 Reading:
 
 - The tick conversion, the clamps and 10 Hz are compatible with a successful fold.
 - What breaks it is the owner's current semantics: no streamed jaw closures, and the 96-tick holding-drift fault.
+- With stream mode, the deciding number is the **owner loop period**. The fold succeeds at ≤ 33 ms and degrades at
+  50 ms. The cause is not added latency: 100 ms of delay without the owner is fine. More likely it is the owner's
+  40-ticks-per-loop goal ramp and its status rows being one loop old.
+- The real owner polls every motor, then sleeps 20 ms. Its period has never been measured; the contract tests assume
+  50 ms. It must be measured before any motion (step G). If it is above 33 ms, shorten the owner's sleep or the poll
+  while streaming; that is an owner change.
 - The simulated actuator loads in the `sim-owner` run reached the model's ceiling on the left shoulder lift and
   elbow. On the robot, `Present_Load` above 800 is a fault that releases everything. Real loads during the pushes are
   unknown.
@@ -163,7 +205,7 @@ Each step names who does it. "Agent" means a coding session on the chat Mac, wit
 **A. Review and merge this branch (owner).**
 - Read sections 2.1–2.5.
 - Run `PYTHONPATH=. python -m pytest -q tests/test_fold_policy_runner.py tests/test_fold_policy_chat.py` and the
-  qwen-bridge tests (STREAM_TESTS_CMD).
+  qwen-bridge tests (each file in `TESTS` of `docs/commissioning/2026-10-07-paddle-success/qwen-bridge/redeploy_robot_server.py`, run as its own process with the pilot venv's python).
 
 **B. Head camera aspect and pose (owner + agent).**
 - The OAK's wide path now streams the full sensor at 1080p (16:9, commit `dfc3249`). The simulated head camera is
@@ -187,14 +229,22 @@ change `profiles/fold-joint-maps/right-joint-map.json` `gripper.model_zero_tick`
 
 **E. Owner stream mode on the robot Mac (owner).**
 1. Approve the change in 2.5.
-2. Redeploy with `--stream` (STREAM_DEPLOY_CMD).
+2. Redeploy with `--stream` (`./restart-robot-server.sh --stream` on the robot Mac with the arms supported and released; a remote `/admin/deploy` does not pass `--stream`).
 3. Validate in free air, STOP in hand: a jaw close and open stream, a hold-here, the 0.5 s timeout hold, and a
    contact yield against a hand.
 
-**F. Runner on the stream tool (agent, after E).** RUNNER_STREAM_STATUS
+**F. Switch the chat to the stream transport (owner, after E).** The code is done (2.5). In
+`.private/fold-policy.json`, set `"transport": "api-stream"` and `"gripper_mode": "stream"`. Then remove the
+stream-mode blocker, run a fresh dry run (its preflight checks `stream_mode`), and record a jaw-close free-air run
+in STATUS.md.
 
-**G. Link and inference timing (agent, read-only).**
-- `python tools/measure_robot_link.py --pilot-root "$PILOT"`: the round trip and owner loop must leave room for 10 Hz.
+**G. Owner loop, link and inference timing (agent, read-only).**
+- `python tools/measure_robot_link.py --pilot-root "$PILOT"`. It reports:
+  - the round trip;
+  - **`owner_loop_period_estimate_s`**: the spread of one poll's per-motor `captured_at` stamps, plus the owner's
+    20 ms sleep;
+  - `fold_policy_stream_ok`, which is true at ≤ 33 ms (section 3).
+- If the loop is slower, the owner loop must be made faster before running the policy.
 - The dry run reports `effective_hz` and per-tick latency. If CPU inference is too slow, set `"device": "mps"` in
   the chat config.
 
@@ -253,7 +303,7 @@ Record every run in `software/STATUS.md` with its run directory.
 | This handoff | `docs/carton-fold-policy-chat-mac-handoff.md` |
 | Chat tools, installer, tests | `carton/fold_policy_chat.py`, `tools/install_fold_policy_chat.py`, `tests/test_fold_policy_chat.py` |
 | Runner, fakes, tests | `carton/fold_policy_runner.py`, `carton/fold_policy_fakes.py`, `tests/test_fold_policy_runner.py` |
-| Owner stream mode | STREAM_FILES |
+| Owner stream mode | `docs/commissioning/2026-10-07-paddle-success/qwen-bridge/stream_joint_executor.py`, `STREAM-MODE.md`, `test_stream_targets.py`; changes in `gemma_hardware_owner.py`, `gemma_direct_client.py`, `gemma_robot_tools.py`, `redeploy_robot_server.py` |
 | Joint maps | `profiles/fold-joint-maps/` (+ `tools/bind_fold_joint_maps.py`) |
 | Earlier handoffs | `carton-fold-policy-handoff-2026-10-08.md` (station, hand poses), `carton-fold-policy-robot.md` (owner contract, 8 Oct), `carton-fold-policy.md` (training results) |
 | Setup slides | `docs/carton-fold-policy-setup-slides.html` |

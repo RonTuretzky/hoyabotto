@@ -23,6 +23,10 @@ import time
 from pathlib import Path
 
 
+OWNER_LOOP_SLEEP_S = 0.02        # gemma_hardware_owner.main: time.sleep(.02) after each poll
+FOLD_STREAM_MAX_LOOP_S = 0.033   # simulated: folds at <= this owner loop period, not at 0.05
+
+
 def measure(robot, count=20, clock=time.time, pause=0.05, sleep=time.sleep):
     samples = []
     for i in range(count):
@@ -38,7 +42,9 @@ def measure(robot, count=20, clock=time.time, pause=0.05, sleep=time.sleep):
         samples.append({'round_trip_s': received-sent, 'offset_s': robot_now-(sent+received)/2,
                         'owner_status_age_seen_s': received-result['time'],
                         'oldest_row_age_seen_s': received-min(stamps) if stamps else None,
-                        'owner_publish_age_s': result['status_age_s']})
+                        'owner_publish_age_s': result['status_age_s'],
+                        # Each motor row is stamped right after its reads, so the spread is one poll's duration.
+                        'owner_poll_spread_s': max(stamps)-min(stamps) if len(stamps) > 1 else None})
         if i+1 < count:
             sleep(pause)
     return samples
@@ -73,6 +79,13 @@ def summarize(samples, limits=None, camera_latency_s=0.05):
     for name, check in (('time budget', 'fits_time_budget'), ('frame age', 'fits_frame_age'), ('status age', 'fits_status_age')):
         if not projection[check]:
             problems.append(f'Projected registration exceeds its {name} at the median round trip')
+    spreads = [s['owner_poll_spread_s'] for s in samples if s.get('owner_poll_spread_s') is not None]
+    if spreads:
+        # gemma_hardware_owner.main: poll every motor, then sleep 20 ms. The fold policy through the owner's stream
+        # mode folded in simulation at a 20-33 ms loop and failed at 50 ms (docs/carton-fold-policy-chat-mac-handoff.md).
+        period = statistics.median(spreads) + OWNER_LOOP_SLEEP_S
+        out['owner_loop_period_estimate_s'] = {'median': period, 'poll_spread_max_s': max(spreads),
+                                               'fold_policy_stream_ok': period <= FOLD_STREAM_MAX_LOOP_S}
     out['problems'] = problems
     out['verdict'] = 'LINK_FITS_REGISTRATION' if not problems else 'FIX_LINK_OR_CLOCKS_FIRST'
     if problems:

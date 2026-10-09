@@ -1,3 +1,26 @@
+## Fold policy from the chat Mac: software and simulation only — 9 October 2026
+
+Handoff: `docs/carton-fold-policy-chat-mac-handoff.md`. Branch `RonTuretzky/fold-policy-chat-mac`. No motor was
+moved and no robot call was made.
+
+- **Runner cameras fixed:** the runner on main only accepted the first policy's `top`/`front` cameras. It now takes
+  the demo checkpoint's `front`/`left_wrist`/`right_wrist`, mapped to oak and the wrist streams.
+- **Jaw maps corrected:** URDF −10° (closed) is now at range_min + 82, where the left pads meet (1355–1359, measured
+  9 Oct), instead of at range_min. The right jaw uses the same offset, assumed.
+- **Head camera mismatch:** the OAK's 1080p stream is 16:9; the policy's head camera is 4:3. The runner warns, and
+  the chat refuses execution until it matches.
+- **New chat tools:** `carton/fold_policy_chat.py` adds `robot_get_fold_policy_status`, `robot_fold_policy_dry_run`
+  and `robot_fold_policy_run`. Installer: `tools/install_fold_policy_chat.py`. Execution is disabled by default; the
+  owner's config holds the gates. Not installed.
+- **New owner stream mode** (`--stream`, default off; qwen-bridge `STREAM-MODE.md`): `robot_stream_joint_targets`
+  (both arms and jaws, no STOP on refusal) and `robot_hold_here`. Not deployed.
+- **Simulation results** (demo checkpoint, real owner code on the fake bus):
+  - today's owner semantics: holding-drift fault, all motors released, fold failed;
+  - stream mode at a 50 ms owner loop: 1/4;
+  - stream mode at a 33 ms loop: 4/4.
+- **Measure next, read-only:** the real owner loop period, with `tools/measure_robot_link.py`
+  (`owner_loop_period_estimate_s`).
+
 ## Fold policy to robot adapter (software only) — 8 October 2026
 
 No robot, owner API, LAN or camera was used. `carton/fold_policy_runner.py` connects the simulation-trained ACT
