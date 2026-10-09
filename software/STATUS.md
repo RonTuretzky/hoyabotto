@@ -1479,3 +1479,39 @@ Robot Mac now runs main af4b887 (owner restarted 17:30 JST with motors released;
 - New owner rules (12:1x): no pushing with the wrist camera, claw body or arm. A fold must come from a pinched flap carried on the arc with the gripper closed. Pressing is done only with the closed pads while they hold the flap. Use the left wrist camera, aimed at the right hand, to verify the pinch.
 - Attempt 9 (C10, 12:20), pinch-only: aiming the left claw at the right hand works with reach (20, 10, 100) at pitch -30, then shoulder_pan raised to about 2505 (inward). The left wrist then shows the right claw and the flap edge. The run was stopped at 12:22:38 from the page, right after the pregrasp descent to (34, -17, 88); all motors were released. At that moment the left wrist reported the flap edge 4-5 cm beside the right jaw zone.
 - State at 12:31: not folded. The flap stands about 10-15 degrees inward and is undamaged. Both arms were released by the STOP.
+
+### 2026-10-09 JST (afternoon): simulator rebuilt on this morning's right-flap findings; pinch-only fold recipe tested there
+
+Software only, no robot motion. The supervisor bench on the chat Mac (`pilot/bench`, not in git) drives the live pilot
+chat code against `farm.sim.sim_robot.SimRobot`; supervisors Claude Opus 5.5 and DeepSeek Flash, eyes Qwen.
+
+- Default sim scene (`farm/sim/box_scene.py` preset `real`): the owner's HACHIYO carton, 379 x 283 x 108 mm with 140 mm
+  flaps (rim ~81 cm on the 70 cm table; the morning's 77 cm was a bad depth fit), open, right flap as the target, far
+  flap leaning in. Built in from the 9 October attempts: the crease springs back (its rest angle moves only while it is
+  held loaded > 2 s: a flap held flat and released returns most of the way; carried well past flat into the opening
+  and held 5-10 s it stays down); the right gripper meets at ~1348 and sticks mid-travel on closes and opens (a resent
+  stalled open trips the no-progress guard); the arm model reads ~3 cm high; the unrolled jaws open left/right; the
+  starting lean is drawn per seed (-12..+15 deg). `score()['fold_by_pinch']` = folded and staying folded with at most
+  10 deg of the turn made while a robot part other than the gripping pads touched the flap (the owner's no-push rule).
+  `SimRobot(fidelity=...)` stresses: slower/stiffer crease, model height error, lean range. The 8 October scene is
+  preset `near7`.
+- Pilot chat (chat Mac, restarted idle each time): fold action `hold_s` (0-30 s hold, gripper closed), `path` (the arc
+  as one `robot_move_path`), `hinge_cm` + `to_deg` (arc about the given hinge line from wherever the claw is, to an
+  absolute angle), unreachable points retried 10 deg shallower; sense `heights` (OAK depth height map with a per-side
+  verdict against the workspace.json rim: upright / sloping (partly folded) / folded down); a failed eyes look no
+  longer ends the task.
+- Recipe for the robot: `pilot/bench/prompt-fold-real.txt`. Right arm, wrist unrolled, pitch -30; open 2000 and never
+  resend a stalled open; no eyes for locating: a pinch scan at 34 cm forward, tips left -15 / -12 / -18.5 / -9.5, from
+  99 down to 95 model cm, close 1309 (resend a stalled close once; 'closure uncertain' >= 1358 counts); fold
+  {hinge_cm [-18, 84], to_deg 110, steps 6, hold_s 10, path true}; open, rise 6 cm, park at (20, -22, 100, -30); sense
+  heights and read the 'right side' line.
+- Bench (details in the chat Mac's /tmp/sim_loop_log.md): on the 77/16 cm box the final recipe folded by pinch 8/8
+  (opus+flash) on fresh seeds with correct final answers; on the 81/14 cm box see the last lines below. Weak spots: a flap
+  leaning in more than ~30 deg is outside every scan tip; a stuck open (gap ~3 cm) can miss an upright flap; with a
+  crease that sets 4x slower plus a 1 cm model-height error the flap mostly ends partly folded (55-75 deg) and is
+  reported as such. The eyes misjudge this flap's lean (perspective makes it look outward) and its fold state; the
+  depth heights line replaced them for the check.
+- Final bench on the HACHIYO box (fresh seeds 12-19, recipe as above): folded and staying folded in 12/12 runs (Opus
+  4/4, about 12 decisions / 2.2 min; DeepSeek Flash 8/8, 1.1 min), the flap ending at 106-125 deg; 2 of those count
+  as pushed (a scan descent landed on the flap edge and moved it 17 deg). Seeds 8-11: Opus 3/4 (a stuck gripper open
+  left a ~3 cm gap and the scan missed an upright flap).
