@@ -1,3 +1,23 @@
+## Current depth and carton-tag verification — 9 October 2026, 20:36 JST
+
+- Read-only check of the existing pilot returned fresh real OAK stereo depth, sequence 86123,
+  RGB/depth 640×360, source `raw_fallback`. `powered_depth_observer_ready:false` and
+  `robot_frame_calibrated:false`: RGB/depth registration and the robot transform remain unverified.
+- The installed `TwinRobot` scene path returned `camera_pose_source:model`, `mapping_validated:false`
+  and no loaded joint map. Table-plane fitting failed (dominant normal 94.6° from expected up).
+  The legacy v8b recipe's instruction to trust the heights line is not validated for this configuration.
+- The runtime also skipped factory distortion coefficients because its manifest says
+  `CameraModel.Perspective` while `_distortion_from` accepts `Perspective`. This check did not change
+  the publisher, perception code, camera geometry or calibration.
+- Carton-tag API works, but this snapshot accepted no tags in any of the four views. Phone decoded
+  ID 12 (print-plan right short flap), hamming 0, 43.8 px shortest edge, but rejected margin 21.7
+  below the configured 30 threshold. Other views had no detections. These are pixel observations;
+  `depth_used:false`, `metric_pose_available:false`. No grasp or fold is established.
+- The archived best Flash/v8b task prompt does not explicitly request `sense tags`; the live
+  supervisor instructions expose that action separately. Tag availability does not mean each run uses it.
+- Evidence: seville-v2 `.context/perception-check-20261009/{status,depth,scene,carton-tags}.json`.
+  Pilot was idle; no motion, model run, camera revival, restart or training was requested or dispatched.
+
 ## Quiet sensor display, DSML handling and OAK FOV correction — 9 October 2026
 
 - User reiterated that routine sensing should not appear in the chat. The live `chat.html` now hides
