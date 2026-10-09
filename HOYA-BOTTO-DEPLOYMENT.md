@@ -20,7 +20,7 @@ Keep private source recordings, chats, working notes, and credentials out of thi
 
 ## Visitor emoji show on the presentation
 
-The current participant's name, emoji and gesture phase appear directly over every presentation
+The current participant's name and emoji appear as a small right-side floating badge over every presentation
 slide at https://hoyabotto.com/. Advancing slides preserves the overlay; it hides when idle or offline.
 The slide contents remain unchanged. The Wave link opens the visitor form in another tab.
 
@@ -39,3 +39,6 @@ The hardware server was not redeployed or restarted for this work.
 
 Sources and installation instructions: software/docs/robot-emoji.md on the robot-emoji-service branch.
 Rollback the presentation integration by reverting its gh-pages commits. Domain/TLS settings were not changed.
+
+The name badge now contains only name + emoji, uses small text on the right side, and drifts upward over 30 seconds.
+The Full wave visitor choice has been retired; the short wave remains, targeting a roughly 30-second turn.

@@ -97,6 +97,7 @@ async function load() {
   try {
     const s = await emojiFetch('/api/state');
     online = true; armed = s.armed; catalog = s.catalog;
+    picked = picked.filter(key => catalog.some(g => g.key === key));
     $('connection').textContent = s.armed ? 'Show is open · Join the queue' : 'Show is paused · You can join the queue while the host gets ready';
   } catch (e) {
     online = false; $('connection').textContent = e.message;
