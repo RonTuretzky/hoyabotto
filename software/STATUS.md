@@ -1,3 +1,31 @@
+## Fold policy: first run on the robot (smoke test) — 9 October 2026, afternoon/evening
+
+Pilot session seville-v2-34 drove it, owner at STOP. Branch `RonTuretzky/fold-box-tags`; handoff
+`docs/handoff-2026-10-09-evening.md`. The whole chain ran end to end; nothing folded, and nothing was expected to.
+
+- **Start pose reached by the tool** (`tools/move_to_start_pose.py --execute`, 11 legs). **Right wrist_flex stops
+  at 3086–3090 against its 3128 target** (commandable max 3130): its mechanical stop sits ~40 ticks inside the
+  calibrated range. The mover now accepts a shortfall toward a range edge of ≤ 60 ticks and reports it
+  (`stopped_short_at_mechanical_stop`); tolerances are still un-relaxable (`f6b0196`).
+- **LAN timing:** one policy tick from this Mac = 0.07–0.13 s owner snapshot + 0.08–0.15 s for the three cameras
+  (one `robot_get_cameras` call) + 0.04 s inference on MPS = 0.19–0.31 s. 10 Hz is unreachable from the chat Mac;
+  **5 Hz works** (effective 3.5 Hz on the 300-step run). New explicit `--max-tick-s` flag (default 0.3, capped at
+  1.0, recorded in every tick).
+- **Head camera:** the stock cradle reaches **35.1° down** at the tilt servo's commandable max (gripper-tag
+  solve, RMS 0.31 px; table-plane fit 32°). Training needs 58°. A **23° wedge cradle** is designed and
+  fit-checked (`parts/head/oak_d_lite_wedge23_cradle.stl`, `README-wedge.md`); not printed.
+- **Station:** the lens was 0.73–0.79 m from the carton's near wall (tag sizes; training ≈ 0.30 m): the cart was
+  ~45 cm too far back. The owner then drove it 5 pulses (~27 cm) to the table edge. Re-measure before the next run.
+- **Policy on today's view (35°, 16:9, cart back): off-distribution.** First raw target shoulder_lift +73° from the
+  start (simulation on a correct view: a 6° nudge). Executed anyway at the owner's choice: 300/300 steps, 187
+  stream commands, **no faults, no contact halts**, converged from k≈150 to a still pose with the right claw at the
+  rim beside the right flap, nothing touched. Data `/tmp/fold-run3`, recordings `pilot/recordings/20261009-170329-*`.
+  Not evidence of a fold; the informative run is after cart + wedge (or re-film) + head re-measure.
+- **Wrist camera body is not in the simulation** (bare SO-101 claws). Real module 36 × 43 × 67 mm, 65 mm along the
+  jaw. Replay of 6 demos: never enters the carton, nearest approach 15.4 mm; the real run's converged wrist still
+  shows clearance. Recorded in `docs/carton-fold-policy-station-gap.md`.
+- Owner decisions open: print the wedge vs re-film for 35°; merge the branch.
+
 ## Fold policy from the chat Mac: software and simulation only — 9 October 2026
 
 Handoff: `docs/carton-fold-policy-chat-mac-handoff.md`. Branch `RonTuretzky/fold-policy-chat-mac`. No motor was
