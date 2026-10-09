@@ -130,7 +130,9 @@ FIDELITY = {'meet_jitter_ticks': {'left': (0, 4), 'right': (-4, 10)},
             'lift_bias_deg': {'left': 5.0, 'right': 5.0},
             'roll_offset_deg': {'left': 90.0, 'right': 90.0},
             'head_tilt_deg': 45.0}
-PAD_Y_M = -0.055               # jaw frame (Fixed_Jaw: the jaw runs along -y, tip at -0.106): contacts beyond this are the pads
+PAD_Y_M = -0.035               # jaw frame (Fixed_Jaw: the jaw runs along -y from the hinge at -0.024 to the tip at -0.106):
+                               # contacts beyond this are the jaws' gripping length (a flap edge entering the jaws at pitch -35
+                               # meets them about 5 cm from the tip); nearer the hinge it is the gripper body and camera mount
 FLAP_FOLDED_DEG = 75.0         # score()['flap_folded'] threshold (farm.sim.box_scene.FLAP_FOLDED_DEG)
 FOLD_PUSH_ALLOWANCE_DEG = 10.0 # score()['fold_by_pinch']: at most this much of the flap's turn may happen under a non-pad contact
 PRESENT_VOLTAGE = 120
