@@ -13,6 +13,8 @@ import mujoco
 TRIAL = '/Users/wk/Documents/ChatGPT/Hackatuson/output/fold-demos/batch-220-01/trial-020'
 UPSTREAM = '/Users/wk/Documents/ChatGPT/Hackatuson/output/gemma-xlerobot/upstream/assets/robots/xlerobot/xlerobot.xml'
 OUT = '/tmp/foldviz'
+SPLIT = '--split' in sys.argv
+FLAPS = ('short_left', 'short_right', 'long_far', 'long_near')
 BASE_X, BASE_Y, BASE_PLANE_Z = -.09, .11, .7915 - .0624      # carton/xlerobot_cameras.py
 
 
@@ -85,7 +87,14 @@ def main():
     m = mujoco.MjModel.from_xml_path(TRIAL + '/run/scene.xml'); d = mujoco.MjData(m)
     z = np.load(TRIAL + '/demo.npz'); d.qpos[:] = z['qpos'][0]
     adr = m.jnt_qposadr[m.joint('carton_free').id]; d.qpos[adr:adr + 7] = [0, 0, .001, 1, 0, 0, 0]
+    if SPLIT:
+        for f in FLAPS:
+            d.qpos[m.jnt_qposadr[m.joint(f + '_hinge').id]] = 0
     mujoco.mj_forward(m, d)
+    if SPLIT:
+        for f in FLAPS:
+            j = m.joint(f + '_hinge').id
+            info[f + '_hinge'] = {'anchor': d.xanchor[j].tolist(), 'axis': d.xaxis[j].tolist()}
     for g in range(m.ngeom):
         if m.geom_group[g] == 3:                       # collision copies
             continue
@@ -96,6 +105,14 @@ def main():
             part = f'{side}_base' if name == root else f'{side}_arm'
         elif root == 'carton':
             part = 'carton'
+            if SPLIT:
+                b2 = b
+                while m.body(b2).name not in FLAPS + ('carton',):
+                    b2 = m.body_parentid[b2]
+                part = 'carton' if m.body(b2).name == 'carton' else 'flap_' + m.body(b2).name
+                if 'tag' in name.split('_'):
+                    info.setdefault('tags', {})[name] = part
+                    part = 'tag_' + name
         elif name == 'world' and gname == 'table':
             part = 'table'
         else:
@@ -132,13 +149,46 @@ def main():
         v, f = mesh
         v = ((v + off) @ A.T) + mid
         col = rgba(u, g)
-        out.add('cart', v, f, col); count += 1
+        body = u.body(u.geom_bodyid[g]).name
+        part = 'head_tilt' if body in ('head_tilt_link', 'head_camera_link') else ('head_pan' if body == 'head_pan_link' else 'cart')
+        out.add(part if SPLIT else 'cart', v, f, col); count += 1
     info['cart_geoms'] = count
-    out.write(OUT + '/station.obj')
-    json.dump(info, open(OUT + '/station.json', 'w'), indent=1)
+    for jn in ('head_pan_joint', 'head_tilt_joint'):
+        j = u.joint(jn).id
+        info[jn] = {'anchor': (((ud.xanchor[j] + off) @ A.T) + mid).tolist(), 'axis': (ud.xaxis[j] @ A.T).tolist()}
+    out.write(OUT + ('/station_split.obj' if SPLIT else '/station.obj'))
+    json.dump(info, open(OUT + ('/station_split.json' if SPLIT else '/station.json'), 'w'), indent=1)
     print(json.dumps(info, indent=1))
     for p, items in out.parts.items():
         v = np.vstack([i[0] for i in items]); print(p, len(items), 'geoms', np.round(v.min(0), 3), np.round(v.max(0), 3))
 
 
 main()
+
+
+def export_arm_poses(n=12):
+    """Arm geometry at n+1 poses from a released, hanging-forward stance to the training start pose (same vertex order)."""
+    m = mujoco.MjModel.from_xml_path(TRIAL + '/run/scene.xml'); d = mujoco.MjData(m)
+    z = np.load(TRIAL + '/demo.npz'); start = z['qpos'][0].copy()
+    arm = [m.jnt_qposadr[m.joint(f'{s}_{j}').id] for s in ('left', 'right') for j in
+           ('shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper')]
+    rest = start.copy()
+    rest[arm] = [0, -1.2, 1.2, 0.6, 0, .35, 0, -1.2, 1.2, 0.6, 0, .35]       # arms raised in front, jaws open
+    for k in range(n + 1):
+        d.qpos[:] = start; d.qpos[arm] = rest[arm] + (start[arm] - rest[arm]) * k / n
+        mujoco.mj_forward(m, d)
+        o = Obj()
+        for g in range(m.ngeom):
+            if m.geom_group[g] == 3:
+                continue
+            b = m.geom_bodyid[g]; root = m.body(m.body_rootid[b]).name
+            if root in ('left_base_link', 'right_base_link') and m.body(b).name != root and not m.body(b).name.endswith('_tag'):
+                mesh = geom_mesh(m, d, g)
+                if mesh is not None:
+                    o.add(root.split('_')[0] + '_arm', *mesh, rgba(m, g))
+        o.write(f'{OUT}/arms_pose_{k:02d}.obj')
+    print('arm poses', n + 1)
+
+
+if '--poses' in sys.argv:
+    export_arm_poses()
